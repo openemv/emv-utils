@@ -19,6 +19,35 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+#include "pcsc.h"
+
+#include <stdio.h>
+
 int main(void)
 {
+	int r;
+	pcsc_ctx_t pcsc;
+	size_t pcsc_count;
+
+	r = pcsc_init(&pcsc);
+	if (r) {
+		printf("PC/SC initialisation failed\n");
+		goto exit;
+	}
+
+	pcsc_count = pcsc_get_reader_count(pcsc);
+	if (!pcsc_count) {
+		printf("No PC/SC readers detected\n");
+		goto exit;
+	}
+
+	printf("PC/SC readers:\n");
+	for (size_t i = 0; i < pcsc_count; ++i) {
+		pcsc_reader_ctx_t reader;
+		reader = pcsc_get_reader(pcsc, i);
+		printf("%zu: %s\n", i, pcsc_reader_get_name(reader));
+	}
+
+exit:
+	pcsc_release(&pcsc);
 }

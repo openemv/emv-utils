@@ -22,4 +22,6 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 find_package(PCSCLite 1.8 REQUIRED)
 
-add_executable(emv-tool tools/emv-tool.c)
+add_executable(emv-tool tools/emv-tool.c src/pcsc.c)
+target_include_directories(emv-tool PRIVATE src) # TODO: apply this via library dependency instead
+target_link_libraries(emv-tool PCSCLite::PCSCLite)
