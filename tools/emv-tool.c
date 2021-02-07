@@ -23,11 +23,36 @@
 
 #include <stdio.h>
 
+static const char* pcsc_get_reader_state_string(unsigned int reader_state)
+{
+	if (reader_state & PCSC_STATE_UNAVAILABLE) {
+		return "Status unavailable";
+	}
+	if (reader_state & PCSC_STATE_EMPTY) {
+		return "No card";
+	}
+	if (reader_state & PCSC_STATE_PRESENT) {
+		if (reader_state & PCSC_STATE_MUTE) {
+			return "Unresponsive card";
+		}
+		if (reader_state & PCSC_STATE_UNPOWERED) {
+			return "Unpowered card";
+		}
+
+		return "Card present";
+	}
+
+	return NULL;
+}
+
 int main(void)
 {
 	int r;
 	pcsc_ctx_t pcsc;
 	size_t pcsc_count;
+	pcsc_reader_ctx_t reader;
+	unsigned int reader_state;
+	const char* reader_state_str;
 
 	r = pcsc_init(&pcsc);
 	if (r) {
@@ -43,9 +68,21 @@ int main(void)
 
 	printf("PC/SC readers:\n");
 	for (size_t i = 0; i < pcsc_count; ++i) {
-		pcsc_reader_ctx_t reader;
 		reader = pcsc_get_reader(pcsc, i);
-		printf("%zu: %s\n", i, pcsc_reader_get_name(reader));
+		printf("%zu: %s", i, pcsc_reader_get_name(reader));
+
+		reader_state = 0;
+		r = pcsc_reader_get_state(reader, &reader_state);
+		if (r == 0) {
+			reader_state_str = pcsc_get_reader_state_string(reader_state);
+			if (reader_state) {
+				printf("; %s", reader_state_str);
+			} else {
+				printf("; Unknown state");
+			}
+		}
+
+		printf("\n");
 	}
 
 exit:

@@ -39,6 +39,7 @@ struct pcsc_t {
 };
 
 struct pcsc_reader_t {
+	struct pcsc_t* pcsc;
 	LPCSTR name;
 };
 
@@ -94,6 +95,7 @@ int pcsc_init(pcsc_ctx_t* ctx)
 	memset(pcsc->readers, 0, pcsc->reader_count * sizeof(struct pcsc_reader_t));
 	current_reader_name = pcsc->reader_strings;
 	for (size_t i = 0; i < pcsc->reader_count; ++i) {
+		pcsc->readers[i].pcsc = pcsc;
 		pcsc->readers[i].name = current_reader_name;
 		current_reader_name += strlen(current_reader_name) + 1;
 	}
@@ -172,4 +174,38 @@ const char* pcsc_reader_get_name(pcsc_reader_ctx_t reader_ctx)
 	reader = reader_ctx;
 
 	return reader->name;
+}
+
+int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state)
+{
+	struct pcsc_reader_t* reader;
+	LONG result;
+	SCARD_READERSTATE reader_state;
+
+	if (!reader_ctx) {
+		return -1;
+	}
+	if (!state) {
+		return -1;
+	}
+	reader = reader_ctx;
+
+	memset(&reader_state, 0, sizeof(reader_state));
+	reader_state.szReader = reader->name;
+	reader_state.dwCurrentState = SCARD_STATE_UNAWARE;
+
+	result = SCardGetStatusChange(
+		reader->pcsc->context,
+		INFINITE,
+		&reader_state,
+		1
+	);
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardGetStatusChange() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		return -1;
+	}
+
+	*state = reader_state.dwEventState;
+
+	return 0;
 }

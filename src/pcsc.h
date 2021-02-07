@@ -31,6 +31,17 @@ __BEGIN_DECLS
 typedef void* pcsc_ctx_t; ///< PC/SC context pointer type
 typedef void* pcsc_reader_ctx_t; ///< PC/SC reader context pointer type
 
+// NOTE: these are derived from PCSCLite's SCARD_STATE_* defines
+#define PCSC_STATE_CHANGED      (0x0002) ///< State has changed
+#define PCSC_STATE_UNAVAILABLE  (0x0008) ///< Status unavailable
+#define PCSC_STATE_EMPTY        (0x0010) ///< Card removed
+#define PCSC_STATE_PRESENT      (0x0020) ///< Card inserted
+#define PCSC_STATE_ATRMATCH     (0x0040) ///< ATR matches card
+#define PCSC_STATE_EXCLUSIVE    (0x0080) ///< Exclusive Mode
+#define PCSC_STATE_INUSE        (0x0100) ///< Shared Mode
+#define PCSC_STATE_MUTE         (0x0200) ///< Unresponsive card
+#define PCSC_STATE_UNPOWERED    (0x0400) ///< Unpowered card
+
 /**
  * Initialize PC/SC context
  * @param ctx PC/SC context pointer
@@ -65,6 +76,14 @@ pcsc_reader_ctx_t pcsc_get_reader(pcsc_ctx_t ctx, size_t idx);
  * @return PC/SC reader name. NULL for error. Do not @ref free()
  */
 const char* pcsc_reader_get_name(pcsc_reader_ctx_t reader_ctx);
+
+/**
+ * Retrieve PC/SC reader state
+ * @param reader_ctx PC/SC reader context
+ * @param state PC/SC reader state output. See PCSC_STATE_* bits.
+ * @return Zero for success. Less than zero for error.
+ */
+int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state);
 
 __END_DECLS
 
