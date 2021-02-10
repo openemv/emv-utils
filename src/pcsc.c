@@ -36,6 +36,7 @@ struct pcsc_t {
 
 	size_t reader_count;
 	struct pcsc_reader_t* readers;
+	SCARD_READERSTATE* reader_states;
 };
 
 struct pcsc_reader_t {
@@ -100,6 +101,15 @@ int pcsc_init(pcsc_ctx_t* ctx)
 		current_reader_name += strlen(current_reader_name) + 1;
 	}
 
+	// Allocate and populate reader states
+	pcsc->reader_states = calloc(pcsc->reader_count, sizeof(SCARD_READERSTATE));
+	memset(pcsc->reader_states, 0, pcsc->reader_count * sizeof(SCARD_READERSTATE));
+	for (size_t i = 0; i < pcsc->reader_count; ++i) {
+		pcsc->reader_states[i].szReader = pcsc->readers[i].name;
+		pcsc->reader_states[i].pvUserData = &pcsc->readers[i];
+		pcsc->reader_states[i].dwCurrentState = SCARD_STATE_UNAWARE;
+	}
+
 	// Success
 	return 0;
 }
@@ -131,6 +141,10 @@ void pcsc_release(pcsc_ctx_t* ctx)
 	if (pcsc->readers) {
 		free(pcsc->readers);
 		pcsc->readers = NULL;
+	}
+	if (pcsc->reader_states) {
+		free(pcsc->reader_states);
+		pcsc->reader_states = NULL;
 	}
 	free(pcsc);
 	*ctx = NULL;
@@ -208,4 +222,48 @@ int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state)
 	*state = reader_state.dwEventState;
 
 	return 0;
+}
+
+int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx)
+{
+	struct pcsc_t* pcsc;
+	LONG result;
+
+	if (!ctx) {
+		return -1;
+	}
+	pcsc = ctx;
+
+	// Prepare reader states for card detection
+	for (size_t i = 0; i < pcsc->reader_count; ++i) {
+		pcsc->reader_states[i].dwCurrentState = SCARD_STATE_EMPTY;
+	}
+
+	// Wait for empty state to change
+	result = SCardGetStatusChange(
+		pcsc->context,
+		timeout_ms,
+		pcsc->reader_states,
+		pcsc->reader_count
+	);
+	if (result == SCARD_E_TIMEOUT) {
+		// Timeout
+		return 1;
+	}
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardGetStatusChange() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		return -1;
+	}
+
+	// Find first reader with card
+	for (size_t i = 0; i < pcsc->reader_count; ++i) {
+		if (pcsc->reader_states[i].dwEventState & SCARD_STATE_PRESENT) {
+			*idx = i;
+			return 0;
+		}
+	}
+
+	// No cards detected
+	*idx = -1;
+	return 1;
 }

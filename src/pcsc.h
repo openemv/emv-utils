@@ -42,6 +42,9 @@ typedef void* pcsc_reader_ctx_t; ///< PC/SC reader context pointer type
 #define PCSC_STATE_MUTE         (0x0200) ///< Unresponsive card
 #define PCSC_STATE_UNPOWERED    (0x0400) ///< Unpowered card
 
+#define PCSC_TIMEOUT_INFINITE   (0xFFFFFFFF) ///< Infinite timeout
+#define PCSC_READER_ANY         (0xFFFFFFFF) ///< Use any reader
+
 /**
  * Initialize PC/SC context
  * @param ctx PC/SC context pointer
@@ -84,6 +87,17 @@ const char* pcsc_reader_get_name(pcsc_reader_ctx_t reader_ctx);
  * @return Zero for success. Less than zero for error.
  */
 int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state);
+
+/**
+ * Wait for card from specific reader or any reader
+ * @param ctx PC/SC context
+ * @param timeout_ms Timeout in milliseconds
+ * @param[in,out] idx PC/SC reader index input indicates which card reader to
+ *                    use. Use @ref PCSC_READER_ANY for any reader. Output
+ *                    indicates reader when card detected.
+ * @return Zero when card detected. Less than zero for error. Greater than zero for timeout.
+ */
+int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx);
 
 __END_DECLS
 

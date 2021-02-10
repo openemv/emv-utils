@@ -53,6 +53,7 @@ int main(void)
 	pcsc_reader_ctx_t reader;
 	unsigned int reader_state;
 	const char* reader_state_str;
+	size_t reader_idx;
 
 	r = pcsc_init(&pcsc);
 	if (r) {
@@ -84,6 +85,21 @@ int main(void)
 
 		printf("\n");
 	}
+
+	// Wait for card presentation
+	printf("\nPresent card\n");
+	r = pcsc_wait_for_card(pcsc, 5000, &reader_idx);
+	if (r < 0) {
+		printf("PC/SC error\n");
+		goto exit;
+	}
+	if (r > 0) {
+		printf("No card; exiting\n");
+		goto exit;
+	}
+
+	reader = pcsc_get_reader(pcsc, reader_idx);
+	printf("Card detected\n");
 
 exit:
 	pcsc_release(&pcsc);
