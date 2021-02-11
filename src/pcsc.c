@@ -42,6 +42,11 @@ struct pcsc_t {
 struct pcsc_reader_t {
 	struct pcsc_t* pcsc;
 	LPCSTR name;
+
+	SCARDHANDLE card;
+	BYTE atr[MAX_ATR_SIZE];
+	DWORD atr_len;
+	DWORD protocol;
 };
 
 int pcsc_init(pcsc_ctx_t* ctx)
@@ -266,4 +271,67 @@ int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx)
 	// No cards detected
 	*idx = -1;
 	return 1;
+}
+
+int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx)
+{
+	struct pcsc_reader_t* reader;
+	LONG result;
+	DWORD state;
+
+	if (!reader_ctx) {
+		return -1;
+	}
+	reader = reader_ctx;
+
+	// Connect to reader and power up the card
+	result = SCardConnect(
+		reader->pcsc->context,
+		reader->name,
+		SCARD_SHARE_EXCLUSIVE,
+		SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1,
+		&reader->card,
+		&reader->protocol
+	);
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardConnect() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		return -1;
+	}
+
+	state = 0;
+	reader->atr_len = sizeof(reader->atr);
+	result = SCardStatus(reader->card, NULL, NULL, &state, &reader->protocol, reader->atr, &reader->atr_len);
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardStatus() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		pcsc_reader_disconnect(reader);
+		return -1;
+	}
+
+	return 0;
+}
+
+int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx)
+{
+	struct pcsc_reader_t* reader;
+	LONG result;
+
+	if (!reader_ctx) {
+		return -1;
+	}
+	reader = reader_ctx;
+
+	// Disconnect from reader and unpower card
+	result = SCardDisconnect(reader->card, SCARD_UNPOWER_CARD);
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardDisconnect() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		return -1;
+	}
+
+	// Clear card attributes
+	reader->card = 0;
+	memset(reader->atr, 0, sizeof(reader->atr));
+	reader->atr_len = 0;
+	reader->protocol = SCARD_PROTOCOL_UNDEFINED;
+
+	return 0;
 }

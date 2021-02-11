@@ -99,6 +99,22 @@ int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state);
  */
 int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx);
 
+/**
+ * Connect to PC/SC reader.
+ * This function will attempt to power up the card.
+ * @param reader_ctx PC/SC reader context
+ * @return Zero for success. Less than zero for error.
+ */
+int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx);
+
+/**
+ * Disconnect from PC/SC reader.
+ * This function will attempt to unpower the card.
+ * @param reader_ctx PC/SC reader context
+ * @return Zero for success. Less than zero for error.
+ */
+int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx);
+
 __END_DECLS
 
 #endif

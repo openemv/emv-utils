@@ -101,6 +101,20 @@ int main(void)
 	reader = pcsc_get_reader(pcsc, reader_idx);
 	printf("Card detected\n");
 
+	r = pcsc_reader_connect(reader);
+	if (r) {
+		printf("PC/SC reader activation failed\n");
+		goto exit;
+	}
+	printf("Card activated\n");
+
+	r = pcsc_reader_disconnect(reader);
+	if (r) {
+		printf("PC/SC reader deactivation failed\n");
+		goto exit;
+	}
+	printf("Card deactivated\n");
+
 exit:
 	pcsc_release(&pcsc);
 }
