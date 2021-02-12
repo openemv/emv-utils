@@ -44,7 +44,7 @@ struct pcsc_reader_t {
 	LPCSTR name;
 
 	SCARDHANDLE card;
-	BYTE atr[MAX_ATR_SIZE];
+	BYTE atr[PCSC_MAX_ATR_SIZE];
 	DWORD atr_len;
 	DWORD protocol;
 };
@@ -332,6 +332,25 @@ int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx)
 	memset(reader->atr, 0, sizeof(reader->atr));
 	reader->atr_len = 0;
 	reader->protocol = SCARD_PROTOCOL_UNDEFINED;
+
+	return 0;
+}
+
+int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_len)
+{
+	struct pcsc_reader_t* reader;
+
+	if (!reader_ctx || !atr || !atr_len) {
+		return -1;
+	}
+	reader = reader_ctx;
+
+	if (!reader->atr_len) {
+		return -1;
+	}
+
+	memcpy(atr, reader->atr, reader->atr_len);
+	*atr_len = reader->atr_len;
 
 	return 0;
 }

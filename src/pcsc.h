@@ -24,6 +24,7 @@
 
 #include <sys/cdefs.h>
 #include <stddef.h>
+#include <stdint.h>
 
 __BEGIN_DECLS
 
@@ -44,6 +45,8 @@ typedef void* pcsc_reader_ctx_t; ///< PC/SC reader context pointer type
 
 #define PCSC_TIMEOUT_INFINITE   (0xFFFFFFFF) ///< Infinite timeout
 #define PCSC_READER_ANY         (0xFFFFFFFF) ///< Use any reader
+
+#define PCSC_MAX_ATR_SIZE       (33) ///< Maximum size of ATR buffer
 
 /**
  * Initialize PC/SC context
@@ -114,6 +117,15 @@ int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx);
  * @return Zero for success. Less than zero for error.
  */
 int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx);
+
+/**
+ * Retrieve ATR for current card in reader
+ * @param reader_ctx PC/SC reader context
+ * @param atr ATR output of at most @ref PCSC_MAX_ATR_SIZE bytes
+ * @param atr_len Length of ATR output in bytes
+ * @return Zero for success. Less than zero for error.
+ */
+int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_len);
 
 __END_DECLS
 

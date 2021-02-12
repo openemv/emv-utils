@@ -20,8 +20,19 @@
  */
 
 #include "pcsc.h"
+#include "iso7816.h"
 
 #include <stdio.h>
+
+static void print_buf(const char* buf_name, const void* buf, size_t length)
+{
+	const uint8_t* ptr = buf;
+	printf("%s: ", buf_name);
+	for (size_t i = 0; i < length; i++) {
+		printf("%02X", ptr[i]);
+	}
+	printf("\n");
+}
 
 static const char* pcsc_get_reader_state_string(unsigned int reader_state)
 {
@@ -43,6 +54,46 @@ static const char* pcsc_get_reader_state_string(unsigned int reader_state)
 	}
 
 	return NULL;
+}
+
+static void print_atr(pcsc_reader_ctx_t reader)
+{
+	int r;
+	uint8_t atr[PCSC_MAX_ATR_SIZE];
+	size_t atr_len = 0;
+	struct iso7816_atr_info_t atr_info;
+
+	r = pcsc_reader_get_atr(reader, atr, &atr_len);
+	if (r) {
+		printf("Failed to retrieve ATR\n");
+		return;
+	}
+
+	print_buf("\nATR", atr, atr_len);
+
+	r = iso7816_atr_parse(atr, atr_len, &atr_info);
+	if (r) {
+		printf("Failed to parse ATR\n");
+		return;
+	}
+
+	// Print ATR info
+	printf("  TS  = 0x%02X\n", atr_info.TS);
+	printf("  T0  = 0x%02X\n", atr_info.T0);
+	for (size_t i = 1; i < 5; ++i) {
+		if (atr_info.TA[i]) {
+			printf("  TA%zu = 0x%02X\n", i, *atr_info.TA[i]);
+		}
+		if (atr_info.TB[i]) {
+			printf("  TB%zu = 0x%02X\n", i, *atr_info.TB[i]);
+		}
+		if (atr_info.TC[i]) {
+			printf("  TC%zu = 0x%02X\n", i, *atr_info.TC[i]);
+		}
+		if (atr_info.TD[i]) {
+			printf("  TD%zu = 0x%02X\n", i, *atr_info.TD[i]);
+		}
+	}
 }
 
 int main(void)
@@ -108,12 +159,14 @@ int main(void)
 	}
 	printf("Card activated\n");
 
+	print_atr(reader);
+
 	r = pcsc_reader_disconnect(reader);
 	if (r) {
 		printf("PC/SC reader deactivation failed\n");
 		goto exit;
 	}
-	printf("Card deactivated\n");
+	printf("\nCard deactivated\n");
 
 exit:
 	pcsc_release(&pcsc);
