@@ -45,6 +45,11 @@ __BEGIN_DECLS
 #define ISO7816_ATR_Tx_TCi_PRESENT      (0x40) ///< T0 or TD[x] bit indicating interface byte TC(i=x+1) is present
 #define ISO7816_ATR_Tx_TDi_PRESENT      (0x80) ///< T0 or TD[x] bit indicating interface byte TD(i=x+1) is present
 
+// ATR: Historical byte definitions
+#define ISO7816_ATR_T1_COMPACT_TLV_SI   (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
+#define ISO7816_ATR_T1_DIR_DATA_REF     (0x10) ///< Subsequent historical byte is DIR data reference
+#define ISO7816_ATR_T1_COMPACT_TLV      (0x80) ///< Subsequent historical bytes are COMPACT-TLV encoded and many include status indicator
+
 struct iso7816_atr_info_t {
 	uint8_t TS; ///< Initial byte TS indicates bit order and polarity
 	uint8_t T0; ///< Format byte T0 indicates ATR format
@@ -52,6 +57,10 @@ struct iso7816_atr_info_t {
 	// Store ATR bytes for below pointers to use
 	uint8_t atr[ISO7816_ATR_MAX_SIZE]; ///< ATR bytes
 	size_t atr_len; ///< Length of ATR in bytes
+
+	// ========================================
+	// Interface byte parsing...
+	// ========================================
 
 	/**
 	 * Interface bytes TA[x]. Value is available when pointer is non-NULL. Otherwise value is absent.
@@ -89,8 +98,42 @@ struct iso7816_atr_info_t {
 	 */
 	const uint8_t* TD[5];
 
-	// Historical info
+	// ========================================
+	// Historical byte parsing...
+	// ========================================
+
 	uint8_t K_count; ///< Number of historical bytes
+
+	/**
+	 * Category indicator byte T1 indicates format of historical bytes
+	 * - 0x00: Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
+	 * - 0x10: Subsequent historical byte is DIR data reference
+	 * - 0x80: Subsequent historical bytes are COMPACT-TLV encoded and many include status indicator
+	 * - 0x81-0x8F: RFU
+	 * - Other values are proprietary
+	 */
+	uint8_t T1;
+
+	const uint8_t* historical_payload; ///< Historical byte payload after category indicator byte T1. NULL if absent.
+	size_t historical_payload_len; ///< Length of historical byte payload, excluding explicit status indicator
+
+	/**
+	 * Status indicator. Available when pointer is non-NULL. NULL if absent.
+	 * @see @ref status_indicator for values
+	 */
+	const uint8_t* status_indicator_bytes;
+
+	uint8_t TCK; ///< Check character. Not available when T=0 is the only available protocol. Otherwise mandatory.
+
+	// ========================================
+	// Extracted info...
+	// ========================================
+
+	struct {
+		uint8_t LCS; ///< Card life cycle status; Zero if not available
+		uint8_t SW1; ///< Status Word byte 1; If both SW1 and SW2 are zero, then status word is not avaiable
+		uint8_t SW2; ///< Status Word byte 2; If both SW1 and SW2 are zero, then status word is not avaiable
+	} status_indicator;
 };
 
 /**

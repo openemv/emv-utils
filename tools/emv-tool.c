@@ -81,6 +81,13 @@ static void print_atr(pcsc_reader_ctx_t reader)
 	printf("  TS  = 0x%02X\n", atr_info.TS);
 	printf("  T0  = 0x%02X\n", atr_info.T0);
 	for (size_t i = 1; i < 5; ++i) {
+		if (atr_info.TA[i] ||
+			atr_info.TB[i] ||
+			atr_info.TC[i] ||
+			atr_info.TD[i]
+		) {
+			printf("  ----\n");
+		}
 		if (atr_info.TA[i]) {
 			printf("  TA%zu = 0x%02X\n", i, *atr_info.TA[i]);
 		}
@@ -94,6 +101,29 @@ static void print_atr(pcsc_reader_ctx_t reader)
 			printf("  TD%zu = 0x%02X\n", i, *atr_info.TD[i]);
 		}
 	}
+	if (atr_info.K_count) {
+		printf("  ----\n");
+		printf("  T1  = 0x%02X\n", atr_info.T1);
+
+		if (atr_info.status_indicator_bytes ||
+			atr_info.status_indicator.LCS ||
+			atr_info.status_indicator.SW1 ||
+			atr_info.status_indicator.SW2
+		) {
+			printf("  ----\n");
+		}
+		if (atr_info.status_indicator_bytes || atr_info.status_indicator.LCS) {
+			printf("  LCS = %02u\n", atr_info.status_indicator.LCS);
+		}
+		if (atr_info.status_indicator_bytes ||
+			atr_info.status_indicator.SW1 ||
+			atr_info.status_indicator.SW2
+		) {
+			printf("  SW  = %02X%02X\n", atr_info.status_indicator.SW1, atr_info.status_indicator.SW2);
+		}
+	}
+	printf("  ----\n");
+	printf("  TCK = 0x%02X\n", atr_info.TCK);
 }
 
 int main(void)
