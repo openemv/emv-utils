@@ -78,7 +78,7 @@ static void print_atr(pcsc_reader_ctx_t reader)
 	}
 
 	// Print ATR info
-	printf("  TS  = 0x%02X\n", atr_info.TS);
+	printf("  TS  = 0x%02X: %s\n", atr_info.TS, iso7816_atr_TS_get_string(&atr_info));
 	printf("  T0  = 0x%02X\n", atr_info.T0);
 	for (size_t i = 1; i < 5; ++i) {
 		if (atr_info.TA[i] ||

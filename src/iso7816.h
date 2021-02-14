@@ -51,7 +51,13 @@ __BEGIN_DECLS
 #define ISO7816_ATR_T1_COMPACT_TLV      (0x80) ///< Subsequent historical bytes are COMPACT-TLV encoded and many include status indicator
 
 struct iso7816_atr_info_t {
-	uint8_t TS; ///< Initial byte TS indicates bit order and polarity
+	/**
+	 * Initial character TS indicates bit order and polarity.
+	 * - 0x3B: Direct convention
+	 * - 0x3F: Inverse convention
+	 */
+	uint8_t TS;
+
 	uint8_t T0; ///< Format byte T0 indicates ATR format
 
 	// Store ATR bytes for below pointers to use
@@ -144,6 +150,13 @@ struct iso7816_atr_info_t {
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
  */
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info);
+
+/**
+ * Stringify ISO/IEC 7816 ATR initial character TS
+ * @param atr_info Parsed ATR info
+ * @return String. NULL for error.
+ */
+const char* iso7816_atr_TS_get_string(const struct iso7816_atr_info_t* atr_info);
 
 __END_DECLS
 

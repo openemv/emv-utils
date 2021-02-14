@@ -166,3 +166,16 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 
 	return 0;
 }
+
+const char* iso7816_atr_TS_get_string(const struct iso7816_atr_info_t* atr_info)
+{
+	if (!atr_info) {
+		return NULL;
+	}
+
+	switch (atr_info->TS) {
+		case ISO7816_ATR_TS_DIRECT: return "Direct convention";
+		case ISO7816_ATR_TS_INVERSE: return "Inverse convention";
+		default: return "Unknown";
+	}
+}
