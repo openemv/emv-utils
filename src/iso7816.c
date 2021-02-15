@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -178,4 +179,92 @@ const char* iso7816_atr_TS_get_string(const struct iso7816_atr_info_t* atr_info)
 		case ISO7816_ATR_TS_INVERSE: return "Inverse convention";
 		default: return "Unknown";
 	}
+}
+
+static size_t iso7816_atr_Yi_write_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* const str, size_t str_len)
+{
+	int r;
+	char* str_ptr = str;
+	const char* add_comma = "";
+
+	// Yi exists only for Y1 to Y4
+	if (i < 1 || i > 4) {
+		return 0;
+	}
+
+	r = snprintf(str_ptr, str_len, "Y%zu=", i);
+	if (r >= str_len) {
+		// Not enough space in string buffer; return truncated content
+		return str_ptr - str + r;
+	}
+	str_ptr += r;
+	str_len -= r;
+
+	if (atr_info->TA[i]) {
+		r = snprintf(str_ptr, str_len, "%s%zu", "TA", i);
+		if (r >= str_len) {
+			// Not enough space in string buffer; return as snprintf() would
+			return str_ptr - str + r;
+		}
+		str_ptr += r;
+		str_len -= r;
+		add_comma = ",";
+	}
+
+	if (atr_info->TB[i]) {
+		r = snprintf(str_ptr, str_len, "%s%s%zu", add_comma, "TB", i);
+		if (r >= str_len) {
+			// Not enough space in string buffer; return as snprintf() would
+			return str_ptr - str + r;
+		}
+		str_ptr += r;
+		str_len -= r;
+		add_comma = ",";
+	}
+
+	if (atr_info->TC[i]) {
+		r = snprintf(str_ptr, str_len, "%s%s%zu", add_comma, "TC", i);
+		if (r >= str_len) {
+			// Not enough space in string buffer; return as snprintf() would
+			return str_ptr - str + r;
+		}
+		str_ptr += r;
+		str_len -= r;
+		add_comma = ",";
+	}
+
+	if (atr_info->TD[i]) {
+		r = snprintf(str_ptr, str_len, "%s%s%zu", add_comma, "TD", i);
+		if (r >= str_len) {
+			// Not enough space in string buffer; return as snprintf() would
+			return str_ptr - str + r;
+		}
+		str_ptr += r;
+		str_len -= r;
+	}
+
+	return str_ptr - str;
+}
+
+const char* iso7816_atr_T0_get_string(const struct iso7816_atr_info_t* atr_info, char* const str, size_t str_len)
+{
+	int r;
+	char* str_ptr = str;
+
+	if (!atr_info) {
+		return NULL;
+	}
+
+	// For T0, write Y1
+	r = iso7816_atr_Yi_write_string(atr_info, 1, str_ptr, str_len);
+	if (r >= str_len) {
+		// Not enough space in string buffer; return truncated content
+		return str;
+	}
+	str_ptr += r;
+	str_len -= r;
+
+	snprintf(str_ptr, str_len, "; K=%u", atr_info->K_count);
+
+	return str;
 }

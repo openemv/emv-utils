@@ -58,7 +58,12 @@ struct iso7816_atr_info_t {
 	 */
 	uint8_t TS;
 
-	uint8_t T0; ///< Format byte T0 indicates ATR format
+	/**
+	 * Format byte T0 indicates the presence of interface bytes and historical bytes
+	 * - Y1: Indicates the presence of TA[1], TB[1], TC[1], and TD[1]
+	 * - K: Indicates the number of historical bytes
+	 */
+	uint8_t T0;
 
 	// Store ATR bytes for below pointers to use
 	uint8_t atr[ISO7816_ATR_MAX_SIZE]; ///< ATR bytes
@@ -157,6 +162,15 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
  * @return String. NULL for error.
  */
 const char* iso7816_atr_TS_get_string(const struct iso7816_atr_info_t* atr_info);
+
+/**
+ * Stringify ISO/IEC 7816 ATR format byte T0
+ * @param atr_info Parsed ATR info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso7816_atr_T0_get_string(const struct iso7816_atr_info_t* atr_info, char* str, size_t str_len);
 
 __END_DECLS
 

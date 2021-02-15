@@ -62,6 +62,7 @@ static void print_atr(pcsc_reader_ctx_t reader)
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
 	struct iso7816_atr_info_t atr_info;
+	char str[1024];
 
 	r = pcsc_reader_get_atr(reader, atr, &atr_len);
 	if (r) {
@@ -79,7 +80,7 @@ static void print_atr(pcsc_reader_ctx_t reader)
 
 	// Print ATR info
 	printf("  TS  = 0x%02X: %s\n", atr_info.TS, iso7816_atr_TS_get_string(&atr_info));
-	printf("  T0  = 0x%02X\n", atr_info.T0);
+	printf("  T0  = 0x%02X: %s\n", atr_info.T0, iso7816_atr_T0_get_string(&atr_info, str, sizeof(str)));
 	for (size_t i = 1; i < 5; ++i) {
 		if (atr_info.TA[i] ||
 			atr_info.TB[i] ||
