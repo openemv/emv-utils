@@ -99,7 +99,9 @@ static void print_atr(pcsc_reader_ctx_t reader)
 			printf("  TC%zu = 0x%02X\n", i, *atr_info.TC[i]);
 		}
 		if (atr_info.TD[i]) {
-			printf("  TD%zu = 0x%02X\n", i, *atr_info.TD[i]);
+			printf("  TD%zu = 0x%02X: %s\n", i, *atr_info.TD[i],
+				iso7816_atr_TDi_get_string(&atr_info, i, str, sizeof(str))
+			);
 		}
 	}
 	if (atr_info.K_count) {

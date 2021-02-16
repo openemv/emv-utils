@@ -268,3 +268,45 @@ const char* iso7816_atr_T0_get_string(const struct iso7816_atr_info_t* atr_info,
 
 	return str;
 }
+
+const char* iso7816_atr_TDi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len)
+{
+	int r;
+	char* str_ptr = str;
+	uint8_t T;
+
+	if (!atr_info) {
+		return NULL;
+	}
+	if (i < 1 || i > 4) {
+		return NULL;
+	}
+	if (!atr_info->TD[i]) {
+		return NULL;
+	}
+
+	// For TDi, write Y(i+1)
+	r = iso7816_atr_Yi_write_string(atr_info, i + 1, str_ptr, str_len);
+	if (r >= str_len) {
+		// Not enough space in string buffer; return truncated content
+		return str;
+	}
+	str_ptr += r;
+	str_len -= r;
+
+	// Write protocol value
+	T = *atr_info->TD[i] & ISO7816_ATR_Tx_OTHER_MASK;
+	if (T == ISO7816_ATR_Tx_GLOBAL) {
+		r = snprintf(str_ptr, str_len, "; Global (T=%u)", T);
+	} else {
+		r = snprintf(str_ptr, str_len, "; Protocol T=%u", T);
+	}
+	if (r >= str_len) {
+		// Not enough space in string buffer; return truncated content
+		return str;
+	}
+	str_ptr += r;
+	str_len -= r;
+
+	return str;
+}
