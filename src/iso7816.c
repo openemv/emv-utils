@@ -25,8 +25,13 @@
 #include <string.h>
 #include <stdio.h>
 
+// Helper functions
+static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info);
+
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
+	int r;
 	size_t atr_idx;
 	bool tck_mandatory = false;
 
@@ -44,6 +49,7 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	}
 
 	memset(atr_info, 0, sizeof(*atr_info));
+	iso7816_atr_populate_default_parameters(atr_info);
 
 	// Copy ATR bytes
 	memcpy(atr_info->atr, atr, atr_len);
@@ -72,6 +78,15 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		// Parse available interface bytes
 		if (interface_byte_bits & ISO7816_ATR_Tx_TAi_PRESENT) {
 			atr_info->TA[i] = &atr_info->atr[atr_idx++];
+
+			// Extract interface parameters from interface bytes TAi
+			switch (i) {
+				// Parse TA1
+				case 1: r = iso7816_atr_parse_TA1(*atr_info->TA[i], atr_info); break;
+			}
+			if (r) {
+				return r;
+			}
 		}
 		if (interface_byte_bits & ISO7816_ATR_Tx_TBi_PRESENT) {
 			atr_info->TB[i] = &atr_info->atr[atr_idx++];
@@ -163,6 +178,55 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		atr_info->status_indicator.LCS = atr_info->status_indicator_bytes[0];
 		atr_info->status_indicator.SW1 = atr_info->status_indicator_bytes[1];
 		atr_info->status_indicator.SW2 = atr_info->status_indicator_bytes[2];
+	}
+
+	return 0;
+}
+
+static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* atr_info)
+{
+	// ISO7816 part 3 assumes TA1 default is 0x11
+	iso7816_atr_parse_TA1(0x11, atr_info);
+}
+
+static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
+{
+	uint8_t DI = (TA1 & ISO7816_ATR_TA1_DI_MASK);
+	uint8_t FI = (TA1 & ISO7816_ATR_TA1_FI_MASK);
+
+	// Decode bit rate adjustment factor Di according to ISO 7816-3:2006, 8.3, table 8
+	switch (DI) {
+		case 0x01: atr_info->global.Di = 1; break;
+		case 0x02: atr_info->global.Di = 2; break;
+		case 0x03: atr_info->global.Di = 4; break;
+		case 0x04: atr_info->global.Di = 8; break;
+		case 0x05: atr_info->global.Di = 16; break;
+		case 0x06: atr_info->global.Di = 32; break;
+		case 0x07: atr_info->global.Di = 64; break;
+		case 0x08: atr_info->global.Di = 12; break;
+		case 0x09: atr_info->global.Di = 20; break;
+
+		default:
+			return 10;
+	}
+
+	// Clock rate conversion factor Fi and maximum clock frequency fmax according to ISO 7816-3:2006, 8.3, table 7
+	switch (FI) {
+		case 0x00: atr_info->global.Fi = 372; atr_info->global.fmax = 4; break;
+		case 0x10: atr_info->global.Fi = 372; atr_info->global.fmax = 5; break;
+		case 0x20: atr_info->global.Fi = 558; atr_info->global.fmax = 6; break;
+		case 0x30: atr_info->global.Fi = 744; atr_info->global.fmax = 8; break;
+		case 0x40: atr_info->global.Fi = 1116; atr_info->global.fmax = 12; break;
+		case 0x50: atr_info->global.Fi = 1488; atr_info->global.fmax = 16; break;
+		case 0x60: atr_info->global.Fi = 1860; atr_info->global.fmax = 20; break;
+		case 0x90: atr_info->global.Fi = 512; atr_info->global.fmax = 5; break;
+		case 0xA0: atr_info->global.Fi = 768; atr_info->global.fmax = 7.5f; break;
+		case 0xB0: atr_info->global.Fi = 1024; atr_info->global.fmax = 10; break;
+		case 0xC0: atr_info->global.Fi = 1536; atr_info->global.fmax = 15; break;
+		case 0xD0: atr_info->global.Fi = 2048; atr_info->global.fmax = 20; break;
+
+		default:
+			return 11;
 	}
 
 	return 0;

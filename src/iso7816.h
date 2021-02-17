@@ -45,6 +45,10 @@ __BEGIN_DECLS
 #define ISO7816_ATR_Tx_TCi_PRESENT      (0x40) ///< T0 or TD[x] bit indicating interface byte TC(i=x+1) is present
 #define ISO7816_ATR_Tx_TDi_PRESENT      (0x80) ///< T0 or TD[x] bit indicating interface byte TD(i=x+1) is present
 
+// ATR: Interface byte TA1 definitions
+#define ISO7816_ATR_TA1_DI_MASK         (0x0F) ///< TA1 mask for DI value, which encodes Di factor
+#define ISO7816_ATR_TA1_FI_MASK         (0xF0) ///< TA1 mask for FI value, which encodes Fi factor and fmax
+
 // ATR: Historical byte definitions
 #define ISO7816_ATR_T1_COMPACT_TLV_SI   (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
 #define ISO7816_ATR_T1_DIR_DATA_REF     (0x10) ///< Subsequent historical byte is DIR data reference
@@ -75,7 +79,10 @@ struct iso7816_atr_info_t {
 
 	/**
 	 * Interface bytes TA[x]. Value is available when pointer is non-NULL. Otherwise value is absent.
-	 * - Interface byte TA[1] indicates maximum clock frequency and clock periods per ETU; default is 0x11 if absent
+	 * - Interface byte TA[1] indicates maximum clock frequency and clock periods per Elementary Time Unit (ETU).
+	 *   Default is 0x11 if absent.
+	 *   - Low 4 bits encode the bit rate adjustment factor Di
+	 *   - High 4 bits encode the clock rate conversion factor Fi and maximum clock frequency fmax
 	 * - Interface byte TA[2] indicates that reader should use specific mode as indicated by earlier global interface bytes, instead of negotiable mode
 	 * - Further interface bytes TA[x>2] indicate the maximum receive block size (if protocol T=1)
 	 *   or supported supply voltages and low power modes (if global T=15)
@@ -139,6 +146,13 @@ struct iso7816_atr_info_t {
 	// ========================================
 	// Extracted info...
 	// ========================================
+
+	struct {
+		// Global interface parameters provided by TA1
+		unsigned int Di; ///< Baud rate adjustment factor
+		unsigned int Fi; ///< Clock rate conversion factor
+		float fmax; ///< Maximum clock frequency in MHz
+	} global; ///< Parameters encoded by global interface bytes (TA1, TB1, TC1, TA2, TB2, TC2)
 
 	struct {
 		uint8_t LCS; ///< Card life cycle status; Zero if not available
