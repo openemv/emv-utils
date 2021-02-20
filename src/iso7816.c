@@ -30,6 +30,7 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -116,6 +117,15 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		}
 		if (interface_byte_bits & ISO7816_ATR_Tx_TDi_PRESENT) {
 			atr_info->TD[i] = &atr_info->atr[atr_idx]; // preserve index for next loop iteration
+
+			// Extract interface parameters from interface bytes TDi
+			switch (i) {
+				// Parse TD1
+				case 1: r = iso7816_atr_parse_TD1(*atr_info->TD[i], atr_info); break;
+			}
+			if (r) {
+				return r;
+			}
 
 			// If only T=0 is indicated, TCK is absent; otherwise it is mandatory
 			protocol = *atr_info->TD[i] & ISO7816_ATR_Tx_OTHER_MASK; // T value according to ISO 7816-3:2006, 8.2.3
@@ -211,6 +221,7 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	// - Ipp = 50mV (from default I parameter)
 	// - Vpp = 5V (from default P parameter)
 	// - Guard time = 12 ETU (from default N parameter)
+	// - Preferred protocol T=0
 
 	// TA1 default
 	iso7816_atr_parse_TA1(0x11, atr_info);
@@ -220,6 +231,9 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 
 	// TC1 default
 	iso7816_atr_parse_TC1(0x00, atr_info);
+
+	// TD1 default
+	iso7816_atr_parse_TD1(0x00, atr_info);
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -323,6 +337,33 @@ static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_inf
 		// GT will be updated when parsing TD1
 		// T=0: GT = 12 ETU
 		// T=1: GT = 11 ETU
+	}
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_info)
+{
+	unsigned int T = (TD1 & ISO7816_ATR_Tx_OTHER_MASK);
+
+	if (T != ISO7816_ATR_Tx_PROTOCOL_T0 &&
+		T != ISO7816_ATR_Tx_PROTOCOL_T1
+	) {
+		// Unsupported protocol
+		return 14;
+	}
+
+	// TD1 indicates the preferred card protocol
+	atr_info->global.protocol = T;
+
+	// Update GT when N is protocol specific
+	if (atr_info->global.N == 0xFF) {
+		if (T == ISO7816_ATR_Tx_PROTOCOL_T0) {
+			atr_info->global.GT = 12;
+		}
+		if (T == ISO7816_ATR_Tx_PROTOCOL_T1) {
+			atr_info->global.GT = 11;
+		}
 	}
 
 	return 0;
