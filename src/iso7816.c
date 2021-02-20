@@ -28,6 +28,7 @@
 // Helper functions
 static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -90,6 +91,15 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		}
 		if (interface_byte_bits & ISO7816_ATR_Tx_TBi_PRESENT) {
 			atr_info->TB[i] = &atr_info->atr[atr_idx++];
+
+			// Extract interface parameters from interface bytes TBi
+			switch (i) {
+				// Parse TB1
+				case 1: r = iso7816_atr_parse_TB1(*atr_info->TB[i], atr_info); break;
+			}
+			if (r) {
+				return r;
+			}
 		}
 		if (interface_byte_bits & ISO7816_ATR_Tx_TCi_PRESENT) {
 			atr_info->TC[i] = &atr_info->atr[atr_idx++];
@@ -185,8 +195,17 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 
 static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* atr_info)
 {
-	// ISO7816 part 3 assumes TA1 default is 0x11
+	// ISO7816 part 3 indicates these default parameters:
+	// - Fmax = 5MHz (from default F parameters)
+	// - Fi/Di = 372/1 (from default F and D parameters)
+	// - Ipp = 50mV (from default I parameter)
+	// - Vpp = 5V (from default P parameter)
+
+	// TA1 default
 	iso7816_atr_parse_TA1(0x11, atr_info);
+
+	// TB1 default
+	iso7816_atr_parse_TB1(0x25, atr_info);
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -227,6 +246,41 @@ static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_inf
 
 		default:
 			return 11;
+	}
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_info)
+{
+	uint8_t PI1 = (TB1 & ISO7816_ATR_TB1_PI1_MASK);
+	uint8_t II = (TB1 & ISO7816_ATR_TB1_II_MASK);
+
+	// TB1 == 0x00 indicates that Vpp is not connected to C6
+	if (TB1 == 0x00) {
+		atr_info->global.Vpp_connected = false;
+
+		// No need to parse PI1 and II
+		return 0;
+	} else {
+		atr_info->global.Vpp_connected = true;
+	}
+
+	// Programming voltage for active state according to ISO 7816-3:1997; deprecated in ISO 7816-3:2006
+	if (PI1 < 5 || PI1 > 25) {
+		// PI1 is only valid for values 5 to 25
+		return 12;
+	}
+	// Vpp is in milliVolt and PI1 is in Volt
+	atr_info->global.Vpp = PI1 * 1000;
+
+	// Maximum programming current according to ISO 7816-3:1997; deprecated in ISO 7816-3:2006
+	switch (II) {
+		case 0x00: atr_info->global.Ipp = 25; break;
+		case 0x20: atr_info->global.Ipp = 50; break;
+		case 0x40: atr_info->global.Ipp = 100; break;
+		default:
+			return 13;
 	}
 
 	return 0;

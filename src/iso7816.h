@@ -25,6 +25,7 @@
 #include <sys/cdefs.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 __BEGIN_DECLS
 
@@ -48,6 +49,10 @@ __BEGIN_DECLS
 // ATR: Interface byte TA1 definitions
 #define ISO7816_ATR_TA1_DI_MASK         (0x0F) ///< TA1 mask for DI value, which encodes Di factor
 #define ISO7816_ATR_TA1_FI_MASK         (0xF0) ///< TA1 mask for FI value, which encodes Fi factor and fmax
+
+// ATR: Interface byte TB1 definitions
+#define ISO7816_ATR_TB1_PI1_MASK        (0x1F) ///< TB1 mask for PI1 value, which encodes course Vpp
+#define ISO7816_ATR_TB1_II_MASK         (0x60) ///< TB1 mask for II value, which encodes Ipp
 
 // ATR: Historical byte definitions
 #define ISO7816_ATR_T1_COMPACT_TLV_SI   (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
@@ -152,6 +157,11 @@ struct iso7816_atr_info_t {
 		unsigned int Di; ///< Baud rate adjustment factor
 		unsigned int Fi; ///< Clock rate conversion factor
 		float fmax; ///< Maximum clock frequency in MHz
+
+		// Global interface parameters provided by TB1
+		bool Vpp_connected; ///< Boolean indicating whether Vpp is connected to C6. If not, ignore Vpp and Ipp values
+		unsigned int Vpp; ///< Programming voltage for active state in mV; deprecated and should be ignored
+		unsigned int Ipp; ///< Maximum programming current for Vpp in mA; deprecated and should be ignored
 	} global; ///< Parameters encoded by global interface bytes (TA1, TB1, TC1, TA2, TB2, TC2)
 
 	struct {
