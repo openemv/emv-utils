@@ -162,6 +162,10 @@ struct iso7816_atr_info_t {
 		bool Vpp_connected; ///< Boolean indicating whether Vpp is connected to C6. If not, ignore Vpp and Ipp values
 		unsigned int Vpp; ///< Programming voltage for active state in mV; deprecated and should be ignored
 		unsigned int Ipp; ///< Maximum programming current for Vpp in mA; deprecated and should be ignored
+
+		// Global interface parameters provided by TC1
+		unsigned int N; ///< Encoded Extra Guard Time; depends on protocol
+		unsigned int GT; ///< Guard Time in ETU
 	} global; ///< Parameters encoded by global interface bytes (TA1, TB1, TC1, TA2, TB2, TC2)
 
 	struct {

@@ -29,6 +29,7 @@
 static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -103,6 +104,15 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		}
 		if (interface_byte_bits & ISO7816_ATR_Tx_TCi_PRESENT) {
 			atr_info->TC[i] = &atr_info->atr[atr_idx++];
+
+			// Extract interface parameters from interface bytes TCi
+			switch (i) {
+				// Parse TC1
+				case 1: r = iso7816_atr_parse_TC1(*atr_info->TC[i], atr_info); break;
+			}
+			if (r) {
+				return r;
+			}
 		}
 		if (interface_byte_bits & ISO7816_ATR_Tx_TDi_PRESENT) {
 			atr_info->TD[i] = &atr_info->atr[atr_idx]; // preserve index for next loop iteration
@@ -200,12 +210,16 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	// - Fi/Di = 372/1 (from default F and D parameters)
 	// - Ipp = 50mV (from default I parameter)
 	// - Vpp = 5V (from default P parameter)
+	// - Guard time = 12 ETU (from default N parameter)
 
 	// TA1 default
 	iso7816_atr_parse_TA1(0x11, atr_info);
 
 	// TB1 default
 	iso7816_atr_parse_TB1(0x25, atr_info);
+
+	// TC1 default
+	iso7816_atr_parse_TC1(0x00, atr_info);
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -281,6 +295,34 @@ static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_inf
 		case 0x40: atr_info->global.Ipp = 100; break;
 		default:
 			return 13;
+	}
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_info)
+{
+	atr_info->global.N = TC1;
+
+	if (atr_info->global.N != 0xFF) {
+		// From ISO 7816-3:2006, 8.3, page 19:
+		// GT = 12 ETU + R x N/f
+		// If T=15 is absent in the ATR, R = F/D
+		// If T=15 is present in the ATR, R = Fi/Di as defined by TA1
+		// Thus we assume T=15 is absent for now and then update it when parsing TDi
+
+		// For T=15 absent:
+		// GT = 12 ETU + F/D x N/f
+		// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
+		// GT = 12 ETU + N x 1 ETU
+
+		// Thus we can simplify it to...
+		atr_info->global.GT = 12 + atr_info->global.N;
+	} else {
+		// N=255 is protocol specific
+		// GT will be updated when parsing TD1
+		// T=0: GT = 12 ETU
+		// T=1: GT = 11 ETU
 	}
 
 	return 0;
