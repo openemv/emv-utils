@@ -31,6 +31,7 @@ static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_inf
 static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -86,6 +87,8 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 			switch (i) {
 				// Parse TA1
 				case 1: r = iso7816_atr_parse_TA1(*atr_info->TA[i], atr_info); break;
+				// Parse TA2
+				case 2: r = iso7816_atr_parse_TA2(*atr_info->TA[i], atr_info); break;
 			}
 			if (r) {
 				return r;
@@ -234,6 +237,8 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 
 	// TD1 default
 	iso7816_atr_parse_TD1(0x00, atr_info);
+
+	// TA2 is absent by default
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -365,6 +370,23 @@ static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_inf
 			atr_info->global.GT = 11;
 		}
 	}
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_info)
+{
+	// TA2 is present, therefore specific mode is available
+	// When TA2 is absent, only negotiable mode is available
+	atr_info->global.specific_mode = true;
+	atr_info->global.specific_mode_protocol = (TA2 & ISO7816_ATR_TA2_PROTOCOL_MASK);
+
+	// TA2 indicates whether the ETU duration should be implicitly known by the reader
+	// Otherwise Fi/Di provided by TA1 applies
+	atr_info->global.etu_is_implicit = (TA2 & ISO7816_ATR_TA2_IMPLICIT);
+
+	// TA2 indicates whether the specific/negotiable mode may change (eg after warm ATR)
+	atr_info->global.specific_mode_may_change = (TA2 & ISO7816_ATR_TA2_MODE);
 
 	return 0;
 }

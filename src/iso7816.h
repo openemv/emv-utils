@@ -54,6 +54,11 @@ __BEGIN_DECLS
 #define ISO7816_ATR_TB1_PI1_MASK        (0x1F) ///< TB1 mask for PI1 value, which encodes course Vpp
 #define ISO7816_ATR_TB1_II_MASK         (0x60) ///< TB1 mask for II value, which encodes Ipp
 
+// ATR: Interface byte TA2 definitions
+#define ISO7816_ATR_TA2_PROTOCOL_MASK   (0x0F) ///< TA2 mask for required protocol
+#define ISO7816_ATR_TA2_IMPLICIT        (0x10) ///< TA2 bit indicating implicit mode
+#define ISO7816_ATR_TA2_MODE            (0x80) ///< TA2 bit indicating whether specific/negotiable mode may change; if unset, mode may change (eg after warm ATR)
+
 // ATR: Historical byte definitions
 #define ISO7816_ATR_T1_COMPACT_TLV_SI   (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
 #define ISO7816_ATR_T1_DIR_DATA_REF     (0x10) ///< Subsequent historical byte is DIR data reference
@@ -89,6 +94,9 @@ struct iso7816_atr_info_t {
 	 *   - Low 4 bits encode the bit rate adjustment factor Di
 	 *   - High 4 bits encode the clock rate conversion factor Fi and maximum clock frequency fmax
 	 * - Interface byte TA[2] indicates that reader should use specific mode as indicated by earlier global interface bytes, instead of negotiable mode
+	 *     - Low 4 bits encode the protocol required for specific mode
+	 *     - Bit 5 indicates whether ETU duration is implicitly known by reader
+	 *     - Bit 8 indicating whether specific/negotiable mode may change (eg after warm ATR)
 	 * - Further interface bytes TA[x>2] indicate the maximum receive block size (if protocol T=1)
 	 *   or supported supply voltages and low power modes (if global T=15)
 	 */
@@ -169,6 +177,12 @@ struct iso7816_atr_info_t {
 
 		// Global interface parameters provided by TD1
 		unsigned int protocol; ///< Preferred protocol
+
+		// Global interface parameters provided by TA2
+		bool specific_mode; ///< Boolean indicating whether specific mode is available
+		unsigned int specific_mode_protocol; ///< Required protocol (if @ref specific_mode is true)
+		bool etu_is_implicit; ///< Boolean indicating whether ETU duration is implicitly known by reader (otherwise it is defined by TA1)
+		bool specific_mode_may_change; ///< Boolean indicating that specific/negotiable mode may change (eg after warm ATR)
 	} global; ///< Parameters encoded by global interface bytes (TA1, TB1, TC1, TA2, TB2, TC2)
 
 	struct {
