@@ -32,6 +32,7 @@ static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_inf
 static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -101,6 +102,8 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 			switch (i) {
 				// Parse TB1
 				case 1: r = iso7816_atr_parse_TB1(*atr_info->TB[i], atr_info); break;
+				// Parse TB2
+				case 2: r = iso7816_atr_parse_TB2(*atr_info->TB[i], atr_info); break;
 			}
 			if (r) {
 				return r;
@@ -239,6 +242,8 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	iso7816_atr_parse_TD1(0x00, atr_info);
 
 	// TA2 is absent by default
+
+	// TB2 is absent by default
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -305,7 +310,10 @@ static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_inf
 		return 12;
 	}
 	// Vpp is in milliVolt and PI1 is in Volt
-	atr_info->global.Vpp = PI1 * 1000;
+	atr_info->global.Vpp_course = PI1 * 1000;
+
+	// Vpp may be overridden by TB2 later
+	atr_info->global.Vpp = atr_info->global.Vpp_course;
 
 	// Maximum programming current according to ISO 7816-3:1997; deprecated in ISO 7816-3:2006
 	switch (II) {
@@ -387,6 +395,26 @@ static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_inf
 
 	// TA2 indicates whether the specific/negotiable mode may change (eg after warm ATR)
 	atr_info->global.specific_mode_may_change = (TA2 & ISO7816_ATR_TA2_MODE);
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_info)
+{
+	uint8_t PI2 = TB2;
+
+	// If TB2 is present, TB1 must indicate that Vpp is present
+	if (!atr_info->global.Vpp_connected) {
+		return 15;
+	}
+
+	// Programming voltage for active state according to ISO 7816-3:1997; deprecated in ISO 7816-3:2006
+	if (PI2 < 50 || PI2 > 250) {
+		return 16;
+	}
+
+	// TB2 is present, therefore override Vpp; PI2 is multiples of 100mV
+	atr_info->global.Vpp = PI2 * 100;
 
 	return 0;
 }

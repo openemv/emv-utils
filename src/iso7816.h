@@ -166,9 +166,10 @@ struct iso7816_atr_info_t {
 		unsigned int Fi; ///< Clock rate conversion factor
 		float fmax; ///< Maximum clock frequency in MHz
 
-		// Global interface parameters provided by TB1
+		// Global interface parameters provided by TB1 and TB2
 		bool Vpp_connected; ///< Boolean indicating whether Vpp is connected to C6. If not, ignore Vpp and Ipp values
 		unsigned int Vpp; ///< Programming voltage for active state in mV; deprecated and should be ignored
+		unsigned int Vpp_course; ///< Course programming voltage for active state in mV; deprecated and should be ignored
 		unsigned int Ipp; ///< Maximum programming current for Vpp in mA; deprecated and should be ignored
 
 		// Global interface parameters provided by TC1
