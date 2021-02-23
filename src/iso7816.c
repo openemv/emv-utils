@@ -33,6 +33,7 @@ static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_inf
 static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -116,6 +117,8 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 			switch (i) {
 				// Parse TC1
 				case 1: r = iso7816_atr_parse_TC1(*atr_info->TC[i], atr_info); break;
+				// Parse TC2
+				case 2: r = iso7816_atr_parse_TC2(*atr_info->TC[i], atr_info); break;
 			}
 			if (r) {
 				return r;
@@ -228,6 +231,7 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	// - Vpp = 5V (from default P parameter)
 	// - Guard time = 12 ETU (from default N parameter)
 	// - Preferred protocol T=0
+	// - WI = 10 (from which WT is computed for protocol T=0)
 
 	// TA1 default
 	iso7816_atr_parse_TA1(0x11, atr_info);
@@ -244,6 +248,9 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	// TA2 is absent by default
 
 	// TB2 is absent by default
+
+	// TC2 default
+	iso7816_atr_parse_TC2(0x0A, atr_info);
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -415,6 +422,35 @@ static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_inf
 
 	// TB2 is present, therefore override Vpp; PI2 is multiples of 100mV
 	atr_info->global.Vpp = PI2 * 100;
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_info)
+{
+	uint8_t WI = TC2;
+
+	if (WI == 0) {
+		// Reserved by ISO 7816-3:2006, 10.2
+		return 17;
+	}
+
+	// From ISO 7816-3:2006, 10.2:
+	// WT = WI x 960 x Fi/f
+	// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
+	// WT = WI x 960 x Fi/f / (F/D x 1/f) ETU
+	//    = WI x 960 x Fi/f x (D/F x f) ETU
+	//    = WI x 960 x Fi x D / F ETU
+	// And if we assume F is as indicated in TA1, thus Fi, then:
+	// WT = WI x 960 x D ETU
+	// Which is the same conclusion that EMV comes to below...
+
+	// From EMV Book 1, version 4.3 (Nov 2011), section 9.2.2.1:
+	// WWT = 960 x D x WI ETUs (D and WI are returned in TA1 and TC2, respectively)
+
+	// And finally, after all that thinking...
+	atr_info->protocol_T0.WI = TC2;
+	atr_info->protocol_T0.WT = atr_info->protocol_T0.WI * 960 * atr_info->global.Di;
 
 	return 0;
 }

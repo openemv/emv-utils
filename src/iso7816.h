@@ -114,7 +114,7 @@ struct iso7816_atr_info_t {
 	/**
 	 * Interface bytes TC[x]. Value is available when pointer is non-NULL. Otherwise value is absent.
 	 * - Interface byte TC[1] indicates Extra Guard Time Integer (N)
-	 * - Interface byte TC[2] indicates Work Waiting Time (WI) for protocol T=0; default is 0xA if absent
+	 * - Interface byte TC[2] indicates Work Waiting Time Integer (WI) for protocol T=0; default is 0xA if absent
 	 * - Further interface bytes TC[x>2] indicate the error detection code used (if protocol T=1)
 	 */
 	const uint8_t* TC[5];
@@ -185,6 +185,12 @@ struct iso7816_atr_info_t {
 		bool etu_is_implicit; ///< Boolean indicating whether ETU duration is implicitly known by reader (otherwise it is defined by TA1)
 		bool specific_mode_may_change; ///< Boolean indicating that specific/negotiable mode may change (eg after warm ATR)
 	} global; ///< Parameters encoded by global interface bytes (TA1, TB1, TC1, TA2, TB2, TC2)
+
+	struct {
+		// Interface parameters provided by TC2
+		unsigned int WI; ///< Work Waiting Time Integer (WI) for protocol T=0
+		unsigned int WT; ///< Waiting Time (WT) for protocol T=0
+	} protocol_T0; ///< Parameters encoded by protocol specific interface bytes for protocol T=0
 
 	struct {
 		uint8_t LCS; ///< Card life cycle status; Zero if not available
