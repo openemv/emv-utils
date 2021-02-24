@@ -34,11 +34,13 @@ static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_inf
 static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
 	int r;
 	size_t atr_idx;
+	uint8_t protocol = 0; // Protocol indicated in latest TDi interface byte
 	bool tck_mandatory = false;
 
 	if (!atr) {
@@ -77,9 +79,8 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	// Use T0 for for first set of interface bytes
 	atr_idx = 1;
 
-	for (size_t i = 1; i < 5; ++i) {
+	for (unsigned int i = 1; i < 5; ++i) {
 		uint8_t interface_byte_bits = atr_info->atr[atr_idx++]; // Y[i] value according to ISO7816
-		uint8_t protocol = 0; // Default protocol is T=0 if unspecified
 
 		// Parse available interface bytes
 		if (interface_byte_bits & ISO7816_ATR_Tx_TAi_PRESENT) {
@@ -91,6 +92,8 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 				case 1: r = iso7816_atr_parse_TA1(*atr_info->TA[i], atr_info); break;
 				// Parse TA2
 				case 2: r = iso7816_atr_parse_TA2(*atr_info->TA[i], atr_info); break;
+				// Parse TAi for i>=3
+				default: r = iso7816_atr_parse_TAi(protocol, i, *atr_info->TA[i], atr_info); break;
 			}
 			if (r) {
 				return r;
@@ -224,14 +227,17 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 
 static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* atr_info)
 {
-	// ISO7816 part 3 indicates these default parameters:
+	// ISO 7816-3 indicates these default parameters:
 	// - Fmax = 5MHz (from default F parameters)
 	// - Fi/Di = 372/1 (from default F and D parameters)
 	// - Ipp = 50mV (from default I parameter)
 	// - Vpp = 5V (from default P parameter)
 	// - Guard time = 12 ETU (from default N parameter)
 	// - Preferred protocol T=0
+	// - Card class A only
+	// - Clock stop not supported
 	// - WI = 10 (from which WT is computed for protocol T=0)
+	// - IFSC = 32 (for protocol T=1)
 
 	// TA1 default
 	iso7816_atr_parse_TA1(0x11, atr_info);
@@ -251,6 +257,12 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 
 	// TC2 default
 	iso7816_atr_parse_TC2(0x0A, atr_info);
+
+	// TA3 default (for protocol T=1)
+	iso7816_atr_parse_TAi(ISO7816_ATR_Tx_PROTOCOL_T1, 3, 0x20, atr_info);
+
+	// TA3 default (for protocol T=15; global)
+	iso7816_atr_parse_TAi(ISO7816_ATR_Tx_GLOBAL, 3, ISO7816_CARD_CLASS_A_5V, atr_info);
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -451,6 +463,42 @@ static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_inf
 	// And finally, after all that thinking...
 	atr_info->protocol_T0.WI = TC2;
 	atr_info->protocol_T0.WT = atr_info->protocol_T0.WI * 960 * atr_info->global.Di;
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, struct iso7816_atr_info_t* atr_info)
+{
+	// Global interface parameters
+	if (protocol == ISO7816_ATR_Tx_GLOBAL) {
+		// First TA for T=15 encodes class indicator Y in bits 1 to 6
+		uint8_t Y = (TAi & ISO7816_ATR_TAi_Y_MASK);
+
+		// First TA for T=15 encodes clock stop indicator X in bits 7 and 8
+		uint8_t X = (TAi & ISO7816_ATR_TAi_X_MASK) >> ISO7816_ATR_TAi_X_SHIFT;
+
+		if (Y < 0x01 || Y > 0x07) {
+			return 17;
+		}
+		atr_info->global.card_classes = Y;
+
+		if (X > 0x03) {
+			return 18;
+		}
+		atr_info->global.clock_stop = X;
+	}
+
+	// Protocol T=1 parameters
+	if (protocol == ISO7816_ATR_Tx_PROTOCOL_T1) {
+		// First TA for T=1 encodes IFS (ISO 7816-3:2006, 11.4.2)
+		uint8_t IFSI = TAi;
+
+		if (IFSI == 0x00 || IFSI == 0xFF) {
+			// Reserved by ISO 7816-3:2006, 11.4.2
+			return 19;
+		}
+		atr_info->protocol_T1.IFSI = IFSI;
+	}
 
 	return 0;
 }

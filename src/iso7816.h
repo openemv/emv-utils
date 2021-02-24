@@ -59,10 +59,29 @@ __BEGIN_DECLS
 #define ISO7816_ATR_TA2_IMPLICIT        (0x10) ///< TA2 bit indicating implicit mode
 #define ISO7816_ATR_TA2_MODE            (0x80) ///< TA2 bit indicating whether specific/negotiable mode may change; if unset, mode may change (eg after warm ATR)
 
+// ATR: Interface byte TAi (for i>=3) definitions
+#define ISO7816_ATR_TAi_Y_MASK          (0x3F) ///< TA3 mask for Y value, which encodes card classes
+#define ISO7816_ATR_TAi_X_MASK          (0xC0) ///< TA3 mask for X value, which encodes clock stop support
+#define ISO7816_ATR_TAi_X_SHIFT         (6)    ///< TA3 bitshift for X value
+
 // ATR: Historical byte definitions
 #define ISO7816_ATR_T1_COMPACT_TLV_SI   (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
 #define ISO7816_ATR_T1_DIR_DATA_REF     (0x10) ///< Subsequent historical byte is DIR data reference
 #define ISO7816_ATR_T1_COMPACT_TLV      (0x80) ///< Subsequent historical bytes are COMPACT-TLV encoded and many include status indicator
+
+// ATR info: Card class supply voltages
+#define ISO7816_CARD_CLASS_UNKNOWN      (0x00) ///< Card class supply voltage unknown
+#define ISO7816_CARD_CLASS_A_5V         (0x01) ///< Card class A: 5V
+#define ISO7816_CARD_CLASS_B_3V         (0x02) ///< Card class B: 3V
+#define ISO7816_CARD_CLASS_C_1V8        (0x04) ///< Card class C: 1.8V
+
+/// ATR info: clock stop support
+enum iso7816_atr_clock_stop_t {
+	ISO7816_CLOCK_STOP_NOT_SUPPORTED = 0,      ///< Clock stop not supported (Default)
+	ISO7816_CLOCK_STOP_STATE_L = 1,            ///< Clock stop maintains CLK at state L
+	ISO7816_CLOCK_STOP_STATE_H = 2,            ///< Clock stop maintains CLK at state H
+	ISO7816_CLOCK_STOP_NO_PREFERENCE = 3,      ///< Clock stop has no preferred CLK state
+};
 
 struct iso7816_atr_info_t {
 	/**
@@ -98,7 +117,7 @@ struct iso7816_atr_info_t {
 	 *     - Bit 5 indicates whether ETU duration is implicitly known by reader
 	 *     - Bit 8 indicating whether specific/negotiable mode may change (eg after warm ATR)
 	 * - Further interface bytes TA[x>2] indicate the maximum receive block size (if protocol T=1)
-	 *   or supported supply voltages and low power modes (if global T=15)
+	 *   or supported card class supply voltages and clock stop support (if global T=15)
 	 */
 	const uint8_t* TA[5];
 
@@ -184,13 +203,22 @@ struct iso7816_atr_info_t {
 		unsigned int specific_mode_protocol; ///< Required protocol (if @ref specific_mode is true)
 		bool etu_is_implicit; ///< Boolean indicating whether ETU duration is implicitly known by reader (otherwise it is defined by TA1)
 		bool specific_mode_may_change; ///< Boolean indicating that specific/negotiable mode may change (eg after warm ATR)
-	} global; ///< Parameters encoded by global interface bytes (TA1, TB1, TC1, TA2, TB2, TC2)
+
+		// Global interface parameters provided by TAi for i>=3 when T=15
+		unsigned int card_classes; ///< Bitfield indicating supported card classes (ISO 7816-3:2006, 5.1.3)
+		enum iso7816_atr_clock_stop_t clock_stop; ///< Clock stop support (ISO 7816-3:2006, 6.3.2)
+	} global; ///< Global interface bytes refer to parameters of the integrated circuit within the card (ISO 7816-3:2006, 8.3)
 
 	struct {
 		// Interface parameters provided by TC2
 		unsigned int WI; ///< Work Waiting Time Integer (WI) for protocol T=0
 		unsigned int WT; ///< Waiting Time (WT) for protocol T=0
 	} protocol_T0; ///< Parameters encoded by protocol specific interface bytes for protocol T=0
+
+	struct {
+		// Interface parameters provided by TAi for i>=3
+		unsigned int IFSI; ///< Information Field Size Integer (IFSI) for protocol T=1
+	} protocol_T1; ///< Parameters encoded by protocol specific interface bytes for protocol T=1
 
 	struct {
 		uint8_t LCS; ///< Card life cycle status; Zero if not available
