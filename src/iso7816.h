@@ -64,6 +64,12 @@ __BEGIN_DECLS
 #define ISO7816_ATR_TAi_X_MASK          (0xC0) ///< TA3 mask for X value, which encodes clock stop support
 #define ISO7816_ATR_TAi_X_SHIFT         (6)    ///< TA3 bitshift for X value
 
+// ATR: Interface byte TBi (for i>=3) definitions
+#define ISO7816_ATR_TBi_SPU_MASK        (0x80) ///< TB3 mask indicating SPU use
+#define ISO7816_ATR_TBi_CWI_MASK        (0x0F) ///< TB3 mask for CWI value, which encodes CWT
+#define ISO7816_ATR_TBi_BWI_MASK        (0xF0) ///< TB3 mask for BWI value, which encodes BWT
+#define ISO7816_ATR_TBi_BWI_SHIFT       (4)    ///< TB3 bitshift for BWI value
+
 // ATR: Historical byte definitions
 #define ISO7816_ATR_T1_COMPACT_TLV_SI   (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
 #define ISO7816_ATR_T1_DIR_DATA_REF     (0x10) ///< Subsequent historical byte is DIR data reference
@@ -81,6 +87,13 @@ enum iso7816_atr_clock_stop_t {
 	ISO7816_CLOCK_STOP_STATE_L = 1,            ///< Clock stop maintains CLK at state L
 	ISO7816_CLOCK_STOP_STATE_H = 2,            ///< Clock stop maintains CLK at state H
 	ISO7816_CLOCK_STOP_NO_PREFERENCE = 3,      ///< Clock stop has no preferred CLK state
+};
+
+/// ATR info: Standard or proprietary use contact (SPU / C6) usage
+enum iso7816_atr_spu_t {
+	ISO7816_SPU_NOT_USED = 0,                  ///< SPU / C6 not used (Default)
+	ISO7816_SPU_STANDARD,                      ///< Standard usage of SPU / C6
+	ISO7816_SPU_PROPRIETARY,                   ///< Proprietary usage of SPU / C6
 };
 
 struct iso7816_atr_info_t {
@@ -207,6 +220,9 @@ struct iso7816_atr_info_t {
 		// Global interface parameters provided by TAi for i>=3 when T=15
 		unsigned int card_classes; ///< Bitfield indicating supported card classes (ISO 7816-3:2006, 5.1.3)
 		enum iso7816_atr_clock_stop_t clock_stop; ///< Clock stop support (ISO 7816-3:2006, 6.3.2)
+
+		// Global interface parameters provided by TBi for i>=3 when T=15
+		enum iso7816_atr_spu_t spu; ///< Standard or proprietary use contact (SPU / C6) usage
 	} global; ///< Global interface bytes refer to parameters of the integrated circuit within the card (ISO 7816-3:2006, 8.3)
 
 	struct {
@@ -218,6 +234,10 @@ struct iso7816_atr_info_t {
 	struct {
 		// Interface parameters provided by TAi for i>=3
 		unsigned int IFSI; ///< Information Field Size Integer (IFSI) for protocol T=1
+
+		// Interface parameters provided by TBi for i>=3
+		unsigned int CWT; ///< Character Waiting Time (CWT) for protocol T=1
+		unsigned int BWT; ///< Block Waiting Time (BWT) for protocol T=1
 	} protocol_T1; ///< Parameters encoded by protocol specific interface bytes for protocol T=1
 
 	struct {

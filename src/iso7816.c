@@ -35,6 +35,7 @@ static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_inf
 static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -108,6 +109,8 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 				case 1: r = iso7816_atr_parse_TB1(*atr_info->TB[i], atr_info); break;
 				// Parse TB2
 				case 2: r = iso7816_atr_parse_TB2(*atr_info->TB[i], atr_info); break;
+				// Parse TBi for i>=3
+				default: r = iso7816_atr_parse_TBi(protocol, i, *atr_info->TB[i], atr_info); break;
 			}
 			if (r) {
 				return r;
@@ -236,8 +239,11 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	// - Preferred protocol T=0
 	// - Card class A only
 	// - Clock stop not supported
+	// - SPU / C6 not used
 	// - WI = 10 (from which WT is computed for protocol T=0)
 	// - IFSC = 32 (for protocol T=1)
+	// - CWI = 13 (from which CWT is computed for protocol T=1)
+	// - BWI = 4 (from which BWT is computed for protocol T=1)
 
 	// TA1 default
 	iso7816_atr_parse_TA1(0x11, atr_info);
@@ -263,6 +269,9 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 
 	// TA3 default (for protocol T=15; global)
 	iso7816_atr_parse_TAi(ISO7816_ATR_Tx_GLOBAL, 3, ISO7816_CARD_CLASS_A_5V, atr_info);
+
+	// TB3 default (for protocol T=1)
+	iso7816_atr_parse_TBi(ISO7816_ATR_Tx_PROTOCOL_T1, 3, 0x4D, atr_info);
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -498,6 +507,65 @@ static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, 
 			return 19;
 		}
 		atr_info->protocol_T1.IFSI = IFSI;
+	}
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, struct iso7816_atr_info_t* atr_info)
+{
+	// Global interface parameters
+	if (protocol == ISO7816_ATR_Tx_GLOBAL) {
+		// First TB for T=15 indicates the use of SPU by the card (ISO 7816-3:2006, 8.3, page 20)
+		if (TBi) {
+			if ((TBi & ISO7816_ATR_TBi_SPU_MASK) == 0) {
+				atr_info->global.spu = ISO7816_SPU_STANDARD;
+			} else {
+				atr_info->global.spu = ISO7816_SPU_PROPRIETARY;
+			}
+		} else {
+			atr_info->global.spu = ISO7816_SPU_NOT_USED;
+		}
+	}
+
+	// Protocol T=1 parameters
+	if (protocol == ISO7816_ATR_Tx_PROTOCOL_T1) {
+		// First TB for T=1 encodes CWI and BWI (ISO 7816-3:2006, 11.4.3)
+		uint8_t CWI = (TBi & ISO7816_ATR_TBi_CWI_MASK);
+		uint8_t BWI = (TBi & ISO7816_ATR_TBi_BWI_MASK) >> ISO7816_ATR_TBi_BWI_SHIFT;
+
+		// Compute CWT according to ISO 7816-3:2006, 11.4.3
+		if (CWI > 15) {
+			return 20;
+		}
+		atr_info->protocol_T1.CWT = 11 + (1 << CWI);
+
+		// Compute BWT according to ISO 7816-3:2006, 11.4.3
+		if (BWI > 9) {
+			return 21;
+		}
+
+		// From ISO 7816-3:2006, 11.4.3:
+		// BWT = 11etu + 2^BWI x 960 x Fd / f; where Fd is default F=372 and f is frequency
+		// NOTE: This formula specifies the first term of the sum in ETUs, but not the second
+		// part. Therefore, to convert the second term of the sum to ETUs, we must divide the
+		// second term by ETU, as defined relative to F and D. Thus:
+		// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
+		// BWT = 11etu + (2^BWI x 960 x Fd / f) / (F/D x 1/f)
+		//     = 11etu + (2^BWI x 960 x Fd / f) x (D/F x f)
+		//     = 11etu + (2^BWI x 960 x Fd) x (D/F)
+		//     = 11etu + (2^BWI x 960 x Fd x D / F)
+		// And given that Fd is default F=372:
+		// BWT = 11etu + (2^BWI x 960 x 372 x D / F)
+		// Which is the same conclusion that EMV comes to below...
+
+		// From EMV Book 1, version 4.3 (Nov 2011), section 9.2.4.2.2:
+		// BWT = (((2^BWI x 960 x 372 x D / F) + 11)etu; where D is Di and F is Fi
+
+		// And finally, after all that thinking...
+		unsigned int Di = atr_info->global.Di;
+		unsigned int Fi = atr_info->global.Fi;
+		atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
 	}
 
 	return 0;
