@@ -36,6 +36,7 @@ static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_inf
 static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TCi(uint8_t protocol, unsigned int i, uint8_t TCi, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -125,6 +126,8 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 				case 1: r = iso7816_atr_parse_TC1(*atr_info->TC[i], atr_info); break;
 				// Parse TC2
 				case 2: r = iso7816_atr_parse_TC2(*atr_info->TC[i], atr_info); break;
+				// Parse TCi for i>=3
+				default: r = iso7816_atr_parse_TCi(protocol, i, *atr_info->TC[i], atr_info); break;
 			}
 			if (r) {
 				return r;
@@ -244,6 +247,7 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	// - IFSC = 32 (for protocol T=1)
 	// - CWI = 13 (from which CWT is computed for protocol T=1)
 	// - BWI = 4 (from which BWT is computed for protocol T=1)
+	// - Error detection code LRC (for protocol T=1)
 
 	// TA1 default
 	iso7816_atr_parse_TA1(0x11, atr_info);
@@ -272,6 +276,9 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 
 	// TB3 default (for protocol T=1)
 	iso7816_atr_parse_TBi(ISO7816_ATR_Tx_PROTOCOL_T1, 3, 0x4D, atr_info);
+
+	// TC3 default (for protocol T=1)
+	iso7816_atr_parse_TCi(ISO7816_ATR_Tx_PROTOCOL_T1, 3, 0x00, atr_info);
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -566,6 +573,21 @@ static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, 
 		unsigned int Di = atr_info->global.Di;
 		unsigned int Fi = atr_info->global.Fi;
 		atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
+	}
+
+	return 0;
+}
+
+static int iso7816_atr_parse_TCi(uint8_t protocol, unsigned int i, uint8_t TCi, struct iso7816_atr_info_t* atr_info)
+{
+	// Protocol T=1 parameters
+	if (protocol == ISO7816_ATR_Tx_PROTOCOL_T1) {
+		// First TC for T=1 indicates the error detection code to be used (ISO 7816-3:2006, 11.4.4)
+		if (TCi & ISO7816_ATR_TCi_ERROR_MASK) {
+			atr_info->protocol_T1.error_detection_code = ISO7816_ERROR_DETECTION_CODE_CRC;
+		} else {
+			atr_info->protocol_T1.error_detection_code = ISO7816_ERROR_DETECTION_CODE_LRC;
+		}
 	}
 
 	return 0;

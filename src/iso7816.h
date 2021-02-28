@@ -70,6 +70,9 @@ __BEGIN_DECLS
 #define ISO7816_ATR_TBi_BWI_MASK        (0xF0) ///< TB3 mask for BWI value, which encodes BWT
 #define ISO7816_ATR_TBi_BWI_SHIFT       (4)    ///< TB3 bitshift for BWI value
 
+// ATR: Interface byte TCi (for i>=3) definitions
+#define ISO7816_ATR_TCi_ERROR_MASK      (0x01) ///< TC3 bit indicating the error detection code
+
 // ATR: Historical byte definitions
 #define ISO7816_ATR_T1_COMPACT_TLV_SI   (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
 #define ISO7816_ATR_T1_DIR_DATA_REF     (0x10) ///< Subsequent historical byte is DIR data reference
@@ -94,6 +97,12 @@ enum iso7816_atr_spu_t {
 	ISO7816_SPU_NOT_USED = 0,                  ///< SPU / C6 not used (Default)
 	ISO7816_SPU_STANDARD,                      ///< Standard usage of SPU / C6
 	ISO7816_SPU_PROPRIETARY,                   ///< Proprietary usage of SPU / C6
+};
+
+/// ATR info: Error detection code for protocol T=1
+enum iso7816_atr_error_detection_code_t {
+	ISO7816_ERROR_DETECTION_CODE_LRC = 0,      ///< Longitudinal Redundancy Check (LRC)
+	ISO7816_ERROR_DETECTION_CODE_CRC,          ///< Cyclic Redundancy Check (CRC)
 };
 
 struct iso7816_atr_info_t {
@@ -238,6 +247,9 @@ struct iso7816_atr_info_t {
 		// Interface parameters provided by TBi for i>=3
 		unsigned int CWT; ///< Character Waiting Time (CWT) for protocol T=1
 		unsigned int BWT; ///< Block Waiting Time (BWT) for protocol T=1
+
+		// Interface parameters provided by TCi for i>=3
+		enum iso7816_atr_error_detection_code_t error_detection_code; ///< Error detection code for protocol T=1
 	} protocol_T1; ///< Parameters encoded by protocol specific interface bytes for protocol T=1
 
 	struct {
