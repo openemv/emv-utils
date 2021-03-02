@@ -102,9 +102,17 @@ static void print_atr(pcsc_reader_ctx_t reader)
 			);
 		}
 
+		// Print TBi
 		if (atr_info.TB[i]) {
-			printf("  TB%zu = 0x%02X\n", i, *atr_info.TB[i]);
+			printf("  TB%zu = 0x%02X: %s\n", i, *atr_info.TB[i],
+				iso7816_atr_TBi_get_string(&atr_info, i, str, sizeof(str))
+			);
+		} else if (i < 3) {
+			printf("  TB%zu absent: %s\n", i,
+				iso7816_atr_TBi_get_string(&atr_info, i, str, sizeof(str))
+			);
 		}
+
 		if (atr_info.TC[i]) {
 			printf("  TC%zu = 0x%02X\n", i, *atr_info.TC[i]);
 		}

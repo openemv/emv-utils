@@ -724,6 +724,40 @@ const char* iso7816_atr_TAi_get_string(const struct iso7816_atr_info_t* atr_info
 	return str;
 }
 
+const char* iso7816_atr_TBi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len)
+{
+	if (!atr_info) {
+		return NULL;
+	}
+	if (i < 1 || i > 4) {
+		return NULL;
+	}
+
+	// NOTE: It is not necessary to check atr_info->TB[i] here. Even if TBi is
+	// absent, atr_info will nonetheless indicate the defaults.
+
+	// For TB1
+	if (i == 1) {
+		// If TB1 is present and indicates that Vpp is connected
+		if (atr_info->TB[1] &&
+			atr_info->global.Vpp_connected
+		) {
+			snprintf(str, str_len,
+				"Vpp is connected; Vpp=%umV; Ipp=%umA",
+				atr_info->global.Vpp_course,
+				atr_info->global.Ipp
+			);
+		} else {
+			snprintf(str, str_len, "Vpp is not connected");
+		}
+
+		return str;
+	}
+
+	snprintf(str, str_len, "Unimplemented");
+	return str;
+}
+
 const char* iso7816_atr_TDi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len)
 {
 	int r;
