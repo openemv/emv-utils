@@ -85,13 +85,23 @@ static void print_atr(pcsc_reader_ctx_t reader)
 		if (atr_info.TA[i] ||
 			atr_info.TB[i] ||
 			atr_info.TC[i] ||
-			atr_info.TD[i]
+			atr_info.TD[i] ||
+			i < 3
 		) {
 			printf("  ----\n");
 		}
+
+		// Print TAi
 		if (atr_info.TA[i]) {
-			printf("  TA%zu = 0x%02X\n", i, *atr_info.TA[i]);
+			printf("  TA%zu = 0x%02X: %s\n", i, *atr_info.TA[i],
+				iso7816_atr_TAi_get_string(&atr_info, i, str, sizeof(str))
+			);
+		} else if (i < 3) {
+			printf("  TA%zu absent: %s\n", i,
+				iso7816_atr_TAi_get_string(&atr_info, i, str, sizeof(str))
+			);
 		}
+
 		if (atr_info.TB[i]) {
 			printf("  TB%zu = 0x%02X\n", i, *atr_info.TB[i]);
 		}

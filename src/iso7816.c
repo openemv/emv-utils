@@ -694,6 +694,36 @@ const char* iso7816_atr_T0_get_string(const struct iso7816_atr_info_t* atr_info,
 	return str;
 }
 
+const char* iso7816_atr_TAi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len)
+{
+	if (!atr_info) {
+		return NULL;
+	}
+	if (i < 1 || i > 4) {
+		return NULL;
+	}
+
+	// NOTE: It is not necessary to check atr_info->TA[i] here. Even if TAi is
+	// absent, atr_info will nonetheless indicate the defaults.
+
+	// For TA1
+	if (i == 1) {
+		snprintf(str, str_len,
+			"Fi=%u; Di=%u; %u cycles/ETU @ max %.1fMHz; max %lu bit/s",
+			atr_info->global.Fi,
+			atr_info->global.Di,
+			atr_info->global.Fi / atr_info->global.Di,
+			atr_info->global.fmax,
+			((unsigned long)(atr_info->global.fmax * 1000000)) / (atr_info->global.Fi / atr_info->global.Di)
+		);
+
+		return str;
+	}
+
+	snprintf(str, str_len, "Unimplemented");
+	return str;
+}
+
 const char* iso7816_atr_TDi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len)
 {
 	int r;
