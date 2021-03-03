@@ -758,6 +758,32 @@ const char* iso7816_atr_TBi_get_string(const struct iso7816_atr_info_t* atr_info
 	return str;
 }
 
+const char* iso7816_atr_TCi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len)
+{
+	if (!atr_info) {
+		return NULL;
+	}
+	if (i < 1 || i > 4) {
+		return NULL;
+	}
+
+	// NOTE: It is not necessary to check atr_info->TC[i] here. Even if TBi is
+	// absent, atr_info will nonetheless indicate the defaults.
+
+	// For TC1
+	if (i == 1) {
+		snprintf(str, str_len, "N=%u; GT=%u",
+			atr_info->global.N,
+			atr_info->global.GT
+		);
+
+		return str;
+	}
+
+	snprintf(str, str_len, "Unimplemented");
+	return str;
+}
+
 const char* iso7816_atr_TDi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len)
 {
 	int r;

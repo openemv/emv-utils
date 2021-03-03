@@ -305,6 +305,16 @@ const char* iso7816_atr_TAi_get_string(const struct iso7816_atr_info_t* atr_info
 const char* iso7816_atr_TBi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len);
 
 /**
+ * Stringify ISO/IEC 7816 ATR interface byte TCi (eg TC1, TC2, etc)
+ * @param atr_info Parsed ATR info
+ * @param i The "i" in "TCi"
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso7816_atr_TCi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len);
+
+/**
  * Stringify ISO/IEC 7816 ATR interface byte TDi (eg TD1, TD2, etc)
  * @param atr_info Parsed ATR info
  * @param i The "i" in "TDi"
