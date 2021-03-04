@@ -30,7 +30,7 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TB1(uint8_t TB1, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_info);
-static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TDi, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_info);
@@ -137,10 +137,7 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 			atr_info->TD[i] = &atr_info->atr[atr_idx]; // preserve index for next loop iteration
 
 			// Extract interface parameters from interface bytes TDi
-			switch (i) {
-				// Parse TD1
-				case 1: r = iso7816_atr_parse_TD1(*atr_info->TD[i], atr_info); break;
-			}
+			r = iso7816_atr_parse_TDi(i, *atr_info->TD[i], atr_info);
 			if (r) {
 				return r;
 			}
@@ -259,7 +256,7 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	iso7816_atr_parse_TC1(0x00, atr_info);
 
 	// TD1 default
-	iso7816_atr_parse_TD1(0x00, atr_info);
+	iso7816_atr_parse_TDi(1, 0x00, atr_info);
 
 	// TA2 is absent by default
 
@@ -390,27 +387,64 @@ static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_inf
 	return 0;
 }
 
-static int iso7816_atr_parse_TD1(uint8_t TD1, struct iso7816_atr_info_t* atr_info)
+static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TD1, struct iso7816_atr_info_t* atr_info)
 {
 	unsigned int T = (TD1 & ISO7816_ATR_Tx_OTHER_MASK);
 
-	if (T != ISO7816_ATR_Tx_PROTOCOL_T0 &&
-		T != ISO7816_ATR_Tx_PROTOCOL_T1
-	) {
-		// Unsupported protocol
-		return 14;
-	}
-
-	// TD1 indicates the preferred card protocol
-	atr_info->global.protocol = T;
-
-	// Update GT when N is protocol specific
-	if (atr_info->global.N == 0xFF) {
-		if (T == ISO7816_ATR_Tx_PROTOCOL_T0) {
-			atr_info->global.GT = 12;
+	if (i == 1) {
+		// TD1 only allows T=0 and T=1 as the preferred card protocl
+		if (T != ISO7816_ATR_Tx_PROTOCOL_T0 &&
+			T != ISO7816_ATR_Tx_PROTOCOL_T1
+		) {
+			// Unsupported protocol
+			return 14;
 		}
-		if (T == ISO7816_ATR_Tx_PROTOCOL_T1) {
-			atr_info->global.GT = 11;
+
+		// TD1 indicates the preferred card protocol
+		atr_info->global.protocol = T;
+
+		// Update GT when N is protocol specific
+		if (atr_info->global.N == 0xFF) {
+			if (T == ISO7816_ATR_Tx_PROTOCOL_T0) {
+				atr_info->global.GT = 12;
+			}
+			if (T == ISO7816_ATR_Tx_PROTOCOL_T1) {
+				atr_info->global.GT = 11;
+			}
+		}
+	} else {
+		if (T != ISO7816_ATR_Tx_PROTOCOL_T0 &&
+			T != ISO7816_ATR_Tx_PROTOCOL_T1 &&
+			T != ISO7816_ATR_Tx_GLOBAL
+		) {
+			// Unsupported protocol
+			return 15;
+		}
+
+		// Update GT when T=15 is present in ATR
+		if (atr_info->global.N != 0xFF &&
+			T == ISO7816_ATR_Tx_GLOBAL
+		) {
+			// From ISO 7816-3:2006, 8.3, page 19:
+			// GT = 12 ETU + R x N/f
+			// If T=15 is present in the ATR, R = Fi/Di as defined by TA1
+			// Thus:
+			// GT = 12 ETU + Fi/Di x N/f
+			// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
+			// GT = 12 ETU + (Fi/Di x N/f) / (F/D x 1/f)
+			//    = 12 ETU + (Fi/Di x N/f) x (D/F x f)
+			//    = 12 ETU + Fi/Di x N x D/F
+			// Technically F and D need to be obtained from the card reader as
+			// they may be different from what is indicated in TA1. But for
+			// now we'll just assume they are the same. Thus:
+			// GT = 12 ETU + N
+			// Which looks exactly the same as when T=15 is absent, although
+			// this is supposed to be relative to the eventual negotiated ETU,
+			// and not just the initial ETU.
+
+			// I don't really know what I'm doing, so if this is wrong, please
+			// submit a merge request...
+			atr_info->global.GT = 12 + atr_info->global.N;
 		}
 	}
 
@@ -440,12 +474,12 @@ static int iso7816_atr_parse_TB2(uint8_t TB2, struct iso7816_atr_info_t* atr_inf
 
 	// If TB2 is present, TB1 must indicate that Vpp is present
 	if (!atr_info->global.Vpp_connected) {
-		return 15;
+		return 16;
 	}
 
 	// Programming voltage for active state according to ISO 7816-3:1997; deprecated in ISO 7816-3:2006
 	if (PI2 < 50 || PI2 > 250) {
-		return 16;
+		return 17;
 	}
 
 	// TB2 is present, therefore override Vpp; PI2 is multiples of 100mV
@@ -460,7 +494,7 @@ static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_inf
 
 	if (WI == 0) {
 		// Reserved by ISO 7816-3:2006, 10.2
-		return 17;
+		return 18;
 	}
 
 	// From ISO 7816-3:2006, 10.2:
@@ -494,12 +528,14 @@ static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, 
 		uint8_t X = (TAi & ISO7816_ATR_TAi_X_MASK) >> ISO7816_ATR_TAi_X_SHIFT;
 
 		if (Y < 0x01 || Y > 0x07) {
-			return 17;
+			// Unsupported card classes
+			return 19;
 		}
 		atr_info->global.card_classes = Y;
 
 		if (X > 0x03) {
-			return 18;
+			// Invalid clock stop indicator
+			return 20;
 		}
 		atr_info->global.clock_stop = X;
 	}
@@ -511,7 +547,7 @@ static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, 
 
 		if (IFSI == 0x00 || IFSI == 0xFF) {
 			// Reserved by ISO 7816-3:2006, 11.4.2
-			return 19;
+			return 21;
 		}
 		atr_info->protocol_T1.IFSI = IFSI;
 	}
@@ -543,13 +579,15 @@ static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, 
 
 		// Compute CWT according to ISO 7816-3:2006, 11.4.3
 		if (CWI > 15) {
-			return 20;
+			// Invalid CWI value
+			return 22;
 		}
 		atr_info->protocol_T1.CWT = 11 + (1 << CWI);
 
 		// Compute BWT according to ISO 7816-3:2006, 11.4.3
 		if (BWI > 9) {
-			return 21;
+			// Invalid BWI value
+			return 23;
 		}
 
 		// From ISO 7816-3:2006, 11.4.3:
