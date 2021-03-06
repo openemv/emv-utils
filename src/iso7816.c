@@ -463,7 +463,7 @@ static int iso7816_atr_parse_TA2(uint8_t TA2, struct iso7816_atr_info_t* atr_inf
 	atr_info->global.etu_is_implicit = (TA2 & ISO7816_ATR_TA2_IMPLICIT);
 
 	// TA2 indicates whether the specific/negotiable mode may change (eg after warm ATR)
-	atr_info->global.specific_mode_may_change = (TA2 & ISO7816_ATR_TA2_MODE);
+	atr_info->global.specific_mode_may_change = !(TA2 & ISO7816_ATR_TA2_MODE);
 
 	return 0;
 }
@@ -754,6 +754,22 @@ const char* iso7816_atr_TAi_get_string(const struct iso7816_atr_info_t* atr_info
 			atr_info->global.fmax,
 			((unsigned long)(atr_info->global.fmax * 1000000)) / (atr_info->global.Fi / atr_info->global.Di)
 		);
+
+		return str;
+	}
+
+	// For TA2
+	if (i == 2) {
+		if (atr_info->TA[2]) {
+			snprintf(str, str_len,
+				"Specific mode (%s); ETU%s; protocol T=%u",
+				atr_info->global.specific_mode_may_change ? "mutable" : "immutable",
+				atr_info->global.etu_is_implicit ? " is implicit" : "=Fi/Di",
+				atr_info->global.specific_mode_protocol
+			);
+		} else {
+			snprintf(str, str_len, "Negotiable mode");
+		}
 
 		return str;
 	}
