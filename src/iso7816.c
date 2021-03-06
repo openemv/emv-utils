@@ -808,6 +808,24 @@ const char* iso7816_atr_TBi_get_string(const struct iso7816_atr_info_t* atr_info
 		return str;
 	}
 
+	// For TB2
+	if (i == 2) {
+		// If TB1 and TB2 are both present and Vpp is connected
+		if (atr_info->TB[1] &&
+			atr_info->TB[2] &&
+			atr_info->global.Vpp_connected
+		) {
+			snprintf(str, str_len,
+				"Vpp=%umV",
+				atr_info->global.Vpp
+			);
+		} else {
+			snprintf(str, str_len, "Vpp is not connected");
+		}
+
+		return str;
+	}
+
 	snprintf(str, str_len, "Unimplemented");
 	return str;
 }
