@@ -38,9 +38,6 @@ __BEGIN_DECLS
 
 // ATR: Interface byte definitions for T0 or TD[x]
 #define ISO7816_ATR_Tx_OTHER_MASK       (0x0F) ///< T0 or TD[x] mask. When T0, for K value (number of historical bytes). When TD[x], for T value (protocol / global indicator)
-#define ISO7816_ATR_Tx_PROTOCOL_T0      (0x00) ///< TD[x] K value indicating protocol T=0
-#define ISO7816_ATR_Tx_PROTOCOL_T1      (0x01) ///< TD[x] K value indicating protocol T=1
-#define ISO7816_ATR_Tx_GLOBAL           (0x0F) ///< TD[x] K value indicating T=15: the subsequent interface bytes are global interface bytes; Not allowed for TD[1]
 #define ISO7816_ATR_Tx_TAi_PRESENT      (0x10) ///< T0 or TD[x] bit indicating interface byte TA(i=x+1) is present
 #define ISO7816_ATR_Tx_TBi_PRESENT      (0x20) ///< T0 or TD[x] bit indicating interface byte TB(i=x+1) is present
 #define ISO7816_ATR_Tx_TCi_PRESENT      (0x40) ///< T0 or TD[x] bit indicating interface byte TC(i=x+1) is present
@@ -77,6 +74,11 @@ __BEGIN_DECLS
 #define ISO7816_ATR_T1_COMPACT_TLV_SI   (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
 #define ISO7816_ATR_T1_DIR_DATA_REF     (0x10) ///< Subsequent historical byte is DIR data reference
 #define ISO7816_ATR_T1_COMPACT_TLV      (0x80) ///< Subsequent historical bytes are COMPACT-TLV encoded and many include status indicator
+
+// ATR info: Protocols
+#define ISO7816_PROTOCOL_T0             (0x00) ///< ISO/IEC 7816 protocol T=0 (also the K value in TD[x])
+#define ISO7816_PROTOCOL_T1             (0x01) ///< ISO/IEC 7816 protocol T=1 (also the K value in TD[x])
+#define ISO7816_PROTOCOL_T15            (0x0F) ///< ISO/IEC 7816 global interface indicator T=15 (also the K value in TD[x]; not allowed for TD1)
 
 // ATR info: Card class supply voltages
 #define ISO7816_CARD_CLASS_UNKNOWN      (0x00) ///< Card class supply voltage unknown

@@ -144,8 +144,8 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 
 			// If only T=0 is indicated, TCK is absent; otherwise it is mandatory
 			protocol = *atr_info->TD[i] & ISO7816_ATR_Tx_OTHER_MASK; // T value according to ISO 7816-3:2006, 8.2.3
-			if (protocol != ISO7816_ATR_Tx_PROTOCOL_T0 &&
-				protocol != ISO7816_ATR_Tx_GLOBAL
+			if (protocol != ISO7816_PROTOCOL_T0 &&
+				protocol != ISO7816_PROTOCOL_T15
 			) {
 				tck_mandatory = true;
 			}
@@ -266,16 +266,16 @@ static void iso7816_atr_populate_default_parameters(struct iso7816_atr_info_t* a
 	iso7816_atr_parse_TC2(0x0A, atr_info);
 
 	// TA3 default (for protocol T=1)
-	iso7816_atr_parse_TAi(ISO7816_ATR_Tx_PROTOCOL_T1, 3, 0x20, atr_info);
+	iso7816_atr_parse_TAi(ISO7816_PROTOCOL_T1, 3, 0x20, atr_info);
 
 	// TA3 default (for protocol T=15; global)
-	iso7816_atr_parse_TAi(ISO7816_ATR_Tx_GLOBAL, 3, ISO7816_CARD_CLASS_A_5V, atr_info);
+	iso7816_atr_parse_TAi(ISO7816_PROTOCOL_T15, 3, ISO7816_CARD_CLASS_A_5V, atr_info);
 
 	// TB3 default (for protocol T=1)
-	iso7816_atr_parse_TBi(ISO7816_ATR_Tx_PROTOCOL_T1, 3, 0x4D, atr_info);
+	iso7816_atr_parse_TBi(ISO7816_PROTOCOL_T1, 3, 0x4D, atr_info);
 
 	// TC3 default (for protocol T=1)
-	iso7816_atr_parse_TCi(ISO7816_ATR_Tx_PROTOCOL_T1, 3, 0x00, atr_info);
+	iso7816_atr_parse_TCi(ISO7816_PROTOCOL_T1, 3, 0x00, atr_info);
 }
 
 static int iso7816_atr_parse_TA1(uint8_t TA1, struct iso7816_atr_info_t* atr_info)
@@ -393,8 +393,8 @@ static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TD1, struct iso7816_atr
 
 	if (i == 1) {
 		// TD1 only allows T=0 and T=1 as the preferred card protocl
-		if (T != ISO7816_ATR_Tx_PROTOCOL_T0 &&
-			T != ISO7816_ATR_Tx_PROTOCOL_T1
+		if (T != ISO7816_PROTOCOL_T0 &&
+			T != ISO7816_PROTOCOL_T1
 		) {
 			// Unsupported protocol
 			return 14;
@@ -405,17 +405,17 @@ static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TD1, struct iso7816_atr
 
 		// Update GT when N is protocol specific
 		if (atr_info->global.N == 0xFF) {
-			if (T == ISO7816_ATR_Tx_PROTOCOL_T0) {
+			if (T == ISO7816_PROTOCOL_T0) {
 				atr_info->global.GT = 12;
 			}
-			if (T == ISO7816_ATR_Tx_PROTOCOL_T1) {
+			if (T == ISO7816_PROTOCOL_T1) {
 				atr_info->global.GT = 11;
 			}
 		}
 	} else {
-		if (T != ISO7816_ATR_Tx_PROTOCOL_T0 &&
-			T != ISO7816_ATR_Tx_PROTOCOL_T1 &&
-			T != ISO7816_ATR_Tx_GLOBAL
+		if (T != ISO7816_PROTOCOL_T0 &&
+			T != ISO7816_PROTOCOL_T1 &&
+			T != ISO7816_PROTOCOL_T15
 		) {
 			// Unsupported protocol
 			return 15;
@@ -423,7 +423,7 @@ static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TD1, struct iso7816_atr
 
 		// Update GT when T=15 is present in ATR
 		if (atr_info->global.N != 0xFF &&
-			T == ISO7816_ATR_Tx_GLOBAL
+			T == ISO7816_PROTOCOL_T15
 		) {
 			// From ISO 7816-3:2006, 8.3, page 19:
 			// GT = 12 ETU + R x N/f
@@ -520,7 +520,7 @@ static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_inf
 static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, struct iso7816_atr_info_t* atr_info)
 {
 	// Global interface parameters
-	if (protocol == ISO7816_ATR_Tx_GLOBAL) {
+	if (protocol == ISO7816_PROTOCOL_T15) {
 		// First TA for T=15 encodes class indicator Y in bits 1 to 6
 		uint8_t Y = (TAi & ISO7816_ATR_TAi_Y_MASK);
 
@@ -541,7 +541,7 @@ static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, 
 	}
 
 	// Protocol T=1 parameters
-	if (protocol == ISO7816_ATR_Tx_PROTOCOL_T1) {
+	if (protocol == ISO7816_PROTOCOL_T1) {
 		// First TA for T=1 encodes IFS (ISO 7816-3:2006, 11.4.2)
 		uint8_t IFSI = TAi;
 
@@ -558,7 +558,7 @@ static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, 
 static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, struct iso7816_atr_info_t* atr_info)
 {
 	// Global interface parameters
-	if (protocol == ISO7816_ATR_Tx_GLOBAL) {
+	if (protocol == ISO7816_PROTOCOL_T15) {
 		// First TB for T=15 indicates the use of SPU by the card (ISO 7816-3:2006, 8.3, page 20)
 		if (TBi) {
 			if ((TBi & ISO7816_ATR_TBi_SPU_MASK) == 0) {
@@ -572,7 +572,7 @@ static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, 
 	}
 
 	// Protocol T=1 parameters
-	if (protocol == ISO7816_ATR_Tx_PROTOCOL_T1) {
+	if (protocol == ISO7816_PROTOCOL_T1) {
 		// First TB for T=1 encodes CWI and BWI (ISO 7816-3:2006, 11.4.3)
 		uint8_t CWI = (TBi & ISO7816_ATR_TBi_CWI_MASK);
 		uint8_t BWI = (TBi & ISO7816_ATR_TBi_BWI_MASK) >> ISO7816_ATR_TBi_BWI_SHIFT;
@@ -619,7 +619,7 @@ static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, 
 static int iso7816_atr_parse_TCi(uint8_t protocol, unsigned int i, uint8_t TCi, struct iso7816_atr_info_t* atr_info)
 {
 	// Protocol T=1 parameters
-	if (protocol == ISO7816_ATR_Tx_PROTOCOL_T1) {
+	if (protocol == ISO7816_PROTOCOL_T1) {
 		// First TC for T=1 indicates the error detection code to be used (ISO 7816-3:2006, 11.4.4)
 		if (TCi & ISO7816_ATR_TCi_ERROR_MASK) {
 			atr_info->protocol_T1.error_detection_code = ISO7816_ERROR_DETECTION_CODE_CRC;
@@ -849,7 +849,7 @@ const char* iso7816_atr_TDi_get_string(const struct iso7816_atr_info_t* atr_info
 
 	// Write protocol value
 	T = *atr_info->TD[i] & ISO7816_ATR_Tx_OTHER_MASK;
-	if (T == ISO7816_ATR_Tx_GLOBAL) {
+	if (T == ISO7816_PROTOCOL_T15) {
 		r = snprintf(str_ptr, str_len, "; Global (T=%u)", T);
 	} else {
 		r = snprintf(str_ptr, str_len, "; Protocol T=%u", T);
