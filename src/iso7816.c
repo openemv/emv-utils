@@ -511,7 +511,7 @@ static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_inf
 	// WWT = 960 x D x WI ETUs (D and WI are returned in TA1 and TC2, respectively)
 
 	// And finally, after all that thinking...
-	atr_info->protocol_T0.WI = TC2;
+	atr_info->protocol_T0.WI = WI;
 	atr_info->protocol_T0.WT = atr_info->protocol_T0.WI * 960 * atr_info->global.Di;
 
 	return 0;
@@ -847,6 +847,16 @@ const char* iso7816_atr_TCi_get_string(const struct iso7816_atr_info_t* atr_info
 		snprintf(str, str_len, "N=%u; GT=%u",
 			atr_info->global.N,
 			atr_info->global.GT
+		);
+
+		return str;
+	}
+
+	// For TC2
+	if (i == 2) {
+		snprintf(str, str_len, "WI=%u; WT=%u",
+			atr_info->protocol_T0.WI,
+			atr_info->protocol_T0.WT
 		);
 
 		return str;
