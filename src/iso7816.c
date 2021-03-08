@@ -734,6 +734,9 @@ const char* iso7816_atr_T0_get_string(const struct iso7816_atr_info_t* atr_info,
 
 const char* iso7816_atr_TAi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len)
 {
+	int r;
+	char* str_ptr = str;
+
 	if (!atr_info) {
 		return NULL;
 	}
@@ -772,6 +775,78 @@ const char* iso7816_atr_TAi_get_string(const struct iso7816_atr_info_t* atr_info
 		}
 
 		return str;
+	}
+
+	// For TAi when i >= 3
+	if (i >= 3 && atr_info->TA[i]) {
+		// If TA[i] is present, TD[i-1] must have been present
+		if (!atr_info->TD[i-1]) {
+			// atr_info is invalid
+			return NULL;
+		}
+
+		// Extract protocol from previous TDi interface byte for subsequent
+		// protocol specific interface bytes
+		uint8_t T = *atr_info->TD[i-1] & ISO7816_ATR_Tx_OTHER_MASK;
+
+		// For first TA for T=15
+		if (T == ISO7816_PROTOCOL_T15) {
+			const char* clock_stop_str = "";
+			switch (atr_info->global.clock_stop) {
+				case ISO7816_CLOCK_STOP_NOT_SUPPORTED: clock_stop_str = "Not supported"; break;
+				case ISO7816_CLOCK_STOP_STATE_L: clock_stop_str = "State L"; break;
+				case ISO7816_CLOCK_STOP_STATE_H: clock_stop_str = "State H"; break;
+				case ISO7816_CLOCK_STOP_NO_PREFERENCE: clock_stop_str = "No preference"; break;
+			}
+
+			r = snprintf(str_ptr, str_len, "Clock stop: %s; Class: ", clock_stop_str);
+			if (r >= str_len) {
+				// Not enough space in string buffer; return truncated content
+				return str;
+			}
+			str_ptr += r;
+			str_len -= r;
+
+			const char* add_comma = "";
+			if (atr_info->global.card_classes & ISO7816_CARD_CLASS_A_5V) {
+				r = snprintf(str_ptr, str_len, "A (5V)");
+				if (r >= str_len) {
+					// Not enough space in string buffer; return truncated content
+					return str;
+				}
+				str_ptr += r;
+				str_len -= r;
+				add_comma = ", ";
+			}
+			if (atr_info->global.card_classes & ISO7816_CARD_CLASS_B_3V) {
+				r = snprintf(str_ptr, str_len, "%sB (3V)", add_comma);
+				if (r >= str_len) {
+					// Not enough space in string buffer; return truncated content
+					return str;
+				}
+				str_ptr += r;
+				str_len -= r;
+				add_comma = ", ";
+			}
+			if (atr_info->global.card_classes & ISO7816_CARD_CLASS_C_1V8) {
+				r = snprintf(str_ptr, str_len, "%sC (1.8V)", add_comma);
+				if (r >= str_len) {
+					// Not enough space in string buffer; return truncated content
+					return str;
+				}
+				str_ptr += r;
+				str_len -= r;
+				add_comma = ", ";
+			}
+
+			return str;
+		}
+
+		// For first TA for T=1
+		if (T == ISO7816_PROTOCOL_T1) {
+			snprintf(str, str_len, "IFSI=%u", atr_info->protocol_T1.IFSI);
+			return str;
+		}
 	}
 
 	snprintf(str, str_len, "Unimplemented");
