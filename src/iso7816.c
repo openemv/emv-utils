@@ -901,6 +901,48 @@ const char* iso7816_atr_TBi_get_string(const struct iso7816_atr_info_t* atr_info
 		return str;
 	}
 
+	// For TBi when i >= 3
+	if (i >= 3 && atr_info->TB[i]) {
+		// If TB[i] is present, TD[i-1] must have been present
+		if (!atr_info->TD[i-1]) {
+			// atr_info is invalid
+			return NULL;
+		}
+
+		// Extract protocol from previous TDi interface byte for subsequent
+		// protocol specific interface bytes
+		uint8_t T = *atr_info->TD[i-1] & ISO7816_ATR_Tx_OTHER_MASK;
+
+		// For first TB for T=15
+		if (T == ISO7816_PROTOCOL_T15) {
+			switch (atr_info->global.spu) {
+				case ISO7816_SPU_NOT_USED:
+					snprintf(str, str_len, "SPU not used");
+					break;
+
+				case ISO7816_SPU_STANDARD:
+					snprintf(str, str_len, "Standard usage of SPU");
+					break;
+
+				case ISO7816_SPU_PROPRIETARY:
+					snprintf(str, str_len, "Proprietary usage of SPU");
+					break;
+			}
+
+			return str;
+		}
+
+		// For first TB for T=1
+		if (T == ISO7816_PROTOCOL_T1) {
+			snprintf(str, str_len,
+				"CWT=%u; BWT=%u",
+				atr_info->protocol_T1.CWT,
+				atr_info->protocol_T1.BWT
+			);
+			return str;
+		}
+	}
+
 	snprintf(str, str_len, "Unimplemented");
 	return str;
 }
