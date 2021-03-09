@@ -979,6 +979,34 @@ const char* iso7816_atr_TCi_get_string(const struct iso7816_atr_info_t* atr_info
 		return str;
 	}
 
+	// For TCi when i >= 3
+	if (i >= 3 && atr_info->TC[i]) {
+		// If TC[i] is present, TD[i-1] must have been present
+		if (!atr_info->TD[i-1]) {
+			// atr_info is invalid
+			return NULL;
+		}
+
+		// Extract protocol from previous TDi interface byte for subsequent
+		// protocol specific interface bytes
+		uint8_t T = *atr_info->TD[i-1] & ISO7816_ATR_Tx_OTHER_MASK;
+
+		// For first TC for T=15
+		if (T == ISO7816_PROTOCOL_T1) {
+			switch (atr_info->protocol_T1.error_detection_code) {
+				case ISO7816_ERROR_DETECTION_CODE_LRC:
+					snprintf(str, str_len, "Longitudinal Redundancy Check (LRC)");
+					break;
+
+				case ISO7816_ERROR_DETECTION_CODE_CRC:
+					snprintf(str, str_len, "Cyclic Redundancy Check (CRC)");
+					break;
+			}
+
+			return str;
+		}
+	}
+
 	snprintf(str, str_len, "Unimplemented");
 	return str;
 }
