@@ -243,11 +243,16 @@ struct iso7816_atr_info_t {
 	} protocol_T0; ///< Parameters encoded by protocol specific interface bytes for protocol T=0
 
 	struct {
+		// Interface parameters provided by TC1
+		unsigned int CGT; ///< Character Guard Time in ETU
+
 		// Interface parameters provided by TAi for i>=3
 		unsigned int IFSI; ///< Information Field Size Integer (IFSI) for protocol T=1
 
 		// Interface parameters provided by TBi for i>=3
+		unsigned int CWI; ///< Character Waiting Time Integer (CWI) for protocol T=1
 		unsigned int CWT; ///< Character Waiting Time (CWT) for protocol T=1
+		unsigned int BWI; ///< Block Waiting Time Integer (BWI) for protocol T=1
 		unsigned int BWT; ///< Block Waiting Time (BWT) for protocol T=1
 
 		// Interface parameters provided by TCi for i>=3

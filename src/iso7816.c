@@ -37,6 +37,8 @@ static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_inf
 static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, struct iso7816_atr_info_t* atr_info);
 static int iso7816_atr_parse_TCi(uint8_t protocol, unsigned int i, uint8_t TCi, struct iso7816_atr_info_t* atr_info);
+static void iso7816_compute_gt(struct iso7816_atr_info_t* atr_info);
+static void iso7816_compute_wt(struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -154,6 +156,10 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 			break;
 		}
 	}
+
+	// Compute various derived parameters
+	iso7816_compute_gt(atr_info);
+	iso7816_compute_wt(atr_info);
 
 	if (atr_idx > atr_info->atr_len) {
 		// Insufficient ATR bytes for interface bytes
@@ -363,26 +369,7 @@ static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_inf
 {
 	atr_info->global.N = TC1;
 
-	if (atr_info->global.N != 0xFF) {
-		// From ISO 7816-3:2006, 8.3, page 19:
-		// GT = 12 ETU + R x N/f
-		// If T=15 is absent in the ATR, R = F/D
-		// If T=15 is present in the ATR, R = Fi/Di as defined by TA1
-		// Thus we assume T=15 is absent for now and then update it when parsing TDi
-
-		// For T=15 absent:
-		// GT = 12 ETU + F/D x N/f
-		// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
-		// GT = 12 ETU + N x 1 ETU
-
-		// Thus we can simplify it to...
-		atr_info->global.GT = 12 + atr_info->global.N;
-	} else {
-		// N=255 is protocol specific
-		// GT will be updated when parsing TD1
-		// T=0: GT = 12 ETU
-		// T=1: GT = 11 ETU
-	}
+	// NOTE: GT will be computed in iso7816_compute_gt()
 
 	return 0;
 }
@@ -402,16 +389,6 @@ static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TD1, struct iso7816_atr
 
 		// TD1 indicates the preferred card protocol
 		atr_info->global.protocol = T;
-
-		// Update GT when N is protocol specific
-		if (atr_info->global.N == 0xFF) {
-			if (T == ISO7816_PROTOCOL_T0) {
-				atr_info->global.GT = 12;
-			}
-			if (T == ISO7816_PROTOCOL_T1) {
-				atr_info->global.GT = 11;
-			}
-		}
 	} else {
 		if (T != ISO7816_PROTOCOL_T0 &&
 			T != ISO7816_PROTOCOL_T1 &&
@@ -419,32 +396,6 @@ static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TD1, struct iso7816_atr
 		) {
 			// Unsupported protocol
 			return 15;
-		}
-
-		// Update GT when T=15 is present in ATR
-		if (atr_info->global.N != 0xFF &&
-			T == ISO7816_PROTOCOL_T15
-		) {
-			// From ISO 7816-3:2006, 8.3, page 19:
-			// GT = 12 ETU + R x N/f
-			// If T=15 is present in the ATR, R = Fi/Di as defined by TA1
-			// Thus:
-			// GT = 12 ETU + Fi/Di x N/f
-			// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
-			// GT = 12 ETU + (Fi/Di x N/f) / (F/D x 1/f)
-			//    = 12 ETU + (Fi/Di x N/f) x (D/F x f)
-			//    = 12 ETU + Fi/Di x N x D/F
-			// Technically F and D need to be obtained from the card reader as
-			// they may be different from what is indicated in TA1. But for
-			// now we'll just assume they are the same. Thus:
-			// GT = 12 ETU + N
-			// Which looks exactly the same as when T=15 is absent, although
-			// this is supposed to be relative to the eventual negotiated ETU,
-			// and not just the initial ETU.
-
-			// I don't really know what I'm doing, so if this is wrong, please
-			// submit a merge request...
-			atr_info->global.GT = 12 + atr_info->global.N;
 		}
 	}
 
@@ -497,22 +448,9 @@ static int iso7816_atr_parse_TC2(uint8_t TC2, struct iso7816_atr_info_t* atr_inf
 		return 18;
 	}
 
-	// From ISO 7816-3:2006, 10.2:
-	// WT = WI x 960 x Fi/f
-	// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
-	// WT = WI x 960 x Fi/f / (F/D x 1/f) ETU
-	//    = WI x 960 x Fi/f x (D/F x f) ETU
-	//    = WI x 960 x Fi x D / F ETU
-	// And if we assume F is as indicated in TA1, thus Fi, then:
-	// WT = WI x 960 x D ETU
-	// Which is the same conclusion that EMV comes to below...
-
-	// From EMV Book 1, version 4.3 (Nov 2011), section 9.2.2.1:
-	// WWT = 960 x D x WI ETUs (D and WI are returned in TA1 and TC2, respectively)
-
-	// And finally, after all that thinking...
 	atr_info->protocol_T0.WI = WI;
-	atr_info->protocol_T0.WT = atr_info->protocol_T0.WI * 960 * atr_info->global.Di;
+
+	// NOTE: WT will be computed in iso7816_compute_wt()
 
 	return 0;
 }
@@ -522,9 +460,11 @@ static int iso7816_atr_parse_TAi(uint8_t protocol, unsigned int i, uint8_t TAi, 
 	// Global interface parameters
 	if (protocol == ISO7816_PROTOCOL_T15) {
 		// First TA for T=15 encodes class indicator Y in bits 1 to 6
+		// (ISO 7816-3:2006, 8.3, page 20)
 		uint8_t Y = (TAi & ISO7816_ATR_TAi_Y_MASK);
 
 		// First TA for T=15 encodes clock stop indicator X in bits 7 and 8
+		// (ISO 7816-3:2006, 8.3, page 20)
 		uint8_t X = (TAi & ISO7816_ATR_TAi_X_MASK) >> ISO7816_ATR_TAi_X_SHIFT;
 
 		if (Y < 0x01 || Y > 0x07) {
@@ -577,40 +517,23 @@ static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, 
 		uint8_t CWI = (TBi & ISO7816_ATR_TBi_CWI_MASK);
 		uint8_t BWI = (TBi & ISO7816_ATR_TBi_BWI_MASK) >> ISO7816_ATR_TBi_BWI_SHIFT;
 
-		// Compute CWT according to ISO 7816-3:2006, 11.4.3
+		// Verify CWT according to ISO 7816-3:2006, 11.4.3
 		if (CWI > 15) {
 			// Invalid CWI value
 			return 22;
 		}
-		atr_info->protocol_T1.CWT = 11 + (1 << CWI);
+		atr_info->protocol_T1.CWI = CWI;
 
-		// Compute BWT according to ISO 7816-3:2006, 11.4.3
+		// NOTE: CWT will be computed in iso7816_compute_wt()
+
+		// Verify BWT according to ISO 7816-3:2006, 11.4.3
 		if (BWI > 9) {
 			// Invalid BWI value
 			return 23;
 		}
+		atr_info->protocol_T1.BWI = BWI;
 
-		// From ISO 7816-3:2006, 11.4.3:
-		// BWT = 11etu + 2^BWI x 960 x Fd / f; where Fd is default F=372 and f is frequency
-		// NOTE: This formula specifies the first term of the sum in ETUs, but not the second
-		// part. Therefore, to convert the second term of the sum to ETUs, we must divide the
-		// second term by ETU, as defined relative to F and D. Thus:
-		// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
-		// BWT = 11etu + (2^BWI x 960 x Fd / f) / (F/D x 1/f)
-		//     = 11etu + (2^BWI x 960 x Fd / f) x (D/F x f)
-		//     = 11etu + (2^BWI x 960 x Fd) x (D/F)
-		//     = 11etu + (2^BWI x 960 x Fd x D / F)
-		// And given that Fd is default F=372:
-		// BWT = 11etu + (2^BWI x 960 x 372 x D / F)
-		// Which is the same conclusion that EMV comes to below...
-
-		// From EMV Book 1, version 4.3 (Nov 2011), section 9.2.4.2.2:
-		// BWT = (((2^BWI x 960 x 372 x D / F) + 11)etu; where D is Di and F is Fi
-
-		// And finally, after all that thinking...
-		unsigned int Di = atr_info->global.Di;
-		unsigned int Fi = atr_info->global.Fi;
-		atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
+		// NOTE: BWT will be computed in iso7816_compute_wt()
 	}
 
 	return 0;
@@ -629,6 +552,126 @@ static int iso7816_atr_parse_TCi(uint8_t protocol, unsigned int i, uint8_t TCi, 
 	}
 
 	return 0;
+}
+
+static void iso7816_compute_gt(struct iso7816_atr_info_t* atr_info)
+{
+	bool T15_present = false;
+
+	// Determine whether T=15 is present
+	for (unsigned int i = 1; i < 5; ++i) {
+		if (atr_info->TD[i] &&
+			(*atr_info->TD[i] & ISO7816_ATR_Tx_OTHER_MASK) == ISO7816_PROTOCOL_T15
+		) {
+			T15_present = true;
+			break;
+		}
+	}
+
+	if (atr_info->global.N != 0xFF) {
+		// From ISO 7816-3:2006, 8.3, page 19:
+		// If N is 0 to 254, then GT = 12 ETU + R x N/f
+		// If T=15 is absent in the ATR, R = F/D as used for computing ETU
+		// If T=15 is present in the ATR, R = Fi/Di as defined by TA1
+
+		if (!T15_present) {
+			// For T=15 absent:
+			// GT = 12 ETU + R x N/f
+			//    = 12 ETU + F/D x N/f
+			// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
+			// GT = 12 + N x 1 ETU
+
+			// Thus we can simplify it to...
+			atr_info->global.GT = 12 + atr_info->global.N;
+		} else {
+			// For T=15 present:
+			// GT = 12 ETU + R x N/f
+			//      12 ETU + Fi/Di x N/f
+			// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
+			// GT = 12 ETU + (Fi/Di x N/f) / (F/D x 1/f)
+			//    = 12 ETU + (Fi/Di x N/f) x (D/F x f)
+			//    = 12 ETU + Fi/Di x N x D/F
+			// Technically F and D need to be obtained from the card reader as
+			// they may be different from what is indicated in TA1. But for
+			// now we'll just assume they are the same. Thus:
+			// GT = 12 ETU + N
+			// Which looks exactly the same as when T=15 is absent, although
+			// this is supposed to be relative to the eventual negotiated ETU,
+			// and not just the initial ETU.
+
+			// I don't really know what I'm doing, so if this is wrong, please
+			// submit a merge request...
+			atr_info->global.GT = 12 + atr_info->global.N;
+		}
+
+		// From ISO 7816-3:2006, 11.2:
+		// T=1: if N is 0 to 254, then CGT = GT
+		atr_info->protocol_T1.CGT = atr_info->global.GT;
+	} else {
+		// From ISO 7816-3:2006, 8.3, page 19:
+		// The use of N=255 is protocol dependent
+		// T=0: GT = 12 ETU
+		// T=1: GT = 11 ETU (see ISO 7816-3:2006, 11.2)
+
+		if (atr_info->global.protocol == ISO7816_PROTOCOL_T0) {
+			atr_info->global.GT = 12;
+		}
+		if (atr_info->global.protocol == ISO7816_PROTOCOL_T1) {
+			atr_info->global.GT = 11;
+		}
+
+		// From ISO 7816-3:2006, 11.2:
+		// T=1: if N=256, then CGT = 11 ETU
+		atr_info->protocol_T1.CGT = 11;
+	}
+}
+
+static void iso7816_compute_wt(struct iso7816_atr_info_t* atr_info)
+{
+	unsigned int Di = atr_info->global.Di;
+	unsigned int Fi = atr_info->global.Fi;
+	unsigned int WI = atr_info->protocol_T0.WI;
+	unsigned int CWI = atr_info->protocol_T1.CWI;
+	unsigned int BWI = atr_info->protocol_T1.BWI;
+
+	// From ISO 7816-3:2006, 10.2:
+	// WT = WI x 960 x Fi/f
+	// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
+	// WT = WI x 960 x Fi/f / (F/D x 1/f) ETU
+	//    = WI x 960 x Fi/f x (D/F x f) ETU
+	//    = WI x 960 x Fi x D / F ETU
+	// And if we assume F is as indicated in TA1, thus Fi, then:
+	// WT = WI x 960 x D ETU
+	// Which is the same conclusion that EMV comes to below...
+
+	// From EMV Book 1, version 4.3 (Nov 2011), section 9.2.2.1:
+	// WWT = 960 x D x WI ETUs (D and WI are returned in TA1 and TC2, respectively)
+
+	// And finally, after all that thinking...
+	atr_info->protocol_T0.WT = WI * 960 * Di;
+
+	// Compute CWT according to ISO 7816-3:2006, 11.4.3
+	atr_info->protocol_T1.CWT = 11 + (1 << CWI);
+
+	// From ISO 7816-3:2006, 11.4.3:
+	// BWT = 11etu + 2^BWI x 960 x Fd / f; where Fd is default F=372 and f is frequency
+	// NOTE: This formula specifies the first term of the sum in ETUs, but not the second
+	// part. Therefore, to convert the second term of the sum to ETUs, we must divide the
+	// second term by ETU, as defined relative to F and D. Thus:
+	// Given 1 ETU = F/D x 1/f (see ISO 7816-3:2006, 7.1):
+	// BWT = 11etu + (2^BWI x 960 x Fd / f) / (F/D x 1/f)
+	//     = 11etu + (2^BWI x 960 x Fd / f) x (D/F x f)
+	//     = 11etu + (2^BWI x 960 x Fd) x (D/F)
+	//     = 11etu + (2^BWI x 960 x Fd x D / F)
+	// And given that Fd is default F=372:
+	// BWT = 11etu + (2^BWI x 960 x 372 x D / F)
+	// Which is the same conclusion that EMV comes to below...
+
+	// From EMV Book 1, version 4.3 (Nov 2011), section 9.2.4.2.2:
+	// BWT = (((2^BWI x 960 x 372 x D / F) + 11)etu; where D is Di and F is Fi
+
+	// And finally, after all that thinking...
+	atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
 }
 
 const char* iso7816_atr_TS_get_string(const struct iso7816_atr_info_t* atr_info)
