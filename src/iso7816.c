@@ -20,6 +20,7 @@
  */
 
 #include "iso7816.h"
+#include "iso7816_compact_tlv.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -39,6 +40,7 @@ static int iso7816_atr_parse_TBi(uint8_t protocol, unsigned int i, uint8_t TBi, 
 static int iso7816_atr_parse_TCi(uint8_t protocol, unsigned int i, uint8_t TCi, struct iso7816_atr_info_t* atr_info);
 static void iso7816_compute_gt(struct iso7816_atr_info_t* atr_info);
 static void iso7816_compute_wt(struct iso7816_atr_info_t* atr_info);
+static int iso7816_atr_parse_historical_bytes(const void* historical_bytes, size_t historical_bytes_len, struct iso7816_atr_info_t* atr_info);
 
 int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_info_t* atr_info)
 {
@@ -173,26 +175,36 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	if (atr_info->K_count) {
 		atr_info->T1 = atr_info->atr[atr_idx++];
 
-		// Store pointer to historical payload for later parsing
-		atr_info->historical_payload = &atr_info->atr[atr_idx];
+		// Store pointer to historical bytes for later parsing
+		atr_info->historical_bytes = &atr_info->atr[atr_idx];
 
+		// Compute historical byte length without T1
+		atr_info->historical_bytes_len = atr_info->K_count - 1;
+		atr_idx += atr_info->historical_bytes_len;
+
+		// Parse historical byte COMPACT-TLV and extract status indicator bytes
+		// See ISO 7816-4:2005, 8.1.1
 		switch (atr_info->T1) {
 			case ISO7816_ATR_T1_COMPACT_TLV_SI:
-				atr_idx += atr_info->K_count - 1 - 3; // without T1 and status indicator
-
 				// Store pointer to status indicator for later parsing
-				atr_info->status_indicator_bytes = &atr_info->atr[atr_idx];
-				atr_idx += 3;
+				atr_info->historical_bytes_len -= 3;
+				atr_info->status_indicator_bytes = atr_info->historical_bytes + atr_info->historical_bytes_len;
+
+				// Intentional fallthrough to COMPACT-TLV parsing
+
+			case ISO7816_ATR_T1_COMPACT_TLV:
+				r = iso7816_atr_parse_historical_bytes(atr_info->historical_bytes, atr_info->historical_bytes_len, atr_info);
+				if (r) {
+					return 5;
+				}
 				break;
 
 			case ISO7816_ATR_T1_DIR_DATA_REF:
-			case ISO7816_ATR_T1_COMPACT_TLV:
-				atr_idx += atr_info->K_count - 1; // without T1
+				// TODO: implement
 				break;
 
 			default:
 				// Proprietary historical bytes
-				atr_idx += atr_info->K_count - 1; // without T1
 				break;
 		}
 	}
@@ -200,14 +212,14 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	// Sanity check
 	if (atr_idx > atr_info->atr_len) {
 		// Internal parsing error
-		return 5;
+		return 6;
 	}
 
 	// Extract and verify TCK, if mandatory
 	if (tck_mandatory) {
 		if (atr_idx >= atr_info->atr_len) {
 			// T=1 is available but TCK is missing
-			return 6;
+			return 7;
 		}
 
 		// Extract TCK
@@ -220,7 +232,7 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		}
 		if (verify != 0) {
 			// TCK is invalid
-			return 7;
+			return 8;
 		}
 	}
 
@@ -672,6 +684,24 @@ static void iso7816_compute_wt(struct iso7816_atr_info_t* atr_info)
 
 	// And finally, after all that thinking...
 	atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
+}
+
+static int iso7816_atr_parse_historical_bytes(const void* historical_bytes, size_t historical_bytes_len, struct iso7816_atr_info_t* atr_info)
+{
+	int r;
+	struct iso7816_compact_tlv_itr_t itr;
+	struct iso7816_compact_tlv_t tlv;
+
+	r = iso7816_compact_tlv_itr_init(historical_bytes, historical_bytes_len, &itr);
+	if (r) {
+		return 24;
+	}
+
+	while ((r = iso7816_compact_tlv_itr_next(&itr, &tlv)) > 0) {
+		// TODO: capture known fields
+	}
+
+	return 0;
 }
 
 const char* iso7816_atr_TS_get_string(const struct iso7816_atr_info_t* atr_info)

@@ -188,8 +188,8 @@ struct iso7816_atr_info_t {
 	 */
 	uint8_t T1;
 
-	const uint8_t* historical_payload; ///< Historical byte payload after category indicator byte T1. NULL if absent.
-	size_t historical_payload_len; ///< Length of historical byte payload, excluding explicit status indicator
+	const uint8_t* historical_bytes; ///< Historical byte payload after category indicator byte T1. NULL if absent.
+	size_t historical_bytes_len; ///< Length of historical byte payload, excluding explicit status indicator
 
 	/**
 	 * Status indicator. Available when pointer is non-NULL. NULL if absent.
