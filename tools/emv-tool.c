@@ -141,23 +141,22 @@ static void print_atr(pcsc_reader_ctx_t reader)
 		printf("  ----\n");
 		print_atr_historical_bytes(&atr_info);
 
-		if (atr_info.status_indicator_bytes ||
-			atr_info.status_indicator.LCS ||
-			atr_info.status_indicator.SW1 ||
-			atr_info.status_indicator.SW2
-		) {
+		if (atr_info.status_indicator_bytes) {
 			printf("  ----\n");
-		}
-		if (atr_info.status_indicator_bytes || atr_info.status_indicator.LCS) {
-			printf("  LCS = %02u\n", atr_info.status_indicator.LCS);
-		}
-		if (atr_info.status_indicator_bytes ||
-			atr_info.status_indicator.SW1 ||
-			atr_info.status_indicator.SW2
-		) {
-			printf("  SW  = %02X%02X\n", atr_info.status_indicator.SW1, atr_info.status_indicator.SW2);
+
+			printf("  LCS = %02X: %s\n",
+				atr_info.status_indicator.LCS,
+				iso7816_lcs_get_string(atr_info.status_indicator.LCS)
+			);
+
+			if (atr_info.status_indicator.SW1 ||
+				atr_info.status_indicator.SW2
+			) {
+				printf("  SW  = %02X%02X\n", atr_info.status_indicator.SW1, atr_info.status_indicator.SW2);
+			}
 		}
 	}
+
 	printf("  ----\n");
 	printf("  TCK = 0x%02X\n", atr_info.TCK);
 }

@@ -107,6 +107,16 @@ enum iso7816_atr_error_detection_code_t {
 	ISO7816_ERROR_DETECTION_CODE_CRC,          ///< Cyclic Redundancy Check (CRC)
 };
 
+// Life cycle status bits
+#define ISO7816_LCS_NONE                (0x00) ///< No life cycle information
+#define ISO7816_LCS_CREATION            (0x01) ///< Creation state
+#define ISO7816_LCS_INITIALISATION      (0x03) ///< Initialisation state
+#define ISO7816_LCS_OPERATIONAL_MASK    (0xFD) ///< Operational state bitmask
+#define ISO7816_LCS_ACTIVATED           (0x05) ///< Operational state: activated
+#define ISO7816_LCS_DEACTIVATED         (0x04) ///< Operational state: deactivated
+#define ISO7816_LCS_TERMINATION_MASK    (0xFC) ///< Termination state bitmask
+#define ISO7816_LCS_TERMINATION         (0x0C) ///< Termination state
+
 struct iso7816_atr_info_t {
 	/**
 	 * Initial character TS indicates bit order and polarity.
@@ -343,6 +353,13 @@ const char* iso7816_atr_TDi_get_string(const struct iso7816_atr_info_t* atr_info
  * @return String. NULL for error.
  */
 const char* iso7816_atr_T1_get_string(const struct iso7816_atr_info_t* atr_info);
+
+/**
+ * Stringify ISO/IEC 7816 life cycle status byte (LCS)
+ * @param atr_info Parsed ATR info
+ * @return String. NULL for error.
+ */
+const char* iso7816_lcs_get_string(uint8_t lcs);
 
 __END_DECLS
 

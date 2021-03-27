@@ -1178,3 +1178,34 @@ const char* iso7816_atr_T1_get_string(const struct iso7816_atr_info_t* atr_info)
 
 	return "Proprietary";
 }
+
+const char* iso7816_lcs_get_string(uint8_t lcs)
+{
+	// See ISO 7816-4:2005, 5.3.3.2, table 13
+
+	if (lcs == ISO7816_LCS_NONE) {
+		return "No information given";
+	}
+
+	if (lcs == ISO7816_LCS_CREATION) {
+		return "Creation state";
+	}
+
+	if (lcs == ISO7816_LCS_INITIALISATION) {
+		return "Initialisation state";
+	}
+
+	if ((lcs & ISO7816_LCS_OPERATIONAL_MASK) == ISO7816_LCS_ACTIVATED) {
+		return "Operational state (activated)";
+	}
+
+	if ((lcs & ISO7816_LCS_OPERATIONAL_MASK) == ISO7816_LCS_DEACTIVATED) {
+		return "Operational state (deactivated)";
+	}
+
+	if ((lcs & ISO7816_LCS_TERMINATION_MASK) == ISO7816_LCS_TERMINATION) {
+		return "Termination state";
+	}
+
+	return "Proprietary";
+}
