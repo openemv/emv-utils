@@ -187,9 +187,10 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		// See ISO 7816-4:2005, 8.1.1
 		switch (atr_info->T1) {
 			case ISO7816_ATR_T1_COMPACT_TLV_SI:
-				// Store pointer to status indicator for later parsing
+				// Store status indicator bytes for later parsing
 				atr_info->historical_bytes_len -= 3;
 				atr_info->status_indicator_bytes = atr_info->historical_bytes + atr_info->historical_bytes_len;
+				atr_info->status_indicator_bytes_len = 3;
 
 				// Intentional fallthrough to COMPACT-TLV parsing
 
@@ -238,10 +239,24 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	}
 
 	// Extract status indicator, if available
+	// See ISO 7816-4:2005, 8.1.1.3
 	if (atr_info->status_indicator_bytes) {
-		atr_info->status_indicator.LCS = atr_info->status_indicator_bytes[0];
-		atr_info->status_indicator.SW1 = atr_info->status_indicator_bytes[1];
-		atr_info->status_indicator.SW2 = atr_info->status_indicator_bytes[2];
+		switch (atr_info->status_indicator_bytes_len) {
+			case 1:
+				atr_info->status_indicator.LCS = atr_info->status_indicator_bytes[0];
+				break;
+
+			case 2:
+				atr_info->status_indicator.SW1 = atr_info->status_indicator_bytes[0];
+				atr_info->status_indicator.SW2 = atr_info->status_indicator_bytes[1];
+				break;
+
+			case 3:
+				atr_info->status_indicator.LCS = atr_info->status_indicator_bytes[0];
+				atr_info->status_indicator.SW1 = atr_info->status_indicator_bytes[1];
+				atr_info->status_indicator.SW2 = atr_info->status_indicator_bytes[2];
+				break;
+		}
 	}
 
 	return 0;
@@ -699,7 +714,14 @@ static int iso7816_atr_parse_historical_bytes(const void* historical_bytes, size
 	}
 
 	while ((r = iso7816_compact_tlv_itr_next(&itr, &tlv)) > 0) {
-		// TODO: capture known fields
+		// Capture status indicator, if available
+		if (tlv.tag == ISO7816_COMPACT_TLV_SI) {
+			atr_info->status_indicator_bytes = tlv.value;
+			atr_info->status_indicator_bytes_len = tlv.length;
+		}
+	}
+	if (r) {
+		return 25;
 	}
 
 	return 0;

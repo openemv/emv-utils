@@ -28,6 +28,16 @@
 
 __BEGIN_DECLS
 
+#define ISO7816_COMPACT_TLV_COUNTRY_CODE        (0x1) ///< Country code (see ISO 3166-1)
+#define ISO7816_COMPACT_TLV_IIN                 (0x2) ///< Issuer identification number (see ISO 7812-1)
+#define ISO7816_COMPACT_TLV_CARD_SERVICE_DATA   (0x3) ///< Card service data (see ISO 7816-4:2005, 8.1.1.2.3, table 85)
+#define ISO7816_COMPACT_TLV_INITIAL_ACCESS_DATA (0x4) ///< Initial access data (see ISO 7816-4:2005, 8.1.1.2.4)
+#define ISO7816_COMPACT_TLV_CARD_ISSUER_DATA    (0x5) ///< Card issuer data
+#define ISO7816_COMPACT_TLV_PRE_ISSUING_DATA    (0x6) ///< Pre-issuing data
+#define ISO7816_COMPACT_TLV_CARD_CAPABILITIES   (0x7) ///< Card capabilities (see ISO 7816-4:2005, 8.1.1.2.7, table 86/87/88)
+#define ISO7816_COMPACT_TLV_SI                  (0x8) ///< Status indicator (see ISO 7816-4:2005, 8.1.1.3)
+#define ISO7816_COMPACT_TLV_AID                 (0xF) ///< Application identifier (see ISO 7816-4:2005, 8.1.1.2.2)
+
 /// ISO/IEC 7816 COMPACT-TLV iterator
 struct iso7816_compact_tlv_itr_t {
 	const void* ptr;

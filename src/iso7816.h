@@ -192,10 +192,16 @@ struct iso7816_atr_info_t {
 	size_t historical_bytes_len; ///< Length of historical byte payload, excluding explicit status indicator
 
 	/**
-	 * Status indicator. Available when pointer is non-NULL. NULL if absent.
+	 * Status indicator bytes. Available when pointer is non-NULL. NULL if absent.
 	 * @see @ref status_indicator for values
 	 */
 	const uint8_t* status_indicator_bytes;
+
+	/**
+	 * Number of status indicator bytes.
+	 * @see @ref status_indicator for values
+	 */
+	size_t status_indicator_bytes_len;
 
 	uint8_t TCK; ///< Check character. Not available when T=0 is the only available protocol. Otherwise mandatory.
 
