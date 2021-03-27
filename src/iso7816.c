@@ -173,6 +173,7 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	}
 
 	if (atr_info->K_count) {
+		// Category indicator byte
 		atr_info->T1 = atr_info->atr[atr_idx++];
 
 		// Store pointer to historical bytes for later parsing
@@ -1124,4 +1125,34 @@ const char* iso7816_atr_TDi_get_string(const struct iso7816_atr_info_t* atr_info
 	str_len -= r;
 
 	return str;
+}
+
+const char* iso7816_atr_T1_get_string(const struct iso7816_atr_info_t* atr_info)
+{
+	if (!atr_info) {
+		return NULL;
+	}
+	if (!atr_info->K_count) {
+		return NULL;
+	}
+
+	// See ISO 7816-4:2005, 8.1.1.1, table 83
+	switch (atr_info->T1) {
+		case ISO7816_ATR_T1_COMPACT_TLV_SI:
+			return "COMPACT-TLV followed by mandatory status indicator";
+
+		case ISO7816_ATR_T1_DIR_DATA_REF:
+			return "DIR data reference";
+
+		case ISO7816_ATR_T1_COMPACT_TLV:
+			return "COMPACT-TLV including optional status indicator";
+	}
+
+	if (atr_info->T1 > ISO7816_ATR_T1_COMPACT_TLV &&
+		atr_info->T1 <= 0x8F
+	) {
+		return "RFU";
+	}
+
+	return "Proprietary";
 }

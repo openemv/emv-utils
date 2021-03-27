@@ -132,7 +132,9 @@ static void print_atr(pcsc_reader_ctx_t reader)
 	}
 	if (atr_info.K_count) {
 		printf("  ----\n");
-		printf("  T1  = 0x%02X\n", atr_info.T1);
+		printf("  T1  = 0x%02X: %s\n", atr_info.T1,
+			iso7816_atr_T1_get_string(&atr_info)
+		);
 
 		if (atr_info.status_indicator_bytes ||
 			atr_info.status_indicator.LCS ||

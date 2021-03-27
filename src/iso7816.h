@@ -331,6 +331,13 @@ const char* iso7816_atr_TCi_get_string(const struct iso7816_atr_info_t* atr_info
  */
 const char* iso7816_atr_TDi_get_string(const struct iso7816_atr_info_t* atr_info, size_t i, char* str, size_t str_len);
 
+/**
+ * Stringify ISO/IEC 7816 ATR category indicator byte T1
+ * @param atr_info Parsed ATR info
+ * @return String. NULL for error.
+ */
+const char* iso7816_atr_T1_get_string(const struct iso7816_atr_info_t* atr_info);
+
 __END_DECLS
 
 #endif
