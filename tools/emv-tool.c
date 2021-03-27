@@ -21,8 +21,15 @@
 
 #include "pcsc.h"
 #include "iso7816.h"
+#include "iso7816_compact_tlv.h"
 
 #include <stdio.h>
+
+// Helper functions
+static void print_buf(const char* buf_name, const void* buf, size_t length);
+static const char* pcsc_get_reader_state_string(unsigned int reader_state);
+static void print_atr(pcsc_reader_ctx_t reader);
+static void print_atr_historical_bytes(struct iso7816_atr_info_t* atr_info);
 
 static void print_buf(const char* buf_name, const void* buf, size_t length)
 {
@@ -132,9 +139,7 @@ static void print_atr(pcsc_reader_ctx_t reader)
 	}
 	if (atr_info.K_count) {
 		printf("  ----\n");
-		printf("  T1  = 0x%02X: %s\n", atr_info.T1,
-			iso7816_atr_T1_get_string(&atr_info)
-		);
+		print_atr_historical_bytes(&atr_info);
 
 		if (atr_info.status_indicator_bytes ||
 			atr_info.status_indicator.LCS ||
@@ -155,6 +160,39 @@ static void print_atr(pcsc_reader_ctx_t reader)
 	}
 	printf("  ----\n");
 	printf("  TCK = 0x%02X\n", atr_info.TCK);
+}
+
+static void print_atr_historical_bytes(struct iso7816_atr_info_t* atr_info)
+{
+	int r;
+	struct iso7816_compact_tlv_itr_t itr;
+	struct iso7816_compact_tlv_t tlv;
+
+	printf("  T1  = 0x%02X: %s\n", atr_info->T1,
+		iso7816_atr_T1_get_string(atr_info)
+	);
+
+	r = iso7816_compact_tlv_itr_init(
+		atr_info->historical_bytes,
+		atr_info->historical_bytes_len,
+		&itr
+	);
+	if (r) {
+		printf("Failed to parse ATR historical bytes\n");
+		return;
+	}
+
+	while ((r = iso7816_compact_tlv_itr_next(&itr, &tlv)) > 0) {
+		printf("  %s: ", iso7816_compact_tlv_tag_get_string(tlv.tag));
+		for (size_t i = 0; i < tlv.length; ++i) {
+			printf("%s%02X", i ? " " : "", tlv.value[i]);
+		}
+		printf("\n");
+	}
+	if (r) {
+		printf("Failed to parse ATR historical bytes\n");
+		return;
+	}
 }
 
 int main(void)

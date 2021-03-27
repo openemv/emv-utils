@@ -86,3 +86,20 @@ int iso7816_compact_tlv_itr_next(struct iso7816_compact_tlv_itr_t* itr, struct i
 
 	return r;
 }
+
+const char* iso7816_compact_tlv_tag_get_string(uint8_t tag)
+{
+	switch (tag) {
+		case ISO7816_COMPACT_TLV_COUNTRY_CODE: return "Country code";
+		case ISO7816_COMPACT_TLV_IIN: return "Issuer identification number";
+		case ISO7816_COMPACT_TLV_CARD_SERVICE_DATA: return "Card service data";
+		case ISO7816_COMPACT_TLV_INITIAL_ACCESS_DATA: return "Initial access data";
+		case ISO7816_COMPACT_TLV_CARD_ISSUER_DATA: return "Card issuer data";
+		case ISO7816_COMPACT_TLV_PRE_ISSUING_DATA: return "Pre-issuing data";
+		case ISO7816_COMPACT_TLV_CARD_CAPABILITIES: return "Card capabilities";
+		case ISO7816_COMPACT_TLV_SI: return "Status indicator";
+		case ISO7816_COMPACT_TLV_AID: return "Application identifier (AID)";
+	}
+
+	return "Unknown";
+}

@@ -77,6 +77,13 @@ int iso7816_compact_tlv_itr_init(const void* buf, size_t len, struct iso7816_com
  */
 int iso7816_compact_tlv_itr_next(struct iso7816_compact_tlv_itr_t* itr, struct iso7816_compact_tlv_t* tlv);
 
+/**
+ * Stringify COMPACT-TLV element's tag
+ * @param tag COMPACT-TLV tag
+ * @return String. NULL for error.
+ */
+const char* iso7816_compact_tlv_tag_get_string(uint8_t tag);
+
 __END_DECLS
 
 #endif
