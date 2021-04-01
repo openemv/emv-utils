@@ -26,7 +26,9 @@ add_library(iso7816
 	src/iso7816.c
 	src/iso7816_compact_tlv.c
 )
+target_include_directories(iso7816 INTERFACE
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+)
 
 add_executable(emv-tool tools/emv-tool.c src/pcsc.c)
-target_include_directories(emv-tool PRIVATE src) # TODO: apply this via library dependency instead
 target_link_libraries(emv-tool iso7816 PCSCLite::PCSCLite)
