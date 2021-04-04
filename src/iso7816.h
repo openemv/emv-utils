@@ -117,7 +117,27 @@ enum iso7816_atr_error_detection_code_t {
 #define ISO7816_LCS_TERMINATION_MASK    (0xFC) ///< Termination state bitmask
 #define ISO7816_LCS_TERMINATION         (0x0C) ///< Termination state
 
+/**
+ * Parsed ATR information
+ *
+ * This structure represents the parsed and decoded ATR information. The
+ * interface bytes are stored as arrays of pointers for parsing convenience
+ * while their decoded parameters are stored in the various member structures.
+ *
+ * Interface bytes TA1, TB1, TC1, TA2, TB2 and TC2 are always global interface
+ * bytes, while TD1 indicates the preferred protocol (see global.protocol).
+ * Interface bytes TA3 and after can be either global or protocol specific,
+ * depending on the preceding TDi bytes.
+ *
+ * When category indicator byte T1 indicates that the historical bytes are in
+ * COMPACT-TLV format, they can be parsed using the functions in
+ * @c iso7816_compact_tlv.h
+ */
 struct iso7816_atr_info_t {
+	// Store ATR bytes for interface byte pointers to use
+	uint8_t atr[ISO7816_ATR_MAX_SIZE]; ///< ATR bytes
+	size_t atr_len; ///< Length of ATR in bytes
+
 	/**
 	 * Initial character TS indicates bit order and polarity.
 	 * - 0x3B: Direct convention
@@ -131,10 +151,6 @@ struct iso7816_atr_info_t {
 	 * - K: Indicates the number of historical bytes
 	 */
 	uint8_t T0;
-
-	// Store ATR bytes for below pointers to use
-	uint8_t atr[ISO7816_ATR_MAX_SIZE]; ///< ATR bytes
-	size_t atr_len; ///< Length of ATR in bytes
 
 	// ========================================
 	// Interface byte parsing...

@@ -63,11 +63,14 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	}
 
 	memset(atr_info, 0, sizeof(*atr_info));
-	iso7816_atr_populate_default_parameters(atr_info);
 
 	// Copy ATR bytes
 	memcpy(atr_info->atr, atr, atr_len);
 	atr_info->atr_len = atr_len;
+
+	// Populate default parameters
+	// These will be overridden by the parsing below
+	iso7816_atr_populate_default_parameters(atr_info);
 
 	// Parse initial byte TS
 	atr_info->TS = atr[0];
