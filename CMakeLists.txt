@@ -30,7 +30,7 @@ target_include_directories(iso7816 INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
 
-add_executable(emv-decode tools/emv-decode.c)
+add_executable(emv-decode tools/emv-decode.c tools/print_helpers.c)
 target_link_libraries(emv-decode iso7816)
 
 add_executable(emv-tool tools/emv-tool.c tools/print_helpers.c src/pcsc.c)

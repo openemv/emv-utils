@@ -20,6 +20,7 @@
  */
 
 #include "iso7816.h"
+#include "print_helpers.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -31,10 +32,15 @@
 // Helper functions
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
 static int parse_hex(const char* hex, void* bin, size_t bin_len);
-static void print_buf(const char* buf_name, const void* buf, size_t length);
+
+// argp parsing keys
+enum {
+	EMV_DECODE_ATR = 1,
+};
 
 // argp option structure
 static struct argp_option argp_options[] = {
+	{ "atr", EMV_DECODE_ATR, "answer-to-reset", 0, "ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
 	{ 0 },
 };
 
@@ -49,8 +55,39 @@ static struct argp argp_config = {
 // argp parser helper function
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 {
+	int r;
+
 	switch (key) {
-		// TODO: process arguments
+		case EMV_DECODE_ATR: {
+			size_t arg_len = strlen(arg);
+			uint8_t atr[ISO7816_ATR_MAX_SIZE];
+			size_t atr_len = arg_len / 2;
+			struct iso7816_atr_info_t atr_info;
+
+			if (atr_len < ISO7816_ATR_MIN_SIZE) {
+				argp_error(state, "ATR may not have less than %u digits (thus %u bytes)", ISO7816_ATR_MIN_SIZE * 2, ISO7816_ATR_MIN_SIZE);
+			}
+			if (atr_len > sizeof(atr)) {
+				argp_error(state, "ATR may not have more than %zu digits (thus %zu bytes)", sizeof(atr) * 2, sizeof(atr));
+			}
+			if (arg_len % 2 != 0) {
+				argp_error(state, "ATR must have even number of digits");
+			}
+
+			r = parse_hex(arg, atr, atr_len);
+			if (r) {
+				argp_error(state, "ATR must must consist of hex digits");
+			}
+
+			r = iso7816_atr_parse(atr, atr_len, &atr_info);
+			if (r) {
+				argp_error(state, "Failed to parse ATR");
+			}
+
+			print_atr(&atr_info);
+
+			return 0;
+		}
 
 		default:
 			return ARGP_ERR_UNKNOWN;
@@ -84,30 +121,9 @@ static int parse_hex(const char* hex, void* bin, size_t bin_len)
 	return 0;
 }
 
-// Buffer output helper function
-static void print_buf(const char* buf_name, const void* buf, size_t length)
-{
-	const uint8_t* ptr = buf;
-	printf("%s: ", buf_name);
-	for (size_t i = 0; i < length; i++) {
-		printf("%02X", ptr[i]);
-	}
-	printf("\n");
-}
-
 int main(int argc, char** argv)
 {
 	int r;
-
-	// TODO: remove buffer parse and print test
-	char user_input[] = "0123456789ABCDEFEDCBA9876543210F";
-	uint8_t buf[strlen(user_input) / 2];
-	r = parse_hex(user_input, buf, sizeof(buf));
-	if (r) {
-		fprintf(stderr, "parse_hex() failed; r=%d\n", r);
-		return 1;
-	}
-	print_buf("test", buf, sizeof(buf));
 
 	if (argc == 1) {
 		// No command line arguments
