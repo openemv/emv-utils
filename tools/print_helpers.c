@@ -23,6 +23,7 @@
 
 #include "iso7816.h"
 #include "iso7816_compact_tlv.h"
+#include "iso7816_strings.h"
 
 #include <stdio.h>
 

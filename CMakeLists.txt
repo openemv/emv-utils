@@ -25,6 +25,7 @@ find_package(PCSCLite 1.8 REQUIRED)
 add_library(iso7816
 	src/iso7816.c
 	src/iso7816_compact_tlv.c
+	src/iso7816_strings.c
 )
 target_include_directories(iso7816 INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
