@@ -89,3 +89,58 @@ const char* iso7816_lcs_get_string(uint8_t lcs)
 
 	return "Proprietary";
 }
+
+int iso7816_card_service_data_get_string_list(uint8_t card_service_data, char* str, size_t str_len)
+{
+	struct str_itr_t itr;
+
+	iso7816_str_list_init(&itr, str, str_len);
+
+	// Application selection (see ISO 7816-4:2005, 8.1.1.2.3, table 85)
+	if ((card_service_data & ISO7816_CARD_SERVICE_APP_SEL_FULL_DF)) {
+		iso7816_str_list_add(&itr, "Application selection: by full DF name");
+	}
+	if ((card_service_data & ISO7816_CARD_SERVICE_APP_SEL_PARTIAL_DF)) {
+		iso7816_str_list_add(&itr, "Application selection: by partial DF name");
+	}
+
+	// BER-TLV data objects availability (see ISO 7816-4:2005, 8.1.1.2.3, table 85)
+	if ((card_service_data & ISO7816_CARD_SERVICE_BER_TLV_EF_DIR)) {
+		iso7816_str_list_add(&itr, "BER-TLV data objects available in EF.DIR");
+	}
+	if ((card_service_data & ISO7816_CARD_SERVICE_BER_TLV_EF_ATR)) {
+		iso7816_str_list_add(&itr, "BER-TLV data objects available in EF.ATR");
+	}
+
+	// EF.DIR and EF.ATR access services (see ISO 7816-4:2005, 8.1.1.2.3, table 85)
+	switch ((card_service_data & ISO7816_CARD_SERVICE_ACCESS_MASK)) {
+		case ISO7816_CARD_SERVICE_ACCESS_READ_BINARY:
+			iso7816_str_list_add(&itr, "EF.DIR and EF.ATR access services: by READ BINARY command (transparent structure)");
+			break;
+
+		case ISO7816_CARD_SERVICE_ACCESS_READ_RECORD:
+			iso7816_str_list_add(&itr, "EF.DIR and EF.ATR access services: by READ RECORD(S) command (record structure)");
+			break;
+
+		case ISO7816_CARD_SERVICE_ACCESS_GET_DATA:
+			iso7816_str_list_add(&itr, "EF.DIR and EF.ATR access services: by GET DATA command (TLV structure)");
+			break;
+
+		default:
+			iso7816_str_list_add(&itr, "EF.DIR and EF.ATR access services: Unknown value");
+			break;
+	}
+
+	// Master file presence (see ISO 7816-4:2005, 8.1.1.2.3, table 85)
+	switch ((card_service_data & ISO7816_CARD_SERVICE_MF_MASK)) {
+		case ISO7816_CARD_SERVICE_WITHOUT_MF:
+			iso7816_str_list_add(&itr, "Card without MF");
+			break;
+
+		case ISO7816_CARD_SERVICE_WITH_MF:
+			iso7816_str_list_add(&itr, "Card with MF");
+			break;
+	}
+
+	return 0;
+}

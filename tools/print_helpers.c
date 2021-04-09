@@ -145,6 +145,7 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 	int r;
 	struct iso7816_compact_tlv_itr_t itr;
 	struct iso7816_compact_tlv_t tlv;
+	char str[1024];
 
 	printf("  T1  = 0x%02X: %s\n", atr_info->T1,
 		iso7816_atr_T1_get_string(atr_info)
@@ -161,11 +162,28 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 	}
 
 	while ((r = iso7816_compact_tlv_itr_next(&itr, &tlv)) > 0) {
-		printf("  %s: ", iso7816_compact_tlv_tag_get_string(tlv.tag));
+		printf("  %s (0x%X): [%u] ",
+			iso7816_compact_tlv_tag_get_string(tlv.tag),
+			tlv.tag,
+			tlv.length
+		);
 		for (size_t i = 0; i < tlv.length; ++i) {
 			printf("%s%02X", i ? " " : "", tlv.value[i]);
 		}
 		printf("\n");
+
+		switch (tlv.tag) {
+			case ISO7816_COMPACT_TLV_CARD_SERVICE_DATA:
+				r = iso7816_card_service_data_get_string_list(tlv.value[0], str, sizeof(str));
+				break;
+
+			default:
+				r = -1;
+		}
+
+		if (r == 0) {
+			print_str_list(str, "\n", "    - ", "\n");
+		}
 	}
 	if (r) {
 		printf("Failed to parse ATR historical bytes\n");
