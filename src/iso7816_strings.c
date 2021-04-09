@@ -21,6 +21,48 @@
 
 #include "iso7816_strings.h"
 
+#include <string.h>
+
+struct str_itr_t {
+	char* ptr;
+	size_t len;
+};
+
+static void iso7816_str_list_init(struct str_itr_t* itr, char* buf, size_t len)
+{
+	itr->ptr = buf;
+	itr->len = len;
+}
+
+static void iso7816_str_list_add(struct str_itr_t* itr, const char* str)
+{
+	size_t str_len = strlen(str);
+
+	// Ensure that the string and separator do not exceed the remaining
+	// buffer length
+	if (str_len + 1 > itr->len) {
+		return;
+	}
+
+	// This is safe because we know str_len < itr->len
+	memcpy(itr->ptr, str, str_len);
+
+	// Separator
+	itr->ptr[str_len] = '\n';
+	++str_len;
+
+	// Advance iterator
+	itr->ptr += str_len;
+	itr->len -= str_len;
+}
+
+static void iso7816_str_list_terminate(struct str_itr_t* itr)
+{
+	*itr->ptr = 0;
+	++itr->ptr;
+	--itr->len;
+}
+
 const char* iso7816_lcs_get_string(uint8_t lcs)
 {
 	// See ISO 7816-4:2005, 5.3.3.2, table 13

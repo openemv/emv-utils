@@ -25,7 +25,9 @@
 #include "iso7816_compact_tlv.h"
 #include "iso7816_strings.h"
 
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 void print_buf(const char* buf_name, const void* buf, size_t length)
 {
@@ -35,6 +37,25 @@ void print_buf(const char* buf_name, const void* buf, size_t length)
 		printf("%02X", ptr[i]);
 	}
 	printf("\n");
+}
+
+void print_str_list(const char* str_list, const char* delim, const char* prefix, const char* suffix)
+{
+	const char* str;
+	char* str_tmp = strdup(str_list);
+	char* str_free = str_tmp;
+	char* save_ptr = NULL;
+
+	while ((str = strtok_r(str_tmp, delim, &save_ptr))) {
+		// for strtok_r()
+		if (str_tmp) {
+			str_tmp = NULL;
+		}
+
+		printf("%s%s%s", prefix ? prefix : "", str, suffix ? suffix : "");
+	}
+
+	free(str_free);
 }
 
 void print_atr(const struct iso7816_atr_info_t* atr_info)

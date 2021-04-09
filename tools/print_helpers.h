@@ -36,6 +36,15 @@ struct iso7816_atr_info_t;
 void print_buf(const char* buf_name, const void* buf, size_t length);
 
 /**
+ * Print string list
+ * @param str_list String list
+ * @param delim Delimiter
+ * @param prefix Prefix to print before every string
+ * @param suffix Suffix to print after every string
+ */
+void print_str_list(const char* str_list, const char* delim, const char* prefix, const char* suffix);
+
+/**
  * Print ATR details, including historical bytes
  * @param atr_info Parsed ATR info
  */
