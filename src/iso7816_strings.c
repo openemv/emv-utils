@@ -21,6 +21,7 @@
 
 #include "iso7816_strings.h"
 
+#include <stdio.h>
 #include <string.h>
 
 struct str_itr_t {
@@ -140,6 +141,153 @@ int iso7816_card_service_data_get_string_list(uint8_t card_service_data, char* s
 		case ISO7816_CARD_SERVICE_WITH_MF:
 			iso7816_str_list_add(&itr, "Card with MF");
 			break;
+
+		default:
+			return -1;
+	}
+
+	return 0;
+}
+
+int iso7816_card_capabilities_get_string_list(
+	const uint8_t* card_capabilities,
+	size_t card_capabilities_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!card_capabilities || !card_capabilities_len) {
+		return -1;
+	}
+
+	iso7816_str_list_init(&itr, str, str_len);
+
+	// DF selection (see ISO 7816-4:2005, 8.1.1.2.7, table 86)
+	if ((card_capabilities[0] & ISO7816_CARD_CAPS_DF_SEL_FULL_DF)) {
+		iso7816_str_list_add(&itr, "DF selection: by full DF NAME");
+	}
+	if ((card_capabilities[0] & ISO7816_CARD_CAPS_DF_SEL_PARTIAL_DF)) {
+		iso7816_str_list_add(&itr, "DF selection: by partial DF NAME");
+	}
+	if ((card_capabilities[0] & ISO7816_CARD_CAPS_DF_SEL_PATH)) {
+		iso7816_str_list_add(&itr, "DF selection: by path");
+	}
+	if ((card_capabilities[0] & ISO7816_CARD_CAPS_DF_SEL_FILE_ID)) {
+		iso7816_str_list_add(&itr, "DF selection: by file identifier");
+	}
+	if ((card_capabilities[0] & ISO7816_CARD_CAPS_DF_SEL_IMPLICIT)) {
+		iso7816_str_list_add(&itr, "DF selection: implicit");
+	}
+	if ((card_capabilities[0] & ISO7816_CARD_CAPS_SHORT_EF_ID)) {
+		iso7816_str_list_add(&itr, "Short EF identifier supported");
+	}
+	if ((card_capabilities[0] & ISO7816_CARD_CAPS_RECORD_NUMBER)) {
+		iso7816_str_list_add(&itr, "Record number supported");
+	}
+	if ((card_capabilities[0] & ISO7816_CARD_CAPS_RECORD_ID)) {
+		iso7816_str_list_add(&itr, "Record identifier supported");
+	}
+
+	// Data coding byte (see ISO 7816-4:2005, 8.1.1.2.7, table 86)
+	if (card_capabilities_len < 2) {
+		return 0;
+	}
+	if ((card_capabilities[1] & ISO7816_CARD_CAPS_EF_TLV)) {
+		iso7816_str_list_add(&itr, "EFs of TLV structure supported");
+	}
+
+	switch ((card_capabilities[1] & ISO7816_CARD_CAPS_WRITE_FUNC_MASK)) {
+		case ISO7816_CARD_CAPS_WRITE_FUNC_ONE_TIME:
+			iso7816_str_list_add(&itr, "Behaviour of write functions: one-time write");
+			break;
+
+		case ISO7816_CARD_CAPS_WRITE_FUNC_PROPRIETARY:
+			iso7816_str_list_add(&itr, "Behaviour of write functions: proprietary");
+			break;
+
+		case ISO7816_CARD_CAPS_WRITE_FUNC_OR:
+			iso7816_str_list_add(&itr, "Behaviour of write functions: write OR");
+			break;
+
+		case ISO7816_CARD_CAPS_WRITE_FUNC_AND:
+			iso7816_str_list_add(&itr, "Behaviour of write functions: write AND");
+			break;
+
+		default:
+			return -1;
+	}
+
+	switch ((card_capabilities[1] & ISO7816_CARD_CAPS_BER_TLV_FF_MASK)) {
+		case ISO7816_CARD_CAPS_BER_TLV_FF_VALID:
+			iso7816_str_list_add(&itr, "FF as first byte of BER-TLV tag is valid");
+			break;
+
+		case ISO7816_CARD_CAPS_BER_TLV_FF_INVALID:
+			iso7816_str_list_add(&itr, "FF as first byte of BER-TLV tag is invalid / padding");
+			break;
+
+		default:
+			return -1;
+	}
+
+	unsigned int data_unit_size_field;
+	data_unit_size_field = card_capabilities[1] & ISO7816_CARD_CAPS_DATA_UNIT_SIZE_MASK;
+	if (data_unit_size_field) {
+		unsigned int data_unit_size;
+
+		// See ISO 7816-4:2005, 8.1.1.2.7, table 86
+		// data_unit_size = 2 ^ data_unit_size_field quartets
+		//                = (2 ^ data_unit_size_field) / 2 octets
+		//                = 1 << (data_unit_size_field - 1) bytes
+		data_unit_size = 1 << (data_unit_size_field - 1);
+
+		// Stringify
+		char tmp[32];
+		snprintf(tmp, sizeof(tmp), "Data unit size: %u bytes", data_unit_size);
+
+		iso7816_str_list_add(&itr, tmp);
+	}
+
+	// Command chaining, length fields, logical channels (see ISO 7816-4:2005, 8.1.1.2.7, table 87)
+	if (card_capabilities_len < 3) {
+		return 0;
+	}
+	if ((card_capabilities[2] & ISO7816_CARD_CAPS_COMMAND_CHAINING)) {
+		iso7816_str_list_add(&itr, "Command chaining");
+	}
+	if ((card_capabilities[2] & ISO7816_CARD_CAPS_EXTENDED_LC_LE)) {
+		iso7816_str_list_add(&itr, "Extended Lc and Le fields");
+	}
+
+	switch ((card_capabilities[2] & ISO7816_CARD_CAPS_CHAN_NUM_ASSIGN_MASK)) {
+		case ISO7816_CARD_CAPS_CHAN_NUM_ASSIGN_CARD:
+			iso7816_str_list_add(&itr, "Logical channel number assignment: by the card");
+			break;
+
+		case ISO7816_CARD_CAPS_CHAN_NUM_ASSIGN_IFD:
+			iso7816_str_list_add(&itr, "Logical channel number assignment: by the interface device");
+			break;
+
+		case ISO7816_CARD_CAPS_CHAN_NUM_ASSIGN_NONE:
+			iso7816_str_list_add(&itr, "No logical channel");
+			break;
+
+		default:
+			return -1;
+	}
+
+	unsigned int max_logical_channels;
+	max_logical_channels = card_capabilities[2] & ISO7816_CARD_CAPS_MAX_CHAN_MASK;
+	if (max_logical_channels == 0x7) {
+		iso7816_str_list_add(&itr, "Maximum number of logical channels: 8 or more");
+	} else {
+		// Stringify
+		char tmp[64];
+		snprintf(tmp, sizeof(tmp), "Maximum number of logical channels: %u", max_logical_channels + 1);
+
+		iso7816_str_list_add(&itr, tmp);
 	}
 
 	return 0;

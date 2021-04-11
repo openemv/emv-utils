@@ -177,6 +177,10 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 				r = iso7816_card_service_data_get_string_list(tlv.value[0], str, sizeof(str));
 				break;
 
+			case ISO7816_COMPACT_TLV_CARD_CAPABILITIES:
+				r = iso7816_card_capabilities_get_string_list(tlv.value, tlv.length, str, sizeof(str));
+				break;
+
 			default:
 				r = -1;
 		}
