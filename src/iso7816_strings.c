@@ -60,6 +60,267 @@ static void iso7816_str_list_add(struct str_itr_t* itr, const char* str)
 	*itr->ptr = 0;
 }
 
+const char* iso7816_sw1sw2_get_string(uint8_t SW1, uint8_t SW2, char* str, size_t str_len)
+{
+	int r;
+	char* str_ptr = str;
+
+	// Normal processing (see ISO 7816-4:2005, 5.1.3)
+	if (SW1 == 0x90 && SW2 == 0x00) {
+		snprintf(str, str_len, "Normal");
+		return str;
+	}
+	if (SW1 == 0x61) {
+		snprintf(str, str_len, "Normal: %u data bytes remaining", SW2);
+		return str;
+	}
+
+	// According to ISO 7816-4:2005, 5.1.3:
+	// Any value different from 6XXX and 9XXX is invalid any value 60XX is also invalid
+	if ((SW1 & 0xF0) != 0x60 && (SW1 & 0xF0) != 0x90) {
+		snprintf(str, str_len, "Invalid");
+		return str;
+	}
+	if (SW1 == 0x60) {
+		snprintf(str, str_len, "Invalid");
+		return str;
+	}
+
+	// According to ISO 7816-4:2005, 5.1.3:
+	// 67XX, 6BXX, 6DXX, 6EXX, 6FXX and 9XXX are proprietary, except for
+	// 6700, 6B00, 6D00, 6E00, 6F00 and 9000 that are interindustry
+	if ((SW1 == 0x67 ||
+			SW1 == 0x6B ||
+			SW1 == 0x6D ||
+			SW1 == 0x6E ||
+			SW1 == 0x6F ||
+			(SW1 & 0xF0) == 0x90
+		) &&
+		SW2 != 0x00
+	) {
+		snprintf(str, str_len, "Proprietary");
+		return str;
+	}
+
+	// Add prefix for high level meaning of SW1
+	// See ISO 7816-4:2005, 5.1.3, table 5
+	switch (SW1) {
+		case 0x62:
+		case 0x63:
+			r = snprintf(str_ptr, str_len, "Warning: ");
+			break;
+
+		case 0x64:
+		case 0x65:
+		case 0x66:
+			r = snprintf(str_ptr, str_len, "Execution error: ");
+			break;
+
+		case 0x67:
+		case 0x68:
+		case 0x69:
+		case 0x6A:
+		case 0x6B:
+		case 0x6C:
+		case 0x6D:
+		case 0x6E:
+		case 0x6F:
+			r = snprintf(str_ptr, str_len, "Checking error: ");
+			break;
+	}
+	if (r >= str_len) {
+		// Not enough space in string buffer; return truncated content
+		return str;
+	}
+	str_ptr += r;
+	str_len -= r;
+
+	// Warning processing (see ISO 7816-4:2005, 5.1.3, table 6)
+	if (SW1 == 0x62) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "State of non-volatile memory is unchanged"); break;
+			case 0x81: snprintf(str_ptr, str_len, "Part of returned data may be corrupted"); break;
+			case 0x82: snprintf(str_ptr, str_len, "End of file or record reached before reading Ne bytes"); break;
+			case 0x83: snprintf(str_ptr, str_len, "Selected file deactivated"); break;
+			case 0x84: snprintf(str_ptr, str_len, "File control information not formatted according to ISO 7816-4:2005, 5.3.3"); break;
+			case 0x85: snprintf(str_ptr, str_len, "Selected file in termination state"); break;
+			case 0x86: snprintf(str_ptr, str_len, "No input data available from a sensor on the card"); break;
+			default:
+				// Card-originated queries (see ISO 7816-4:2005, 8.6.1)
+				if (SW2 >= 0x02 && SW2 <= 0x80) {
+					snprintf(str_ptr, str_len, "Card-originated query of %u bytes", SW2);
+				} else {
+					snprintf(str_ptr, str_len, "Unknown");
+				}
+		}
+
+		return str;
+	}
+
+	// Warning processing (see ISO 7816-4:2005, 5.1.3, table 6)
+	if (SW1 == 0x63) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "State of non-volatile memory has changed"); break;
+			case 0x81: snprintf(str_ptr, str_len, "File filled up by the last write"); break;
+			default:
+				if ((SW2 & 0xF0) == 0xC0) {
+					snprintf(str_ptr, str_len, "Counter is %u", (SW2 & 0x0F));
+				} else {
+					snprintf(str_ptr, str_len, "Unknown");
+				}
+		}
+
+		return str;
+	}
+
+	// Execution error (see ISO 7816-4:2005, 5.1.3, table 6)
+	if (SW1 == 0x64) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "State of non-volatile memory is unchanged"); break;
+			case 0x01: snprintf(str_ptr, str_len, "Immediate response required by card"); break;
+			default:
+				// Card-originated queries (see ISO 7816-4:2005, 8.6.1)
+				if (SW2 >= 0x02 && SW2 <= 0x80) {
+					snprintf(str_ptr, str_len, "Card-originated query of %u bytes", SW2);
+				} else {
+					snprintf(str_ptr, str_len, "Unknown");
+				}
+		}
+
+		return str;
+	}
+
+	// Execution error (see ISO 7816-4:2005, 5.1.3, table 6)
+	if (SW1 == 0x65) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "State of non-volatile memory has changed"); break;
+			case 0x81: snprintf(str_ptr, str_len, "Memory failure"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// Execution error (see ISO 7816-4:2005, 5.1.3, table 5)
+	if (SW1 == 0x66) {
+		snprintf(str_ptr, str_len, "Security error 0x%02X", SW2);
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 5)
+	if (SW1 == 0x67) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "Wrong length"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 6)
+	if (SW1 == 0x68) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "Functions in CLA not supported"); break;
+			case 0x81: snprintf(str_ptr, str_len, "Logical channel not supported"); break;
+			case 0x82: snprintf(str_ptr, str_len, "Secure messaging not supported"); break;
+			case 0x83: snprintf(str_ptr, str_len, "Last command of the chain expected"); break;
+			case 0x84: snprintf(str_ptr, str_len, "Command chaining not supported"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 6)
+	if (SW1 == 0x69) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "Command not allowed"); break;
+			case 0x81: snprintf(str_ptr, str_len, "Command incompatible with file structure"); break;
+			case 0x82: snprintf(str_ptr, str_len, "Security status not satisfied"); break;
+			case 0x83: snprintf(str_ptr, str_len, "Authentication method blocked"); break;
+			case 0x84: snprintf(str_ptr, str_len, "Reference data not usable"); break;
+			case 0x85: snprintf(str_ptr, str_len, "Conditions of use not satisfied"); break;
+			case 0x86: snprintf(str_ptr, str_len, "Command not allowed (no current EF)"); break;
+			case 0x87: snprintf(str_ptr, str_len, "Expected secure messaging data objects missing"); break;
+			case 0x88: snprintf(str_ptr, str_len, "Incorrect secure messaging data objects"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 6)
+	if (SW1 == 0x6A) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "Wrong parameters P1-P2"); break;
+			case 0x80: snprintf(str_ptr, str_len, "Incorrect parameters in the command data field"); break;
+			case 0x81: snprintf(str_ptr, str_len, "Function not supported"); break;
+			case 0x82: snprintf(str_ptr, str_len, "File or application not found"); break;
+			case 0x83: snprintf(str_ptr, str_len, "Record not found"); break;
+			case 0x84: snprintf(str_ptr, str_len, "Not enough memory space in the file"); break;
+			case 0x85: snprintf(str_ptr, str_len, "Nc inconsistent with TLV structure"); break;
+			case 0x86: snprintf(str_ptr, str_len, "Incorrect parameters P1-P2"); break;
+			case 0x87: snprintf(str_ptr, str_len, "Nc inconsistent with parameters P1-P2"); break;
+			case 0x88: snprintf(str_ptr, str_len, "Referenced data or reference data not found"); break;
+			case 0x89: snprintf(str_ptr, str_len, "File already exists"); break;
+			case 0x8A: snprintf(str_ptr, str_len, "DF name already exists"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 5)
+	if (SW1 == 0x6B) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "Wrong parameters P1-P2"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 5)
+	if (SW1 == 0x6C) {
+		snprintf(str_ptr, str_len, "Wrong Le field (%u data bytes available)", SW2);
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 5)
+	if (SW1 == 0x6D) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "Instruction code not supported or invalid"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 5)
+	if (SW1 == 0x6E) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "Class not supported"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// Checking error (see ISO 7816-4:2005, 5.1.3, table 5)
+	if (SW1 == 0x6F) {
+		switch (SW2) {
+			case 0x00: snprintf(str_ptr, str_len, "No precise diagnosis"); break;
+			default: snprintf(str_ptr, str_len, "Unknown"); break;
+		}
+
+		return str;
+	}
+
+	// According to ISO 7816-4:2005, 5.1.3, all other values are reserved
+	snprintf(str, str_len, "Unknown error");
+	return str;
+}
+
 const char* iso7816_lcs_get_string(uint8_t lcs)
 {
 	// See ISO 7816-4:2005, 5.3.3.2, table 13

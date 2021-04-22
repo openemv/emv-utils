@@ -23,6 +23,7 @@
 #define PRINT_HELPERS_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 // Forward declarations
 struct iso7816_atr_info_t;
@@ -55,5 +56,12 @@ void print_atr(const struct iso7816_atr_info_t* atr_info);
  * @param atr_info Parsed ATR info
  */
 void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info);
+
+/**
+ * Print status bytes SW1-SW2
+ * @param SW1 Status byte 1
+ * @param SW2 Status byte 2
+ */
+void print_sw1sw2(uint8_t SW1, uint8_t SW2);
 
 #endif

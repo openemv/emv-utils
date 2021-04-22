@@ -36,11 +36,13 @@ static int parse_hex(const char* hex, void* bin, size_t bin_len);
 // argp parsing keys
 enum {
 	EMV_DECODE_ATR = 1,
+	EMV_DECODE_SW1SW2,
 };
 
 // argp option structure
 static struct argp_option argp_options[] = {
 	{ "atr", EMV_DECODE_ATR, "answer-to-reset", 0, "ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
+	{ "sw1sw2", EMV_DECODE_SW1SW2, "SW1SW2", 0, "ISO 7816 Status bytes SW1-SW2, eg 9000" },
 	{ 0 },
 };
 
@@ -85,6 +87,24 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			}
 
 			print_atr(&atr_info);
+
+			return 0;
+		}
+
+		case EMV_DECODE_SW1SW2: {
+			size_t arg_len = strlen(arg);
+			uint8_t sw1sw2[2];
+
+			if (arg_len != 4) {
+				argp_error(state, "SW1SW2 must consist of 4 hex digits");
+			}
+
+			r = parse_hex(arg, sw1sw2, sizeof(sw1sw2));
+			if (r) {
+				argp_error(state, "SW1SW2 must consist of 4 hex digits");
+			}
+
+			print_sw1sw2(sw1sw2[0], sw1sw2[1]);
 
 			return 0;
 		}

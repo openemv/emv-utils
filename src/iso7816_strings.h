@@ -86,6 +86,16 @@ __BEGIN_DECLS
 #define ISO7816_CARD_CAPS_MAX_CHAN_MASK         (0x07) ///< Card capabilities mask for maximum number of logical channels
 
 /**
+ * Stringify ISO/IEC 7816 status bytes (SW1-SW2)
+ * @param SW1 Status byte 1
+ * @param SW2 Status byte 2
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso7816_sw1sw2_get_string(uint8_t SW1, uint8_t SW2, char* str, size_t str_len);
+
+/**
  * Stringify ISO/IEC 7816 life cycle status byte (LCS)
  * @param lcs Life cycle status byte (LCS)
  * @return String. NULL for error.

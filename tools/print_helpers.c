@@ -131,7 +131,15 @@ void print_atr(const struct iso7816_atr_info_t* atr_info)
 			if (atr_info->status_indicator.SW1 ||
 				atr_info->status_indicator.SW2
 			) {
-				printf("  SW  = %02X%02X\n", atr_info->status_indicator.SW1, atr_info->status_indicator.SW2);
+				printf("  SW  = %02X%02X: (%s)\n",
+					atr_info->status_indicator.SW1,
+					atr_info->status_indicator.SW2,
+					iso7816_sw1sw2_get_string(
+						atr_info->status_indicator.SW1,
+						atr_info->status_indicator.SW2,
+						str, sizeof(str)
+					)
+				);
 			}
 		}
 	}
@@ -193,4 +201,18 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 		printf("Failed to parse ATR historical bytes\n");
 		return;
 	}
+}
+
+void print_sw1sw2(uint8_t SW1, uint8_t SW2)
+{
+	char str[1024];
+	const char* s;
+
+	s = iso7816_sw1sw2_get_string(SW1, SW2, str, sizeof(str));
+	if (!s) {
+		printf("Failed to parse SW1-SW2 status bytes\n");
+		return;
+	}
+
+	printf("SW1SW2: %02X%02X (%s)\n", SW1, SW2, s);
 }
