@@ -127,6 +127,23 @@ int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx);
  */
 int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_len);
 
+/**
+ * Transmit and receive data for current card in reader
+ * @param reader_ctx PC/SC reader context
+ * @param tx_buf Transmit buffer
+ * @param tx_buf_len Length of transmit buffer in bytes
+ * @param rx_buf Receive buffer
+ * @param rx_buf_len Length of R-APDU buffer in bytes
+ * @return Zero for success. Less than zero for error.
+ */
+int pcsc_reader_trx(
+	pcsc_reader_ctx_t reader_ctx,
+	const void* tx_buf,
+	size_t tx_buf_len,
+	void* rx_buf,
+	size_t* rx_buf_len
+);
+
 __END_DECLS
 
 #endif

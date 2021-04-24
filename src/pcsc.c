@@ -354,3 +354,41 @@ int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_
 
 	return 0;
 }
+
+int pcsc_reader_trx(
+	pcsc_reader_ctx_t reader_ctx,
+	const void* tx_buf,
+	size_t tx_buf_len,
+	void* rx_buf,
+	size_t* rx_buf_len
+)
+{
+	struct pcsc_reader_t* reader;
+	LONG result;
+	DWORD rx_len;
+
+	if (!reader_ctx || !tx_buf || !tx_buf_len || !rx_buf || !rx_buf_len) {
+		return -1;
+	}
+	reader = reader_ctx;
+	rx_len = *rx_buf_len;
+
+	switch (reader->protocol) {
+		case SCARD_PROTOCOL_T0:
+			result = SCardTransmit(reader->card, SCARD_PCI_T0, tx_buf, tx_buf_len, NULL, rx_buf, &rx_len);
+			break;
+
+		case SCARD_PROTOCOL_T1:
+			result = SCardTransmit(reader->card, SCARD_PCI_T1, tx_buf, tx_buf_len, NULL, rx_buf, &rx_len);
+			break;
+	}
+
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardTransmit() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		return -1;
+	}
+
+	*rx_buf_len = rx_len;
+
+	return 0;
+}
