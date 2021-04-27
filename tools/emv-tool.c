@@ -25,6 +25,9 @@
 
 #include <stdio.h>
 
+// HACK: remove
+#include "emv_ttl.h"
+
 // Helper functions
 static const char* pcsc_get_reader_state_string(unsigned int reader_state);
 
@@ -107,7 +110,7 @@ int main(void)
 	}
 
 	reader = pcsc_get_reader(pcsc, reader_idx);
-	printf("Card detected\n");
+	printf("Card detected\n\n");
 
 	r = pcsc_reader_connect(reader);
 	if (r) {
@@ -128,8 +131,39 @@ int main(void)
 		goto exit;
 	}
 
-	printf("\n");
 	print_atr(&atr_info);
+	printf("\n");
+
+	// HACK: test SELECT PSE
+	{
+		const uint8_t SELECT_PSE[] = "\x00\xA4\x04\x00\x0E\x31PAY.SYS.DDF01";
+		#define APDU_BUFFER_MAX_SIZE (261)
+		uint8_t r_apdu[APDU_BUFFER_MAX_SIZE];
+		size_t r_apdu_len = sizeof(r_apdu);
+
+		struct emv_ttl_t emv_ttl;
+		emv_ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
+		emv_ttl.cardreader.ctx = reader;
+		emv_ttl.cardreader.trx = &pcsc_reader_trx;
+
+		print_buf("C-APDU", SELECT_PSE, sizeof(SELECT_PSE));
+
+		/*
+		r = pcsc_reader_trx(reader, SELECT_PSE, sizeof(SELECT_PSE), r_apdu, &r_apdu_len);
+		if (r) {
+			printf("Failed to exchange APDU; r=%d\n", r);
+			goto exit;
+		}
+		*/
+
+		r = emv_ttl_trx(&emv_ttl, SELECT_PSE, sizeof(SELECT_PSE), r_apdu, &r_apdu_len);
+		if (r) {
+			printf("Failed to exchange APDU; r=%d\n", r);
+			goto exit;
+		}
+
+		print_buf("R-APDU", r_apdu, r_apdu_len);
+	}
 
 	r = pcsc_reader_disconnect(reader);
 	if (r) {
