@@ -28,6 +28,18 @@
 
 __BEGIN_DECLS
 
+/// Maximum length of C-APDU data field in bytes
+#define ISO7816_CAPDU_DATA_MAX (255)
+
+/// Maximum length of C-APDU buffer in bytes
+#define ISO7816_CAPDU_MAX (6 + ISO7816_CAPDU_DATA_MAX)
+
+/// Maximum length of R-APDU data field in bytes
+#define ISO7816_RAPDU_DATA_MAX (256)
+
+/// Maximum length of R-APDU buffer in bytes
+#define ISO7816_RAPDU_MAX (ISO7816_RAPDU_DATA_MAX + 2)
+
 /// ISO 7816 C-APDU cases. See ISO 7816-3:2006, 12.1.3
 enum iso7816_apdu_case_t {
 	ISO7816_APDU_CASE_1,                        ///< ISO 7816 C-APDU case 1: CLA, INS, P1, P2
@@ -38,8 +50,6 @@ enum iso7816_apdu_case_t {
 	ISO7816_APDU_CASE_4S,                       ///< ISO 7816 C-APDU case 4 for short Lc/Le fields: CLA, INS, P1, P2, Lc, Data(Lc), Le
 	ISO7816_APDU_CASE_4E,                       ///< ISO 7816 C-APDU case 4 for long Lc/Le fields: CLA, INS, P1, P2, Lc(3), Data(Lc), Le(3)
 };
-
-#define ISO7816_APDU_DATA_MAX (255)             ///< Maximum length of C-APDU data field in bytes
 
 /// ISO 7816 C-APDU case 1 structure
 struct iso7816_apdu_case_1_t {
@@ -65,8 +75,14 @@ struct iso7816_apdu_case_3s_t {
 	uint8_t P1;                                 ///< Parameter byte 1
 	uint8_t P2;                                 ///< Parameter byte 2
 	uint8_t Lc;                                 ///< Length of C-APDU data field in bytes
-	uint8_t data[ISO7816_APDU_DATA_MAX];        ///< Data field of length Lc
+	uint8_t data[ISO7816_CAPDU_DATA_MAX];       ///< Data field of length Lc
 } __attribute__((packed));
+
+/// Compute ISO 7816 C-APDU case 3S length in bytes
+static inline size_t iso7816_apdu_case_3s_length(const struct iso7816_apdu_case_3s_t* c_apdu)
+{
+	return 5 + c_apdu->Lc;
+}
 
 /// ISO 7816 C-APDU case 4S structure
 struct iso7816_apdu_case_4s_t {
@@ -75,8 +91,14 @@ struct iso7816_apdu_case_4s_t {
 	uint8_t P1;                                 ///< Parameter byte 1
 	uint8_t P2;                                 ///< Parameter byte 2
 	uint8_t Lc;                                 ///< Length of C-APDU data field in bytes
-	uint8_t data[ISO7816_APDU_DATA_MAX + 1];    ///< Data field of length Lc, followed by Le field
+	uint8_t data[ISO7816_CAPDU_DATA_MAX + 1];   ///< Data field of length Lc, followed by Le field
 } __attribute__((packed));
+
+/// Compute ISO 7816 C-APDU case 4S length in bytes
+static inline size_t iso7816_apdu_case_4s_length(const struct iso7816_apdu_case_4s_t* c_apdu)
+{
+	return 6 + c_apdu->Lc;
+}
 
 __END_DECLS
 
