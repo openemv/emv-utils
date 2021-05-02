@@ -20,6 +20,7 @@
  */
 
 #include "emv_ttl.h"
+#include "iso7816_apdu.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -32,15 +33,69 @@ int emv_ttl_trx(
 	size_t* r_apdu_len
 )
 {
-	uint8_t next_c_apdu[5];
+	enum iso7816_apdu_case_t apdu_case;
+
+	// C-TPDU header: CLA INS P1 P2 P3
+	uint8_t c_tpdu_header[5];
+
+	// Next buffer to transmit
+	const void* tx_buf;
+	size_t tx_buf_len;
 
 	if (!ctx || !c_apdu || !c_apdu_len || !r_apdu || !r_apdu_len || !*r_apdu_len) {
 		return -1;
 	}
 
-	// Assume card reader is in APDU mode
-	if (ctx->cardreader.mode != EMV_CARDREADER_MODE_APDU) {
-		return -2;
+	// Determine the APDU case
+	// See ISO 7816-3:2006, 12.1.3, table 13
+	// See EMV 4.3 Book 1, Annex A
+
+	// APDU cases:
+	// Case 1: CLA INS P1 P2
+	// Case 2: CLA INS P1 P2 Le
+	// Case 3: CLA INS P1 P2 Lc [Data(Lc)]
+	// Case 4: CLA INS P1 P2 Lc [Data(Lc)] Le
+
+	if (c_apdu_len == 4) {
+		apdu_case = ISO7816_APDU_CASE_1;
+	} else if (c_apdu_len == 5) {
+		apdu_case = ISO7816_APDU_CASE_2S;
+	} else {
+		// Extract byte C5 from header; See ISO 7816-3:2006, 12.1.3
+		unsigned int C5 = *(uint8_t*)(c_apdu + 4);
+
+		if (C5 != 0 && C5 + 5 == c_apdu_len) { // If C5 is Lc and Le is absent
+			apdu_case = ISO7816_APDU_CASE_3S;
+		} else if (C5 != 0 && C5 + 6 == c_apdu_len) { // If C5 is Lc and Le is present
+			apdu_case = ISO7816_APDU_CASE_4S;
+		} else {
+			return -2;
+		}
+	}
+
+	if (ctx->cardreader.mode == EMV_CARDREADER_MODE_APDU) {
+		// For APDU mode, transmit C-APDU as-is
+		tx_buf = c_apdu;
+		tx_buf_len = c_apdu_len;
+
+	} else if (ctx->cardreader.mode == EMV_CARDREADER_MODE_TPDU) {
+		// For TPDU mode, transmit C-TPDU header and wait for procedure byte
+
+		if (apdu_case == ISO7816_APDU_CASE_1) {
+			// Build case 1 C-TPDU header
+			memcpy(c_tpdu_header, c_apdu, 4);
+			c_tpdu_header[4] = 0; // P3 = 0
+		} else {
+			// Build case 2S/3S/4S C-TPDU header
+			memcpy(c_tpdu_header, c_apdu, 5);
+		}
+
+		tx_buf = c_tpdu_header;
+		tx_buf_len = sizeof(c_tpdu_header);
+
+	} else {
+		// Unknown cardreader mode
+		return -3;
 	}
 
 	do {
@@ -49,7 +104,7 @@ int emv_ttl_trx(
 		uint8_t SW1;
 		uint8_t SW2;
 
-		r = ctx->cardreader.trx(ctx->cardreader.ctx, c_apdu, c_apdu_len, r_apdu, &rx_len);
+		r = ctx->cardreader.trx(ctx->cardreader.ctx, tx_buf, tx_buf_len, r_apdu, &rx_len);
 		if (r) {
 			return r;
 		}
@@ -95,35 +150,58 @@ int emv_ttl_trx(
 		SW2 = *((uint8_t*)(r_apdu + rx_len - 1));
 
 		// Process status bytes
+		// See ISO 7816-3:2006, 12.2.1, table 14
 		// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
 		// See EMV 4.3 Book 1, 9.2.2.3.2
 		// See EMV 4.3 Book 1, 9.3.1.2
 		// See EMV 4.3 Book 1, Annex A for examples
 		switch (SW1) {
 			case 0x61: // Normal processing: SW2 encodes the number of available bytes
-				// Build GET RESPONSE command
-				next_c_apdu[0] = 0x00; // CLA
-				next_c_apdu[1] = 0xC0; // INS: GET RESPONSE
-				next_c_apdu[2] = 0x00; // P1
-				next_c_apdu[3] = 0x00; // P2
-				next_c_apdu[4] = SW2;  // Le
-				c_apdu = next_c_apdu;
-				c_apdu_len = 5;
+
+				// Status 61XX is only allowed for APDU cases 2 and 4
+				// See ISO 7816-3:2006, 12.2.1, table 14
+				if (apdu_case != ISO7816_APDU_CASE_2S &&
+					apdu_case != ISO7816_APDU_CASE_4S
+				) {
+					return -4;
+				}
+
+				// Build GET RESPONSE for next transmission
+				// See ISO 7816-4:2005, 7.6.1
+				c_tpdu_header[0] = 0x00; // CLA
+				c_tpdu_header[1] = 0xC0; // INS: GET RESPONSE
+				c_tpdu_header[2] = 0x00; // P1
+				c_tpdu_header[3] = 0x00; // P2
+				c_tpdu_header[4] = SW2;  // Le
+				tx_buf = c_tpdu_header;
+				tx_buf_len = sizeof(c_tpdu_header);
 				break;
 
 			case 0x6C: // Checking error: Wrong Le field; SW2 encodes the exact number of available bytes
 
-				// TODO: implement
-				return -1;
+				// Status 6CXX is only allowed for APDU cases 2 and 4
+				// See ISO 7816-3:2006, 12.2.1, table 14
+				if (apdu_case != ISO7816_APDU_CASE_2S &&
+					apdu_case != ISO7816_APDU_CASE_4S
+				) {
+					return -4;
+				}
+
+				// Update Le for next transmission
+				// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
+				memcpy(c_tpdu_header, c_apdu, 4);
+				c_tpdu_header[4] = SW2; // P3 = Le
+				tx_buf = c_tpdu_header;
+				tx_buf_len = sizeof(c_tpdu_header);
 				break;
 
 			default:
 				// Let Terminal Application Layer (TAL) process the response
 				*r_apdu_len = rx_len;
 				return 0;
-		}
 
-		// TODO: is it necessary to support ISO 7816-3:2006, 12.2, table 14
+			// TODO: EMV 4.3 Book 1, Annex A7 "Case 4 Command with Warning Condition"
+		}
 
 	} while (true);
 }

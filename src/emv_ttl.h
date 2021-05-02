@@ -28,6 +28,18 @@
 
 __BEGIN_DECLS
 
+/// Maximum length of C-APDU data field in bytes
+#define EMV_CAPDU_DATA_MAX (255)
+
+/// Maximum length of C-APDU buffer in bytes
+#define EMV_CAPDU_MAX (6 + EMV_CAPDU_DATA_MAX)
+
+/// Maximum length of R-APDU data field in bytes
+#define EMV_RAPDU_DATA_MAX (256)
+
+/// Maximum length of R-APDU buffer in bytes
+#define EMV_RAPDU_MAX (EMV_RAPDU_DATA_MAX + 2)
+
 /// Card reader mode
 enum emv_cardreader_mode_t {
 	EMV_CARDREADER_MODE_APDU = 1,               ///< Card reader is in APDU mode

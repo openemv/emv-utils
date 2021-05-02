@@ -136,15 +136,14 @@ int main(void)
 
 	// HACK: test SELECT PSE
 	{
-		const uint8_t SELECT_PSE[] = "\x00\xA4\x04\x00\x0E\x31PAY.SYS.DDF01";
-		#define APDU_BUFFER_MAX_SIZE (261)
-		uint8_t r_apdu[APDU_BUFFER_MAX_SIZE];
-		size_t r_apdu_len = sizeof(r_apdu);
-
 		struct emv_ttl_t emv_ttl;
 		emv_ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 		emv_ttl.cardreader.ctx = reader;
 		emv_ttl.cardreader.trx = &pcsc_reader_trx;
+
+		const uint8_t SELECT_PSE[] = "\x00\xA4\x04\x00\x0E\x31PAY.SYS.DDF01";
+		uint8_t r_apdu[EMV_RAPDU_MAX];
+		size_t r_apdu_len = sizeof(r_apdu);
 
 		print_buf("C-APDU", SELECT_PSE, sizeof(SELECT_PSE));
 
