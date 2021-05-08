@@ -27,6 +27,7 @@
 
 // HACK: remove
 #include "emv_ttl.h"
+#include "iso7816_strings.h"
 
 // Helper functions
 static const char* pcsc_get_reader_state_string(unsigned int reader_state);
@@ -141,27 +142,19 @@ int main(void)
 		emv_ttl.cardreader.ctx = reader;
 		emv_ttl.cardreader.trx = &pcsc_reader_trx;
 
-		const uint8_t SELECT_PSE[] = "\x00\xA4\x04\x00\x0E\x31PAY.SYS.DDF01";
-		uint8_t r_apdu[EMV_RAPDU_MAX];
-		size_t r_apdu_len = sizeof(r_apdu);
-
-		print_buf("C-APDU", SELECT_PSE, sizeof(SELECT_PSE));
-
-		/*
-		r = pcsc_reader_trx(reader, SELECT_PSE, sizeof(SELECT_PSE), r_apdu, &r_apdu_len);
+		const uint8_t PSE[] = "1PAY.SYS.DDF01";
+		uint8_t fci[EMV_RAPDU_DATA_MAX];
+		size_t fci_len = sizeof(fci);
+		uint16_t sw1sw2;
+		r = emv_ttl_select_by_df_name(&emv_ttl, PSE, sizeof(PSE) - 1, fci, &fci_len, &sw1sw2);
 		if (r) {
-			printf("Failed to exchange APDU; r=%d\n", r);
+			printf("Failed to select PSE; r=%d\n", r);
 			goto exit;
 		}
-		*/
+		print_buf("FCI", fci, fci_len);
 
-		r = emv_ttl_trx(&emv_ttl, SELECT_PSE, sizeof(SELECT_PSE), r_apdu, &r_apdu_len);
-		if (r) {
-			printf("Failed to exchange APDU; r=%d\n", r);
-			goto exit;
-		}
-
-		print_buf("R-APDU", r_apdu, r_apdu_len);
+		char str[1024];
+		printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
 	}
 
 	r = pcsc_reader_disconnect(reader);

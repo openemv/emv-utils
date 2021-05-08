@@ -1,6 +1,6 @@
 /**
  * @file emv_ttl.h
- * @brief EMV Terminal Transport Layer
+ * @brief EMV Terminal Transport Layer (TTL)
  *
  * Copyright (c) 2021 Leon Lynch
  *
@@ -81,6 +81,7 @@ struct emv_ttl_t {
  * @param c_apdu_len Length of C-APDU buffer in bytes
  * @param r_apdu Response Application Protocol Data Unit (R-APDU) buffer
  * @param r_apdu_len Length of R-APDU buffer in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output in host endianness
  * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
  */
 int emv_ttl_trx(
@@ -88,7 +89,54 @@ int emv_ttl_trx(
 	const void* c_apdu,
 	size_t c_apdu_len,
 	void* r_apdu,
-	size_t* r_apdu_len
+	size_t* r_apdu_len,
+	uint16_t* sw1sw2
+);
+
+/**
+ * SELECT (0xA4) the first or only application by Dedicated File (DF) name
+ * and provide File Control Information (FCI) template.
+ * @remark See EMV 4.3 Book 1, 11.3
+ * @remark See ISO 7816-4:2005, 7.1.1
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param df_name Dedicated File (DF) name
+ * @param df_name_len Length of Dedicated File (DF) name in bytes, without NULL-termination
+ * @param fci File Control Information (FCI) template output
+ * @param fci_len Length of File Control Information (FCI) template in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_select_by_df_name(
+	struct emv_ttl_t* ctx,
+	const void* df_name,
+	size_t df_name_len,
+	void* fci,
+	size_t* fci_len,
+	uint16_t* sw1sw2
+);
+
+/**
+ * SELECT (0xA4) the next application by Dedicated File (DF) name and
+ * provide File Control Information (FCI) template.
+ * @remark See EMV 4.3 Book 1, 11.3
+ * @remark See ISO 7816-4:2005, 7.1.1
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param df_name Dedicated File (DF) name
+ * @param df_name_len Length of Dedicated File (DF) name in bytes, without NULL-termination
+ * @param fci File Control Information (FCI) template output
+ * @param fci_len Length of File Control Information (FCI) template in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_select_by_df_name_next(
+	struct emv_ttl_t* ctx,
+	const void* df_name,
+	size_t df_name_len,
+	void* fci,
+	size_t* fci_len,
+	uint16_t* sw1sw2
 );
 
 __END_DECLS

@@ -1,6 +1,6 @@
 /**
  * @file emv_ttl.c
- * @brief EMV Terminal Transport Layer
+ * @brief EMV Terminal Transport Layer (TTL)
  *
  * Copyright (c) 2021 Leon Lynch
  *
@@ -30,7 +30,8 @@ int emv_ttl_trx(
 	const void* c_apdu,
 	size_t c_apdu_len,
 	void* r_apdu,
-	size_t* r_apdu_len
+	size_t* r_apdu_len,
+	uint16_t* sw1sw2
 )
 {
 	enum iso7816_apdu_case_t apdu_case;
@@ -42,7 +43,7 @@ int emv_ttl_trx(
 	const void* tx_buf;
 	size_t tx_buf_len;
 
-	if (!ctx || !c_apdu || !c_apdu_len || !r_apdu || !r_apdu_len || !*r_apdu_len) {
+	if (!ctx || !c_apdu || !c_apdu_len || !r_apdu || !r_apdu_len || !*r_apdu_len || !sw1sw2) {
 		return -1;
 	}
 
@@ -198,10 +199,136 @@ int emv_ttl_trx(
 			default:
 				// Let Terminal Application Layer (TAL) process the response
 				*r_apdu_len = rx_len;
-				return 0;
 
-			// TODO: EMV 4.3 Book 1, Annex A7 "Case 4 Command with Warning Condition"
+				// Output status bytes SW1-SW2 in host endianness
+				*sw1sw2 = ((uint16_t)SW1 << 8) | SW2;
+
+				// TODO: EMV 4.3 Book 1, Annex A7 "Case 4 Command with Warning Condition"
+
+				return 0;
 		}
 
 	} while (true);
+}
+
+int emv_ttl_select_by_df_name(
+	struct emv_ttl_t* ctx,
+	const void* df_name,
+	size_t df_name_len,
+	void* fci,
+	size_t* fci_len,
+	uint16_t* sw1sw2
+)
+{
+	int r;
+	struct iso7816_apdu_case_4s_t c_apdu;
+	uint8_t r_apdu[EMV_RAPDU_MAX];
+	size_t r_apdu_len = sizeof(r_apdu);
+
+	if (!ctx || !df_name || !fci || !fci_len || !*fci_len || !sw1sw2) {
+		return -1;
+	}
+	if (*fci_len < EMV_RAPDU_DATA_MAX) {
+		return -2;
+	}
+
+	// For SELECT, ensure that Lc is from 0x05 to 0x10
+	// See EMV 4.3 Book 1, 11.3.2, table 40
+	if (df_name_len < 0x05 || df_name_len > 0x10) {
+		return -3;
+	}
+
+	// Build SELECT command
+	c_apdu.CLA = 0x00; // See EMV 4.3 Book 3, 6.3.2
+	c_apdu.INS = 0xA4; // See EMV 4.3 Book 1, 11.3.2, table 40
+	c_apdu.P1  = 0x04; // See EMV 4.3 Book 1, 11.3.2, table 41
+	c_apdu.P2  = 0x00; // See EMV 4.3 Book 1, 11.3.2, table 42
+	c_apdu.Lc  = df_name_len;
+	memcpy(c_apdu.data, df_name, c_apdu.Lc);
+	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.3 Book 1, 11.3.2, table 40
+
+	r = emv_ttl_trx(
+		ctx,
+		&c_apdu,
+		iso7816_apdu_case_4s_length(&c_apdu),
+		r_apdu,
+		&r_apdu_len,
+		sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+	if (r_apdu_len < 2) {
+		return -4;
+	}
+	if (r_apdu_len - 2 > *fci_len) {
+		return -5;
+	}
+
+	// Copy FCI from R-APDU
+	*fci_len = r_apdu_len - 2;
+	memcpy(fci, r_apdu, *fci_len);
+
+	return 0;
+}
+
+int emv_ttl_select_by_df_name_next(
+	struct emv_ttl_t* ctx,
+	const void* df_name,
+	size_t df_name_len,
+	void* fci,
+	size_t* fci_len,
+	uint16_t* sw1sw2
+)
+{
+	int r;
+	struct iso7816_apdu_case_4s_t c_apdu;
+	uint8_t r_apdu[EMV_RAPDU_MAX];
+	size_t r_apdu_len = sizeof(r_apdu);
+
+	if (!ctx || !df_name || !fci || !fci_len || !*fci_len || !sw1sw2) {
+		return -1;
+	}
+	if (*fci_len < EMV_RAPDU_DATA_MAX) {
+		return -2;
+	}
+
+	// For SELECT, ensure that Lc is from 0x05 to 0x10
+	// See EMV 4.3 Book 1, 11.3.2, table 40
+	if (df_name_len < 0x05 || df_name_len > 0x10) {
+		return -3;
+	}
+
+	// Build SELECT command
+	c_apdu.CLA = 0x00; // See EMV 4.3 Book 3, 6.3.2
+	c_apdu.INS = 0xA4; // See EMV 4.3 Book 1, 11.3.2, table 40
+	c_apdu.P1  = 0x04; // See EMV 4.3 Book 1, 11.3.2, table 41
+	c_apdu.P2  = 0x02; // See EMV 4.3 Book 1, 11.3.2, table 42
+	c_apdu.Lc  = df_name_len;
+	memcpy(c_apdu.data, df_name, c_apdu.Lc);
+	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.3 Book 1, 11.3.2, table 40
+
+	r = emv_ttl_trx(
+		ctx,
+		&c_apdu,
+		iso7816_apdu_case_4s_length(&c_apdu),
+		r_apdu,
+		&r_apdu_len,
+		sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+	if (r_apdu_len < 2) {
+		return -4;
+	}
+	if (r_apdu_len - 2 > *fci_len) {
+		return -5;
+	}
+
+	// Copy FCI from R-APDU
+	*fci_len = r_apdu_len - 2;
+	memcpy(fci, r_apdu, *fci_len);
+
+	return 0;
 }
