@@ -332,3 +332,63 @@ int emv_ttl_select_by_df_name_next(
 
 	return 0;
 }
+
+int emv_ttl_read_record(
+	struct emv_ttl_t* ctx,
+	uint8_t sfi,
+	uint8_t record_number,
+	void* data,
+	size_t* data_len,
+	uint16_t* sw1sw2
+)
+{
+	int r;
+	struct iso7816_apdu_case_2s_t c_apdu;
+	uint8_t r_apdu[EMV_RAPDU_MAX];
+	size_t r_apdu_len = sizeof(r_apdu);
+
+	if (!ctx || !data || !data_len || !*data_len || !sw1sw2) {
+		return -1;
+	}
+
+	if (*data_len < EMV_RAPDU_DATA_MAX) {
+		return -2;
+	}
+
+	// For READ RECORD, ensure that SFI is from 0x01 to 0x1E
+	// See ISO 7816-4:2005, 7.3.2, table 47
+	if (sfi < 0x01 || sfi > 0x1E) {
+		return -3;
+	}
+
+	// Build READ RECORD command
+	c_apdu.CLA = 0x00; // See EMV 4.3 Book 3, 6.3.2
+	c_apdu.INS = 0xB2; // See EMV 4.3 Book 1, 11.2.2, table 38
+	c_apdu.P1  = record_number; // See EMV 4.3 Book 1, 11.2.2, table 38
+	c_apdu.P2  = (sfi << 3) | 0x04; // See EMV 4.3 Book 1, 11.2.2, table 39
+	c_apdu.Le  = 0x00; // See EMV 4.3 Book 1, 11.2.2, table 38
+
+	r = emv_ttl_trx(
+		ctx,
+		&c_apdu,
+		sizeof(c_apdu),
+		r_apdu,
+		&r_apdu_len,
+		sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+	if (r_apdu_len < 2) {
+		return -4;
+	}
+	if (r_apdu_len - 2 > *data_len) {
+		return -5;
+	}
+
+	// Copy record data from R-APDU
+	*data_len = r_apdu_len - 2;
+	memcpy(data, r_apdu, *data_len);
+
+	return 0;
+}

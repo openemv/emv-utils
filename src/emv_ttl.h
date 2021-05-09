@@ -139,6 +139,28 @@ int emv_ttl_select_by_df_name_next(
 	uint16_t* sw1sw2
 );
 
+/**
+ * READ RECORD (0xB2) from current file
+ * @remark See EMV 4.3 Book 1, 11.2
+ * @remark See ISO 7816-4:2005, 7.3.3
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param sfi Short File Identifier (SFI) of elementary file (EF)
+ * @param record_number Record number to read
+ * @param data Record data output
+ * @param data_len Length of record data in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_read_record(
+	struct emv_ttl_t* ctx,
+	uint8_t sfi,
+	uint8_t record_number,
+	void* data,
+	size_t* data_len,
+	uint16_t* sw1sw2
+);
+
 __END_DECLS
 
 #endif

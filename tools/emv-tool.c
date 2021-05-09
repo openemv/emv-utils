@@ -137,10 +137,13 @@ int main(void)
 
 	// HACK: test SELECT PSE
 	{
+		char str[1024];
 		struct emv_ttl_t emv_ttl;
 		emv_ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 		emv_ttl.cardreader.ctx = reader;
 		emv_ttl.cardreader.trx = &pcsc_reader_trx;
+
+		printf("SELECT PSE\n");
 
 		const uint8_t PSE[] = "1PAY.SYS.DDF01";
 		uint8_t fci[EMV_RAPDU_DATA_MAX];
@@ -152,9 +155,28 @@ int main(void)
 			goto exit;
 		}
 		print_buf("FCI", fci, fci_len);
-
-		char str[1024];
 		printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
+
+		// HACK: fake SFI for testing; this should be extracted from FCI instead
+		uint8_t sfi = 0x01;
+
+		for (uint8_t record_number = 1; ; ++record_number) {
+			uint8_t data[EMV_RAPDU_DATA_MAX];
+			size_t data_len = sizeof(data);
+
+			printf("READ RECORD %u,%u\n", sfi, record_number);
+
+			r = emv_ttl_read_record(&emv_ttl, sfi, record_number, data, &data_len, &sw1sw2);
+			if (r) {
+				return r;
+			}
+			print_buf("RECORD", data, data_len);
+			printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
+
+			if (sw1sw2 != 0x9000) {
+				break;
+			}
+		}
 	}
 
 	r = pcsc_reader_disconnect(reader);
