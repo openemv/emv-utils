@@ -37,12 +37,14 @@ static int parse_hex(const char* hex, void* bin, size_t bin_len);
 enum {
 	EMV_DECODE_ATR = 1,
 	EMV_DECODE_SW1SW2,
+	EMV_DECODE_BER,
 };
 
 // argp option structure
 static struct argp_option argp_options[] = {
 	{ "atr", EMV_DECODE_ATR, "answer-to-reset", 0, "ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
 	{ "sw1sw2", EMV_DECODE_SW1SW2, "SW1SW2", 0, "ISO 7816 Status bytes SW1-SW2, eg 9000" },
+	{ "ber", EMV_DECODE_BER, "data", 0, "ISO 8825-1 BER encoded data" },
 	{ 0 },
 };
 
@@ -105,6 +107,25 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			}
 
 			print_sw1sw2(sw1sw2[0], sw1sw2[1]);
+
+			return 0;
+		}
+
+		case EMV_DECODE_BER: {
+			size_t arg_len = strlen(arg);
+			size_t data_len = arg_len / 2;
+			uint8_t data[data_len];
+
+			if (arg_len % 2 != 0) {
+				argp_error(state, "BER data must have even number of digits");
+			}
+
+			r = parse_hex(arg, data, data_len);
+			if (r) {
+				argp_error(state, "BER data must must consist of hex digits");
+			}
+
+			print_ber(data, data_len, "  ", 0);
 
 			return 0;
 		}

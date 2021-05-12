@@ -41,12 +41,13 @@ target_include_directories(iso8825 INTERFACE
 add_library(emv
 	src/emv_ttl.c
 )
+target_link_libraries(emv iso8825)
 target_include_directories(emv INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
 
 add_executable(emv-decode tools/emv-decode.c tools/print_helpers.c)
-target_link_libraries(emv-decode iso7816 iso8825)
+target_link_libraries(emv-decode emv iso7816)
 
 add_executable(emv-tool tools/emv-tool.c tools/print_helpers.c src/pcsc.c)
 target_link_libraries(emv-tool emv iso7816 PCSCLite::PCSCLite)

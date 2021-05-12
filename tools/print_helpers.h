@@ -64,4 +64,13 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info);
  */
 void print_sw1sw2(uint8_t SW1, uint8_t SW2);
 
+/**
+ * Print BER data
+ * @param ptr BER encoded data
+ * @param len Length of BER encoded data in bytes
+ * @param prefix Prefix to print before every string
+ * @param depth Depth of current recursion
+ */
+void print_ber(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+
 #endif
