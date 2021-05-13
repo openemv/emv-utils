@@ -32,19 +32,28 @@
 // Helper functions
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
 static int parse_hex(const char* hex, void* bin, size_t bin_len);
+static void* load_from_file(FILE* file, size_t* len);
 
-// argp parsing keys
-enum {
-	EMV_DECODE_ATR = 1,
+// Input data
+static uint8_t* data = NULL;
+static size_t data_len = 0;
+
+// Decoding modes
+enum emv_decode_mode_t {
+	EMV_DECODE_NONE = 0,
+	EMV_DECODE_ATR,
 	EMV_DECODE_SW1SW2,
 	EMV_DECODE_BER,
 };
+static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
 // argp option structure
 static struct argp_option argp_options[] = {
-	{ "atr", EMV_DECODE_ATR, "answer-to-reset", 0, "ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
-	{ "sw1sw2", EMV_DECODE_SW1SW2, "SW1SW2", 0, "ISO 7816 Status bytes SW1-SW2, eg 9000" },
-	{ "ber", EMV_DECODE_BER, "data", 0, "ISO 8825-1 BER encoded data" },
+	{ "atr", EMV_DECODE_ATR, NULL, 0, "Decode as ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
+	{ "sw1sw2", EMV_DECODE_SW1SW2, NULL, 0, "Decode as ISO 7816 Status bytes SW1-SW2, eg 9000" },
+	{ "ber", EMV_DECODE_BER, NULL, 0, "Decode as ISO 8825-1 BER encoded data" },
+	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
+	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
 	{ 0 },
 };
 
@@ -52,8 +61,8 @@ static struct argp_option argp_options[] = {
 static struct argp argp_config = {
 	argp_options,
 	argp_parser_helper,
-	NULL,
-	NULL,
+	"INPUT",
+	"Decode data and print it in a human readable format.",
 };
 
 // argp parser helper function
@@ -62,73 +71,49 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 	int r;
 
 	switch (key) {
-		case EMV_DECODE_ATR: {
+		case ARGP_KEY_ARG: {
+			// Parse INPUT argument
 			size_t arg_len = strlen(arg);
-			uint8_t atr[ISO7816_ATR_MAX_SIZE];
-			size_t atr_len = arg_len / 2;
-			struct iso7816_atr_info_t atr_info;
 
-			if (atr_len < ISO7816_ATR_MIN_SIZE) {
-				argp_error(state, "ATR may not have less than %u digits (thus %u bytes)", ISO7816_ATR_MIN_SIZE * 2, ISO7816_ATR_MIN_SIZE);
-			}
-			if (atr_len > sizeof(atr)) {
-				argp_error(state, "ATR may not have more than %zu digits (thus %zu bytes)", sizeof(atr) * 2, sizeof(atr));
-			}
-			if (arg_len % 2 != 0) {
-				argp_error(state, "ATR must have even number of digits");
-			}
+			// If INPUT is "-"
+			if (arg_len == 1 && *arg == '-') {
+				// Read INPUT from stdin
+				data = load_from_file(stdin, &data_len);
+				if (!data || !data_len) {
+					argp_error(state, "Failed to read INPUT from stdin");
+				}
+			} else {
+				// Read INPUT as hex data
+				if (arg_len % 2 != 0) {
+					argp_error(state, "INPUT must have even number of digits");
+				}
 
-			r = parse_hex(arg, atr, atr_len);
-			if (r) {
-				argp_error(state, "ATR must must consist of hex digits");
-			}
+				data_len = arg_len / 2;
+				data = malloc(data_len);
 
-			r = iso7816_atr_parse(atr, atr_len, &atr_info);
-			if (r) {
-				argp_error(state, "Failed to parse ATR");
+				r = parse_hex(arg, data, data_len);
+				if (r) {
+					argp_error(state, "INPUT must must consist of hex digits");
+				}
 			}
-
-			print_atr(&atr_info);
 
 			return 0;
 		}
 
-		case EMV_DECODE_SW1SW2: {
-			size_t arg_len = strlen(arg);
-			uint8_t sw1sw2[2];
-
-			if (arg_len != 4) {
-				argp_error(state, "SW1SW2 must consist of 4 hex digits");
-			}
-
-			r = parse_hex(arg, sw1sw2, sizeof(sw1sw2));
-			if (r) {
-				argp_error(state, "SW1SW2 must consist of 4 hex digits");
-			}
-
-			print_sw1sw2(sw1sw2[0], sw1sw2[1]);
-
-			return 0;
+		case ARGP_KEY_NO_ARGS: {
+			argp_error(state, "INPUT is missing");
+			return ARGP_ERR_UNKNOWN;
 		}
 
-		case EMV_DECODE_BER: {
-			size_t arg_len = strlen(arg);
-			size_t data_len = arg_len / 2;
-			uint8_t data[data_len];
-
-			if (arg_len % 2 != 0) {
-				argp_error(state, "BER data must have even number of digits");
+		case EMV_DECODE_ATR:
+		case EMV_DECODE_SW1SW2:
+		case EMV_DECODE_BER:
+			if (emv_decode_mode != EMV_DECODE_NONE) {
+				argp_error(state, "Only one decoding OPTION may be specified");
 			}
 
-			r = parse_hex(arg, data, data_len);
-			if (r) {
-				argp_error(state, "BER data must must consist of hex digits");
-			}
-
-			print_ber(data, data_len, "  ", 0);
-
+			emv_decode_mode = key;
 			return 0;
-		}
 
 		default:
 			return ARGP_ERR_UNKNOWN;
@@ -162,6 +147,37 @@ static int parse_hex(const char* hex, void* bin, size_t bin_len)
 	return 0;
 }
 
+// File loader helper function
+static void* load_from_file(FILE* file, size_t* len)
+{
+	const size_t block_size = 4096; // Use common page size
+	void* buf = NULL;
+	size_t buf_len = 0;
+	size_t total_len = 0;
+
+	if (!file) {
+		*len = 0;
+		return NULL;
+	}
+
+	do {
+		// Grow buffer
+		buf_len += block_size;
+		buf = realloc(buf, buf_len);
+
+		// Read next block
+		total_len += fread(buf + total_len, 1, block_size, file);
+		if (ferror(file)) {
+			free(buf);
+			*len = 0;
+			return NULL;
+		}
+	} while (!feof(file));
+
+	*len = total_len;
+	return buf;
+}
+
 int main(int argc, char** argv)
 {
 	int r;
@@ -176,6 +192,55 @@ int main(int argc, char** argv)
 	if (r) {
 		fprintf(stderr, "Failed to parse command line\n");
 		return 1;
+	}
+
+	switch (emv_decode_mode) {
+		case EMV_DECODE_NONE: {
+			// No command line arguments
+			argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+			break;
+		}
+
+		case EMV_DECODE_ATR: {
+			struct iso7816_atr_info_t atr_info;
+
+			if (data_len < ISO7816_ATR_MIN_SIZE) {
+				fprintf(stderr, "ATR may not have less than %u digits (thus %u bytes)\n", ISO7816_ATR_MIN_SIZE * 2, ISO7816_ATR_MIN_SIZE);
+				break;
+			}
+			if (data_len > ISO7816_ATR_MAX_SIZE) {
+				fprintf(stderr, "ATR may not have more than %u digits (thus %u bytes)\n", ISO7816_ATR_MAX_SIZE * 2, ISO7816_ATR_MAX_SIZE);
+				break;
+			}
+
+			r = iso7816_atr_parse(data, data_len, &atr_info);
+			if (r) {
+				fprintf(stderr, "Failed to parse ATR\n");
+				break;
+			}
+
+			print_atr(&atr_info);
+			break;
+		}
+
+		case EMV_DECODE_SW1SW2: {
+			if (data_len != 2) {
+				fprintf(stderr, "SW1SW2 must consist of 4 hex digits\n");
+				break;
+			}
+
+			print_sw1sw2(data[0], data[1]);
+			break;
+		}
+
+		case EMV_DECODE_BER: {
+			print_ber(data, data_len, "  ", 0);
+			break;
+		}
+	}
+
+	if (data) {
+		free(data);
 	}
 
 	return 0;
