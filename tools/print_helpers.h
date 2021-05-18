@@ -73,4 +73,13 @@ void print_sw1sw2(uint8_t SW1, uint8_t SW2);
  */
 void print_ber(const void* ptr, size_t len, const char* prefix, unsigned int depth);
 
+/**
+ * Print EMV TLV data
+ * @param ptr EMV TLV data
+ * @param len Length of EMV TLV data in bytes
+ * @param prefix Prefix to print before every string
+ * @param depth Depth of current recursion
+ */
+void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+
 #endif

@@ -44,6 +44,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ATR,
 	EMV_DECODE_SW1SW2,
 	EMV_DECODE_BER,
+	EMV_DECODE_TLV,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
@@ -52,6 +53,7 @@ static struct argp_option argp_options[] = {
 	{ "atr", EMV_DECODE_ATR, NULL, 0, "Decode as ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
 	{ "sw1sw2", EMV_DECODE_SW1SW2, NULL, 0, "Decode as ISO 7816 Status bytes SW1-SW2, eg 9000" },
 	{ "ber", EMV_DECODE_BER, NULL, 0, "Decode as ISO 8825-1 BER encoded data" },
+	{ "tlv", EMV_DECODE_TLV, NULL, 0, "Decode as EMV TLV data" },
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
 	{ 0 },
@@ -108,6 +110,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_ATR:
 		case EMV_DECODE_SW1SW2:
 		case EMV_DECODE_BER:
+		case EMV_DECODE_TLV:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
 			}
@@ -236,6 +239,10 @@ int main(int argc, char** argv)
 		case EMV_DECODE_BER: {
 			print_ber(data, data_len, "  ", 0);
 			break;
+		}
+
+		case EMV_DECODE_TLV: {
+			print_emv_tlv(data, data_len, "  ", 0);
 		}
 	}
 

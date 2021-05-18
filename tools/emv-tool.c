@@ -155,6 +155,7 @@ int main(void)
 			goto exit;
 		}
 		print_buf("FCI", fci, fci_len);
+		print_emv_tlv(fci, fci_len, "  ", 0);
 		printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
 
 		// HACK: fake SFI for testing; this should be extracted from FCI instead
@@ -171,6 +172,7 @@ int main(void)
 				return r;
 			}
 			print_buf("RECORD", data, data_len);
+			print_emv_tlv(data, data_len, "  ", 0);
 			printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
 
 			if (sw1sw2 != 0x9000) {

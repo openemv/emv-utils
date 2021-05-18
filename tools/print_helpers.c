@@ -27,6 +27,8 @@
 
 #include "iso8825_ber.h"
 
+#include "emv_tlv.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -237,11 +239,55 @@ void print_ber(const void* ptr, size_t len, const char* prefix, unsigned int dep
 			printf("%s", prefix);
 		}
 
-		printf("%02X: [%u]", tlv.tag, tlv.length);
+		printf("%02X : [%u]", tlv.tag, tlv.length);
 
 		if (iso8825_ber_is_constructed(&tlv)) {
 			printf("\n");
 			print_ber(tlv.value, tlv.length, prefix, depth + 1);
+		} else {
+			printf(" ");
+			for (size_t i = 0; i < tlv.length; ++i) {
+				printf("%s%02X", i ? " " : "", tlv.value[i]);
+			}
+			printf("\n");
+		}
+	}
+
+	if (r < 0) {
+		printf("BER decoding error %d\n", r);
+	}
+}
+
+void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int depth)
+{
+	int r;
+	struct iso8825_ber_itr_t itr;
+	struct iso8825_tlv_t tlv;
+
+	r = iso8825_ber_itr_init(ptr, len, &itr);
+	if (r) {
+		printf("Failed to initialize BER iterator\n");
+		return;
+	}
+
+	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+
+		struct emv_tlv_info_t info;
+		emv_tlv_get_info(&tlv, &info);
+
+		for (unsigned int i = 0; i < depth; ++i) {
+			printf("%s", prefix);
+		}
+
+		if (info.tag_name) {
+			printf("%02X | %s : [%u]", tlv.tag, info.tag_name, tlv.length);
+		} else {
+			printf("%02X : [%u]", tlv.tag, tlv.length);
+		}
+
+		if (iso8825_ber_is_constructed(&tlv)) {
+			printf("\n");
+			print_emv_tlv(tlv.value, tlv.length, prefix, depth + 1);
 		} else {
 			printf(" ");
 			for (size_t i = 0; i < tlv.length; ++i) {
