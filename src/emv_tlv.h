@@ -23,6 +23,7 @@
 #define EMV_TLV_H
 
 #include <sys/cdefs.h>
+#include <stddef.h>
 #include <stdint.h>
 
 __BEGIN_DECLS
@@ -110,12 +111,22 @@ struct emv_tlv_info_t {
 };
 
 /**
- * Retrieve EMV TLV information, if available
+ * Retrieve EMV TLV information, if available, and convert value to human
+ * readable string(s), if possible.
+ * @note @c value_str output will be empty if human readable string is not available
+ *
  * @param tlv Decoded EMV TLV structure
  * @param info EMV TLV information output. See @ref emv_tlv_info_t
+ * @param value_str Value string buffer output. NULL to ignore.
+ * @param value_str_len Length of value string buffer in bytes. Zero to ignore.
  * @return Zero for success. Less than zero for error.
  */
-int emv_tlv_get_info(const emv_tlv_t* tlv, struct emv_tlv_info_t* info);
+int emv_tlv_get_info(
+	const emv_tlv_t* tlv,
+	struct emv_tlv_info_t* info,
+	char* value_str,
+	size_t value_str_len
+);
 
 __END_DECLS
 

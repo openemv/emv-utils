@@ -271,9 +271,10 @@ void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int
 	}
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+		char value_str[1024];
 
 		struct emv_tlv_info_t info;
-		emv_tlv_get_info(&tlv, &info);
+		emv_tlv_get_info(&tlv, &info, value_str, sizeof(value_str));
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix);
@@ -289,11 +290,15 @@ void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int
 			printf("\n");
 			print_emv_tlv(tlv.value, tlv.length, prefix, depth + 1);
 		} else {
-			printf(" ");
-			for (size_t i = 0; i < tlv.length; ++i) {
-				printf("%s%02X", i ? " " : "", tlv.value[i]);
+			if (value_str[0]) {
+				printf(" %s\n", value_str);
+			} else {
+				printf(" ");
+				for (size_t i = 0; i < tlv.length; ++i) {
+					printf("%s%02X", i ? " " : "", tlv.value[i]);
+				}
+				printf("\n");
 			}
-			printf("\n");
 		}
 	}
 
