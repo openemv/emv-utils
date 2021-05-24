@@ -22,6 +22,7 @@
 #include "pcsc.h"
 #include "iso7816.h"
 #include "print_helpers.h"
+#include "emv_tlv.h"
 
 #include <stdio.h>
 
@@ -155,8 +156,24 @@ int main(void)
 			goto exit;
 		}
 		print_buf("FCI", fci, fci_len);
-		print_emv_tlv(fci, fci_len, "  ", 0);
+		print_emv_buf(fci, fci_len, "  ", 0);
 		printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
+
+		if (sw1sw2 != 0x9000) {
+			goto exit;
+		}
+
+		// HACK: test EMV list functions
+		struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+		r = emv_tlv_parse(fci, fci_len, &list);
+		if (r) {
+			printf("emv_tlv_parse() failed; r=%d\n", r);
+			emv_tlv_list_clear(&list);
+			goto exit;
+		}
+		printf("EMV list...\n");
+		print_emv_tlv_list(&list);
+		emv_tlv_list_clear(&list);
 
 		// HACK: fake SFI for testing; this should be extracted from FCI instead
 		uint8_t sfi = 0x01;
@@ -169,15 +186,27 @@ int main(void)
 
 			r = emv_ttl_read_record(&emv_ttl, sfi, record_number, data, &data_len, &sw1sw2);
 			if (r) {
+				printf("Failed to read record; r=%d\n", r);
 				return r;
 			}
 			print_buf("RECORD", data, data_len);
-			print_emv_tlv(data, data_len, "  ", 0);
+			print_emv_buf(data, data_len, "  ", 0);
 			printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
 
 			if (sw1sw2 != 0x9000) {
 				break;
 			}
+
+			// HACK: test EMV list functions
+			r = emv_tlv_parse(data, data_len, &list);
+			if (r) {
+				printf("emv_tlv_parse() failed; r=%d\n", r);
+				emv_tlv_list_clear(&list);
+				goto exit;
+			}
+			printf("EMV list...\n");
+			print_emv_tlv_list(&list);
+			emv_tlv_list_clear(&list);
 		}
 	}
 

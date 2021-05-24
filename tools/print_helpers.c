@@ -221,7 +221,7 @@ void print_sw1sw2(uint8_t SW1, uint8_t SW2)
 	printf("SW1SW2: %02X%02X (%s)\n", SW1, SW2, s);
 }
 
-void print_ber(const void* ptr, size_t len, const char* prefix, unsigned int depth)
+void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth)
 {
 	int r;
 	struct iso8825_ber_itr_t itr;
@@ -243,7 +243,7 @@ void print_ber(const void* ptr, size_t len, const char* prefix, unsigned int dep
 
 		if (iso8825_ber_is_constructed(&tlv)) {
 			printf("\n");
-			print_ber(tlv.value, tlv.length, prefix, depth + 1);
+			print_ber_buf(tlv.value, tlv.length, prefix, depth + 1);
 		} else {
 			printf(" ");
 			for (size_t i = 0; i < tlv.length; ++i) {
@@ -258,7 +258,31 @@ void print_ber(const void* ptr, size_t len, const char* prefix, unsigned int dep
 	}
 }
 
-void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int depth)
+void print_emv_tlv(const struct emv_tlv_t* tlv)
+{
+	struct emv_tlv_info_t info;
+	char value_str[1024];
+
+	emv_tlv_get_info(tlv, &info, value_str, sizeof(value_str));
+
+	if (info.tag_name) {
+		printf("%02X | %s : [%u]", tlv->tag, info.tag_name, tlv->length);
+	} else {
+		printf("%02X : [%u]", tlv->tag, tlv->length);
+	}
+
+	if (value_str[0]) {
+		printf(" %s\n", value_str);
+	} else {
+		printf(" ");
+		for (size_t i = 0; i < tlv->length; ++i) {
+			printf("%s%02X", i ? " " : "", tlv->value[i]);
+		}
+		printf("\n");
+	}
+}
+
+void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth)
 {
 	int r;
 	struct iso8825_ber_itr_t itr;
@@ -271,10 +295,10 @@ void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int
 	}
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+		struct emv_tlv_info_t info;
 		char value_str[1024];
 
-		struct emv_tlv_info_t info;
-		emv_tlv_get_info(&tlv, &info, value_str, sizeof(value_str));
+		emv_tlv_get_info((struct emv_tlv_t*)&tlv, &info, value_str, sizeof(value_str));
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix);
@@ -288,7 +312,7 @@ void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int
 
 		if (iso8825_ber_is_constructed(&tlv)) {
 			printf("\n");
-			print_emv_tlv(tlv.value, tlv.length, prefix, depth + 1);
+			print_emv_buf(tlv.value, tlv.length, prefix, depth + 1);
 		} else {
 			if (value_str[0]) {
 				printf(" %s\n", value_str);
@@ -304,5 +328,14 @@ void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int
 
 	if (r < 0) {
 		printf("BER decoding error %d\n", r);
+	}
+}
+
+void print_emv_tlv_list(const struct emv_tlv_list_t* list)
+{
+	const struct emv_tlv_t* tlv;
+
+	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		print_emv_tlv(tlv);
 	}
 }

@@ -27,6 +27,8 @@
 
 // Forward declarations
 struct iso7816_atr_info_t;
+struct emv_tlv_t;
+struct emv_tlv_list_t;
 
 /**
  * Print buffer as hex digits
@@ -71,7 +73,13 @@ void print_sw1sw2(uint8_t SW1, uint8_t SW2);
  * @param prefix Prefix to print before every string
  * @param depth Depth of current recursion
  */
-void print_ber(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+
+/**
+ * Print EMV TLV field
+ * @param tlv EMV TLV field
+ */
+void print_emv_tlv(const struct emv_tlv_t* tlv);
 
 /**
  * Print EMV TLV data
@@ -80,6 +88,12 @@ void print_ber(const void* ptr, size_t len, const char* prefix, unsigned int dep
  * @param prefix Prefix to print before every string
  * @param depth Depth of current recursion
  */
-void print_emv_tlv(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+
+/**
+ * Print EMV TLV list
+ * @param list EMV TLV list object
+ */
+void print_emv_tlv_list(const struct emv_tlv_list_t* list);
 
 #endif

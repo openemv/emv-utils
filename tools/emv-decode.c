@@ -237,12 +237,12 @@ int main(int argc, char** argv)
 		}
 
 		case EMV_DECODE_BER: {
-			print_ber(data, data_len, "  ", 0);
+			print_ber_buf(data, data_len, "  ", 0);
 			break;
 		}
 
 		case EMV_DECODE_TLV: {
-			print_emv_tlv(data, data_len, "  ", 0);
+			print_emv_buf(data, data_len, "  ", 0);
 		}
 	}
 
