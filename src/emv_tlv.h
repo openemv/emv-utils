@@ -22,6 +22,8 @@
 #ifndef EMV_TLV_H
 #define EMV_TLV_H
 
+#include <iso8825_ber.h>
+
 #include <sys/cdefs.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -34,9 +36,14 @@ __BEGIN_DECLS
  * @note The first 3 members of this structure are intentionally identical to @ref iso8825_tlv_t
  */
 struct emv_tlv_t {
-	unsigned int tag;                           ///< EMV tag
-	unsigned int length;                        ///< Length of @c value in bytes
-	uint8_t* value;                             ///< EMV value buffer
+	union {
+		struct {
+			unsigned int tag;                   ///< EMV tag
+			unsigned int length;                ///< Length of @c value in bytes
+			uint8_t* value;                     ///< EMV value buffer
+		};
+		struct iso8825_tlv_t ber;               ///< Alternative BER access to EMV TLV field
+	};
 
 	struct emv_tlv_t* next;                     ///< Next EMV TLV field in list
 };

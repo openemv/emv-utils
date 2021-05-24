@@ -295,10 +295,12 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	}
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+		struct emv_tlv_t emv_tlv;
 		struct emv_tlv_info_t info;
 		char value_str[1024];
 
-		emv_tlv_get_info((struct emv_tlv_t*)&tlv, &info, value_str, sizeof(value_str));
+		emv_tlv.ber = tlv;
+		emv_tlv_get_info(&emv_tlv, &info, value_str, sizeof(value_str));
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix);
