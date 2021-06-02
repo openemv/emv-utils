@@ -27,7 +27,9 @@
 #include <stdio.h>
 
 // HACK: remove
+#include "emv_tags.h"
 #include "emv_ttl.h"
+#include "emv_app.h"
 #include "iso7816_strings.h"
 
 // Helper functions
@@ -163,28 +165,33 @@ int main(void)
 			goto exit;
 		}
 
-		// HACK: test EMV list functions
-		struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
-		r = emv_tlv_parse(fci, fci_len, &list);
+		// Parse PSE FCI
+		struct emv_tlv_list_t pse_tlv_list = EMV_TLV_LIST_INIT;
+		r = emv_tlv_parse(fci, fci_len, &pse_tlv_list);
 		if (r) {
 			printf("emv_tlv_parse() failed; r=%d\n", r);
-			emv_tlv_list_clear(&list);
+			emv_tlv_list_clear(&pse_tlv_list);
 			goto exit;
 		}
-		printf("EMV list...\n");
-		print_emv_tlv_list(&list);
-		emv_tlv_list_clear(&list);
 
-		// HACK: fake SFI for testing; this should be extracted from FCI instead
-		uint8_t sfi = 0x01;
+		// Extract SFI from FCI
+		struct emv_tlv_t* sfi_tlv;
+		sfi_tlv = emv_tlv_list_find(&pse_tlv_list, EMV_TAG_88_SFI);
+		if (!sfi_tlv) {
+			printf("Failed to find SFI\n");
+			goto exit;
+		}
 
+		// Read PSE records
 		for (uint8_t record_number = 1; ; ++record_number) {
 			uint8_t data[EMV_RAPDU_DATA_MAX];
 			size_t data_len = sizeof(data);
+			struct iso8825_tlv_t tlv;
+			struct iso8825_ber_itr_t itr;
 
-			printf("READ RECORD %u,%u\n", sfi, record_number);
+			printf("READ RECORD %u,%u\n", sfi_tlv->value[0], record_number);
 
-			r = emv_ttl_read_record(&emv_ttl, sfi, record_number, data, &data_len, &sw1sw2);
+			r = emv_ttl_read_record(&emv_ttl, sfi_tlv->value[0], record_number, data, &data_len, &sw1sw2);
 			if (r) {
 				printf("Failed to read record; r=%d\n", r);
 				return r;
@@ -197,17 +204,33 @@ int main(void)
 				break;
 			}
 
-			// HACK: test EMV list functions
-			r = emv_tlv_parse(data, data_len, &list);
-			if (r) {
-				printf("emv_tlv_parse() failed; r=%d\n", r);
-				emv_tlv_list_clear(&list);
+			// Parse PSE record
+			r = iso8825_ber_decode(data, data_len, &tlv);
+			if (r != data_len) {
+				printf("iso8825_ber_decode() failed; r=%d\n", r);
 				goto exit;
 			}
-			printf("EMV list...\n");
-			print_emv_tlv_list(&list);
-			emv_tlv_list_clear(&list);
+			r = iso8825_ber_itr_init(tlv.value, tlv.length, &itr);
+			if (r) {
+				printf("iso8825_ber_itr_init() failed; r=%d\n", r);
+				goto exit;
+			}
+
+			while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+				struct emv_app_t* app;
+
+				// Create EMV application object
+				app = emv_app_create_from_pse(&pse_tlv_list, tlv.value, tlv.length);
+				if (!app) {
+					printf("emv_app_create_from_pse() failed\n");
+					goto exit;
+				}
+				print_emv_app(app);
+				emv_app_free(app);
+			}
 		}
+
+		emv_tlv_list_clear(&pse_tlv_list);
 	}
 
 	r = pcsc_reader_disconnect(reader);

@@ -1,0 +1,126 @@
+/**
+ * @file emv_app.h
+ * @brief EMV application abstraction and helper functions
+ *
+ * Copyright (c) 2021 Leon Lynch
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library. If not, see
+ * <https://www.gnu.org/licenses/>.
+ */
+
+#ifndef EMV_APP_H
+#define EMV_APP_H
+
+#include <emv_tlv.h>
+
+#include <sys/cdefs.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+__BEGIN_DECLS
+
+/**
+ * EMV application
+ */
+struct emv_app_t {
+	/**
+	 * Application Identifier (AID) field, as provided by:
+	 * - Application Dedicated File (ADF) Name (field 4F)
+	 * - Dedicated File (DF) Name (field 84)
+	 * in order of priority, if found in @c tlv_list
+	 */
+	const struct emv_tlv_t* aid;
+
+	/**
+	 * Application display name, as provided by:
+	 * - Application Preferred Name (field 9F12, max 16 chars)
+	 * - Application Label (field 50, max 16 chars)
+	 * - Application Dedicated File (ADF) Name (field 4F, max 32 chars)
+	 * - Dedicated File (DF) Name (field 84, max 32 chars)
+	 * in order of priority, if found in @c tlv_list
+	 */
+	char display_name[33];
+
+	/**
+	 * Application priority ordering, as provided by Application Priority
+	 * Indicator (field 87), bits 1 to 4. Valid range is 1 to 15, with 1 being
+	 * the highest priority. Zero if not available.
+	 * See EMV 4.3 Book 1, 12.4 for usage
+	 */
+	uint8_t priority;
+
+	/**
+	 * Boolean indicating whether application requires cardholder confirmation
+	 * for selection, even if it is the only application.
+	 * See EMV 4.3 Book 1, 12.4 for usage
+	 */
+	bool confirmation_required;
+
+	/**
+	 * Application TLVs, as provided by:
+	 * - Application Template (field 61) provided by PSE record
+	 * - File Control Information (FCI) template (field 6F) provided by application selection
+	 */
+	struct emv_tlv_list_t tlv_list;
+
+	/// Next EMV application in list
+	struct emv_app_t* next;
+};
+
+/**
+ * EMV application list
+ * @note Use the various @c emv_app_list_*() functions to manipulate the list
+ */
+struct emv_app_list_t {
+	struct emv_app_t* front;                    ///< Pointer to front of list
+	struct emv_app_t* back;                     ///< Pointer to end of list
+};
+
+/**
+ * Create new EMV application from encoded EMV data. The data should be the
+ * content of the Application Template (field 61) provided by a PSE record.
+ *
+ * @param pse_tlv_list PSE TLV list obtained from PSE FCI
+ * @param pse_dir_entry PSE directory entry (content of Application Template, field 61)
+ * @param pse_dir_entry_len Length of PSE directory entry in bytes
+ * @return New EMV application object. NULL for error.
+ */
+struct emv_app_t* emv_app_create_from_pse(
+	struct emv_tlv_list_t* pse_tlv_list,
+	const void* pse_dir_entry,
+	size_t pse_dir_entry_len
+);
+
+/**
+ * Create new EMV application from encoded EMV data. The data should be the
+ * File Control Information (FCI) Template (field 6F) provided by application
+ * selection.
+ *
+ * @param fci FCI data provided by application selection
+ * @param fci_len Length of FCI data in bytes
+ * @return New EMV application object. NULL for error.
+ */
+struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len);
+
+/**
+ * Free EMV application and associated EMV TLVs
+ * @note This function should not be used to free EMV applications that are elements of a list
+ * @param app EMV application to free
+ * @return Zero for success. Non-zero if it is unsafe to free the EMV application.
+ */
+int emv_app_free(struct emv_app_t* app);
+
+__END_DECLS
+
+#endif

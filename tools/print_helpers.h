@@ -29,6 +29,7 @@
 struct iso7816_atr_info_t;
 struct emv_tlv_t;
 struct emv_tlv_list_t;
+struct emv_app_t;
 
 /**
  * Print buffer as hex digits
@@ -95,5 +96,11 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
  * @param list EMV TLV list object
  */
 void print_emv_tlv_list(const struct emv_tlv_list_t* list);
+
+/**
+ * Print EMV application description
+ * @param app EMV application object
+ */
+void print_emv_app(const struct emv_app_t* app);
 
 #endif

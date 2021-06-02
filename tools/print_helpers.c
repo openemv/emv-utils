@@ -28,6 +28,7 @@
 #include "iso8825_ber.h"
 
 #include "emv_tlv.h"
+#include "emv_app.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -340,4 +341,20 @@ void print_emv_tlv_list(const struct emv_tlv_list_t* list)
 	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
 		print_emv_tlv(tlv);
 	}
+}
+
+void print_emv_app(const struct emv_app_t* app)
+{
+	printf("Application: ");
+	for (size_t i = 0; i < app->aid->length; ++i) {
+		printf("%02X", app->aid->value[i]);
+	}
+	printf(", %s", app->display_name);
+	if (app->priority) {
+		printf(", Priority %u", app->priority);
+	}
+	if (app->confirmation_required) {
+		printf(", Cardholder confirmation required");
+	}
+	printf("\n");
 }

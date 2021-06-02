@@ -39,6 +39,7 @@ __BEGIN_DECLS
 #define EMV_TAG_50_APPLICATION_LABEL                            (0x50)
 
 /// EMV tag 61 Application Template. Template 70.
+/// @remark See ISO 7816-4:2005, 8.2.1.3
 #define EMV_TAG_61_APPLICATION_TEMPLATE                         (0x61)
 
 /// EMV tag 6F File Control Information (FCI) Template
