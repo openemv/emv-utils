@@ -95,6 +95,7 @@ struct emv_app_list_t {
  * @param pse_dir_entry PSE directory entry (content of Application Template, field 61)
  * @param pse_dir_entry_len Length of PSE directory entry in bytes
  * @return New EMV application object. NULL for error.
+ *         Use @ref emv_tlv_free() to free memory.
  */
 struct emv_app_t* emv_app_create_from_pse(
 	struct emv_tlv_list_t* pse_tlv_list,
@@ -110,6 +111,7 @@ struct emv_app_t* emv_app_create_from_pse(
  * @param fci FCI data provided by application selection
  * @param fci_len Length of FCI data in bytes
  * @return New EMV application object. NULL for error.
+ *         Use @ref emv_tlv_free() to free memory.
  */
 struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len);
 
@@ -120,6 +122,38 @@ struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len);
  * @return Zero for success. Non-zero if it is unsafe to free the EMV application.
  */
 int emv_app_free(struct emv_app_t* app);
+
+/// Static initialiser for @ref emv_app_list_t
+#define EMV_APP_LIST_INIT { NULL, NULL }
+
+/**
+ * Determine whether EMV application list is empty
+ * @return Boolean indicating whether EMV application list is empty
+ */
+bool emv_app_list_is_empty(const struct emv_app_list_t* list);
+
+/**
+ * Clear EMV application list
+ * @note This function will call @ref emv_app_free() for every element
+ * @param list EMV application list
+ */
+void emv_app_list_clear(struct emv_app_list_t* list);
+
+/**
+ * Push EMV application on to the back of an EMV application list
+ * @note This function will push @c app onto the list without copying it
+ * @param list EMV application list
+ * @param app EMV application
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_app_list_push(struct emv_app_list_t* list, struct emv_app_t* app);
+
+/**
+ * Pop EMV application from the front of an EMV application list
+ * @param list EMV application list
+ * @return EMV application. Use @ref emv_tlv_free() to free memory.
+ */
+struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list);
 
 __END_DECLS
 

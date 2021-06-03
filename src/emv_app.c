@@ -23,12 +23,15 @@
 #include "emv_tags.h"
 #include "iso8825_ber.h"
 
+#include <stdbool.h>
 #include <stdlib.h> // for malloc() and free()
 #include <string.h>
+#include <assert.h>
 
 // Helper functions
 static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_list_t* pse_tlv_list);
 static int emv_app_extract_priority_indicator(struct emv_app_t* app);
+static inline bool emv_app_list_is_valid(const struct emv_app_list_t* list);
 
 struct emv_app_t* emv_app_create_from_pse(
 	struct emv_tlv_list_t* pse_tlv_list,
@@ -198,10 +201,103 @@ int emv_app_free(struct emv_app_t* app)
 	if (!app) {
 		return -1;
 	}
+	if (app->next) {
+		// EMV application is part of a list; unsafe to free
+		return 1;
+	}
 
 	emv_tlv_list_clear(&app->tlv_list);
 	memset(app, 0, sizeof(*app));
 	free(app);
 
 	return 0;
+}
+
+static inline bool emv_app_list_is_valid(const struct emv_app_list_t* list)
+{
+	if (!list) {
+		return false;
+	}
+
+	if (list->front && !list->back) {
+		return false;
+	}
+
+	if (!list->front && list->back) {
+		return false;
+	}
+
+	return true;
+}
+
+bool emv_app_list_is_empty(const struct emv_app_list_t* list)
+{
+	if (!emv_app_list_is_valid(list)) {
+		// Indicate that the list is empty to dissuade the caller from
+		// attempting to access it
+		return true;
+	}
+
+	return !list->front;
+}
+
+void emv_app_list_clear(struct emv_app_list_t* list)
+{
+	if (!emv_app_list_is_valid(list)) {
+		list->front = NULL;
+		list->back = NULL;
+		return;
+	}
+
+	while (list->front) {
+		struct emv_app_t* app;
+		int r;
+		int emv_app_is_safe_to_free;
+
+		app = emv_app_list_pop(list);
+		r = emv_app_free(app);
+
+		emv_app_is_safe_to_free = r;
+		assert(emv_app_is_safe_to_free == 0);
+	}
+	assert(list->front == NULL);
+	assert(list->back == NULL);
+}
+
+int emv_app_list_push(struct emv_app_list_t* list, struct emv_app_t* app)
+{
+	if (!emv_app_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (list->back) {
+		list->back->next = app;
+		list->back = app;
+	} else {
+		list->front = app;
+		list->back = app;
+	}
+
+	return 0;
+}
+
+struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list)
+{
+	struct emv_app_t* app = NULL;
+
+	if (!emv_app_list_is_valid(list)) {
+		return NULL;
+	}
+
+	if (list->front) {
+		app = list->front;
+		list->front = app->next;
+		if (!list->front) {
+			list->back = NULL;
+		}
+
+		app->next = NULL;
+	}
+
+	return app;
 }

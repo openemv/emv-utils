@@ -31,6 +31,7 @@
 #include "emv_ttl.h"
 #include "emv_app.h"
 #include "iso7816_strings.h"
+#include <string.h> // for memcpy() that should be removed later
 
 // Helper functions
 static const char* pcsc_get_reader_state_string(unsigned int reader_state);
@@ -179,22 +180,25 @@ int main(void)
 		sfi_tlv = emv_tlv_list_find(&pse_tlv_list, EMV_TAG_88_SFI);
 		if (!sfi_tlv) {
 			printf("Failed to find SFI\n");
+			emv_tlv_list_clear(&pse_tlv_list);
 			goto exit;
 		}
+		uint8_t sfi = sfi_tlv->value[0];
 
-		// Read PSE records
+		// Read PSE records and build application list
+		struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
 		for (uint8_t record_number = 1; ; ++record_number) {
 			uint8_t data[EMV_RAPDU_DATA_MAX];
 			size_t data_len = sizeof(data);
 			struct iso8825_tlv_t tlv;
 			struct iso8825_ber_itr_t itr;
 
-			printf("READ RECORD %u,%u\n", sfi_tlv->value[0], record_number);
+			printf("READ RECORD %u,%u\n", sfi, record_number);
 
-			r = emv_ttl_read_record(&emv_ttl, sfi_tlv->value[0], record_number, data, &data_len, &sw1sw2);
+			r = emv_ttl_read_record(&emv_ttl, sfi, record_number, data, &data_len, &sw1sw2);
 			if (r) {
 				printf("Failed to read record; r=%d\n", r);
-				return r;
+				break;
 			}
 			print_buf("RECORD", data, data_len);
 			print_emv_buf(data, data_len, "  ", 0);
@@ -223,14 +227,18 @@ int main(void)
 				app = emv_app_create_from_pse(&pse_tlv_list, tlv.value, tlv.length);
 				if (!app) {
 					printf("emv_app_create_from_pse() failed\n");
-					goto exit;
+				} else {
+					emv_app_list_push(&app_list, app);
 				}
-				print_emv_app(app);
-				emv_app_free(app);
 			}
 		}
 
 		emv_tlv_list_clear(&pse_tlv_list);
+
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
+		emv_app_list_clear(&app_list);
 	}
 
 	r = pcsc_reader_disconnect(reader);
