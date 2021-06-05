@@ -23,6 +23,7 @@
 #include "iso7816.h"
 #include "print_helpers.h"
 #include "emv_tlv.h"
+#include "emv_tal.h"
 
 #include <stdio.h>
 
@@ -139,23 +140,57 @@ int main(void)
 	print_atr(&atr_info);
 	printf("\n");
 
-	// HACK: test SELECT PSE
+	struct emv_ttl_t emv_ttl;
+	emv_ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
+	emv_ttl.cardreader.ctx = reader;
+	emv_ttl.cardreader.trx = &pcsc_reader_trx;
+
+	printf("SELECT Payment System Environment (PSE)\n");
+	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
+	r = emv_tal_read_pse(&emv_ttl, &app_list);
+	if (r < 0) {
+		printf("Failed to read PSE; terminate session\n");
+		goto exit;
+	}
+	if (r > 0) {
+		printf("Failed to read PSE; continue session\n");
+		goto exit;
+	}
+	if (emv_app_list_is_empty(&app_list)) {
+		printf("No supported applications\n");
+		goto exit;
+	}
+
+	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+		print_emv_app(app);
+	}
+
+	// HACK: test application selection
 	{
 		char str[1024];
-		struct emv_ttl_t emv_ttl;
-		emv_ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
-		emv_ttl.cardreader.ctx = reader;
-		emv_ttl.cardreader.trx = &pcsc_reader_trx;
 
-		printf("SELECT PSE\n");
+		// Use first application
+		struct emv_app_t* current_app = emv_app_list_pop(&app_list);
+		if (!current_app) {
+			printf("No supported applications\n");
+			goto exit;
+		}
+		emv_app_list_clear(&app_list);
 
-		const uint8_t PSE[] = "1PAY.SYS.DDF01";
+		uint8_t current_aid[16];
+		size_t current_aid_len = current_app->aid->length;
+		memcpy(current_aid, current_app->aid->value, current_app->aid->length);
+		emv_app_free(current_app);
+		current_app = NULL;
+
+		// Select application
+		print_buf("\nSELECT application", current_aid, current_aid_len);
 		uint8_t fci[EMV_RAPDU_DATA_MAX];
 		size_t fci_len = sizeof(fci);
 		uint16_t sw1sw2;
-		r = emv_ttl_select_by_df_name(&emv_ttl, PSE, sizeof(PSE) - 1, fci, &fci_len, &sw1sw2);
+		r = emv_ttl_select_by_df_name(&emv_ttl, current_aid, current_aid_len, fci, &fci_len, &sw1sw2);
 		if (r) {
-			printf("Failed to select PSE; r=%d\n", r);
+			printf("Failed to select application; r=%d\n", r);
 			goto exit;
 		}
 		print_buf("FCI", fci, fci_len);
@@ -166,79 +201,16 @@ int main(void)
 			goto exit;
 		}
 
-		// Parse PSE FCI
-		struct emv_tlv_list_t pse_tlv_list = EMV_TLV_LIST_INIT;
-		r = emv_tlv_parse(fci, fci_len, &pse_tlv_list);
+		// Create EMV application object
+		struct emv_app_t* app;
+		app = emv_app_create_from_fci(fci, fci_len);
 		if (r) {
-			printf("emv_tlv_parse() failed; r=%d\n", r);
-			emv_tlv_list_clear(&pse_tlv_list);
+			printf("emv_app_populate_from_fci() failed; r=%d\n", r);
 			goto exit;
 		}
-
-		// Extract SFI from FCI
-		struct emv_tlv_t* sfi_tlv;
-		sfi_tlv = emv_tlv_list_find(&pse_tlv_list, EMV_TAG_88_SFI);
-		if (!sfi_tlv) {
-			printf("Failed to find SFI\n");
-			emv_tlv_list_clear(&pse_tlv_list);
-			goto exit;
-		}
-		uint8_t sfi = sfi_tlv->value[0];
-
-		// Read PSE records and build application list
-		struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
-		for (uint8_t record_number = 1; ; ++record_number) {
-			uint8_t data[EMV_RAPDU_DATA_MAX];
-			size_t data_len = sizeof(data);
-			struct iso8825_tlv_t tlv;
-			struct iso8825_ber_itr_t itr;
-
-			printf("READ RECORD %u,%u\n", sfi, record_number);
-
-			r = emv_ttl_read_record(&emv_ttl, sfi, record_number, data, &data_len, &sw1sw2);
-			if (r) {
-				printf("Failed to read record; r=%d\n", r);
-				break;
-			}
-			print_buf("RECORD", data, data_len);
-			print_emv_buf(data, data_len, "  ", 0);
-			printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
-
-			if (sw1sw2 != 0x9000) {
-				break;
-			}
-
-			// Parse PSE record
-			r = iso8825_ber_decode(data, data_len, &tlv);
-			if (r != data_len) {
-				printf("iso8825_ber_decode() failed; r=%d\n", r);
-				goto exit;
-			}
-			r = iso8825_ber_itr_init(tlv.value, tlv.length, &itr);
-			if (r) {
-				printf("iso8825_ber_itr_init() failed; r=%d\n", r);
-				goto exit;
-			}
-
-			while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
-				struct emv_app_t* app;
-
-				// Create EMV application object
-				app = emv_app_create_from_pse(&pse_tlv_list, tlv.value, tlv.length);
-				if (!app) {
-					printf("emv_app_create_from_pse() failed\n");
-				} else {
-					emv_app_list_push(&app_list, app);
-				}
-			}
-		}
-
-		emv_tlv_list_clear(&pse_tlv_list);
-
-		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
-			print_emv_app(app);
-		}
-		emv_app_list_clear(&app_list);
+		print_emv_app(app);
+		print_emv_tlv_list(&app->tlv_list);
+		emv_app_free(app);
 	}
 
 	r = pcsc_reader_disconnect(reader);

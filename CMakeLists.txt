@@ -43,6 +43,7 @@ add_library(emv
 	src/emv_ttl.c
 	src/emv_tlv.c
 	src/emv_app.c
+	src/emv_tal.c
 )
 target_link_libraries(emv iso8825)
 target_include_directories(emv INTERFACE
