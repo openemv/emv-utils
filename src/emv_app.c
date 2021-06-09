@@ -21,6 +21,7 @@
 
 #include "emv_app.h"
 #include "emv_tags.h"
+#include "emv_fields.h"
 #include "iso8825_ber.h"
 
 #include <stdbool.h>
@@ -230,8 +231,8 @@ static int emv_app_extract_priority_indicator(struct emv_app_t* app)
 	}
 
 	// See EMV 4.3 Book 1, 12.2.3, table 48
-	app->priority = tlv->value[0] & 0x0F;
-	app->confirmation_required = tlv->value[0] & 0x80;
+	app->priority = tlv->value[0] & EMV_APP_PRIORITY_INDICATOR_MASK;
+	app->confirmation_required = tlv->value[0] & EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED;
 
 	return 0;
 }
