@@ -33,7 +33,7 @@ __BEGIN_DECLS
 
 /**
  * EMV TLV field
- * @note The first 3 members of this structure are intentionally identical to @ref iso8825_tlv_t
+ * @note The first 4 members of this structure are intentionally identical to @ref iso8825_tlv_t
  */
 struct emv_tlv_t {
 	union {
@@ -41,6 +41,7 @@ struct emv_tlv_t {
 			unsigned int tag;                   ///< EMV tag
 			unsigned int length;                ///< Length of @c value in bytes
 			uint8_t* value;                     ///< EMV value buffer
+			uint8_t flags;                      ///< EMV field specific flags, eg ASI for AID
 		};
 		struct iso8825_tlv_t ber;               ///< Alternative BER access to EMV TLV field
 	};
@@ -167,9 +168,16 @@ void emv_tlv_list_clear(struct emv_tlv_list_t* list);
  * @param tag EMV TLV tag
  * @param length EMV TLV length
  * @param value EMV TLV value
+ * @param flags EMV field specific flags
  * @return Zero for success. Less than zero for error.
  */
-int emv_tlv_list_push(struct emv_tlv_list_t* list, unsigned int tag, unsigned int length, const uint8_t* value);
+int emv_tlv_list_push(
+	struct emv_tlv_list_t* list,
+	unsigned int tag,
+	unsigned int length,
+	const uint8_t* value,
+	uint8_t flags
+);
 
 /**
  * Pop EMV TLV field from the front of an EMV TLV list

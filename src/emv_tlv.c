@@ -30,7 +30,7 @@
 
 // Helper functions
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list);
-static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, const uint8_t* value);
+static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, const uint8_t* value, uint8_t flags);
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len);
 
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list)
@@ -50,7 +50,7 @@ static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list)
 	return true;
 }
 
-static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, const uint8_t* value)
+static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, const uint8_t* value, uint8_t flags)
 {
 	struct emv_tlv_t* tlv;
 
@@ -67,6 +67,7 @@ static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, co
 		return NULL;
 	}
 	memcpy(tlv->value, value, length);
+	tlv->flags = flags;
 	tlv->next = NULL;
 
 	return tlv;
@@ -125,7 +126,13 @@ void emv_tlv_list_clear(struct emv_tlv_list_t* list)
 	assert(list->back == NULL);
 }
 
-int emv_tlv_list_push(struct emv_tlv_list_t* list, unsigned int tag, unsigned int length, const uint8_t* value)
+int emv_tlv_list_push(
+	struct emv_tlv_list_t* list,
+	unsigned int tag,
+	unsigned int length,
+	const uint8_t* value,
+	uint8_t flags
+)
 {
 	struct emv_tlv_t* tlv;
 
@@ -133,7 +140,7 @@ int emv_tlv_list_push(struct emv_tlv_list_t* list, unsigned int tag, unsigned in
 		return -1;
 	}
 
-	tlv = emv_tlv_alloc(tag, length, value);
+	tlv = emv_tlv_alloc(tag, length, value, flags);
 	if (!tlv) {
 		return -2;
 	}
@@ -203,7 +210,7 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 			// Recurse into constructed/template field but omit it from the list
 			emv_tlv_parse(tlv.value, tlv.length, list);
 		} else {
-			r = emv_tlv_list_push(list, tlv.tag, tlv.length, tlv.value);
+			r = emv_tlv_list_push(list, tlv.tag, tlv.length, tlv.value, 0);
 			if (r) {
 				return -2;
 			}
