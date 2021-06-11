@@ -31,6 +31,11 @@ __BEGIN_DECLS
 #define EMV_APP_PRIORITY_INDICATOR_MASK                         (0x0F)
 #define EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED                (0x80)
 
+// Application Selection Indicator
+// See EMV 4.3 Book 1, 12.3.1
+#define EMV_ASI_EXACT_MATCH                                     (0x00)
+#define EMV_ASI_PARTIAL_MATCH                                   (0x01)
+
 __END_DECLS
 
 #endif

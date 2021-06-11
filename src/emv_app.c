@@ -254,6 +254,36 @@ int emv_app_free(struct emv_app_t* app)
 	return 0;
 }
 
+bool emv_app_is_supported(struct emv_app_t* app, struct emv_tlv_list_t* supported_aids)
+{
+	struct emv_tlv_t* tlv;
+
+	if (!app || !app->aid) {
+		// Invalid app; not supported
+		return false;
+	}
+
+	for (tlv = supported_aids->front; tlv != NULL; tlv = tlv->next) {
+		if (tlv->flags == EMV_ASI_EXACT_MATCH &&
+			tlv->length == app->aid->length &&
+			memcmp(tlv->value, app->aid->value, tlv->length) == 0
+		) {
+			// Exact match found; supported
+			return true;
+		}
+
+		if (tlv->flags == EMV_ASI_PARTIAL_MATCH &&
+			tlv->length <= app->aid->length &&
+			memcmp(tlv->value, app->aid->value, tlv->length) == 0
+		) {
+			// Partial match found; supported
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static inline bool emv_app_list_is_valid(const struct emv_app_list_t* list)
 {
 	if (!list) {
@@ -341,4 +371,32 @@ struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list)
 	}
 
 	return app;
+}
+
+int emv_app_list_filter_supported(struct emv_app_list_t* list, struct emv_tlv_list_t* supported_aids)
+{
+	int r;
+	struct emv_app_list_t supported_list = EMV_APP_LIST_INIT;
+	struct emv_app_t* app;
+
+	if (!emv_app_list_is_valid(list)) {
+		return -1;
+	}
+
+	while ((app = emv_app_list_pop(list))) {
+		if (emv_app_is_supported(app, supported_aids)) {
+			r = emv_app_list_push(&supported_list, app);
+			if (r) {
+				emv_app_list_clear(&supported_list);
+				return -1;
+			}
+		} else {
+			emv_app_free(app);
+			app = NULL;
+		}
+	}
+
+	*list = supported_list;
+
+	return 0;
 }

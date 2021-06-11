@@ -22,13 +22,14 @@
 #include "pcsc.h"
 #include "iso7816.h"
 #include "print_helpers.h"
+#include "emv_tags.h"
+#include "emv_fields.h"
 #include "emv_tlv.h"
 #include "emv_tal.h"
 
 #include <stdio.h>
 
 // HACK: remove
-#include "emv_tags.h"
 #include "emv_ttl.h"
 #include "emv_app.h"
 #include "iso7816_strings.h"
@@ -138,15 +139,24 @@ int main(void)
 	}
 
 	print_atr(&atr_info);
-	printf("\n");
 
 	struct emv_ttl_t emv_ttl;
 	emv_ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	emv_ttl.cardreader.ctx = reader;
 	emv_ttl.cardreader.trx = &pcsc_reader_trx;
 
-	printf("SELECT Payment System Environment (PSE)\n");
+	// Supported applications
+	struct emv_tlv_list_t supported_aids = EMV_TLV_LIST_INIT;
+	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
+	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, EMV_ASI_EXACT_MATCH); // Visa Electron
+	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, EMV_ASI_EXACT_MATCH); // V Pay
+	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
+	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30 }, EMV_ASI_PARTIAL_MATCH); // Maestro
+
+	// Candidate applications for selection
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
+
+	printf("\nSELECT Payment System Environment (PSE)\n");
 	r = emv_tal_read_pse(&emv_ttl, &app_list);
 	if (r < 0) {
 		printf("Failed to read PSE; terminate session\n");
@@ -154,13 +164,24 @@ int main(void)
 	}
 	if (r > 0) {
 		printf("Failed to read PSE; continue session\n");
-		goto exit;
 	}
+	if (r == 0) {
+		printf("Application list provided by PSE:\n");
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
+	}
+
+	// Filter for supported applications
+	emv_app_list_filter_supported(&app_list, &supported_aids);
+	emv_tlv_list_clear(&supported_aids);
+
 	if (emv_app_list_is_empty(&app_list)) {
 		printf("No supported applications\n");
 		goto exit;
 	}
 
+	printf("Supported applications:\n");
 	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 		print_emv_app(app);
 	}

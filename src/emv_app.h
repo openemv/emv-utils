@@ -123,6 +123,14 @@ struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len);
  */
 int emv_app_free(struct emv_app_t* app);
 
+/**
+ * Determine whether EMV application is supported
+ * @param app EMV application
+ * @param supported_aids Supported AID (field 9F06) list including ASI flags
+ * @return Boolean indicating whether EMV application is supported
+ */
+bool emv_app_is_supported(struct emv_app_t* app, struct emv_tlv_list_t* supported_aids);
+
 /// Static initialiser for @ref emv_app_list_t
 #define EMV_APP_LIST_INIT { NULL, NULL }
 
@@ -154,6 +162,14 @@ int emv_app_list_push(struct emv_app_list_t* list, struct emv_app_t* app);
  * @return EMV application. Use @ref emv_tlv_free() to free memory.
  */
 struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list);
+
+/**
+ * Filter EMV application list according to supported AIDs
+ * @param list EMV application list
+ * @param supported_aids Supported AID (field 9F06) list including ASI flags
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_app_list_filter_supported(struct emv_app_list_t* list, struct emv_tlv_list_t* supported_aids);
 
 __END_DECLS
 
