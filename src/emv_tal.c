@@ -141,7 +141,12 @@ int emv_tal_read_pse(
 			continue;
 		}
 
-		r = emv_tal_parse_aef_record(&pse_tlv_list, aef_record, aef_record_len, app_list);
+		r = emv_tal_parse_aef_record(
+			&pse_tlv_list,
+			aef_record,
+			aef_record_len,
+			app_list
+		);
 		if (r) {
 			// Failed to parse PSE AEF record
 			goto exit;
@@ -205,9 +210,13 @@ static int emv_tal_parse_aef_record(
 
 		// Create EMV application object
 		app = emv_app_create_from_pse(pse_tlv_list, tlv.value, tlv.length);
-		if (app) {
-			emv_app_list_push(app_list, app);
+		if (!app) {
+			// Ignore invalid Application Template (field 61) content
+			// See EMV 4.3 Book 1, 12.2.3
+			continue;
 		}
+
+		emv_app_list_push(app_list, app);
 	}
 
 	return 0;
