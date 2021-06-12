@@ -29,9 +29,11 @@ __BEGIN_DECLS
 // Forward declarations
 struct emv_ttl_t;
 struct emv_app_list_t;
+struct emv_tlv_list_t;
 
 /**
  * Read Payment System Environment (PSE) records and build application list
+ * @remark See EMV 4.3 Book 1, 12.3.2
  *
  * @param ttl EMV Terminal Transport Layer context
  * @param app_list EMV application list output
@@ -40,10 +42,29 @@ struct emv_app_list_t;
  * @return Less than zero indicates that the terminal should terminate the
  *         card session.
  * @return Greater than zero indicates that reading of PSE records failed and
- *         that the terminal may use the list of AIDs method.
+ *         that the terminal may continue the card session. Typically the list
+ *         of AIDs method (@ref emv_tal_find_supported_apps()) would be next.
  */
 int emv_tal_read_pse(
 	struct emv_ttl_t* ttl,
+	struct emv_app_list_t* app_list
+);
+
+/**
+ * Find supported applications and build application list
+ * @remark See EMV 4.3 Book 1, 12.3.3
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param supported_aids Supported AID (field 9F06) list including ASI flags
+ * @param app_list Candidate application list output
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session.
+ */
+int emv_tal_find_supported_apps(
+	struct emv_ttl_t* ttl,
+	struct emv_tlv_list_t* supported_aids,
 	struct emv_app_list_t* app_list
 );
 

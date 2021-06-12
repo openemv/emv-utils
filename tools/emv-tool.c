@@ -174,6 +174,18 @@ int main(void)
 
 	// Filter for supported applications
 	emv_app_list_filter_supported(&app_list, &supported_aids);
+
+	// If PSE failed or no apps found by PSE
+	// See EMV 4.3 Book 1, 12.3.2, step 5
+	if (r > 0 || emv_app_list_is_empty(&app_list)) {
+		printf("\nFind supported AIDs\n");
+		r = emv_tal_find_supported_apps(&emv_ttl, &supported_aids, &app_list);
+		if (r) {
+			printf("Failed to find supported AIDs; terminate session\n");
+			emv_tlv_list_clear(&supported_aids);
+			goto exit;
+		}
+	}
 	emv_tlv_list_clear(&supported_aids);
 
 	if (emv_app_list_is_empty(&app_list)) {
