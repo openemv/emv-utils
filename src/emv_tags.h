@@ -96,6 +96,27 @@ __BEGIN_DECLS
 /// EMV tag 9F12 Application Preferred Name. Template 61 or A5.
 #define EMV_TAG_9F12_APPLICATION_PREFERRED_NAME                 (0x9F12)
 
+/// EMV tag 9F1A Terminal Country Code
+#define EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE                      (0x9F1A)
+
+/// EMV tag 9F1B Terminal Floor Limit
+#define EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT                       (0x9F1B)
+
+/// EMV tag 9F1C Terminal Identification
+#define EMV_TAG_9F1C_TERMINAL_IDENTIFICATION                    (0x9F1C)
+
+/// EMV tag 9F1E Interface Device (IFD) Serial Number
+#define EMV_TAG_9F1E_IFD_SERIAL_NUMBER                          (0x9F1E)
+
+/// EMV tag 9F33 Terminal Capabilities
+#define EMV_TAG_9F33_TERMINAL_CAPABILITIES                      (0x9F33)
+
+/// EMV tag 9F35 Terminal Type
+#define EMV_TAG_9F35_TERMINAL_TYPE                              (0x9F35)
+
+/// EMV tag 9F40 Additional Terminal Capabilities
+#define EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES           (0x9F40)
+
 /// EMV tag 9F38 Processing Options Data Object List (PDOL). Template A5.
 #define EMV_TAG_9F38_PDOL                                       (0x9F38)
 

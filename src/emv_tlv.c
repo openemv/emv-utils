@@ -408,6 +408,61 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 16, value_str, value_str_len);
 
+		case EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE:
+			info->tag_name = "Terminal Country Code";
+			info->tag_desc =
+				"Indicates the country of the terminal, represented according "
+				"to ISO 3166";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 4, value_str, value_str_len);
+
+		case EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT:
+			info->tag_name = "Terminal Floor Limit";
+			info->tag_desc =
+				"Indicates the floor limit in the terminal in conjunction "
+				"with the AID";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F1C_TERMINAL_IDENTIFICATION:
+			info->tag_name = "Terminal Identification";
+			info->tag_desc =
+				"Designates the unique location of a terminal at a merchant";
+			info->format = EMV_FORMAT_AN;
+			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
+
+		case EMV_TAG_9F1E_IFD_SERIAL_NUMBER:
+			info->tag_name = "Interface Device (IFD) Serial Number";
+			info->tag_desc =
+				"Unique and permanent serial number assigned to the IFD by "
+				"the manufacturer";
+			info->format = EMV_FORMAT_AN;
+			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
+
+		case EMV_TAG_9F33_TERMINAL_CAPABILITIES:
+			info->tag_name = "Terminal Capabilities";
+			info->tag_desc =
+				"Indicates the card data input, CVM, and security "
+				"capabilities of the terminal";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F35_TERMINAL_TYPE:
+			info->tag_name = "Terminal Type";
+			info->tag_desc =
+				"Indicates the environment of the terminal, its "
+				"communications capability, and its operational control";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 2, value_str, value_str_len);
+
+		case EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES:
+			info->tag_name = "Additional Terminal Capabilities";
+			info->tag_desc =
+				"Indicates the data input and output capabilities of the "
+				"terminal";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F38_PDOL:
 			info->tag_name = "Processing Options Data Object List (PDOL)";
 			info->tag_desc =
