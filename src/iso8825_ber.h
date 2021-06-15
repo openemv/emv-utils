@@ -71,7 +71,7 @@ __BEGIN_DECLS
 #define ASN1_NUMERICSTRING                      (0x12) ///< ASN.1 Numeric string type
 #define ASN1_PRINTABLESTRING                    (0x13) ///< ASN.1 Printable string type
 #define ASN1_T61STRING                          (0x14) ///< ASN.1 T61 / Teletex string type
-#define ASN1_VIDEOTEXSTRING                     (0x15) ///< ASN.1 Bideotex string type
+#define ASN1_VIDEOTEXSTRING                     (0x15) ///< ASN.1 Videotex string type
 #define ASN1_IA5STRING                          (0x16) ///< ASN.1 IA5 (ISO 646) string type
 #define ASN1_UTCTIME                            (0x17) ///< ASN.1 UTC time type
 #define ASN1_GENERALIZEDTIME                    (0x18) ///< ASN.1 Generalised time type
@@ -80,6 +80,28 @@ __BEGIN_DECLS
 #define ASN1_GENERALSTRING                      (0x1B) ///< ASN.1 General string type
 #define ASN1_UNIVERSALSTRING                    (0x1C) ///< ASN.1 Universal string type
 #define ASN1_BMPSTRING                          (0x1E) ///< ASN.1 Basic Multilingual Plane (BMP) string type
+
+// ASN.1 object identifier top-level authorities (see ISO 8824-1:2003, Annex D)
+#define ASN1_OID_ITU_T                          (0) ///< ASN.1 ITU-T
+#define ASN1_OID_ISO                            (1) ///< ASN.1 ISO
+#define ASN1_OID_JOINT                          (2) ///< Joint ISO/IEC and ITU-T
+
+// ASN.1 object identifier arcs for ITU-T
+#define ASN1_OID_ITU_T_RECOMMENDED              (0) ///< ASN.1 ITU-T arc for ITU-T and CCITT recommendations
+#define ASN1_OID_ITU_T_QUESTION                 (1) ///< ASN.1 ITU-T arc for ITU-T Study Groups
+#define ASN1_OID_ITU_T_ADMINISTRATION           (2) ///< ASN.1 ITU-T arc for ITU-T X.121 Data Country Codes (DCCs)
+#define ASN1_OID_ITU_T_NETWORK_OPERATOR         (3) ///< ASN.1 ITU-T arc for ITU-T X.121 Data Network Identification Code (DNICs)
+#define ASN1_OID_ITU_T_IDENTIFIED_ORG           (4) ///< ASN.1 ITU-T arc for ITU-T Telecommunication Standardization Bureau (TSB) identified organisations
+
+// ASN.1 object identifier arcs for ISO
+#define ASN1_OID_ISO_STANDARD                   (0) ///< ASN.1 ISO arc for ISO standards
+#define ASN1_OID_ISO_MEMBER_BODY                (1) ///< ASN.1 ISO arc for ISO National Bodies
+#define ASN1_OID_ISO_IDENTIFIED_ORG             (2) ///< ASN.1 ISO arc for ISO identified organisations (ISO 6523)
+
+// ASN.1 object identifier arcs for Joint ISO/IEC and ITU-T directory services (interesting ones only)
+#define ASN1_OID_JOINT_DS                       (5) ///< ASN.1 joint-iso-itu-t directory services
+#define ASN1_OID_JOINT_DS_ATTR_TYPE             (4) ///< ASN.1 joint-iso-itu-t directory services attribyte type
+#define ASN1_OID_JOINT_DS_OBJ_CLASS             (6) ///< ASN.1 joint-iso-itu-t directory services object class
 
 /// ISO 8825 TLV field
 struct iso8825_tlv_t {
@@ -93,6 +115,12 @@ struct iso8825_tlv_t {
 struct iso8825_ber_itr_t {
 	const void* ptr;
 	size_t len;
+};
+
+/// ASN.1 OID
+struct iso8825_oid_t {
+	uint32_t value[10];
+	unsigned int length;
 };
 
 /**
@@ -122,6 +150,13 @@ static inline uint8_t iso8825_ber_get_class(const struct iso8825_tlv_t* tlv) { r
 static inline bool iso8825_ber_is_constructed(const struct iso8825_tlv_t* tlv) { return tlv && (tlv->flags & ISO8825_BER_CONSTRUCTED); }
 
 /**
+ * Determine whether BER tag type is a string
+ * @param tlv Decoded TLV structure
+ * @return Boolean indicating whether BER tag type is a string
+ */
+bool iso8825_ber_is_string(const struct iso8825_tlv_t* tlv);
+
+/**
  * Initialize BER iterator
  * @param ptr BER encoded data
  * @param len Length of BER encoded data in bytes
@@ -137,6 +172,15 @@ int iso8825_ber_itr_init(const void* ptr, size_t len, struct iso8825_ber_itr_t* 
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int iso8825_ber_itr_next(struct iso8825_ber_itr_t* itr, struct iso8825_tlv_t* tlv);
+
+/**
+ * Decode BER object identifier
+ * @param ptr BER encoded object identifer
+ * @param len Length of BER encoded object identifer in bytes
+ * @param oid Decoded OID output
+ * @return Zero for success. Less than zero for error.
+ */
+int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oid);
 
 __END_DECLS
 

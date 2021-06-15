@@ -227,6 +227,7 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	int r;
 	struct iso8825_ber_itr_t itr;
 	struct iso8825_tlv_t tlv;
+	char str[1024];
 
 	r = iso8825_ber_itr_init(ptr, len, &itr);
 	if (r) {
@@ -250,6 +251,34 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 			for (size_t i = 0; i < tlv.length; ++i) {
 				printf("%s%02X", i ? " " : "", tlv.value[i]);
 			}
+
+			if (iso8825_ber_is_string(&tlv)) {
+				if (tlv.length >= sizeof(str)) {
+					// String too long
+					break;
+				}
+
+				// Print as-is and let the console figure out the encoding
+				memcpy(str, tlv.value, tlv.length);
+				str[tlv.length] = 0;
+				printf(" \"%s\"", str);
+
+			} else if (tlv.tag == ASN1_OBJECT_IDENTIFIER) {
+				struct iso8825_oid_t oid;
+
+				r = iso8825_ber_oid_decode(tlv.value, tlv.length, &oid);
+				if (r) {
+					// Failed to decode OID
+					break;
+				}
+
+				printf(" {");
+				for (unsigned int i = 0; i < oid.length; ++i) {
+					printf("%s%u", i ? " ": "", oid.value[i]);
+				}
+				printf("}");
+			}
+
 			printf("\n");
 		}
 	}

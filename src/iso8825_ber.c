@@ -22,6 +22,8 @@
 
 #include "iso8825_ber.h"
 
+#include <string.h>
+
 int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 {
 	const uint8_t* buf = ptr;
@@ -159,6 +161,38 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 	return offset;
 }
 
+bool iso8825_ber_is_string(const struct iso8825_tlv_t* tlv)
+{
+	if (!tlv) {
+		return false;
+	}
+
+	switch (tlv->tag) {
+		// ASN.1 character string types, as well as derived types that can
+		// also be interpreted as strings
+		// See ISO 8824-1:2003, 37.1, table 6
+		// See ISO 8824-1:2003, Annex F
+		case ASN1_OBJECT_DESCRIPTOR: // See ISO 8824-1:2003, 44.3
+		case ASN1_UTF8STRING:
+		case ASN1_NUMERICSTRING:
+		case ASN1_PRINTABLESTRING:
+		case ASN1_T61STRING:
+		case ASN1_VIDEOTEXSTRING:
+		case ASN1_IA5STRING:
+		case ASN1_UTCTIME: // See ISO 8824-1:2003, 43.3
+		case ASN1_GENERALIZEDTIME: // See ISO 8824-1:2003, 42.3
+		case ASN1_GRAPHICSTRING:
+		case ASN1_ISO646STRING:
+		case ASN1_GENERALSTRING:
+		case ASN1_UNIVERSALSTRING:
+		case ASN1_BMPSTRING:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
 int iso8825_ber_itr_init(const void* ptr, size_t len, struct iso8825_ber_itr_t* itr)
 {
 	if (!ptr || !itr) {
@@ -187,4 +221,63 @@ int iso8825_ber_itr_next(struct iso8825_ber_itr_t* itr, struct iso8825_tlv_t* tl
 	}
 
 	return r;
+}
+
+int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oid)
+{
+	const uint8_t* buf = ptr;
+
+	memset(oid, 0, sizeof(*oid));
+
+	if (!ptr || !oid || !len) {
+		return -1;
+	}
+
+	if (len >= sizeof(oid->value)) {
+		// OID too long
+		return -2;
+	}
+
+	// See ISO 8825-1:2003, 8.19.4
+	if (buf[0] < 40) { // ITU-T
+		oid->value[0] = ASN1_OID_ITU_T;
+		oid->value[1] = buf[0];
+	} else if (buf[0] < 80) { // ISO
+		oid->value[0] = ASN1_OID_ISO;
+		oid->value[1] = buf[0] - 40;
+	} else { // joint-iso-itu-t
+		oid->value[0] = ASN1_OID_JOINT;
+		oid->value[1] = buf[0] - 80;
+	}
+	oid->length = 2;
+	++buf;
+	--len;
+
+	// See ISO 8825-1:2003, 8.19
+	while (len && oid->length < sizeof(oid->value)) {
+		uint32_t subid = 0;
+
+		// Decode multibyte subidentifier
+		while (len) {
+			// Determine whether it is the last octet of the subidentifier
+			// See ISO 8825-1:2003, 8.19.2
+			bool last_octet = !(*buf & 0x80); // TODO: use define
+
+			// Extract the next 7 bits of the subidentifier
+			// See ISO 8825-1:2003, 8.19.2
+			subid <<= 7;
+			subid |= *buf & 0x7f; // TODO: use define
+			++buf;
+			--len;
+
+			if (last_octet)
+				break;
+		}
+
+		// Store subidentifier
+		oid->value[oid->length] = subid;
+		++oid->length;
+	}
+
+	return 0;
 }
