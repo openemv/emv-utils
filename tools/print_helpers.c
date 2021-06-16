@@ -29,6 +29,7 @@
 
 #include "emv_tlv.h"
 #include "emv_app.h"
+#include "emv_strings.h"
 
 #include <stdlib.h>
 #include <stdio.h>

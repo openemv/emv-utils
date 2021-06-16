@@ -114,11 +114,11 @@ __BEGIN_DECLS
 /// EMV tag 9F35 Terminal Type
 #define EMV_TAG_9F35_TERMINAL_TYPE                              (0x9F35)
 
-/// EMV tag 9F40 Additional Terminal Capabilities
-#define EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES           (0x9F40)
-
 /// EMV tag 9F38 Processing Options Data Object List (PDOL). Template A5.
 #define EMV_TAG_9F38_PDOL                                       (0x9F38)
+
+/// EMV tag 9F40 Additional Terminal Capabilities
+#define EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES           (0x9F40)
 
 /// EMMV tag 9F4D Log Entry. Template BF0C or 73.
 #define EMV_TAG_9F4D_LOG_ENTRY                                  (0x9F4D)
