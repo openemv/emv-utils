@@ -35,6 +35,16 @@
 #include <stdio.h>
 #include <string.h>
 
+static bool str_is_list(const char* str)
+{
+	if (!str || !str[0]) {
+		return false;
+	}
+
+	// If the last character is a newline, assume it's a string list
+	return str[strlen(str) - 1] == '\n';
+}
+
 void print_buf(const char* buf_name, const void* buf, size_t length)
 {
 	const uint8_t* ptr = buf;
@@ -45,7 +55,14 @@ void print_buf(const char* buf_name, const void* buf, size_t length)
 	printf("\n");
 }
 
-void print_str_list(const char* str_list, const char* delim, const char* prefix, const char* suffix)
+void print_str_list(
+	const char* str_list,
+	const char* delim,
+	const char* prefix,
+	unsigned int depth,
+	const char* bullet,
+	const char* suffix
+)
 {
 	const char* str;
 	char* str_tmp = strdup(str_list);
@@ -58,7 +75,11 @@ void print_str_list(const char* str_list, const char* delim, const char* prefix,
 			str_tmp = NULL;
 		}
 
-		printf("%s%s%s", prefix ? prefix : "", str, suffix ? suffix : "");
+		for (unsigned int i = 0; i < depth; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+
+		printf("%s%s%s", bullet ? bullet : "", str, suffix ? suffix : "");
 	}
 
 	free(str_free);
@@ -200,7 +221,7 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 		}
 
 		if (r == 0) {
-			print_str_list(str, "\n", "    - ", "\n");
+			print_str_list(str, "\n", "  ", 2, "- ", "\n");
 		}
 	}
 	if (r) {
@@ -239,7 +260,7 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
 
 		for (unsigned int i = 0; i < depth; ++i) {
-			printf("%s", prefix);
+			printf("%s", prefix ? prefix : "");
 		}
 
 		printf("%02X : [%u]", tlv.tag, tlv.length);
@@ -289,12 +310,16 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	}
 }
 
-void print_emv_tlv(const struct emv_tlv_t* tlv)
+void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int depth)
 {
 	struct emv_tlv_info_t info;
 	char value_str[1024];
 
 	emv_tlv_get_info(tlv, &info, value_str, sizeof(value_str));
+
+	for (unsigned int i = 0; i < depth; ++i) {
+		printf("%s", prefix ? prefix : "");
+	}
 
 	if (info.tag_name) {
 		printf("%02X | %s : [%u]", tlv->tag, info.tag_name, tlv->length);
@@ -302,14 +327,20 @@ void print_emv_tlv(const struct emv_tlv_t* tlv)
 		printf("%02X : [%u]", tlv->tag, tlv->length);
 	}
 
-	if (value_str[0]) {
-		printf(" %s\n", value_str);
-	} else {
+	// If empty value string or value string is list,
+	// print hex as well as as string list
+	if (!value_str[0] || str_is_list(value_str)) {
 		printf(" ");
 		for (size_t i = 0; i < tlv->length; ++i) {
 			printf("%s%02X", i ? " " : "", tlv->value[i]);
 		}
 		printf("\n");
+
+		if (value_str[0]) {
+			print_str_list(value_str, "\n", prefix, depth + 1, "- ", "\n");
+		}
+	} else if (value_str[0]) {
+		printf(" %s\n", value_str);
 	}
 }
 
@@ -334,7 +365,7 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 		emv_tlv_get_info(&emv_tlv, &info, value_str, sizeof(value_str));
 
 		for (unsigned int i = 0; i < depth; ++i) {
-			printf("%s", prefix);
+			printf("%s", prefix ? prefix : "");
 		}
 
 		if (info.tag_name) {
@@ -347,14 +378,20 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 			printf("\n");
 			print_emv_buf(tlv.value, tlv.length, prefix, depth + 1);
 		} else {
-			if (value_str[0]) {
-				printf(" %s\n", value_str);
-			} else {
+			// If empty value string or value string is list,
+			// print hex as well as as string list
+			if (!value_str[0] || str_is_list(value_str)) {
 				printf(" ");
 				for (size_t i = 0; i < tlv.length; ++i) {
 					printf("%s%02X", i ? " " : "", tlv.value[i]);
 				}
 				printf("\n");
+
+				if (value_str[0]) {
+					print_str_list(value_str, "\n", prefix, depth + 1, "- ", "\n");
+				}
+			} else if (value_str[0]) {
+				printf(" %s\n", value_str);
 			}
 		}
 	}
@@ -369,7 +406,7 @@ void print_emv_tlv_list(const struct emv_tlv_list_t* list)
 	const struct emv_tlv_t* tlv;
 
 	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
-		print_emv_tlv(tlv);
+		print_emv_tlv(tlv, "  ", 1);
 	}
 }
 

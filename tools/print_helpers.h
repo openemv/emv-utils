@@ -43,10 +43,19 @@ void print_buf(const char* buf_name, const void* buf, size_t length);
  * Print string list
  * @param str_list String list
  * @param delim Delimiter
- * @param prefix Prefix to print before every string
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ * @param bullet Bullet point to print before every string
  * @param suffix Suffix to print after every string
  */
-void print_str_list(const char* str_list, const char* delim, const char* prefix, const char* suffix);
+void print_str_list(
+	const char* str_list,
+	const char* delim,
+	const char* prefix,
+	unsigned int depth,
+	const char* bullet,
+	const char* suffix
+);
 
 /**
  * Print ATR details, including historical bytes
@@ -71,7 +80,7 @@ void print_sw1sw2(uint8_t SW1, uint8_t SW2);
  * Print BER data
  * @param ptr BER encoded data
  * @param len Length of BER encoded data in bytes
- * @param prefix Prefix to print before every string
+ * @param prefix Recursion prefix to print before every string
  * @param depth Depth of current recursion
  */
 void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth);
@@ -79,14 +88,16 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 /**
  * Print EMV TLV field
  * @param tlv EMV TLV field
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
  */
-void print_emv_tlv(const struct emv_tlv_t* tlv);
+void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int depth);
 
 /**
  * Print EMV TLV data
  * @param ptr EMV TLV data
  * @param len Length of EMV TLV data in bytes
- * @param prefix Prefix to print before every string
+ * @param prefix Recursion prefix to print before every string
  * @param depth Depth of current recursion
  */
 void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth);

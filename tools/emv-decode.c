@@ -50,10 +50,14 @@ static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
 // argp option structure
 static struct argp_option argp_options[] = {
-	{ "atr", EMV_DECODE_ATR, NULL, 0, "Decode as ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
-	{ "sw1sw2", EMV_DECODE_SW1SW2, NULL, 0, "Decode as ISO 7816 Status bytes SW1-SW2, eg 9000" },
-	{ "ber", EMV_DECODE_BER, NULL, 0, "Decode as ISO 8825-1 BER encoded data" },
-	{ "tlv", EMV_DECODE_TLV, NULL, 0, "Decode as EMV TLV data" },
+	{ NULL, 0, NULL, 0, "ISO 7816:", 1 },
+	{ "atr", EMV_DECODE_ATR, NULL, 0, "Decode ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
+	{ "sw1sw2", EMV_DECODE_SW1SW2, NULL, 0, "Decode ISO 7816 Status bytes SW1-SW2, eg 9000" },
+
+	{ NULL, 0, NULL, 0, "TLV data:", 2 },
+	{ "ber", EMV_DECODE_BER, NULL, 0, "Decode ISO 8825-1 BER encoded data" },
+	{ "tlv", EMV_DECODE_TLV, NULL, 0, "Decode EMV TLV data" },
+
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
 	{ 0 },
@@ -243,6 +247,7 @@ int main(int argc, char** argv)
 
 		case EMV_DECODE_TLV: {
 			print_emv_buf(data, data_len, "  ", 0);
+			break;
 		}
 	}
 
