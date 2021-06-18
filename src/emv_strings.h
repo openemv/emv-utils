@@ -24,6 +24,7 @@
 
 #include <sys/cdefs.h>
 #include <stddef.h>
+#include <stdint.h>
 
 // Forward declarations
 struct emv_tlv_t;
@@ -122,6 +123,22 @@ int emv_tlv_get_info(
 	struct emv_tlv_info_t* info,
 	char* value_str,
 	size_t value_str_len
+);
+
+/**
+ * Stringify Terminal Capabilities (field 9F33)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param term_caps Terminal capabilities field. Must be 3 bytes.
+ * @param term_caps_len Length of terminal capabilities field. Must be 3 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_term_caps_get_string_list(
+	const uint8_t* term_caps,
+	size_t term_caps_len,
+	char* str,
+	size_t str_len
 );
 
 __END_DECLS

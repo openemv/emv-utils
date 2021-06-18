@@ -22,6 +22,7 @@
 #include "emv_strings.h"
 #include "emv_tlv.h"
 #include "emv_tags.h"
+#include "emv_fields.h"
 
 #include <string.h>
 
@@ -255,7 +256,7 @@ int emv_tlv_get_info(
 				"Indicates the card data input, CVM, and security "
 				"capabilities of the terminal";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_term_caps_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F35_TERMINAL_TYPE:
 			info->tag_name = "Terminal Type";
@@ -399,4 +400,90 @@ static void emv_str_list_add(struct str_itr_t* itr, const char* str)
 
 	// NULL terminate string list
 	*itr->ptr = 0;
+}
+
+int emv_term_caps_get_string_list(
+	const uint8_t* term_caps,
+	size_t term_caps_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!term_caps || !term_caps_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (term_caps_len != 3) {
+		// Terminal Capabilities (field 9F33) must be 3 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Card Data Input Capability
+	// See EMV 4.3 Book 4, Annex A2, table 25
+	if (!term_caps[0]) {
+		emv_str_list_add(&itr, "Card Data Input Capability: None");
+	}
+	if ((term_caps[0] & EMV_TERM_CAPS_INPUT_MANUAL_KEY_ENTRY)) {
+		emv_str_list_add(&itr, "Card Data Input Capability: Manual key entry");
+	}
+	if ((term_caps[0] & EMV_TERM_CAPS_INPUT_MAGNETIC_STRIPE)) {
+		emv_str_list_add(&itr, "Card Data Input Capability: Magnetic stripe");
+	}
+	if ((term_caps[0] & EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS)) {
+		emv_str_list_add(&itr, "Card Data Input Capability: IC with contacts");
+	}
+	if ((term_caps[0] & EMV_TERM_CAPS_INPUT_RFU)) {
+		emv_str_list_add(&itr, "Card Data Input Capability: RFU");
+	}
+
+	// CVM Capability
+	// See EMV 4.3 Book 4, Annex A2, table 26
+	if (!term_caps[1]) {
+		emv_str_list_add(&itr, "CVM Capability: None");
+	}
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_PLAINTEXT_PIN_OFFLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Plaintext PIN for ICC verification");
+	}
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for online verification");
+	}
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_SIGNATURE)) {
+		emv_str_list_add(&itr, "CVM Capability: Signature (paper)");
+	}
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for offline verification");
+	}
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_NO_CVM)) {
+		emv_str_list_add(&itr, "CVM Capability: No CVM required");
+	}
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_RFU)) {
+		emv_str_list_add(&itr, "CVM Capability: RFU");
+	}
+
+	// Security Capability
+	// See EMV 4.3 Book 4, Annex A2, table 27
+	if (!term_caps[2]) {
+		emv_str_list_add(&itr, "Security Capability: None");
+	}
+	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_SDA)) {
+		emv_str_list_add(&itr, "Security Capability: Static Data Authentication (SDA)");
+	}
+	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_DDA)) {
+		emv_str_list_add(&itr, "Security Capability: Dynamic Data Authentication (DDA)");
+	}
+	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_CARD_CAPTURE)) {
+		emv_str_list_add(&itr, "Security Capability: Card capture");
+	}
+	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_CDA)) {
+		emv_str_list_add(&itr, "Security Capability: Combined DDA/Application Cryptogram Generation (CDA)");
+	}
+	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_RFU)) {
+		emv_str_list_add(&itr, "Security Capability: RFU");
+	}
+
+	return 0;
 }
