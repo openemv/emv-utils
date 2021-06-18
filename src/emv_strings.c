@@ -25,8 +25,15 @@
 
 #include <string.h>
 
+struct str_itr_t {
+	char* ptr;
+	size_t len;
+};
+
 // Helper functions
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len);
+static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
+static void emv_str_list_add(struct str_itr_t* itr, const char* str);
 
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
@@ -361,4 +368,35 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 			// Unknown format
 			return -4;
 	}
+}
+
+static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len)
+{
+	itr->ptr = buf;
+	itr->len = len;
+}
+
+static void emv_str_list_add(struct str_itr_t* itr, const char* str)
+{
+	size_t str_len = strlen(str);
+
+	// Ensure that the string, delimiter and NULL termination do not exceed
+	// the remaining buffer length
+	if (str_len + 2 > itr->len) {
+		return;
+	}
+
+	// This is safe because we know str_len < itr->len
+	memcpy(itr->ptr, str, str_len);
+
+	// Delimiter
+	itr->ptr[str_len] = '\n';
+	++str_len;
+
+	// Advance iterator
+	itr->ptr += str_len;
+	itr->len -= str_len;
+
+	// NULL terminate string list
+	*itr->ptr = 0;
 }
