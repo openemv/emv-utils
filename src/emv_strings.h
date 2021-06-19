@@ -126,6 +126,20 @@ int emv_tlv_get_info(
 );
 
 /**
+ * Stringify Terminal Type (field 9F35)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param term_type Terminal type field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_term_type_get_string_list(
+	uint8_t term_type,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Terminal Capabilities (field 9F33)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param term_caps Terminal capabilities field. Must be 3 bytes.

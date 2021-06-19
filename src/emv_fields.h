@@ -36,6 +36,20 @@ __BEGIN_DECLS
 #define EMV_ASI_EXACT_MATCH                                     (0x00)
 #define EMV_ASI_PARTIAL_MATCH                                   (0x01)
 
+// Terminal Type
+// See EMV 4.3 Book 4, Annex A1, table 24
+#define EMV_TERM_TYPE_OPERATIONAL_CONTROL_MASK                  (0xF0) ///< Terminal Type mask for operational control
+#define EMV_TERM_TYPE_OPERATIONAL_CONTROL_FINANCIAL_INSTITUTION (0x10) ///< Operational Control: Financial Institution
+#define EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT              (0x20) ///< Operationsl Control: Merchant
+#define EMV_TERM_TYPE_OPERATIONAL_CONTROL_CARDHOLDER            (0x30) ///< Operationsl Control: Cardholder
+#define EMV_TERM_TYPE_ENV_MASK                                  (0x0F) ///< Terminal Type mask for terminal environment
+#define EMV_TERM_TYPE_ENV_ATTENDED_ONLINE_ONLY                  (0x01) ///< Environment: Attended, online only
+#define EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE          (0x02) ///< Environment: Attended, offline with online capability
+#define EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_ONLY                 (0x03) ///< Environment: Attended, offline only
+#define EMV_TERM_TYPE_ENV_UNATTENDED_ONLINE_ONLY                (0x04) ///< Environment: Unattended, online only
+#define EMV_TERM_TYPE_ENV_UNATTENDED_OFFLINE_WITH_ONLINE        (0x05) ///< Environment: Unattended, offline with online capability
+#define EMV_TERM_TYPE_ENV_UNATTENDED_OFFLINE_ONLY               (0x06) ///< Environment: Unattended, offline only
+
 // Terminal Capabilities (field 9F33) byte 1
 // See EMV 4.3 Book 4, Annex A2, table 25
 #define EMV_TERM_CAPS_INPUT_MANUAL_KEY_ENTRY                    (0x80) ///< Card Data Input Capability: Manual key entry

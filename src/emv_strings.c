@@ -264,7 +264,7 @@ int emv_tlv_get_info(
 				"Indicates the environment of the terminal, its "
 				"communications capability, and its operational control";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 2, value_str, value_str_len);
+			return emv_term_type_get_string_list(tlv->value[0], value_str, value_str_len);
 
 		case EMV_TAG_9F38_PDOL:
 			info->tag_name = "Processing Options Data Object List (PDOL)";
@@ -400,6 +400,75 @@ static void emv_str_list_add(struct str_itr_t* itr, const char* str)
 
 	// NULL terminate string list
 	*itr->ptr = 0;
+}
+
+int emv_term_type_get_string_list(
+	uint8_t term_type,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!term_type || !str || !str_len) {
+		return -1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Operational Control
+	// See EMV 4.3 Book 4, Annex A1, table 24
+	switch (term_type & EMV_TERM_TYPE_OPERATIONAL_CONTROL_MASK) {
+		case EMV_TERM_TYPE_OPERATIONAL_CONTROL_FINANCIAL_INSTITUTION:
+			emv_str_list_add(&itr, "Operational Control: Financial Institution");
+			break;
+
+		case EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT:
+			emv_str_list_add(&itr, "Operational Control: Merchant");
+			break;
+
+		case EMV_TERM_TYPE_OPERATIONAL_CONTROL_CARDHOLDER:
+			emv_str_list_add(&itr, "Operational Control: Cardholder");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Operational Control: Unknown");
+			break;
+	}
+
+	// Environment
+	// See EMV 4.3 Book 4, Annex A1, table 24
+	switch (term_type & EMV_TERM_TYPE_ENV_MASK) {
+		case EMV_TERM_TYPE_ENV_ATTENDED_ONLINE_ONLY:
+			emv_str_list_add(&itr, "Environment: Attended, online only");
+			break;
+
+		case EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE:
+			emv_str_list_add(&itr, "Environment: Attended, offline with online capability");
+			break;
+
+		case EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_ONLY:
+			emv_str_list_add(&itr, "Environment: Attended, offline only");
+			break;
+
+		case EMV_TERM_TYPE_ENV_UNATTENDED_ONLINE_ONLY:
+			emv_str_list_add(&itr, "Environment: Unattended, online only");
+			break;
+
+		case EMV_TERM_TYPE_ENV_UNATTENDED_OFFLINE_WITH_ONLINE:
+			emv_str_list_add(&itr, "Environment: Unattended, offline with online capability");
+			break;
+
+		case EMV_TERM_TYPE_ENV_UNATTENDED_OFFLINE_ONLY:
+			emv_str_list_add(&itr, "Environment: Unattended, offline only");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Environment: Unknown");
+			break;
+	}
+
+	return 0;
 }
 
 int emv_term_caps_get_string_list(

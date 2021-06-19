@@ -46,6 +46,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_SW1SW2,
 	EMV_DECODE_BER,
 	EMV_DECODE_TLV,
+	EMV_DECODE_TERM_TYPE,
 	EMV_DECODE_TERM_CAPS,
 	EMV_DECODE_ADDL_TERM_CAPS,
 };
@@ -62,6 +63,8 @@ static struct argp_option argp_options[] = {
 	{ "tlv", EMV_DECODE_TLV, NULL, 0, "Decode EMV TLV data" },
 
 	{ NULL, 0, NULL, 0, "Individual EMV fields:", 3 },
+	{ "term-type", EMV_DECODE_TERM_TYPE, NULL, 0, "Decode Terminal Type (field 9F35)" },
+	{ "9F35", EMV_DECODE_TERM_TYPE, NULL, OPTION_ALIAS },
 	{ "term-caps", EMV_DECODE_TERM_CAPS, NULL, 0, "Decode Terminal Capabilities (field 9F33)" },
 	{ "9F33", EMV_DECODE_TERM_CAPS, NULL, OPTION_ALIAS },
 	{ "addl-term-caps", EMV_DECODE_ADDL_TERM_CAPS, NULL, 0, "Decode Additional Terminal Capabilities (field 9F40)" },
@@ -124,6 +127,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_SW1SW2:
 		case EMV_DECODE_BER:
 		case EMV_DECODE_TLV:
+		case EMV_DECODE_TERM_TYPE:
 		case EMV_DECODE_TERM_CAPS:
 		case EMV_DECODE_ADDL_TERM_CAPS:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
@@ -258,6 +262,24 @@ int main(int argc, char** argv)
 
 		case EMV_DECODE_TLV: {
 			print_emv_buf(data, data_len, "  ", 0);
+			break;
+		}
+
+		case EMV_DECODE_TERM_TYPE: {
+			char str[1024];
+
+			if (data_len != 1) {
+				fprintf(stderr, "EMV Terminal Type (field 9F35) must be exactly 1 byte\n");
+				break;
+			}
+
+			r = emv_term_type_get_string_list(data[0], str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse EMV Terminal Type (field 9F35)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
 			break;
 		}
 
