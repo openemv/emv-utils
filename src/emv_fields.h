@@ -60,6 +60,51 @@ __BEGIN_DECLS
 #define EMV_TERM_CAPS_SECURITY_CDA                              (0x08) ///< Security Capability: Combined DDA/Application Cryptogram Generation (CDA)
 #define EMV_TERM_CAPS_SECURITY_RFU                              (0x17) ///< Security Capability: RFU
 
+// Additional Terminal Capabilities (field 9F40) byte 1
+// See EMV 4.3 Book 4, Annex A3, table 28
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_CASH                        (0x80) ///< Transaction Type Capability: Cash
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_GOODS                       (0x40) ///< Transaction Type Capability: Goods
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_SERVICES                    (0x20) ///< Transaction Type Capability: Services
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_CASHBACK                    (0x10) ///< Transaction Type Capability: Cashback
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_INQUIRY                     (0x08) ///< Transaction Type Capability: Inquiry
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_TRANSFER                    (0x04) ///< Transaction Type Capability: Transfer
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_PAYMENT                     (0x02) ///< Transaction Type Capability: Payment
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_ADMINISTRATIVE              (0x01) ///< Transaction Type Capability: Administrative
+
+// Additional Terminal Capabilities (field 9F40) byte 2
+// See EMV 4.3 Book 4, Annex A3, table 29
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_CASH_DEPOSIT                (0x80) ///< Transaction Type Capability: Cash deposit
+#define EMV_ADDL_TERM_CAPS_TXN_TYPE_RFU                         (0x7F) ///< Transaction Type Capability: RFU
+
+// Additional Terminal Capabilities (field 9F40) byte 3
+// See EMV 4.3 Book 4, Annex A3, table 30
+#define EMV_ADDL_TERM_CAPS_INPUT_NUMERIC_KEYS                   (0x80) ///< Terminal Data Input Capability: Numeric keys
+#define EMV_ADDL_TERM_CAPS_INPUT_ALPHABETIC_AND_SPECIAL_KEYS    (0x40) ///< Terminal Data Input Capability: Alphabetic and special character keys
+#define EMV_ADDL_TERM_CAPS_INPUT_COMMAND_KEYS                   (0x20) ///< Terminal Data Input Capability: Command keys
+#define EMV_ADDL_TERM_CAPS_INPUT_FUNCTION_KEYS                  (0x10) ///< Terminal Data Input Capability: Function keys
+#define EMV_ADDL_TERM_CAPS_INPUT_RFU                            (0x0F) ///< Terminal Data Input Capability: RFU
+
+// Additional Terminal Capabilities (field 9F40) byte 4
+// See EMV 4.3 Book 4, Annex A3, table 31
+#define EMV_ADDL_TERM_CAPS_OUTPUT_PRINT_ATTENDANT               (0x80) ///< Terminal Data Output Capability: Print, attendant
+#define EMV_ADDL_TERM_CAPS_OUTPUT_PRINT_CARDHOLDER              (0x40) ///< Terminal Data Output Capability: Print, cardholder
+#define EMV_ADDL_TERM_CAPS_OUTPUT_DISPLAY_ATTENDANT             (0x20) ///< Terminal Data Output Capability: Display, attendant
+#define EMV_ADDL_TERM_CAPS_OUTPUT_DISPLAY_CARDHOLDER            (0x10) ///< Terminal Data Output Capability: Display cardholder
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_10                 (0x02) ///< Terminal Data Output Capability: Code table 10
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_9                  (0x01) ///< Terminal Data Output Capability: Code table 9
+#define EMV_ADDL_TERM_CAPS_OUTPUT_RFU                           (0x0C) ///< Terminal Data Output Capability: RFU
+
+// Additional Terminal Capabilities (field 9F40) byte 5
+// See EMV 4.3 Book 4, Annex A3, table 32
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_8                  (0x80) ///< Terminal Data Output Capability: Code table 8
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_7                  (0x40) ///< Terminal Data Output Capability: Code table 7
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_6                  (0x20) ///< Terminal Data Output Capability: Code table 6
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_5                  (0x10) ///< Terminal Data Output Capability: Code table 5
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_4                  (0x08) ///< Terminal Data Output Capability: Code table 4
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_3                  (0x04) ///< Terminal Data Output Capability: Code table 3
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_2                  (0x02) ///< Terminal Data Output Capability: Code table 2
+#define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_1                  (0x01) ///< Terminal Data Output Capability: Code table 1
+
 __END_DECLS
 
 #endif

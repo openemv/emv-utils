@@ -141,6 +141,22 @@ int emv_term_caps_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Additional Terminal Capabilities (field 9F40)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param addl_term_caps Additional terminal capabilities field. Must be 5 bytes.
+ * @param addl_term_caps_len Length of additional terminal capabilities field. Must be 5 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_addl_term_caps_get_string_list(
+	const uint8_t* addl_term_caps,
+	size_t addl_term_caps_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif

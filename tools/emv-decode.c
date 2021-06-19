@@ -47,6 +47,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_BER,
 	EMV_DECODE_TLV,
 	EMV_DECODE_TERM_CAPS,
+	EMV_DECODE_ADDL_TERM_CAPS,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
@@ -63,6 +64,8 @@ static struct argp_option argp_options[] = {
 	{ NULL, 0, NULL, 0, "Individual EMV fields:", 3 },
 	{ "term-caps", EMV_DECODE_TERM_CAPS, NULL, 0, "Decode Terminal Capabilities (field 9F33)" },
 	{ "9F33", EMV_DECODE_TERM_CAPS, NULL, OPTION_ALIAS },
+	{ "addl-term-caps", EMV_DECODE_ADDL_TERM_CAPS, NULL, 0, "Decode Additional Terminal Capabilities (field 9F40)" },
+	{ "9F40", EMV_DECODE_ADDL_TERM_CAPS, NULL, OPTION_ALIAS },
 
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
@@ -122,6 +125,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_BER:
 		case EMV_DECODE_TLV:
 		case EMV_DECODE_TERM_CAPS:
+		case EMV_DECODE_ADDL_TERM_CAPS:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
 			}
@@ -268,6 +272,24 @@ int main(int argc, char** argv)
 			r = emv_term_caps_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Terminal Capabilities (field 9F33)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_ADDL_TERM_CAPS: {
+			char str[1024];
+
+			if (data_len != 5) {
+				fprintf(stderr, "EMV Additional Terminal Capabilities (field 9F40) must be exactly 5 bytes\n");
+				break;
+			}
+
+			r = emv_addl_term_caps_get_string_list(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse EMV Additional Terminal Capabilities (field 9F40)\n");
 				break;
 			}
 			printf("%s", str); // No \n required for string list

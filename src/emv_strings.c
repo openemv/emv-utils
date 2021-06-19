@@ -281,7 +281,7 @@ int emv_tlv_get_info(
 				"Indicates the data input and output capabilities of the "
 				"terminal";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_addl_term_caps_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F4D_LOG_ENTRY:
 			info->tag_name = "Log Entry";
@@ -483,6 +483,134 @@ int emv_term_caps_get_string_list(
 	}
 	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_RFU)) {
 		emv_str_list_add(&itr, "Security Capability: RFU");
+	}
+
+	return 0;
+}
+
+int emv_addl_term_caps_get_string_list(
+	const uint8_t* addl_term_caps,
+	size_t addl_term_caps_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!addl_term_caps || !addl_term_caps_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (addl_term_caps_len != 5) {
+		// Additional Terminal Capabilities (field 9F40) must be 5 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Transaction Type Capability (byte 1)
+	// See EMV 4.3 Book 4, Annex A3, table 28
+	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_CASH)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Cash");
+	}
+	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_GOODS)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Goods");
+	}
+	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_SERVICES)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Services");
+	}
+	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_CASHBACK)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Cashback");
+	}
+	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_INQUIRY)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Inquiry");
+	}
+	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_TRANSFER)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Transfer");
+	}
+	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_PAYMENT)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Payment");
+	}
+	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_ADMINISTRATIVE)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Administrative");
+	}
+
+	// Transaction Type Capability (byte 2)
+	// See EMV 4.3 Book 4, Annex A3, table 29
+	if ((addl_term_caps[1] & EMV_ADDL_TERM_CAPS_TXN_TYPE_CASH_DEPOSIT)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: Cash deposit");
+	}
+	if ((addl_term_caps[1] & EMV_ADDL_TERM_CAPS_TXN_TYPE_RFU)) {
+		emv_str_list_add(&itr, "Transaction Type Capability: RFU");
+	}
+
+	// Terminal Data Input Capability (byte 3)
+	// See EMV 4.3 Book 4, Annex A3, table 30
+	if ((addl_term_caps[2] & EMV_ADDL_TERM_CAPS_INPUT_NUMERIC_KEYS)) {
+		emv_str_list_add(&itr, "Terminal Data Input Capability: Numeric keys");
+	}
+	if ((addl_term_caps[2] & EMV_ADDL_TERM_CAPS_INPUT_ALPHABETIC_AND_SPECIAL_KEYS)) {
+		emv_str_list_add(&itr, "Terminal Data Input Capability: Alphabetic and special character keys");
+	}
+	if ((addl_term_caps[2] & EMV_ADDL_TERM_CAPS_INPUT_COMMAND_KEYS)) {
+		emv_str_list_add(&itr, "Terminal Data Input Capability: Command keys");
+	}
+	if ((addl_term_caps[2] & EMV_ADDL_TERM_CAPS_INPUT_FUNCTION_KEYS)) {
+		emv_str_list_add(&itr, "Terminal Data Input Capability: Function keys");
+	}
+	if ((addl_term_caps[2] & EMV_ADDL_TERM_CAPS_INPUT_RFU)) {
+		emv_str_list_add(&itr, "Terminal Data Input Capability: RFU");
+	}
+
+	// Terminal Data Output Capability (byte 4)
+	// See EMV 4.3 Book 4, Annex A3, table 31
+	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_PRINT_ATTENDANT)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Print, attendant");
+	}
+	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_PRINT_CARDHOLDER)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Print, cardholder");
+	}
+	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_DISPLAY_ATTENDANT)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Display, attendant");
+	}
+	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_DISPLAY_CARDHOLDER)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Display cardholder");
+	}
+	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_10)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 10");
+	}
+	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_9)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 9");
+	}
+	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_RFU)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: RFU");
+	}
+
+	// Terminal Data Output Capability (byte 5)
+	// See EMV 4.3 Book 4, Annex A3, table 32
+	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_8)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 8");
+	}
+	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_7)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 7");
+	}
+	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_6)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 6");
+	}
+	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_5)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 5");
+	}
+	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_4)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 4");
+	}
+	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_3)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 3");
+	}
+	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_2)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 2");
+	}
+	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_1)) {
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 1");
 	}
 
 	return 0;
