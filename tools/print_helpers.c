@@ -186,6 +186,14 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 		iso7816_atr_T1_get_string(atr_info)
 	);
 
+	if (atr_info->T1 != ISO7816_ATR_T1_COMPACT_TLV_SI &&
+		atr_info->T1 != ISO7816_ATR_T1_COMPACT_TLV
+	) {
+		// Unknown historical byte format
+		print_buf("  Historical bytes", atr_info->historical_bytes, atr_info->historical_bytes_len);
+		return;
+	}
+
 	r = iso7816_compact_tlv_itr_init(
 		atr_info->historical_bytes,
 		atr_info->historical_bytes_len,
