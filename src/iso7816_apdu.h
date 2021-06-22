@@ -25,6 +25,7 @@
 
 #include <sys/cdefs.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 __BEGIN_DECLS
 
@@ -99,6 +100,42 @@ static inline size_t iso7816_apdu_case_4s_length(const struct iso7816_apdu_case_
 {
 	return 6 + c_apdu->Lc;
 }
+
+/**
+ * Determine whether SW1-SW2 indicates success (9000)
+ * @remark See ISO 7816-4:2005, 5.1.3
+ * @param SW1 Status byte 1
+ * @param SW2 Status byte 2
+ * @return Boolean indicating whether SW1-SW2 indicates success
+ */
+static inline bool iso7816_sw1sw2_is_success(uint8_t SW1, uint8_t SW2) { return SW1 == 0x90 && SW2 == 0x00; }
+
+/**
+ * Determine whether SW1-SW2 indicates normal processing (9000 or 61XX)
+ * @remark See ISO 7816-4:2005, 5.1.3
+ * @param SW1 Status byte 1
+ * @param SW2 Status byte 2
+ * @return Boolean indicating whether SW1-SW2 indicates normal processing
+ */
+static inline bool iso7816_sw1sw2_is_normal(uint8_t SW1, uint8_t SW2) { return iso7816_sw1sw2_is_success(SW1, SW2) || SW1 == 0x61; }
+
+/**
+ * Determine whether SW1-SW2 indicates warning processing (62XX or 62XX)
+ * @remark See ISO 7816-4:2005, 5.1.3
+ * @param SW1 Status byte 1
+ * @param SW2 Status byte 2
+ * @return Boolean indicating whether SW1-SW2 indicates warning processing
+ */
+static inline bool iso7816_sw1sw2_is_warning(uint8_t SW1, uint8_t SW2) { return SW1 == 0x62 || SW1 == 0x63; }
+
+/**
+ * Determine whether SW1-SW2 indicates error
+ * @remark See ISO 7816-4:2005, 5.1.3
+ * @param SW1 Status byte 1
+ * @param SW2 Status byte 2
+ * @return Boolean indicating whether SW1-SW2 indicates error
+ */
+static inline bool iso7816_sw1sw2_is_error(uint8_t SW1, uint8_t SW2) { return !iso7816_sw1sw2_is_normal(SW1, SW2) && !iso7816_sw1sw2_is_warning(SW1, SW2); }
 
 __END_DECLS
 
