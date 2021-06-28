@@ -38,10 +38,15 @@ int emv_ttl_trx(
 
 	// C-TPDU header: CLA INS P1 P2 P3
 	uint8_t c_tpdu_header[5];
+	// C-TPDU data: found after P3; NULL if absent
+	const void* c_tpdu_data = NULL;
 
 	// Next buffer to transmit
 	const void* tx_buf;
 	size_t tx_buf_len;
+
+	// Current position in R-APDU output
+	uint8_t* r_apdu_ptr = r_apdu;
 
 	if (!ctx || !c_apdu || !c_apdu_len || !r_apdu || !r_apdu_len || !*r_apdu_len || !sw1sw2) {
 		return -1;
@@ -49,6 +54,7 @@ int emv_ttl_trx(
 
 	// Determine the APDU case
 	// See ISO 7816-3:2006, 12.1.3, table 13
+	// See EMV 4.3 Book 1, 9.3.1.1
 	// See EMV 4.3 Book 1, Annex A
 
 	// APDU cases:
@@ -91,6 +97,13 @@ int emv_ttl_trx(
 			memcpy(c_tpdu_header, c_apdu, 5);
 		}
 
+		if (apdu_case == ISO7816_APDU_CASE_3S ||
+			apdu_case == ISO7816_APDU_CASE_4S
+		) {
+			// Locate C-TPDU data
+			c_tpdu_data = c_apdu + 5;
+		}
+
 		tx_buf = c_tpdu_header;
 		tx_buf_len = sizeof(c_tpdu_header);
 
@@ -99,13 +112,20 @@ int emv_ttl_trx(
 		return -3;
 	}
 
+	// Clear SW1-SW2 to allow it to be checked later
+	*sw1sw2 = 0;
+
 	do {
 		int r;
-		size_t rx_len = *r_apdu_len;
+		uint8_t INS;
+		uint8_t rx_buf[EMV_RAPDU_MAX];
+		size_t rx_len = sizeof(rx_buf);
 		uint8_t SW1;
 		uint8_t SW2;
+		bool tx_get_response = false;
+		bool tx_update_le  = false;
 
-		r = ctx->cardreader.trx(ctx->cardreader.ctx, tx_buf, tx_buf_len, r_apdu, &rx_len);
+		r = ctx->cardreader.trx(ctx->cardreader.ctx, tx_buf, tx_buf_len, rx_buf, &rx_len);
 		if (r) {
 			return r;
 		}
@@ -114,44 +134,118 @@ int emv_ttl_trx(
 			return 1;
 		}
 
+		// Store INS of most recent tx for later use
+		INS = *((uint8_t*)(tx_buf + 1));
+
+		// Extract SW1-SW2 status bytes
+		if (rx_len > 1) {
+			SW1 = *((uint8_t*)(rx_buf + rx_len - 2));
+			SW2 = *((uint8_t*)(rx_buf + rx_len - 1));
+		} else {
+			SW1 = *((uint8_t*)rx_buf);
+			SW2 = 0xFF;
+		}
+
+		// For APDU case 1, the R-APDU should only be SW1-SW2; no further action
+		// See ISO 7816-3:2006, 12.2.1, table 14
+		// See EMV 4.3 Book 1, 9.3.1.1.1
+		if (apdu_case == ISO7816_APDU_CASE_1) {
+			if (rx_len != 2) {
+				// Unexpected response length for APDU case 1
+				*r_apdu_len = 0;
+				return 2;
+			}
+
+			// Copy data to R-APDU
+			memcpy(r_apdu, rx_buf, rx_len);
+			*r_apdu_len = rx_len;
+
+			// Output status bytes SW1-SW2 in host endianness
+			*sw1sw2 = ((uint16_t)SW1 << 8) | SW2;
+
+			// Let Terminal Application Layer (TAL) process the response
+			return 0;
+		}
+
 		// Process response containing single procedure byte
 		// See ISO 7816-3:2006, 10.3.3
 		// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
 		if (rx_len == 1) {
-			uint8_t procedure_byte = *((uint8_t*)r_apdu);
-			uint8_t INS = *((uint8_t*)(c_apdu + 1));
+			uint8_t procedure_byte = *((uint8_t*)rx_buf);
 
-			// Wait for another procudure byte
+			// Wait for another procedure byte
 			if (procedure_byte == 0x60) {
-				// Not supported by this TTL; assume card reader is in APDU mode
+				// Not supported by this TTL; assume that card reader hardware
+				// or driver will take care of this procedure byte
+				memcpy(r_apdu, rx_buf, rx_len);
 				*r_apdu_len = rx_len;
-				return 1;
+				return 3;
 			}
 
 			// ACK: Send remaining data bytes
+			// See EMV 4.3 Book 1, Annex A
 			if (procedure_byte == INS) {
-				// Not supported by this TTL; assume card reader is in APDU mode
-				*r_apdu_len = rx_len;
-				return 1;
+				if (!c_tpdu_data) {
+					// Unexpected procedure byte if no data available
+					memcpy(r_apdu, rx_buf, rx_len);
+					*r_apdu_len = rx_len;
+					return 4;
+				}
+
+				tx_buf = c_tpdu_data;
+				tx_buf_len = c_tpdu_header[4]; // Next transmit length is Lc
+
+				// No more data available
+				c_tpdu_data = NULL;
+
+				continue;
 			}
 
 			// ACK: Send next byte
 			if (procedure_byte == (INS ^ 0xFF)) {
-				// Not supported by this TTL; assume card reader is in APDU mode
-				*r_apdu_len = rx_len;
-				return 1;
+				if (!c_tpdu_data) {
+					// Unexpected procedure byte if no data available
+					memcpy(r_apdu, rx_buf, rx_len);
+					*r_apdu_len = rx_len;
+					return 5;
+				}
+
+				tx_buf = c_tpdu_data;
+				tx_buf_len = 1;
+				++c_tpdu_data;
+
+				// Case 3: CLA INS P1 P2 Lc [Data(Lc)]
+				// If c_tpdu_data is at the end of [Data(Lc)],
+				// no more data is available
+				if (apdu_case == ISO7816_APDU_CASE_3S &&
+					c_tpdu_data - c_apdu >= c_apdu_len
+				) {
+					// No more data available
+					c_tpdu_data = NULL;
+				}
+
+				// Case 4: CLA INS P1 P2 Lc [Data(Lc)] Le
+				// If c_tpdu_data is at the end of [Data(Lc)],
+				// no more data is available
+				if (apdu_case == ISO7816_APDU_CASE_4S &&
+					c_tpdu_data - c_apdu >= c_apdu_len - 1
+				) {
+					// No more data available
+					c_tpdu_data = NULL;
+				}
+
+				continue;
 			}
 
 			// Unknown procedure byte
+			memcpy(r_apdu, rx_buf, rx_len);
 			*r_apdu_len = rx_len;
-			return 1;
+			return 6;
 		}
-
-		SW1 = *((uint8_t*)(r_apdu + rx_len - 2));
-		SW2 = *((uint8_t*)(r_apdu + rx_len - 1));
 
 		// Process status bytes
 		// See ISO 7816-3:2006, 12.2.1, table 14
+		// See ISO 7816-4:2005, 5.1.3, table 6
 		// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
 		// See EMV 4.3 Book 1, 9.2.2.3.2
 		// See EMV 4.3 Book 1, 9.3.1.2
@@ -164,18 +258,11 @@ int emv_ttl_trx(
 				if (apdu_case != ISO7816_APDU_CASE_2S &&
 					apdu_case != ISO7816_APDU_CASE_4S
 				) {
-					return -4;
+					return 7;
 				}
 
 				// Build GET RESPONSE for next transmission
-				// See ISO 7816-4:2005, 7.6.1
-				c_tpdu_header[0] = 0x00; // CLA
-				c_tpdu_header[1] = 0xC0; // INS: GET RESPONSE
-				c_tpdu_header[2] = 0x00; // P1
-				c_tpdu_header[3] = 0x00; // P2
-				c_tpdu_header[4] = SW2;  // Le
-				tx_buf = c_tpdu_header;
-				tx_buf_len = sizeof(c_tpdu_header);
+				tx_get_response = true;
 				break;
 
 			case 0x6C: // Checking error: Wrong Le field; SW2 encodes the exact number of available bytes
@@ -185,28 +272,151 @@ int emv_ttl_trx(
 				if (apdu_case != ISO7816_APDU_CASE_2S &&
 					apdu_case != ISO7816_APDU_CASE_4S
 				) {
-					return -4;
+					return 8;
 				}
 
 				// Update Le for next transmission
-				// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
-				memcpy(c_tpdu_header, c_apdu, 4);
-				c_tpdu_header[4] = SW2; // P3 = Le
-				tx_buf = c_tpdu_header;
-				tx_buf_len = sizeof(c_tpdu_header);
+				tx_update_le = true;
 				break;
 
 			default:
-				// Let Terminal Application Layer (TAL) process the response
-				*r_apdu_len = rx_len;
+				// Terminal Application Layer (TAL) should receive the SW1-SW2
+				// value of the initial command and not the subsequent
+				// GET RESPONSE command.
+				// See EMV 4.3 Book 1, Annex A7 "Case 4 Command with Warning Condition"
+				if (!*sw1sw2) {
+					// Output status bytes SW1-SW2 in host endianness
+					*sw1sw2 = ((uint16_t)SW1 << 8) | SW2;
 
-				// Output status bytes SW1-SW2 in host endianness
-				*sw1sw2 = ((uint16_t)SW1 << 8) | SW2;
-
-				// TODO: EMV 4.3 Book 1, Annex A7 "Case 4 Command with Warning Condition"
-
-				return 0;
+					// For APDU case 4, warning processing is followed by GET RESPONSE
+					// See EMV 4.3 Book 1, Annex A7 "Case 4 Command with Warning Condition"
+					if (apdu_case == ISO7816_APDU_CASE_4S &&
+						iso7816_sw1sw2_is_warning(SW1, SW2)
+					) {
+						tx_get_response = true;
+						break;
+					}
+				}
 		}
+
+		// For TPDU mode and a response that appears to contain response data
+		if (ctx->cardreader.mode == EMV_CARDREADER_MODE_TPDU &&
+			rx_len > 3
+		) {
+			// Response data is only allowed for APDU cases 2 and 4
+			if (apdu_case != ISO7816_APDU_CASE_2S &&
+				apdu_case != ISO7816_APDU_CASE_4S
+			) {
+				return 9;
+			}
+
+			// Verify leading INS byte in R-TPDU
+			if (memcmp(rx_buf, &INS, 1) != 0) {
+				// R-TPDU data response should have leading INS byte
+				return 10;
+			}
+
+			// Discard leading INS byte
+			rx_len -= 1;
+
+			// Ensure that R-APDU buffer has enough capacity for incoming
+			// data as well as trailing SW1-SW2
+			if (*r_apdu_len < rx_len) {
+				return -4;
+			}
+
+			// Ignore trailing status bytes
+			rx_len -= 2;
+
+			// Copy data to R-APDU
+			memcpy(r_apdu_ptr, rx_buf + 1, rx_len);
+			r_apdu_ptr += rx_len;
+			*r_apdu_len -= rx_len;
+		}
+
+		// For APDU mode and a response that appears to contain response data
+		if (ctx->cardreader.mode == EMV_CARDREADER_MODE_APDU &&
+			rx_len > 2
+		) {
+			// Response data is only allowed for APDU cases 2 and 4
+			if (apdu_case != ISO7816_APDU_CASE_2S &&
+				apdu_case != ISO7816_APDU_CASE_4S
+			) {
+				return 11;
+			}
+
+			// Ensure that R-APDU buffer has enough capacity for incoming
+			// data as well as trailing SW1-SW2
+			if (*r_apdu_len < rx_len) {
+				return -5;
+			}
+
+			// Ignore trailing status bytes
+			rx_len -= 2;
+
+			// Copy data to R-APDU
+			memcpy(r_apdu_ptr, rx_buf, rx_len);
+			r_apdu_ptr += rx_len;
+			*r_apdu_len -= rx_len;
+		}
+
+		if (tx_get_response) {
+			uint8_t Le;
+
+			// Determine Le field from SW1-SW2
+			// See ISO 7816-4:2005, 5.1.3
+			if (SW1 == 0x61 ||
+				(SW1 == 0x62 && SW2 >= 0x02 && SW2 <= 0x80)
+			) {
+				Le = SW2;
+			} else {
+				Le = 0;
+			}
+
+			// Build GET RESPONSE for next transmission
+			// See ISO 7816-4:2005, 7.6.1
+			// See EMV 4.3 Book 1, 9.3.1.3
+			c_tpdu_header[0] = 0x00; // CLA
+			c_tpdu_header[1] = 0xC0; // INS: GET RESPONSE
+			c_tpdu_header[2] = 0x00; // P1
+			c_tpdu_header[3] = 0x00; // P2
+			c_tpdu_header[4] = Le;   // Le
+			tx_buf = c_tpdu_header;
+			tx_buf_len = sizeof(c_tpdu_header);
+
+			// Next transmission
+			continue;
+		}
+
+		if (tx_update_le) {
+			// Update Le for next transmission
+			// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
+			memcpy(c_tpdu_header, tx_buf, 4);
+			c_tpdu_header[4] = SW2; // P3 = Le
+			tx_buf = c_tpdu_header;
+			tx_buf_len = sizeof(c_tpdu_header);
+
+			// Next transmission
+			continue;
+		}
+
+		// If SW1-SW2 indicates success or error, finalise the R-APDU
+		// Only warning processing may proceed
+		if (iso7816_sw1sw2_is_success(SW1, SW2) ||
+			iso7816_sw1sw2_is_error(SW1, SW2)
+		) {
+			// Finalise R-APDU using initial SW1-SW2
+			r_apdu_ptr[0] = *sw1sw2 >> 8;
+			r_apdu_ptr[1] = *sw1sw2 & 0xFF;
+			r_apdu_ptr += 2;
+			*r_apdu_len = (void*)r_apdu_ptr - r_apdu;
+
+			// Let Terminal Application Layer (TAL) process the response
+			return 0;
+		}
+
+		// This should never happen
+		return -100;
 
 	} while (true);
 }
