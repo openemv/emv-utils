@@ -23,6 +23,8 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 find_package(PCSCLite 1.8 REQUIRED)
 
+include(CTest)
+
 add_library(iso7816
 	src/iso7816.c
 	src/iso7816_compact_tlv.c
@@ -56,3 +58,5 @@ target_link_libraries(emv-decode emv iso7816)
 
 add_executable(emv-tool tools/emv-tool.c tools/print_helpers.c src/pcsc.c)
 target_link_libraries(emv-tool emv iso7816 PCSCLite::PCSCLite)
+
+add_subdirectory(tests)
