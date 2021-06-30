@@ -24,8 +24,66 @@
 
 #include <string.h>
 
+int iso8825_ber_tag_decode(const void* ptr, size_t len, unsigned int* tag)
+{
+	const uint8_t* buf = ptr;
+	size_t offset = 0;
+
+	if (!ptr || !tag) {
+		return -1;
+	}
+	if (!len) {
+		// End of encoded data
+		return 0;
+	}
+
+	// Ensure minimum encoded data length
+	if (len < 1) {
+		return -2;
+	}
+
+	// Decode tag octets
+	if ((buf[offset] & ISO8825_BER_TAG_NUMBER_MASK) == ISO8825_BER_TAG_HIGH_FORM) {
+		// High tag number form
+		// See ISO 8825-1:2003, 8.1.2.4
+		*tag = buf[offset];
+		++offset;
+
+		do {
+			if (offset >= len) {
+				// Not enough bytes remaining
+				return -3;
+			}
+
+			// Shift next octet into tag
+			*tag <<= 8;
+			*tag |= buf[offset];
+			++offset;
+
+			// Read octets while highest bit is set
+			// See ISO 8825-1:2003, 8.1.2.4.2
+			if (!(buf[offset-1] & ISO8825_BER_TAG_HIGH_FORM_MORE)) {
+				break;
+			}
+
+			if (offset >= sizeof(*tag)) {
+				// Decoded tag field size is too small for next high tag
+				// number form octet
+				return -4;
+			}
+		} while (1);
+	} else {
+		// Low tag number form
+		*tag = buf[offset];
+		++offset;
+	}
+
+	return offset;
+}
+
 int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 {
+	int r;
 	const uint8_t* buf = ptr;
 	size_t offset = 0;
 
@@ -44,34 +102,16 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 	}
 
 	// Decode tag octets
-	if ((buf[offset] & ISO8825_BER_TAG_NUMBER_MASK) == ISO8825_BER_TAG_HIGH_FORM) {
-		// High tag number form
-		// See ISO 8825-1:2003, 8.1.2.4
-		tlv->tag = buf[offset];
-		++offset;
+	r = iso8825_ber_tag_decode(ptr, len, &tlv->tag);
+	if (r <= 0) {
+		// Error or end of encoded data
+		return r;
+	}
+	offset += r;
 
-		do {
-			// Shift next octet into tag
-			tlv->tag <<= 8;
-			tlv->tag |= buf[offset];
-			++offset;
-
-			// Read octets while highest bit is set
-			// See ISO 8825-1:2003, 8.1.2.4.2
-			if (!(buf[offset-1] & ISO8825_BER_TAG_HIGH_FORM_MORE)) {
-				break;
-			}
-
-			if (offset >= sizeof(tlv->tag)) {
-				// Decoded tag field size is too small for next high tag
-				// number form octet
-				return -3;
-			}
-		} while (1);
-	} else {
-		// Low tag number form
-		tlv->tag = buf[offset];
-		++offset;
+	if (offset >= len) {
+		// Not enough bytes remaining
+		return -5;
 	}
 
 	// Decode length octets
@@ -83,7 +123,7 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 
 		// Ensure that this is a constructed type
 		if ((buf[0] & ISO8825_BER_CONSTRUCTED) == 0) {
-			return -4;
+			return -6;
 		}
 
 		// BER decode content octets to find end-of-content
@@ -94,11 +134,11 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 			r = iso8825_ber_decode(tlv->value + tlv->length, len - offset - tlv->length, &inner_tlv);
 			if (r < 0) {
 				// Error while decoding inner TLV
-				return -5;
+				return -7;
 			}
 			if (r == 0) {
 				// Unexpected end-of-data before end-of-content
-				return -6;
+				return -8;
 			}
 
 			// Check for end-of-content
@@ -121,12 +161,12 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 		if (octet_count > sizeof(tlv->length)) {
 			// Decoded length field size is too small for long length
 			// form octets
-			return -8;
+			return -9;
 		}
 
 		// Validate length octet count
 		if (offset + octet_count > len) {
-			return -9;
+			return -10;
 		}
 
 		// Shift length octets into length field
@@ -148,7 +188,7 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 
 	// Validate tag length
 	if (offset + tlv->length > len) {
-		return -10;
+		return -11;
 	}
 
 	// Consume content

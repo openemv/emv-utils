@@ -124,6 +124,15 @@ struct iso8825_oid_t {
 };
 
 /**
+ * Decode BER tag octets
+ * @param ptr BER encoded data
+ * @param len Length of BER encoded data in bytes
+ * @param tag Decoded tag output
+ * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
+ */
+int iso8825_ber_tag_decode(const void* ptr, size_t len, unsigned int* tag);
+
+/**
  * Decode BER data
  * @param ptr BER encoded data
  * @param len Length of BER encoded data in bytes
