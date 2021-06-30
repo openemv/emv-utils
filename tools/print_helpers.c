@@ -28,6 +28,7 @@
 #include "iso8825_ber.h"
 
 #include "emv_tlv.h"
+#include "emv_dol.h"
 #include "emv_app.h"
 #include "emv_strings.h"
 
@@ -335,20 +336,28 @@ void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int
 		printf("%02X : [%u]", tlv->tag, tlv->length);
 	}
 
-	// If empty value string or value string is list,
-	// print hex as well as as string list
-	if (!value_str[0] || str_is_list(value_str)) {
-		printf(" ");
-		for (size_t i = 0; i < tlv->length; ++i) {
-			printf("%s%02X", i ? " " : "", tlv->value[i]);
-		}
+	if (iso8825_ber_is_constructed(&tlv->ber)) {
 		printf("\n");
+		print_emv_buf(tlv->value, tlv->length, prefix, depth + 1);
+	} else {
+		// If empty value string or value string is list,
+		// print hex as well as as string list
+		if (!value_str[0] || str_is_list(value_str) || info.format == EMV_FORMAT_DOL) {
+			printf(" ");
+			for (size_t i = 0; i < tlv->length; ++i) {
+				printf("%s%02X", i ? " " : "", tlv->value[i]);
+			}
+			printf("\n");
 
-		if (value_str[0]) {
-			print_str_list(value_str, "\n", prefix, depth + 1, "- ", "\n");
+			if (str_is_list(value_str)) {
+				print_str_list(value_str, "\n", prefix, depth + 1, "- ", "\n");
+			}
+			if (info.format == EMV_FORMAT_DOL) {
+				print_emv_dol(tlv->value, tlv->length, prefix, depth + 1);
+			}
+		} else if (value_str[0]) {
+			printf(" %s\n", value_str);
 		}
-	} else if (value_str[0]) {
-		printf(" %s\n", value_str);
 	}
 }
 
@@ -366,42 +375,8 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
 		struct emv_tlv_t emv_tlv;
-		struct emv_tlv_info_t info;
-		char value_str[1024];
-
 		emv_tlv.ber = tlv;
-		emv_tlv_get_info(&emv_tlv, &info, value_str, sizeof(value_str));
-
-		for (unsigned int i = 0; i < depth; ++i) {
-			printf("%s", prefix ? prefix : "");
-		}
-
-		if (info.tag_name) {
-			printf("%02X | %s : [%u]", tlv.tag, info.tag_name, tlv.length);
-		} else {
-			printf("%02X : [%u]", tlv.tag, tlv.length);
-		}
-
-		if (iso8825_ber_is_constructed(&tlv)) {
-			printf("\n");
-			print_emv_buf(tlv.value, tlv.length, prefix, depth + 1);
-		} else {
-			// If empty value string or value string is list,
-			// print hex as well as as string list
-			if (!value_str[0] || str_is_list(value_str)) {
-				printf(" ");
-				for (size_t i = 0; i < tlv.length; ++i) {
-					printf("%s%02X", i ? " " : "", tlv.value[i]);
-				}
-				printf("\n");
-
-				if (value_str[0]) {
-					print_str_list(value_str, "\n", prefix, depth + 1, "- ", "\n");
-				}
-			} else if (value_str[0]) {
-				printf(" %s\n", value_str);
-			}
-		}
+		print_emv_tlv(&emv_tlv, prefix, depth);
 	}
 
 	if (r < 0) {
@@ -415,6 +390,45 @@ void print_emv_tlv_list(const struct emv_tlv_list_t* list)
 
 	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
 		print_emv_tlv(tlv, "  ", 1);
+	}
+}
+
+void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int depth)
+{
+	int r;
+	struct emv_dol_itr_t itr;
+	struct emv_dol_entry_t entry;
+
+	for (unsigned int i = 0; i < depth; ++i) {
+		printf("%s", prefix ? prefix : "");
+	}
+	printf("Data Object List:\n");
+	++depth;
+
+	r = emv_dol_itr_init(ptr, len, &itr);
+	if (r) {
+		printf("Failed to initialize DOL iterator\n");
+		return;
+	}
+
+	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
+		struct emv_tlv_t emv_tlv;
+		struct emv_tlv_info_t info;
+
+		memset(&emv_tlv, 0, sizeof(emv_tlv));
+		emv_tlv.tag = entry.tag;
+		emv_tlv.length = entry.length;
+		emv_tlv_get_info(&emv_tlv, &info, NULL, 0);
+
+		for (unsigned int i = 0; i < depth; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+
+		if (info.tag_name) {
+			printf("%02X | %s : [%u]\n", entry.tag, info.tag_name, entry.length);
+		} else {
+			printf("%02X : [%u]\n", entry.tag, entry.length);
+		}
 	}
 }
 

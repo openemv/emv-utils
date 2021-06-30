@@ -272,7 +272,7 @@ int emv_tlv_get_info(
 				"Contains a list of terminal resident data objects (tags and "
 				"lengths) needed by the ICC in processing the GET PROCESSING "
 				"OPTIONS command";
-			info->format = EMV_FORMAT_B;
+			info->format = EMV_FORMAT_DOL;
 			return 0;
 
 		case EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES:

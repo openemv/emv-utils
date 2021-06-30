@@ -93,6 +93,12 @@ enum emv_format_t {
 	 * Encoded according to the field type.
 	 */
 	EMV_FORMAT_VAR,
+
+	/**
+	 * Data Object List (DOL).
+	 * Encoded according to EMV Book 3, 5.4
+	 */
+	EMV_FORMAT_DOL,
 };
 
 /**

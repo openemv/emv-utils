@@ -109,6 +109,15 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 void print_emv_tlv_list(const struct emv_tlv_list_t* list);
 
 /**
+ * Print EMV Data Object List (DOL)
+ * @param ptr EMV Data Object List (DOL) data
+ * @param len Length of EMV Data Object List (DOL) data in bytes
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ */
+void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+
+/**
  * Print EMV application description
  * @param app EMV application object
  */
