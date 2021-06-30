@@ -42,8 +42,9 @@ target_include_directories(iso8825 INTERFACE
 )
 
 add_library(emv
-	src/emv_ttl.c
 	src/emv_tlv.c
+	src/emv_dol.c
+	src/emv_ttl.c
 	src/emv_app.c
 	src/emv_tal.c
 	src/emv_strings.c
