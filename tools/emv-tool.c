@@ -44,6 +44,9 @@ struct emv_txn_t {
 
 	// Supported applications
 	struct emv_tlv_list_t supported_aids;
+
+	// ICC data
+	struct emv_tlv_list_t icc;
 };
 static struct emv_txn_t emv_txn;
 
@@ -109,6 +112,7 @@ static void emv_txn_destroy(struct emv_txn_t* emv_txn)
 {
 	emv_tlv_list_clear(&emv_txn->supported_aids);
 	emv_tlv_list_clear(&emv_txn->terminal);
+	emv_tlv_list_clear(&emv_txn->icc);
 }
 
 int main(void)
@@ -289,6 +293,10 @@ int main(void)
 		}
 		print_emv_app(app);
 		print_emv_tlv_list(&app->tlv_list);
+
+		// Capture ICC data
+		emv_txn.icc = app->tlv_list;
+		app->tlv_list = EMV_TLV_LIST_INIT;
 		emv_app_free(app);
 	}
 
