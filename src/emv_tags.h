@@ -54,6 +54,9 @@ __BEGIN_DECLS
 /// EMV tag 73 Directory Discretionary Template. Template 61.
 #define EMV_TAG_73_DIRECTORY_DISCRETIONARY_TEMPLATE             (0x73)
 
+/// EMV tag 81 Amount, Authorised (Binary)
+#define EMV_TAG_81_AMOUNT_AUTHORISED_BINARY                     (0x81)
+
 /// EMV tag 83 Command Template
 #define EMV_TAG_83_COMMAND_TEMPLATE                             (0x83)
 
@@ -66,14 +69,26 @@ __BEGIN_DECLS
 /// EMV tag 88 Short File Indicator (SFI). Template A5.
 #define EMV_TAG_88_SFI                                          (0x88)
 
+/// EMV tag 9A Transaction Date
+#define EMV_TAG_9A_TRANSACTION_DATE                             (0x9A)
+
+/// EMV tag 9C Transaction Type
+#define EMV_TAG_9C_TRANSACTION_TYPE                             (0x9C)
+
 /// EMV tag 9D Directory Definition File (DDF) Name. Template 6F.
 #define EMV_TAG_9D_DDF_NAME                                     (0x9D)
 
 /// EMV tag A5 File Control Information (FCI) Proprietary Template. Template 6F.
 #define EMV_TAG_A5_FCI_PROPRIETARY_TEMPLATE                     (0xA5)
 
+/// EMV tag 5F2A Currency Code
+#define EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE                  (0x5F2A)
+
 /// EMV tag 5F2D Language Preference. Template A5.
 #define EMV_TAG_5F2D_LANGUAGE_PREFERENCE                        (0x5F2D)
+
+/// EMV tag 5F36 Transaction Currenct Exponent
+#define EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT              (0x5F36)
 
 /// EMV tag 5F50 Issuer URL. Template BF0C or 73.
 #define EMV_TAG_5F50_ISSUER_URL                                 (0x5F50)
@@ -89,6 +104,15 @@ __BEGIN_DECLS
 
 /// EMV tag 5F56 Issuer Country Code (alpha3 format). Template BF0C or 73.
 #define EMV_TAG_5F56_ISSUER_COUNTRY_CODE_ALPHA3                 (0x5F56)
+
+/// EMV tag 9F02 Amount, Authorised (Numeric)
+#define EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC                  (0x9F02)
+
+/// EMV tag 9F03 Amount, Other (Numeric)
+#define EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC                       (0x9F03)
+
+/// EMV tag 9F04 Amount, Other (Binary
+#define EMV_TAG_9F04_AMOUNT_OTHER_BINARY                        (0x9F04)
 
 /// EMV tag 9F06 Application Identifier (AID) - terminal
 #define EMV_TAG_9F06_AID                                        (0x9F06)
@@ -111,6 +135,9 @@ __BEGIN_DECLS
 /// EMV tag 9F1E Interface Device (IFD) Serial Number
 #define EMV_TAG_9F1E_IFD_SERIAL_NUMBER                          (0x9F1E)
 
+/// EMV tag 9F21 Transaction Time
+#define EMV_TAG_9F21_TRANSACTION_TIME                           (0x9F21)
+
 /// EMV tag 9F33 Terminal Capabilities
 #define EMV_TAG_9F33_TERMINAL_CAPABILITIES                      (0x9F33)
 
@@ -122,6 +149,9 @@ __BEGIN_DECLS
 
 /// EMV tag 9F40 Additional Terminal Capabilities
 #define EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES           (0x9F40)
+
+/// EMV tag 9F41 Transaction Sequence Counter
+#define EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER               (0x9F41)
 
 /// EMMV tag 9F4D Log Entry. Template BF0C or 73.
 #define EMV_TAG_9F4D_LOG_ENTRY                                  (0x9F4D)

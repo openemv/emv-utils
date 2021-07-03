@@ -105,6 +105,13 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
+		case EMV_TAG_81_AMOUNT_AUTHORISED_BINARY:
+			info->tag_name = "Amount, Authorised (Binary)";
+			info->tag_desc =
+				"Authorised amount of the transaction (excluding adjustments)";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_83_COMMAND_TEMPLATE:
 			info->tag_name = "Command Template";
 			info->tag_desc =
@@ -139,6 +146,23 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_9A_TRANSACTION_DATE:
+			info->tag_name = "Transaction Date";
+			info->tag_desc =
+				"Local date that the transaction was authorised";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 6, value_str, value_str_len);
+
+		case EMV_TAG_9C_TRANSACTION_TYPE:
+			info->tag_name = "Transaction Type";
+			info->tag_desc =
+				"Indicates the type of financial transaction, represented by "
+				"the first two digits of the ISO 8583:1987 Processing Code. "
+				"The actual values to be used for the Transaction Type data "
+				"element are defined by the relevant payment system.";
+			info->format = EMV_FORMAT_N;
+			return 0;
+
 		case EMV_TAG_9D_DDF_NAME:
 			info->tag_name = "Directory Definition File (DDF) Name";
 			info->tag_desc =
@@ -156,6 +180,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
+		case EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE:
+			info->tag_name = "Transaction Currency Code";
+			info->tag_desc =
+				"Indicates the currency code of the transaction according to "
+				"ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+
 		case EMV_TAG_5F2D_LANGUAGE_PREFERENCE:
 			info->tag_name = "Language Preference";
 			info->tag_desc =
@@ -164,6 +196,15 @@ int emv_tlv_get_info(
 				"ISO 639";
 			info->format = EMV_FORMAT_AN;
 			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
+
+		case EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT:
+			info->tag_name = "Transaction Currency Exponent";
+			info->tag_desc =
+				"Indicates the implied position of the decimal point from the "
+				"right of the transaction amount represented according to "
+				"ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return 0;
 
 		case EMV_TAG_5F50_ISSUER_URL:
 			info->tag_name = "Issuer URL";
@@ -203,6 +244,29 @@ int emv_tlv_get_info(
 				"(using a 3 character alphabetic code)";
 			info->format = EMV_FORMAT_A;
 			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+
+		case EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC:
+			info->tag_name = "Amount, Authorised (Numeric)";
+			info->tag_desc =
+				"Authorised amount of the transaction (excluding adjustments)";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
+
+		case EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC:
+			info->tag_name = "Amount, Other (Numeric)";
+			info->tag_desc =
+				"Secondary amount associated with the transaction "
+				"representing a cashback amount";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
+
+		case EMV_TAG_9F04_AMOUNT_OTHER_BINARY:
+			info->tag_name = "Amount, Other (Binary)";
+			info->tag_desc =
+				"Secondary amount associated with the transaction "
+				"representing a cashback amount";
+			info->format = EMV_FORMAT_B;
+			return 0;
 
 		case EMV_TAG_9F06_AID:
 			info->tag_name = "Application Identifier (AID) - terminal";
@@ -257,6 +321,13 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_AN;
 			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
 
+		case EMV_TAG_9F21_TRANSACTION_TIME:
+			info->tag_name = "Transaction Time";
+			info->tag_desc =
+				"Local time that the transaction was authorised";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 6, value_str, value_str_len);
+
 		case EMV_TAG_9F33_TERMINAL_CAPABILITIES:
 			info->tag_name = "Terminal Capabilities";
 			info->tag_desc =
@@ -289,6 +360,14 @@ int emv_tlv_get_info(
 				"terminal";
 			info->format = EMV_FORMAT_B;
 			return emv_addl_term_caps_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER:
+			info->tag_name = "Transaction Sequence Counter";
+			info->tag_desc =
+				"Counter maintained by the terminal that is incremented by "
+				"one for each transaction";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 4, value_str, value_str_len);
 
 		case EMV_TAG_9F4D_LOG_ENTRY:
 			info->tag_name = "Log Entry";
