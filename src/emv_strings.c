@@ -105,6 +105,13 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
+		case EMV_TAG_83_COMMAND_TEMPLATE:
+			info->tag_name = "Command Template";
+			info->tag_desc =
+				"Identifies the data field of a command message";
+			info->format = EMV_FORMAT_VAR;
+			return 0;
+
 		case EMV_TAG_84_DF_NAME:
 			info->tag_name = "Dedicated File (DF) Name";
 			info->tag_desc =

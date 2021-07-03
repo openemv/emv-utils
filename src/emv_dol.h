@@ -29,6 +29,9 @@
 
 __BEGIN_DECLS
 
+// Forward declarations
+struct emv_tlv_list_t;
+
 /// EMV Data Object List (DOL) entry
 struct emv_dol_entry_t {
 	unsigned int tag;
@@ -68,6 +71,33 @@ int emv_dol_itr_init(const void* ptr, size_t len, struct emv_dol_itr_t* itr);
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int emv_dol_itr_next(struct emv_dol_itr_t* itr, struct emv_dol_entry_t* entry);
+
+/**
+ * Compute command data length required by Data Object List (DOL)
+ * @param ptr Encoded EMV Data Object List (DOL) data
+ * @param len Length of encoded EMV Data Object List (DOL) data in bytes
+ * @return Length of command data. Less than zero for error.
+ */
+int emv_dol_compute_data_length(const void* ptr, size_t len);
+
+/**
+ * Build command data according to Data Object List (DOL)
+ * @param ptr Encoded EMV Data Object List (DOL) data
+ * @param len Length of encoded EMV Data Object List (DOL) data in bytes
+ * @param source1 EMV TLV list used as primary source. Required.
+ * @param source2 EMV TLV list used as secondary source. NULL to ignore.
+ * @param data Output data
+ * @param data_len Length of output data in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero if output data length too small.
+ */
+int emv_dol_build_data(
+	const void* ptr,
+	size_t len,
+	struct emv_tlv_list_t* source1,
+	struct emv_tlv_list_t* source2,
+	void* data,
+	size_t* data_len
+);
 
 __END_DECLS
 

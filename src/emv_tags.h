@@ -54,6 +54,9 @@ __BEGIN_DECLS
 /// EMV tag 73 Directory Discretionary Template. Template 61.
 #define EMV_TAG_73_DIRECTORY_DISCRETIONARY_TEMPLATE             (0x73)
 
+/// EMV tag 83 Command Template
+#define EMV_TAG_83_COMMAND_TEMPLATE                             (0x83)
+
 /// EMV tag 84 Dedicated File (DF) Name. Template 6F.
 #define EMV_TAG_84_DF_NAME                                      (0x84)
 

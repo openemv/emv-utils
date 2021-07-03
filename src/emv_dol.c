@@ -21,6 +21,9 @@
 
 #include "emv_dol.h"
 #include "iso8825_ber.h"
+#include "emv_tlv.h"
+
+#include <string.h>
 
 int emv_dol_decode(const void* ptr, size_t len, struct emv_dol_entry_t* entry)
 {
@@ -93,4 +96,91 @@ int emv_dol_itr_next(struct emv_dol_itr_t* itr, struct emv_dol_entry_t* entry)
 	}
 
 	return r;
+}
+
+int emv_dol_compute_data_length(const void* ptr, size_t len)
+{
+	int r;
+	struct emv_dol_itr_t itr;
+	struct emv_dol_entry_t entry;
+	int total = 0;
+
+	if (!ptr || !len) {
+		return -1;
+	}
+
+	r = emv_dol_itr_init(ptr, len, &itr);
+	if (r) {
+		return -2;
+	}
+
+	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
+		total += entry.length;
+	}
+
+	return total;
+}
+
+int emv_dol_build_data(
+	const void* ptr,
+	size_t len,
+	struct emv_tlv_list_t* source1,
+	struct emv_tlv_list_t* source2,
+	void* data,
+	size_t* data_len
+)
+{
+	int r;
+	struct emv_dol_itr_t itr;
+	struct emv_dol_entry_t entry;
+	void* data_ptr = data;
+
+	if (!ptr || !len || !source1 || !data || !data_len || !*data_len) {
+		return -1;
+	}
+
+	r = emv_dol_itr_init(ptr, len, &itr);
+	if (r) {
+		return -2;
+	}
+
+	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
+		const struct emv_tlv_t* tlv;
+
+		if (*data_len < entry.length) {
+			// Output data length too small
+			return 1;
+		}
+
+		// Find TLV
+		tlv = emv_tlv_list_find(source1, entry.tag);
+		if (!tlv && source2) {
+			tlv = emv_tlv_list_find(source2, entry.tag);
+		}
+		if (!tlv) {
+			// If TLV is not found, zero data output
+			// See EMV 4.3 Book 3, 5.4, step 2b
+			memset(data_ptr, 0, entry.length);
+			data_ptr += entry.length;
+			*data_len -= entry.length;
+			continue;
+		}
+
+		if (tlv->length == entry.length) {
+			// TLV is found and length matches DOL entry
+			memcpy(data_ptr, tlv->value, tlv->length);
+			data_ptr += tlv->length;
+			*data_len -= tlv->length;
+			continue;
+		}
+
+		if (tlv->length != entry.length) {
+			// TODO: EMV 4.3 Book 3, 5.4, step 2c
+			// TODO: EMV 4.3 Book 3, 5.4, step 2d
+			return -3;
+		}
+	}
+
+	*data_len = data_ptr - data;
+	return 0;
 }
