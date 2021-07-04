@@ -27,7 +27,9 @@
 #include "emv_tlv.h"
 #include "emv_tal.h"
 
+#include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 // HACK: remove
 #include "emv_dol.h"
@@ -39,6 +41,9 @@
 struct emv_txn_t {
 	// Terminal Transport Layer
 	struct emv_ttl_t ttl;
+
+	// Transaction parameters (type, amount, counter, etc)
+	struct emv_tlv_list_t params;
 
 	// Terminal configuration
 	struct emv_tlv_list_t terminal;
@@ -78,6 +83,41 @@ static const char* pcsc_get_reader_state_string(unsigned int reader_state)
 	return NULL;
 }
 
+static void emv_txn_load_params(struct emv_txn_t* emv_txn)
+{
+	time_t t = time(NULL);
+	struct tm* tm = localtime(&t);
+	uint8_t emv_date[3];
+	uint8_t emv_time[3];
+	int date_offset = 0;
+
+	// Transaction sequence counter
+	// See EMV 4.3 Book 4, 6.5.5
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x42 }, 0); // Transaction #42
+
+	// Current date and time
+	tm->tm_year += date_offset; // Useful for expired test cards
+	emv_date[0] = (((tm->tm_year / 10) % 10) << 4) | (tm->tm_year % 10);
+	emv_date[1] = (((tm->tm_mon + 1) / 10) << 4) | ((tm->tm_mon + 1) % 10);
+	emv_date[2] = ((tm->tm_mday / 10) << 4) | (tm->tm_mday % 10);
+	emv_time[0] = ((tm->tm_hour / 10) << 4) | (tm->tm_hour % 10);
+	emv_time[1] = ((tm->tm_min / 10) << 4) | (tm->tm_min % 10);
+	emv_time[2] = ((tm->tm_sec / 10) << 4) | (tm->tm_sec % 10);
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9A_TRANSACTION_DATE, 3, emv_date, 0);
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F21_TRANSACTION_TIME, 3, emv_time, 0);
+
+	// Transaction currency
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0); // Euro (978)
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT, 1, (uint8_t[]){ 0x02 }, 0); // Currency has 2 decimal places
+
+	// Transaction type and amount(s)
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ 0x00 }, 0); // Goods and services
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00, 0x10, 0x00 }, 0); // 1000
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x03, 0xE8 }, 0); // 1000
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC, 6, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0); // 0
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F04_AMOUNT_OTHER_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
+}
+
 static void emv_txn_load_config(struct emv_txn_t* emv_txn)
 {
 	// Terminal config
@@ -111,6 +151,7 @@ static void emv_txn_load_config(struct emv_txn_t* emv_txn)
 
 static void emv_txn_destroy(struct emv_txn_t* emv_txn)
 {
+	emv_tlv_list_clear(&emv_txn->params);
 	emv_tlv_list_clear(&emv_txn->supported_aids);
 	emv_tlv_list_clear(&emv_txn->terminal);
 	emv_tlv_list_clear(&emv_txn->icc);
@@ -201,7 +242,11 @@ int main(void)
 	emv_txn.ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	emv_txn.ttl.cardreader.ctx = reader;
 	emv_txn.ttl.cardreader.trx = &pcsc_reader_trx;
+	emv_txn_load_params(&emv_txn);
 	emv_txn_load_config(&emv_txn);
+
+	printf("\nTransaction parameters:\n");
+	print_emv_tlv_list(&emv_txn.params);
 
 	printf("\nTerminal config:\n");
 	print_emv_tlv_list(&emv_txn.terminal);
@@ -330,8 +375,8 @@ int main(void)
 			r = emv_dol_build_data(
 				pdol->value,
 				pdol->length,
+				&emv_txn.params,
 				&emv_txn.terminal,
-				NULL,
 				gpo_data + gpo_data_offset,
 				&gpo_data_len
 			);
