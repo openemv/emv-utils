@@ -457,6 +457,120 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 	}
 }
 
+int emv_str_to_format_cn(const char* str, uint8_t* buf, size_t buf_len)
+{
+	size_t i;
+
+	if (!str || !buf || !buf_len) {
+		return -1;
+	}
+
+	// Pack digits, left justified
+	i = 0;
+	while (*str && buf_len) {
+		uint8_t nibble;
+
+		// Extract decimal character
+		if (*str >= '0' && *str <= '9') {
+			// Convert decimal character to nibble
+			nibble = *str - '0';
+			++str;
+		} else {
+			// Invalid character
+			return 1;
+		}
+
+		if ((i & 0x1) == 0) { // i is even
+			// Most significant nibble
+			*buf = nibble << 4;
+		} else { // i is odd
+			// Least significant nibble
+			*buf |= nibble & 0x0F;
+			++buf;
+			--buf_len;
+		}
+
+		++i;
+	}
+
+	// If output buffer is not full, pad with trailing 'F's
+	if (buf_len) {
+		if ((i & 0x1) == 0x1) { // i is odd
+			// Pad least significant nibble
+			*buf |= 0x0F;
+			++buf;
+			--buf_len;
+		}
+
+		while (buf_len) {
+			*buf = 0xFF;
+			++buf;
+			--buf_len;
+		}
+	}
+
+	return 0;
+}
+
+int emv_str_to_format_n(const char* str, uint8_t* buf, size_t buf_len)
+{
+	size_t i;
+	size_t str_len;
+
+	if (!str || !buf || !buf_len) {
+		return -1;
+	}
+
+	// Pack digits, right justified
+	i = 0;
+	str_len = strlen(str);
+	str += str_len - 1; // Parse from the end of the string
+	buf += buf_len - 1; // Pack from the end of the buffer
+	while (str_len && buf_len) {
+		uint8_t nibble;
+
+		// Extract decimal character
+		if (*str >= '0' && *str <= '9') {
+			// Convert decimal character to nibble
+			nibble = *str - '0';
+			--str;
+			--str_len;
+		} else {
+			// Invalid character
+			return 1;
+		}
+
+		if ((i & 0x1) == 0) { // i is even
+			// Least significant nibble
+			*buf = nibble;
+		} else { // i is odd
+			// Most significant nibble
+			*buf |= nibble << 4;
+			--buf;
+			--buf_len;
+		}
+
+		++i;
+	}
+
+	// If output buffer is not full, pad with leading zeros
+	if (buf_len) {
+		if ((i & 0x1) == 0x1) { // i is odd
+			// i was even when loop ended; advance
+			--buf;
+			--buf_len;
+		}
+
+		while (buf_len) {
+			*buf = 0;
+			--buf;
+			--buf_len;
+		}
+	}
+
+	return 0;
+}
+
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len)
 {
 	itr->ptr = buf;

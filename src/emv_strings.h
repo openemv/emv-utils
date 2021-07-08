@@ -132,6 +132,30 @@ int emv_tlv_get_info(
 );
 
 /**
+ * Convert string to EMV format "cn" (two decimal digits per byte,
+ * left justified, padded with trailing 'F's).
+ * See @ref EMV_FORMAT_CN
+ *
+ * @param str NULL-terminated string
+ * @param buf Output buffer
+ * @param buf_len Length of output buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_str_to_format_cn(const char* str, uint8_t* buf, size_t buf_len);
+
+/**
+ * Convert string to EMV format "n" (two decimal digits per byte,
+ * right justified and padded with leading zeroes).
+ *
+ * See @ref EMV_FORMAT_N
+ * @param str NULL-terminated string
+ * @param buf Output buffer
+ * @param buf_len Length of output buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_str_to_format_n(const char* str, uint8_t* buf, size_t buf_len);
+
+/**
  * Stringify Terminal Type (field 9F35)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param term_type Terminal type field
