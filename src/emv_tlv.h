@@ -135,6 +135,50 @@ struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int ta
  */
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list);
 
+/**
+ * Convert unsigned integer (32-bit) to EMV format "n".
+ * @remark See EMV 4.3 Book 1, 4.3
+ *
+ * @param value Unsigned integer to convert
+ * @param buf Output buffer in EMV format "n"
+ * @param buf_len Length of output buffer in bytes
+ * @return Pointer to @c buf. NULL for error;
+ */
+const uint8_t* emv_uint_to_format_n(uint32_t value, uint8_t* buf, size_t buf_len);
+
+/**
+ * Convert EMV format "n" to unsigned integer (32-bit)
+ * @remark See EMV 4.3 Book 1, 4.3
+ *
+ * @param buf Buffer to convert
+ * @param buf_len Length of buffer in bytes
+ * @param value Unsigned integer (32-bit) output
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_format_n_to_uint(const uint8_t* buf, size_t buf_len, uint32_t* value);
+
+/**
+ * Convert unsigned integer (32-bit) to EMV format "b".
+ * @remark See EMV 4.3 Book 1, 4.3
+ *
+ * @param value Unsigned integer to convert
+ * @param buf Output buffer in EMV format "b"
+ * @param buf_len Length of output buffer in bytes
+ * @return Pointer to @c buf. NULL for error;
+ */
+const uint8_t* emv_uint_to_format_b(uint32_t value, uint8_t* buf, size_t buf_len);
+
+/**
+ * Convert EMV format "b" to unsigned integer (32-bit)
+ * @remark See EMV 4.3 Book 1, 4.3
+ *
+ * @param buf Buffer to convert
+ * @param buf_len Length of buffer in bytes
+ * @param value Unsigned integer (32-bit) output
+ * @return Zero for success. Less than zero for internal error.
+ */
+int emv_format_b_to_uint(const uint8_t* buf, size_t buf_len, uint32_t* value);
+
 __END_DECLS
 
 #endif

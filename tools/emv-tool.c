@@ -83,17 +83,18 @@ static const char* pcsc_get_reader_state_string(unsigned int reader_state)
 	return NULL;
 }
 
-static void emv_txn_load_params(struct emv_txn_t* emv_txn)
+static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other)
 {
 	time_t t = time(NULL);
 	struct tm* tm = localtime(&t);
 	uint8_t emv_date[3];
 	uint8_t emv_time[3];
 	int date_offset = 0;
+	uint8_t buf[6];
 
 	// Transaction sequence counter
 	// See EMV 4.3 Book 4, 6.5.5
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x42 }, 0); // Transaction #42
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER, 4, emv_uint_to_format_n(txn_seq_cnt, buf, 4), 0);
 
 	// Current date and time
 	tm->tm_year += date_offset; // Useful for expired test cards
@@ -111,11 +112,11 @@ static void emv_txn_load_params(struct emv_txn_t* emv_txn)
 	emv_tlv_list_push(&emv_txn->params, EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT, 1, (uint8_t[]){ 0x02 }, 0); // Currency has 2 decimal places
 
 	// Transaction type and amount(s)
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ 0x00 }, 0); // Goods and services
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00, 0x10, 0x00 }, 0); // 1000
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x03, 0xE8 }, 0); // 1000
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC, 6, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0); // 0
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F04_AMOUNT_OTHER_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9C_TRANSACTION_TYPE, 1, &txn_type, 0);
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, emv_uint_to_format_n(amount, buf, 6), 0);
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, emv_uint_to_format_b(amount, buf, 4), 0);
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC, 6, emv_uint_to_format_n(amount_other, buf, 6), 0);
+	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F04_AMOUNT_OTHER_BINARY, 4, emv_uint_to_format_b(amount_other, buf, 4), 0);
 }
 
 static void emv_txn_load_config(struct emv_txn_t* emv_txn)
@@ -242,7 +243,13 @@ int main(void)
 	emv_txn.ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	emv_txn.ttl.cardreader.ctx = reader;
 	emv_txn.ttl.cardreader.trx = &pcsc_reader_trx;
-	emv_txn_load_params(&emv_txn);
+	emv_txn_load_params(
+		&emv_txn,
+		42, // Transaction Sequence Counter
+		0x00, // Transaction Type: Goods and services
+		1234, // Transaction Amount
+		0 // Transaction Amount, Other
+	);
 	emv_txn_load_config(&emv_txn);
 
 	printf("\nTransaction parameters:\n");

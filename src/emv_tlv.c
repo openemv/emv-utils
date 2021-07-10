@@ -222,3 +222,110 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 
 	return 0;
 }
+
+const uint8_t* emv_uint_to_format_n(uint32_t value, uint8_t* buf, size_t buf_len)
+{
+	size_t i;
+	uint32_t divider;
+
+	if (!buf || !buf_len) {
+		return NULL;
+	}
+
+	// Pack digits, right justified
+	i = 0;
+	divider = 10; // Start with the least significant decimal digit
+	while (buf_len) {
+		uint8_t digit;
+
+		// Extract digit and advance to next digit
+		if (value) {
+			digit = value % divider;
+			value /= 10;
+		} else {
+			digit = 0;
+		}
+
+		if ((i & 0x1) == 0) { // i is even
+			// Least significant nibble
+			buf[buf_len - 1] = digit;
+		} else { // i is odd
+			// Most significant nibble
+			buf[buf_len - 1] |= digit << 4;
+			--buf_len;
+		}
+
+		++i;
+	}
+
+	return buf;
+}
+
+int emv_format_n_to_uint(const uint8_t* buf, size_t buf_len, uint32_t* value)
+{
+	if (!buf || !buf_len || !value) {
+		return -1;
+	}
+
+	// Extract two decimal digits per byte
+	*value = 0;
+	for (unsigned int i = 0; i < buf_len; ++i) {
+		uint8_t digit;
+
+		// Extract most significant nibble
+		digit = buf[i] >> 4;
+		if (digit > 9) {
+			// Invalid digit for EMV format "n"
+			return 1;
+		}
+		// Shift decimal digit into x
+		*value = (*value * 10) + digit;
+
+		// Extract least significant nibble
+		digit = buf[i] & 0xf;
+		if (digit > 9) {
+			// Invalid digit for EMV format "n"
+			return 2;
+		}
+		// Shift decimal digit into x
+		*value = (*value * 10) + digit;
+	}
+
+	return 0;
+}
+
+const uint8_t* emv_uint_to_format_b(uint32_t value, uint8_t* buf, size_t buf_len)
+{
+	if (!buf || !buf_len) {
+		return NULL;
+	}
+
+	// Pack bytes, right justified
+	while (buf_len) {
+		buf[buf_len - 1] = value & 0xFF;
+		value >>= 8;
+		--buf_len;
+	}
+
+	return buf;
+}
+
+int emv_format_b_to_uint(const uint8_t* buf, size_t buf_len, uint32_t* value)
+{
+	if (!buf || !buf_len || !value) {
+		return -1;
+	}
+
+	if (buf_len > 4) {
+		// Not supported
+		return -2;
+	}
+
+	// Extract value in host endianness
+	*value = 0;
+	for (unsigned int i = 0; i < buf_len; ++i) {
+		*value = (*value << 8) | buf[i];
+	}
+
+	return 0;
+}
