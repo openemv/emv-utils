@@ -111,7 +111,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Authorised amount of the transaction (excluding adjustments)";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_amount_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_83_COMMAND_TEMPLATE:
 			info->tag_name = "Command Template";
@@ -267,7 +267,7 @@ int emv_tlv_get_info(
 				"Secondary amount associated with the transaction "
 				"representing a cashback amount";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_amount_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F06_AID:
 			info->tag_name = "Application Identifier (AID) - terminal";
@@ -305,7 +305,7 @@ int emv_tlv_get_info(
 				"Indicates the floor limit in the terminal in conjunction "
 				"with the AID";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_amount_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F1C_TERMINAL_IDENTIFICATION:
 			info->tag_name = "Terminal Identification";
@@ -675,6 +675,28 @@ int emv_str_to_format_n(const char* str, uint8_t* buf, size_t buf_len)
 	}
 
 	return 0;
+}
+
+int emv_amount_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	int r;
+	uint32_t value;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	r = emv_format_b_to_uint(buf, buf_len, &value);
+	if (r) {
+		return r;
+	}
+
+	return emv_uint_to_str(value, str, str_len);
 }
 
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len)

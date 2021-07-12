@@ -180,6 +180,17 @@ int emv_str_to_format_cn(const char* str, uint8_t* buf, size_t buf_len);
 int emv_str_to_format_n(const char* str, uint8_t* buf, size_t buf_len);
 
 /**
+ * Stringify EMV format "b" amount field
+ * @note This function can only be used for amount fields
+ * @param buf Buffer containing EMV format "b" amount
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_amount_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
  * Stringify Terminal Type (field 9F35)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param term_type Terminal type field
