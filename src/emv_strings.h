@@ -132,6 +132,30 @@ int emv_tlv_get_info(
 );
 
 /**
+ * Stringify EMV format "cn" (trailing 'F's will be omitted)
+ * See @ref EMV_FORMAT_CN
+ *
+ * @param buf Buffer containing EMV format "cn" data
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_format_cn_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
+ * Stringify EMV format "n" (leading zeros will be omitted)
+ * See @ref EMV_FORMAT_N
+ *
+ * @param buf Buffer containing EMV format "n" data
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_format_n_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
  * Convert string to EMV format "cn" (two decimal digits per byte,
  * left justified, padded with trailing 'F's).
  * See @ref EMV_FORMAT_CN
@@ -146,8 +170,8 @@ int emv_str_to_format_cn(const char* str, uint8_t* buf, size_t buf_len);
 /**
  * Convert string to EMV format "n" (two decimal digits per byte,
  * right justified and padded with leading zeroes).
- *
  * See @ref EMV_FORMAT_N
+ *
  * @param str NULL-terminated string
  * @param buf Output buffer
  * @param buf_len Length of output buffer in bytes

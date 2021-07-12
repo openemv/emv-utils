@@ -33,6 +33,7 @@ struct str_itr_t {
 
 // Helper functions
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len);
+static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* str);
 
@@ -392,6 +393,8 @@ int emv_tlv_get_info(
 
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len)
 {
+	int r;
+
 	if (!tlv || !value_str || !value_str_len) {
 		// Caller didn't want the value string
 		return 0;
@@ -426,35 +429,138 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 			value_str[tlv->length] = 0; // NULL terminate
 			return 0;
 
-		case EMV_FORMAT_CN:
-		case EMV_FORMAT_N:
-			// Convert BCD digits to ASCII numbers
-			for (unsigned int i = 0; i < tlv->length; ++i) {
-				uint8_t nibble;
-
-				// Convert most significant nibble
-				nibble = tlv->value[i] >> 4;
-				if (nibble > 9) {
-					// Invalid nibble or padding; halt
-					break;
-				}
-				value_str[(i * 2)] = '0' + nibble;
-
-				// Convert least significant nibble
-				nibble = tlv->value[i] & 0xf;
-				if (nibble > 9) {
-					// Invalid nibble or padding; halt
-					break;
-				}
-				value_str[(i * 2) + 1] = '0' + nibble;
+		case EMV_FORMAT_CN: {
+			r = emv_format_cn_get_string(tlv->value, tlv->length, value_str, value_str_len);
+			if (r) {
+				// Ignore parse error
+				value_str[0] = 0;
+				return 0;
 			}
-			value_str[tlv->length * 2] = 0; // NULL terminate
+
 			return 0;
+		}
+
+		case EMV_FORMAT_N: {
+			r = emv_format_n_get_string(tlv->value, tlv->length, value_str, value_str_len);
+			if (r) {
+				// Ignore parse error
+				value_str[0] = 0;
+				return 0;
+			}
+
+			return 0;
+		}
 
 		default:
 			// Unknown format
 			return -4;
 	}
+}
+
+int emv_format_cn_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	if (!buf || !buf_len || !str || !str_len) {
+		return -1;
+	}
+
+	// Minimum string length
+	if (str_len < buf_len * 2 + 1) {
+		return -2;
+	}
+
+	// Extract two decimal digits per byte
+	for (unsigned int i = 0; i < buf_len; ++i) {
+		uint8_t digit;
+
+		// Convert most significant nibble
+		digit = buf[i] >> 4;
+		if (digit > 9) {
+			if (digit != 0xF) {
+				// Invalid digit
+				return 1;
+			}
+
+			// Padding; ignore rest of buffer; NULL terminate
+			str[(i * 2)] = 0;
+			return 0;
+		}
+		str[(i * 2)] = '0' + digit;
+
+		// Convert least significant nibble
+		digit = buf[i] & 0xf;
+		if (digit > 9) {
+			if (digit != 0xF) {
+				// Invalid digit
+				return 1;
+			}
+
+			// Padding; ignore rest of buffer; NULL terminate
+			str[(i * 2) + 1] = 0;
+			return 0;
+		}
+		str[(i * 2) + 1] = '0' + digit;
+	}
+	str[buf_len * 2] = 0; // NULL terminate
+
+	return 0;
+}
+
+int emv_format_n_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	int r;
+	uint32_t value;
+
+	r = emv_format_n_to_uint(buf, buf_len, &value);
+	if (r) {
+		return r;
+	}
+
+	return emv_uint_to_str(value, str, str_len);
+}
+
+static int emv_uint_to_str(uint32_t value, char* str, size_t str_len)
+{
+	uint32_t divider;
+	bool found_first_digit = false;
+
+	if (str_len < 2) {
+		// Minimum length for zero string
+		return -2;
+	}
+
+	// If value is zero, there's no need to do any division
+	if (value == 0) {
+		str[0] = '0';
+		str[1] = 0;
+		return 0;
+	}
+
+	divider = 1000000000; // Largest divider for a 32-bit number
+	while (divider) {
+		uint8_t digit;
+		char c;
+
+		digit = value / divider;
+		c = '0' + digit;
+
+		if (digit != 0 || found_first_digit) {
+			*str = c;
+			++str;
+			--str_len;
+			found_first_digit = true;
+		}
+
+		value %= divider;
+		divider /= 10;
+
+		if (str_len <= 1) {
+			return -3;
+		}
+	}
+
+	*str = 0; // NULL terminate string
+
+	return 0;
 }
 
 int emv_str_to_format_cn(const char* str, uint8_t* buf, size_t buf_len)
