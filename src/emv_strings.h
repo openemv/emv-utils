@@ -191,6 +191,26 @@ int emv_str_to_format_n(const char* str, uint8_t* buf, size_t buf_len);
 int emv_amount_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 
 /**
+ * Stringify Transaction Date (field 9A) using ISO 8601 YYYY-MM-DD format
+ * @param buf Transaction date field
+ * @param buf_len Length of transaction date field. Must be 3 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_date_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
+ * Stringify Transaction Time (field 9F21) using ISO 8601 hh:mm:ss format
+ * @param buf Transaction time field
+ * @param buf_len Length of transaction time field. Must be 3 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_time_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
  * Stringify Terminal Type (field 9F35)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param term_type Terminal type field

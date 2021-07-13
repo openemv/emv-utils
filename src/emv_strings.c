@@ -152,7 +152,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Local date that the transaction was authorised";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 6, value_str, value_str_len);
+			return emv_date_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9C_TRANSACTION_TYPE:
 			info->tag_name = "Transaction Type";
@@ -327,7 +327,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Local time that the transaction was authorised";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 6, value_str, value_str_len);
+			return emv_time_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F33_TERMINAL_CAPABILITIES:
 			info->tag_name = "Terminal Capabilities";
@@ -550,12 +550,13 @@ static int emv_uint_to_str(uint32_t value, char* str, size_t str_len)
 			found_first_digit = true;
 		}
 
-		value %= divider;
-		divider /= 10;
-
-		if (str_len <= 1) {
+		if (str_len == 0) {
+			// No space left to NULL terminate
 			return -3;
 		}
+
+		value %= divider;
+		divider /= 10;
 	}
 
 	*str = 0; // NULL terminate string
@@ -697,6 +698,149 @@ int emv_amount_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t 
 	}
 
 	return emv_uint_to_str(value, str, str_len);
+}
+
+int emv_date_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	char date_str[7];
+	size_t offset = 0;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 3) {
+		// Date field must be 3 bytes
+		return 1;
+	}
+
+	// Minimum length for YYYY-MM-DD
+	if (str_len < 11) {
+		return -2;
+	}
+
+	// Extract two decimal digits per byte
+	for (unsigned int i = 0; i < buf_len; ++i) {
+		uint8_t digit;
+
+		// Convert most significant nibble
+		digit = buf[i] >> 4;
+		if (digit > 9) {
+			// Invalid digit for EMV format "n"
+			return 2;
+		}
+		date_str[i * 2] = '0' + digit;
+
+		// Convert least significant nibble
+		digit = buf[i] & 0xf;
+		if (digit > 9) {
+			// Invalid digit for EMV format "n"
+			return 3;
+		}
+		date_str[(i * 2) + 1] = '0' + digit;
+	}
+	date_str[(buf_len * 2) + 1] = 0;
+
+	// Assume it's the 21st century; if it isn't, then hopefully we've at
+	// least addressed climate change...
+	str[offset++] = '2';
+	str[offset++] = '0';
+	memcpy(str + offset, date_str, 2);
+	offset += 2;
+
+	// Separator
+	str[offset++] = '-';
+
+	// Months
+	memcpy(str + offset, date_str + 2, 2);
+	offset += 2;
+
+	// Separator
+	str[offset++] = '-';
+
+	// Days
+	memcpy(str + offset, date_str + 4, 2);
+	offset += 2;
+
+	// NULL terminate
+	str[offset++] = 0;
+
+	return 0;
+}
+
+int emv_time_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	char time_str[7];
+	size_t offset = 0;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 3) {
+		// Time field must be 3 bytes
+		return 1;
+	}
+
+	// Minimum length for hh:mm:ss
+	if (str_len < 9) {
+		return -2;
+	}
+
+	// Extract two decimal digits per byte
+	for (unsigned int i = 0; i < buf_len; ++i) {
+		uint8_t digit;
+
+		// Convert most significant nibble
+		digit = buf[i] >> 4;
+		if (digit > 9) {
+			// Invalid digit for EMV format "n"
+			return 2;
+		}
+		time_str[i * 2] = '0' + digit;
+
+		// Convert least significant nibble
+		digit = buf[i] & 0xf;
+		if (digit > 9) {
+			// Invalid digit for EMV format "n"
+			return 3;
+		}
+		time_str[(i * 2) + 1] = '0' + digit;
+	}
+	time_str[(buf_len * 2) + 1] = 0;
+
+	// Hours
+	memcpy(str + offset, time_str, 2);
+	offset += 2;
+
+	// Separator
+	str[offset++] = ':';
+
+	// Minutes
+	memcpy(str + offset, time_str + 2, 2);
+	offset += 2;
+
+	// Separator
+	str[offset++] = ':';
+
+	// Seconds
+	memcpy(str + offset, time_str + 4, 2);
+	offset += 2;
+
+	// NULL terminate
+	str[offset++] = 0;
+
+	return 0;
 }
 
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len)
