@@ -36,7 +36,15 @@ __BEGIN_DECLS
 #define EMV_ASI_EXACT_MATCH                                     (0x00)
 #define EMV_ASI_PARTIAL_MATCH                                   (0x01)
 
-// Terminal Type
+// Transaction Type (field 9C)
+// See ISO 8583:1987
+#define EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES                 (0x00) ///< Transaction Type: Goods and services
+#define EMV_TRANSACTION_TYPE_CASH                               (0x01) ///< Transaction Type: Cash
+#define EMV_TRANSACTION_TYPE_CASHBACK                           (0x09) ///< Transaction Type: Cashback
+#define EMV_TRANSACTION_TYPE_REFUND                             (0x20) ///< Transaction Type: Refund
+#define EMV_TRANSACTION_TYPE_INQUIRY                            (0x30) ///< Transaction Type: Inquiry
+
+// Terminal Type (field 9F35)
 // See EMV 4.3 Book 4, Annex A1, table 24
 #define EMV_TERM_TYPE_OPERATIONAL_CONTROL_MASK                  (0xF0) ///< Terminal Type mask for operational control
 #define EMV_TERM_TYPE_OPERATIONAL_CONTROL_FINANCIAL_INSTITUTION (0x10) ///< Operational Control: Financial Institution

@@ -162,7 +162,7 @@ int emv_tlv_get_info(
 				"The actual values to be used for the Transaction Type data "
 				"element are defined by the relevant payment system.";
 			info->format = EMV_FORMAT_N;
-			return 0;
+			return emv_transaction_type_get_string(tlv->value[0], value_str, value_str_len);
 
 		case EMV_TAG_9D_DDF_NAME:
 			info->tag_name = "Directory Definition File (DDF) Name";
@@ -841,6 +841,48 @@ int emv_time_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
 	str[offset++] = 0;
 
 	return 0;
+}
+
+int emv_transaction_type_get_string(
+	uint8_t txn_type,
+	char* str,
+	size_t str_len
+)
+{
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	switch (txn_type) {
+		case EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES:
+			strncpy(str, "Goods and services", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_TRANSACTION_TYPE_CASH:
+			strncpy(str, "Cash", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_TRANSACTION_TYPE_CASHBACK:
+			strncpy(str, "Cashback", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_TRANSACTION_TYPE_REFUND:
+			strncpy(str, "Refund", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_TRANSACTION_TYPE_INQUIRY:
+			strncpy(str, "Inquiry", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		default:
+			return 1;
+	}
 }
 
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len)

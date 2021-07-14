@@ -211,6 +211,19 @@ int emv_date_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
 int emv_time_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 
 /**
+ * Stringify Transaction Type (field 9C)
+ * @param txn_type Transaction type field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_transaction_type_get_string(
+	uint8_t txn_type,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Terminal Type (field 9F35)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param term_type Terminal type field
