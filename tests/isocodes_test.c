@@ -30,6 +30,7 @@
 int main(void)
 {
 	int r;
+	const char* currency;
 
 	setlocale(LC_ALL, "nl_NL.UTF-8");
 	printf("%s\n", dgettext("iso_639-2", "French"));
@@ -39,6 +40,26 @@ int main(void)
 	r = isocodes_init();
 	if (r) {
 		fprintf(stderr, "isocodes_init() failed; r=%d\n", r);
+		return 1;
+	}
+
+	currency = isocodes_lookup_currency_by_alpha3("EUR");
+	if (!currency) {
+		fprintf(stderr, "isocodes_lookup_currency_by_alpha3() failed\n");
+		return 1;
+	}
+	if (strcmp(currency, "Euro") != 0) {
+		fprintf(stderr, "isocodes_lookup_currency_by_alpha3() found unexpected currency '%s'\n", currency);
+		return 1;
+	}
+
+	currency = isocodes_lookup_currency_by_numeric(978);
+	if (!currency) {
+		fprintf(stderr, "isocodes_lookup_currency_by_numeric() failed\n");
+		return 1;
+	}
+	if (strcmp(currency, "Euro") != 0) {
+		fprintf(stderr, "isocodes_lookup_currency_by_numeric() found unexpected currency '%s'\n", currency);
 		return 1;
 	}
 

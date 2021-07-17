@@ -21,10 +21,23 @@
 
 #include "isocodes_lookup.h"
 
+#include <string>
+#include <vector>
+#include <map>
 #include <memory>
 #include <cstdio>
 
 #include <boost/json.hpp>
+
+struct isocodes_currency_t {
+	std::string name;
+	std::string alpha3;
+	std::string numeric;
+};
+static std::vector<isocodes_currency_t> currency_list;
+static std::map<std::string,const isocodes_currency_t&> currency_alpha3_map;
+static std::map<unsigned int,const isocodes_currency_t&> currency_numeric_map;
+
 
 static boost::json::value parse_json_file(char const* filename)
 {
@@ -61,9 +74,59 @@ static boost::json::value parse_json_file(char const* filename)
 	return p.release();
 }
 
+// Conversion function invoked by Boost to build isocodes_currency_t from JSON object
+static isocodes_currency_t tag_invoke(boost::json::value_to_tag<isocodes_currency_t>, const boost::json::value& jv)
+{
+	const auto& obj = jv.as_object();
+	return isocodes_currency_t {
+		boost::json::value_to<std::string>(obj.at("name")),
+		boost::json::value_to<std::string>(obj.at("alpha_3")),
+		boost::json::value_to<std::string>(obj.at("numeric")),
+	};
+}
+
+static bool build_currency_list(const boost::json::value& jv) noexcept
+{
+	/* iso-codes package's iso_4217.json file should have this structure
+	{
+		"4217": [
+			...
+			{
+				"alpha_3": "EUR",
+				"name": "Euro",
+				"numeric": "978"
+			},
+			...
+		]
+	}
+	*/
+
+	try {
+		const auto& iso4217 = jv.as_object();
+		const auto& iso4217_list = iso4217.at("4217");
+		currency_list = boost::json::value_to<decltype(currency_list)>(iso4217_list);
+	} catch (const std::exception& e) {
+		std::fprintf(stderr, "Exception: %s\n", e.what());
+		return false;
+	}
+
+	// Build alpha3->currency map
+	for (auto&& currency : currency_list) {
+		currency_alpha3_map.emplace(currency.alpha3, currency);
+	}
+
+	// Build numeric->currency map
+	for (auto&& currency : currency_list) {
+		currency_numeric_map.emplace(std::stoul(currency.numeric), currency);
+	}
+
+	return true;
+}
+
 int isocodes_init(void)
 {
 	boost::json::value jv;
+	bool result;
 
 	try {
 		jv = parse_json_file("/usr/share/iso-codes/json/iso_4217.json");
@@ -75,5 +138,32 @@ int isocodes_init(void)
 		return -1;
 	}
 
+	result = build_currency_list(jv);
+	if (!result) {
+		return -2;
+	}
+
 	return 0;
+}
+
+const char* isocodes_lookup_currency_by_alpha3(const char* alpha3)
+{
+	auto itr = currency_alpha3_map.find(alpha3);
+	if (itr == currency_alpha3_map.end()) {
+		// Alpha3 currency code not found
+		return nullptr;
+	}
+
+	return itr->second.name.c_str();
+}
+
+const char* isocodes_lookup_currency_by_numeric(unsigned int numeric)
+{
+	auto itr = currency_numeric_map.find(numeric);
+	if (itr == currency_numeric_map.end()) {
+		// Numeric currency code not found
+		return nullptr;
+	}
+
+	return itr->second.name.c_str();
 }

@@ -32,6 +32,20 @@ __BEGIN_DECLS
  */
 int isocodes_init(void);
 
+/**
+ * Lookup currency name by ISO 4217 3-digit alpha code
+ * @param alpha3 ISO 4217 3-digit alpha code
+ * @return Currency name. NULL if not found.
+ */
+const char* isocodes_lookup_currency_by_alpha3(const char* alpha3);
+
+/**
+ * Lookup currency name by ISO 4217 3-digit numeric code
+ * @param numeric ISO 4217 3-digit numeric code
+ * @return Currency name. NULL if not found.
+ */
+const char* isocodes_lookup_currency_by_numeric(unsigned int numeric);
+
 __END_DECLS
 
 #endif
