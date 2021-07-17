@@ -340,13 +340,15 @@ void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int
 		printf("\n");
 		print_emv_buf(tlv->value, tlv->length, prefix, depth + 1);
 	} else {
-		// If empty value string or value string is list,
-		// print hex as well as as string list
+		// Print value bytes
+		printf(" ");
+		for (size_t i = 0; i < tlv->length; ++i) {
+			printf("%s%02X", i ? " " : "", tlv->value[i]);
+		}
+
+		// If empty value string or value string is list or Data Object List (DOL),
+		// end this line and continue on the next line
 		if (!value_str[0] || str_is_list(value_str) || info.format == EMV_FORMAT_DOL) {
-			printf(" ");
-			for (size_t i = 0; i < tlv->length; ++i) {
-				printf("%s%02X", i ? " " : "", tlv->value[i]);
-			}
 			printf("\n");
 
 			if (str_is_list(value_str)) {
@@ -356,7 +358,15 @@ void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int
 				print_emv_dol(tlv->value, tlv->length, prefix, depth + 1);
 			}
 		} else if (value_str[0]) {
-			printf(" %s\n", value_str);
+			// Use quotes for strings and parentheses for everything else
+			if (info.format == EMV_FORMAT_A ||
+				info.format == EMV_FORMAT_AN ||
+				info.format == EMV_FORMAT_ANS
+			) {
+				printf(" \"%s\"\n", value_str);
+			} else {
+				printf(" (%s)\n", value_str);
+			}
 		}
 	}
 }
