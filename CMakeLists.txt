@@ -22,6 +22,7 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 find_package(PCSCLite 1.8 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS json)
 
 include(CTest)
 
@@ -38,6 +39,14 @@ add_library(iso8825
 	src/iso8825_ber.c
 )
 target_include_directories(iso8825 INTERFACE
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+)
+
+add_library(isocodes_lookup
+	src/isocodes_lookup.cpp
+)
+target_link_libraries(isocodes_lookup PRIVATE Boost::json)
+target_include_directories(isocodes_lookup INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
 
