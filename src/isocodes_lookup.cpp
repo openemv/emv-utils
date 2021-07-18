@@ -29,6 +29,17 @@
 
 #include <boost/json.hpp>
 
+struct isocodes_country_t {
+	std::string name;
+	std::string alpha2;
+	std::string alpha3;
+	std::string numeric;
+};
+static std::vector<isocodes_country_t> country_list;
+static std::map<std::string,const isocodes_country_t&> country_alpha2_map;
+static std::map<std::string,const isocodes_country_t&> country_alpha3_map;
+static std::map<unsigned int,const isocodes_country_t&> country_numeric_map;
+
 struct isocodes_currency_t {
 	std::string name;
 	std::string alpha3;
@@ -72,6 +83,63 @@ static boost::json::value parse_json_file(char const* filename)
 
 	// Caller takes ownership of JSON object
 	return p.release();
+}
+
+// Conversion function invoked by Boost to build isocodes_country_t from JSON object
+static isocodes_country_t tag_invoke(boost::json::value_to_tag<isocodes_country_t>, const boost::json::value& jv)
+{
+	const auto& obj = jv.as_object();
+	return isocodes_country_t {
+		boost::json::value_to<std::string>(obj.at("name")),
+		boost::json::value_to<std::string>(obj.at("alpha_2")),
+		boost::json::value_to<std::string>(obj.at("alpha_3")),
+		boost::json::value_to<std::string>(obj.at("numeric")),
+	};
+}
+
+static bool build_country_list(const boost::json::value& jv) noexcept
+{
+	/* iso-codes package's iso_3166-1.json file should have this structure
+	{
+		"3166-1": [
+			...
+			{
+				"alpha_2": "NL",
+				"alpha_3": "NLD",
+				"name": "Netherlands",
+				"numeric": "528",
+				"official_name": "Kingdom of the Netherlands"
+			},
+			...
+		]
+	}
+	*/
+
+	try {
+		const auto& iso3166_1 = jv.as_object();
+		const auto& iso3166_1_list = iso3166_1.at("3166-1");
+		country_list = boost::json::value_to<decltype(country_list)>(iso3166_1_list);
+	} catch (const std::exception& e) {
+		std::fprintf(stderr, "Exception: %s\n", e.what());
+		return false;
+	}
+
+	// Build alpha2->country map
+	for (auto&& country : country_list) {
+		country_alpha2_map.emplace(country.alpha2, country);
+	}
+
+	// Build alpha3->country map
+	for (auto&& country : country_list) {
+		country_alpha3_map.emplace(country.alpha3, country);
+	}
+
+	// Build numeric->country map
+	for (auto&& country : country_list) {
+		country_numeric_map.emplace(std::stoul(country.numeric), country);
+	}
+
+	return true;
 }
 
 // Conversion function invoked by Boost to build isocodes_currency_t from JSON object
@@ -129,7 +197,7 @@ int isocodes_init(void)
 	bool result;
 
 	try {
-		jv = parse_json_file("/usr/share/iso-codes/json/iso_4217.json");
+		jv = parse_json_file("/usr/share/iso-codes/json/iso_3166-1.json");
 		if (jv.kind() == boost::json::kind::null) {
 			return 1;
 		}
@@ -138,12 +206,60 @@ int isocodes_init(void)
 		return -1;
 	}
 
-	result = build_currency_list(jv);
+	result = build_country_list(jv);
 	if (!result) {
 		return -2;
 	}
 
+	try {
+		jv = parse_json_file("/usr/share/iso-codes/json/iso_4217.json");
+		if (jv.kind() == boost::json::kind::null) {
+			return 2;
+		}
+	} catch (const std::exception& e) {
+		std::fprintf(stderr, "Exception: %s\n", e.what());
+		return -3;
+	}
+
+	result = build_currency_list(jv);
+	if (!result) {
+		return -4;
+	}
+
 	return 0;
+}
+
+const char* isocodes_lookup_country_by_alpha2(const char* alpha2)
+{
+	auto itr = country_alpha2_map.find(alpha2);
+	if (itr == country_alpha2_map.end()) {
+		// Alpha2 country code not found
+		return nullptr;
+	}
+
+	return itr->second.name.c_str();
+}
+
+const char* isocodes_lookup_country_by_alpha3(const char* alpha3)
+{
+	auto itr = country_alpha3_map.find(alpha3);
+	if (itr == country_alpha3_map.end()) {
+		// Alpha3 country code not found
+		return nullptr;
+	}
+
+	return itr->second.name.c_str();
+}
+
+const char* isocodes_lookup_country_by_numeric(unsigned int numeric)
+{
+	auto itr = country_numeric_map.find(numeric);
+	if (itr == country_numeric_map.end()) {
+		// Numeric country code not found
+		return nullptr;
+	}
+
+	return itr->second.name.c_str();
 }
 
 const char* isocodes_lookup_currency_by_alpha3(const char* alpha3)

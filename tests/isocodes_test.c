@@ -30,6 +30,7 @@
 int main(void)
 {
 	int r;
+	const char* country;
 	const char* currency;
 
 	setlocale(LC_ALL, "nl_NL.UTF-8");
@@ -40,6 +41,36 @@ int main(void)
 	r = isocodes_init();
 	if (r) {
 		fprintf(stderr, "isocodes_init() failed; r=%d\n", r);
+		return 1;
+	}
+
+	country = isocodes_lookup_country_by_alpha2("NL");
+	if (!country) {
+		fprintf(stderr, "isocodes_lookup_country_by_alpha2() failed\n");
+		return 1;
+	}
+	if (strcmp(country, "Netherlands") != 0) {
+		fprintf(stderr, "isocodes_lookup_country_by_alpha2() found unexpected country '%s'\n", country);
+		return 1;
+	}
+
+	country = isocodes_lookup_country_by_alpha3("NLD");
+	if (!country) {
+		fprintf(stderr, "isocodes_lookup_country_by_alpha3() failed\n");
+		return 1;
+	}
+	if (strcmp(country, "Netherlands") != 0) {
+		fprintf(stderr, "isocodes_lookup_country_by_alpha3() found unexpected country '%s'\n", country);
+		return 1;
+	}
+
+	country = isocodes_lookup_country_by_numeric(528);
+	if (!country) {
+		fprintf(stderr, "isocodes_lookup_country_by_numeric() failed\n");
+		return 1;
+	}
+	if (strcmp(country, "Netherlands") != 0) {
+		fprintf(stderr, "isocodes_lookup_country_by_numeric() found unexpected country '%s'\n", country);
 		return 1;
 	}
 

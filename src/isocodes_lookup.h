@@ -33,6 +33,27 @@ __BEGIN_DECLS
 int isocodes_init(void);
 
 /**
+ * Lookup country name by ISO 3166-1 2-digit alpha code
+ * @param alpha2 ISO 3166-1 2-digit alpha code
+ * @return Country name. NULL if not found.
+ */
+const char* isocodes_lookup_country_by_alpha2(const char* alpha2);
+
+/**
+ * Lookup country name by ISO 3166-1 3-digit alpha code
+ * @param alpha3 ISO 3166-1 3-digit alpha code
+ * @return Country name. NULL if not found.
+ */
+const char* isocodes_lookup_country_by_alpha3(const char* alpha3);
+
+/**
+ * Lookup country name by ISO 3166-1 3-digit numeric code
+ * @param numeric ISO 3166-1 3-digit numeric code
+ * @return Country name. NULL if not found.
+ */
+const char* isocodes_lookup_country_by_numeric(unsigned int numeric);
+
+/**
  * Lookup currency name by ISO 4217 3-digit alpha code
  * @param alpha3 ISO 4217 3-digit alpha code
  * @return Currency name. NULL if not found.
