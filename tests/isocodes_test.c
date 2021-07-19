@@ -38,7 +38,7 @@ int main(void)
 	printf("%s\n", dgettext("iso_3166-1", "France"));
 	printf("%s\n", dgettext("iso_3166-3", "710")); // Cannot resolve numeric codes via libintl
 
-	r = isocodes_init();
+	r = isocodes_init(NULL);
 	if (r) {
 		fprintf(stderr, "isocodes_init() failed; r=%d\n", r);
 		return 1;

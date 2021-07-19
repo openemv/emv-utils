@@ -20,6 +20,7 @@
  */
 
 #include "isocodes_lookup.h"
+#include "isocodes_config.h"
 
 #include <string>
 #include <vector>
@@ -50,9 +51,9 @@ static std::map<std::string,const isocodes_currency_t&> currency_alpha3_map;
 static std::map<unsigned int,const isocodes_currency_t&> currency_numeric_map;
 
 
-static boost::json::value parse_json_file(char const* filename)
+static boost::json::value parse_json_file(const std::string& filename)
 {
-	std::unique_ptr<std::FILE, decltype(&std::fclose)> file(std::fopen(filename, "rb"), &std::fclose);
+	std::unique_ptr<std::FILE, decltype(&std::fclose)> file(std::fopen(filename.c_str(), "rb"), &std::fclose);
 	if (!file) {
 		// Failed to open file
 		return nullptr;
@@ -191,13 +192,23 @@ static bool build_currency_list(const boost::json::value& jv) noexcept
 	return true;
 }
 
-int isocodes_init(void)
+int isocodes_init(const char* path)
 {
+	std::string path_str;
 	boost::json::value jv;
 	bool result;
 
+	if (path) {
+		path_str = path;
+	} else {
+		path_str = ISOCODES_JSON_PATH;
+	}
+	if (path_str.back() != '/') {
+		path_str += "/";
+	}
+
 	try {
-		jv = parse_json_file("/usr/share/iso-codes/json/iso_3166-1.json");
+		jv = parse_json_file(path_str + "iso_3166-1.json");
 		if (jv.kind() == boost::json::kind::null) {
 			return 1;
 		}
@@ -212,7 +223,7 @@ int isocodes_init(void)
 	}
 
 	try {
-		jv = parse_json_file("/usr/share/iso-codes/json/iso_4217.json");
+		jv = parse_json_file(path_str + "iso_4217.json");
 		if (jv.kind() == boost::json::kind::null) {
 			return 2;
 		}

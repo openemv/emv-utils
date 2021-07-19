@@ -28,9 +28,11 @@ __BEGIN_DECLS
 
 /**
  * Initialise lookup data from installed iso-codes package
+ * @param path Override path where iso-codes JSON files can be found.
+ *             NULL for default path.
  * @return Zero for success. Less than zero for internal error. Greater than zero if iso-codes package not found.
  */
-int isocodes_init(void);
+int isocodes_init(const char* path);
 
 /**
  * Lookup country name by ISO 3166-1 2-digit alpha code

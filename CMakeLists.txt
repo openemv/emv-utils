@@ -46,10 +46,12 @@ target_include_directories(iso8825 INTERFACE
 add_library(isocodes_lookup
 	src/isocodes_lookup.cpp
 )
-target_link_libraries(isocodes_lookup PRIVATE Boost::json)
-target_include_directories(isocodes_lookup INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+configure_file(src/isocodes_config.h.in isocodes_config.h)
+target_include_directories(isocodes_lookup
+	PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" # for generated isocodes_config.h
+	INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
+target_link_libraries(isocodes_lookup PRIVATE Boost::json)
 
 add_library(emv
 	src/emv_tlv.c
