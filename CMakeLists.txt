@@ -67,7 +67,7 @@ target_include_directories(emv INTERFACE
 )
 
 add_executable(emv-decode tools/emv-decode.c tools/print_helpers.c)
-target_link_libraries(emv-decode emv iso7816)
+target_link_libraries(emv-decode PRIVATE emv iso7816 isocodes_lookup)
 
 add_executable(emv-tool tools/emv-tool.c tools/print_helpers.c src/pcsc.c)
 target_link_libraries(emv-tool emv iso7816 PCSCLite::PCSCLite)

@@ -22,6 +22,7 @@
 #include "iso7816.h"
 #include "print_helpers.h"
 #include "emv_strings.h"
+#include "isocodes_lookup.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -38,6 +39,8 @@ static void* load_from_file(FILE* file, size_t* len);
 // Input data
 static uint8_t* data = NULL;
 static size_t data_len = 0;
+static char* arg_str = NULL;
+static size_t arg_str_len = 0;
 
 // Decoding modes
 enum emv_decode_mode_t {
@@ -50,6 +53,8 @@ enum emv_decode_mode_t {
 	EMV_DECODE_TERM_TYPE,
 	EMV_DECODE_TERM_CAPS,
 	EMV_DECODE_ADDL_TERM_CAPS,
+	EMV_DECODE_ISO3166_1,
+	EMV_DECODE_ISO4217,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
@@ -72,6 +77,12 @@ static struct argp_option argp_options[] = {
 	{ "addl-term-caps", EMV_DECODE_ADDL_TERM_CAPS, NULL, 0, "Decode Additional Terminal Capabilities (field 9F40)" },
 	{ "9F40", EMV_DECODE_ADDL_TERM_CAPS, NULL, OPTION_ALIAS },
 
+	{ NULL, 0, NULL, 0, "Other:", 4 },
+	{ "country", EMV_DECODE_ISO3166_1, NULL, 0, "Lookup country name by ISO 3166-1 alpha-2, alpha-3 or numeric code" },
+	{ "iso3166-1", EMV_DECODE_ISO3166_1, NULL, OPTION_ALIAS },
+	{ "currency", EMV_DECODE_ISO4217, NULL, 0, "Lookup currency name by ISO 4217 alpha-3 or numeric code" },
+	{ "iso4217", EMV_DECODE_ISO4217, NULL, OPTION_ALIAS },
+
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
 	{ 0 },
@@ -92,6 +103,15 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 	switch (key) {
 		case ARGP_KEY_ARG: {
+			if (emv_decode_mode == EMV_DECODE_ISO3166_1 ||
+				emv_decode_mode == EMV_DECODE_ISO4217
+			) {
+				// Country and currency lookups use the verbatim string input
+				arg_str = strdup(arg);
+				arg_str_len = strlen(arg);
+				return 0;
+			}
+
 			// Parse INPUT argument
 			size_t arg_len = strlen(arg);
 
@@ -133,6 +153,8 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_TERM_TYPE:
 		case EMV_DECODE_TERM_CAPS:
 		case EMV_DECODE_ADDL_TERM_CAPS:
+		case EMV_DECODE_ISO3166_1:
+		case EMV_DECODE_ISO4217:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
 			}
@@ -217,6 +239,15 @@ int main(int argc, char** argv)
 	if (r) {
 		fprintf(stderr, "Failed to parse command line\n");
 		return 1;
+	}
+
+	r = isocodes_init(NULL);
+	if (r < 0) {
+		fprintf(stderr, "Failed to initialise iso-codes data\n");
+		return 2;
+	}
+	if (r > 0) {
+		fprintf(stderr, "Failed to find iso-codes data; currency and country lookups will not be possible\n");
 	}
 
 	switch (emv_decode_mode) {
@@ -326,10 +357,81 @@ int main(int argc, char** argv)
 
 			break;
 		}
+
+		case EMV_DECODE_ISO3166_1: {
+			const char* country;
+
+			if (arg_str_len != 2 && arg_str_len != 3) {
+				fprintf(stderr, "ISO 3166-1 country code must be alpha-2, alpha-3 or 3-digit numeric code\n");
+				break;
+			}
+
+			if (arg_str_len == 2) {
+				country = isocodes_lookup_country_by_alpha2(arg_str);
+			} else {
+				country = isocodes_lookup_country_by_alpha3(arg_str);
+			}
+			if (!country) {
+				unsigned int country_code;
+				char* endptr = arg_str;
+
+				country_code = strtoul(arg_str, &endptr, 10);
+				if (!arg_str[0] || *endptr) {
+					fprintf(stderr, "Invalid ISO 3166-1 country code\n");
+					break;
+				}
+
+				country = isocodes_lookup_country_by_numeric(country_code);
+			}
+
+			if (!country) {
+				fprintf(stderr, "Unknown\n");
+				break;
+			}
+
+			printf("%s\n", country);
+
+			break;
+		}
+
+		case EMV_DECODE_ISO4217: {
+			const char* currency;
+
+			if (arg_str_len != 3) {
+				fprintf(stderr, "ISO 4217 currency code must be alpha-3 or 3-digit numeric code\n");
+				break;
+			}
+
+			currency = isocodes_lookup_currency_by_alpha3(arg_str);
+			if (!currency) {
+				unsigned int currency_code;
+				char* endptr = arg_str;
+
+				currency_code = strtoul(arg_str, &endptr, 10);
+				if (!arg_str[0] || *endptr) {
+					fprintf(stderr, "Invalid ISO 4217 currency code\n");
+					break;
+				}
+
+				currency = isocodes_lookup_currency_by_numeric(currency_code);
+			}
+
+			if (!currency) {
+				fprintf(stderr, "Unknown\n");
+				break;
+			}
+
+			printf("%s\n", currency);
+
+			break;
+		}
 	}
 
 	if (data) {
 		free(data);
+	}
+	if (arg_str) {
+		free(arg_str);
 	}
 
 	return 0;
