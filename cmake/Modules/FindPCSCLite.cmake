@@ -55,4 +55,4 @@ if (PCSCLite_FOUND AND NOT TARGET PCSCLite::PCSCLite)
 	)
 endif()
 
-mark_as_advanced(PCSCLITE_INCLUDE_DIR PCSCLITE_LIBRARY)
+mark_as_advanced(PCSCLite_INCLUDE_DIR PCSCLite_LIBRARY)
