@@ -24,12 +24,15 @@
 #include "print_helpers.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
+#include "emv_strings.h"
 #include "emv_tlv.h"
 #include "emv_tal.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <argp.h>
 
 // HACK: remove
 #include "emv_dol.h"
@@ -37,6 +40,45 @@
 #include "emv_app.h"
 #include "iso7816_strings.h"
 #include <string.h> // for memset() and memcpy() that should be removed later
+
+// Forward declarations
+struct emv_txn_t;
+
+// Helper functions
+static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
+static const char* pcsc_get_reader_state_string(unsigned int reader_state);
+static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
+static void emv_txn_load_config(struct emv_txn_t* emv_txn);
+static void emv_txn_destroy(struct emv_txn_t* emv_txn);
+
+// argp option keys
+enum emv_tool_param_t {
+	EMV_TOOL_PARAM_TXN_TYPE = 1,
+	EMV_TOOL_PARAM_TXN_AMOUNT,
+	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
+};
+
+// argp option structure
+static struct argp_option argp_options[] = {
+	{ NULL, 0, NULL, 0, "Transaction parameters", 1 },
+	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
+	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
+	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
+	{ 0 },
+};
+
+// argp configuration
+static struct argp argp_config = {
+	argp_options,
+	argp_parser_helper,
+	NULL,
+	"Perform EMV transaction",
+};
+
+// Transaction parameters
+static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
+static uint32_t txn_amount = 0;
+static uint32_t txn_amount_other = 0;
 
 struct emv_txn_t {
 	// Terminal Transport Layer
@@ -56,10 +98,79 @@ struct emv_txn_t {
 };
 static struct emv_txn_t emv_txn;
 
-// Helper functions
-static const char* pcsc_get_reader_state_string(unsigned int reader_state);
-static void emv_txn_load_config(struct emv_txn_t* emv_txn);
-static void emv_txn_destroy(struct emv_txn_t* emv_txn);
+
+static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
+{
+	switch (key) {
+		case EMV_TOOL_PARAM_TXN_TYPE: {
+			size_t arg_len = strlen(arg);
+			unsigned long value;
+			char* endptr = arg;
+
+			if (arg_len != 2) {
+				argp_error(state, "Transaction type (--txn-type) argument must be 2 numeric digits");
+			}
+
+			// Transaction Type (field 9C) is EMV format "n", so parse as hex
+			value = strtoul(arg, &endptr, 16);
+			if (!arg[0] || *endptr) {
+				argp_error(state, "Transaction type (--txn-type) argument must be 2 numeric digits");
+			}
+			txn_type = value;
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_TXN_AMOUNT: {
+			size_t arg_len = strlen(arg);
+			unsigned long value;
+			char* endptr = arg;
+
+			if (arg_len == 0) {
+				argp_error(state, "Transaction amount (--txn-amount) argument must be numeric digits");
+			}
+
+			// Amount, Authorised (field 81) is EMV format "b", so parse as decimal
+			value = strtoul(arg, &endptr, 10);
+			if (!arg[0] || *endptr) {
+				argp_error(state, "Transaction amount (--txn-amount) argument must be numeric digits");
+			}
+
+			if (value > 0xFFFFFFFF) {
+				argp_error(state, "Transaction amount (--txn-amount) argument must fit in a 32-bit field");
+			}
+			txn_amount = value;
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_TXN_AMOUNT_OTHER: {
+			size_t arg_len = strlen(arg);
+			unsigned long value;
+			char* endptr = arg;
+
+			if (arg_len == 0) {
+				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must be numeric digits");
+			}
+
+			// Amount, Other (field 9F04) is EMV format "b", so parse as decimal
+			value = strtoul(arg, &endptr, 10);
+			if (!arg[0] || *endptr) {
+				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must be numeric digits");
+			}
+
+			if (value > 0xFFFFFFFF) {
+				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must fit in a 32-bit field");
+			}
+			txn_amount_other = value;
+
+			return 0;
+		}
+
+		default:
+			return ARGP_ERR_UNKNOWN;
+	}
+}
 
 static const char* pcsc_get_reader_state_string(unsigned int reader_state)
 {
@@ -158,7 +269,7 @@ static void emv_txn_destroy(struct emv_txn_t* emv_txn)
 	emv_tlv_list_clear(&emv_txn->icc);
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
 	int r;
 	pcsc_ctx_t pcsc;
@@ -170,6 +281,32 @@ int main(void)
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
 	struct iso7816_atr_info_t atr_info;
+
+	if (argc == 1) {
+		// No command line arguments
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
+	}
+
+	r = argp_parse(&argp_config, argc, argv, 0, 0, 0);
+	if (r) {
+		fprintf(stderr, "Failed to parse command line\n");
+		return 1;
+	}
+
+	if (txn_type != EMV_TRANSACTION_TYPE_INQUIRY &&
+		txn_amount == 0
+	) {
+		fprintf(stderr, "Transaction amount (--txn-amount) argument must be non-zero\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+	}
+
+	if (txn_type == EMV_TRANSACTION_TYPE_CASHBACK &&
+		txn_amount_other == 0
+	) {
+		fprintf(stderr, "Secondary transaction amount (--txn-amount-other) must be non-zero for cashback transaction\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+	}
 
 	r = pcsc_init(&pcsc);
 	if (r) {
@@ -246,9 +383,9 @@ int main(void)
 	emv_txn_load_params(
 		&emv_txn,
 		42, // Transaction Sequence Counter
-		0x00, // Transaction Type: Goods and services
-		1234, // Transaction Amount
-		0 // Transaction Amount, Other
+		txn_type, // Transaction Type
+		txn_amount, // Transaction Amount
+		txn_amount_other // Transaction Amount, Other
 	);
 	emv_txn_load_config(&emv_txn);
 
