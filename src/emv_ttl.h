@@ -161,6 +161,27 @@ int emv_ttl_read_record(
 	uint16_t* sw1sw2
 );
 
+/**
+ * GET PROCESSING OPTIONS (0xA8) for current application
+ * @remark EMV 4.3 Book 3, 6.5.8
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param pdol_data Processing Options Data Object List (PDOL) data requested by ICC. NULL if no data requested by ICC.
+ * @param pdol_data_len Length of PDOL data in bytes. Zero if no data requested by ICC.
+ * @param response Response output
+ * @param response_len Length of response output in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_get_processing_options(
+	struct emv_ttl_t* ctx,
+	const void* pdol_data,
+	size_t pdol_data_len,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+);
+
 __END_DECLS
 
 #endif

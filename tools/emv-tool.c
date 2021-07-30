@@ -540,6 +540,23 @@ int main(int argc, char** argv)
 		}
 
 		print_buf("\nGPO data", gpo_data, gpo_data_len);
+
+		// Initiate application processing
+		printf("\nGET PROCESSING OPTIONS\n");
+		uint8_t gpo_response[EMV_RAPDU_DATA_MAX];
+		size_t gpo_response_len = sizeof(gpo_response);
+		r = emv_ttl_get_processing_options(&emv_txn.ttl, gpo_data, gpo_data_len, gpo_response, &gpo_response_len, &sw1sw2);
+		if (r) {
+			printf("Failed to get processign options; r=%d\n", r);
+			goto emv_exit;
+		}
+		print_buf("GPO response", gpo_response, gpo_response_len);
+		print_emv_buf(gpo_response, gpo_response_len, "  ", 0);
+		printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
+
+		if (sw1sw2 != 0x9000) {
+			goto emv_exit;
+		}
 	}
 
 	r = pcsc_reader_disconnect(reader);

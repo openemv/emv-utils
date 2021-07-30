@@ -20,6 +20,7 @@
  */
 
 #include "emv_ttl.h"
+#include "emv_tags.h"
 #include "iso7816_apdu.h"
 
 #include <stdbool.h>
@@ -599,6 +600,73 @@ int emv_ttl_read_record(
 	// Copy record data from R-APDU
 	*data_len = r_apdu_len - 2;
 	memcpy(data, r_apdu, *data_len);
+
+	return 0;
+}
+
+int emv_ttl_get_processing_options(
+	struct emv_ttl_t* ctx,
+	const void* pdol_data,
+	size_t pdol_data_len,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+) {
+	int r;
+	struct iso7816_apdu_case_4s_t c_apdu;
+	uint8_t empty_cmd_data[2];
+	uint8_t r_apdu[EMV_RAPDU_MAX];
+	size_t r_apdu_len = sizeof(r_apdu);
+
+	if (!ctx || !response || !response_len || !*response_len || !sw1sw2) {
+		return -1;
+	}
+
+	if (*response_len < EMV_RAPDU_DATA_MAX) {
+		return -2;
+	}
+
+	if (!pdol_data || !pdol_data_len) {
+		// Use empty Command Template (field 83)
+		// See EMV 4.3 Book 3, 6.5.8.3
+		// See EMV 4.3 Book 3, 10.1
+		empty_cmd_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
+		empty_cmd_data[1] = 0x00;
+
+		pdol_data = empty_cmd_data;
+		pdol_data_len = sizeof(empty_cmd_data);
+	}
+
+	// Build GET PROCESSING OPTIONS command
+	c_apdu.CLA = 0x80; // See EMV 4.3 Book 3, 6.3.2
+	c_apdu.INS = 0xA8; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+	c_apdu.P1  = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+	c_apdu.P2  = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+	c_apdu.Lc  = pdol_data_len;
+	memcpy(c_apdu.data, pdol_data, c_apdu.Lc);
+	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+
+	r = emv_ttl_trx(
+		ctx,
+		&c_apdu,
+		iso7816_apdu_case_4s_length(&c_apdu),
+		r_apdu,
+		&r_apdu_len,
+		sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+	if (r_apdu_len < 2) {
+		return -4;
+	}
+	if (r_apdu_len - 2 > *response_len) {
+		return -5;
+	}
+
+	// Copy response from R-APDU
+	*response_len = r_apdu_len - 2;
+	memcpy(response, r_apdu, *response_len);
 
 	return 0;
 }
