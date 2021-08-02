@@ -23,6 +23,7 @@
 #define EMV_TAL_H
 
 #include <sys/cdefs.h>
+#include <stddef.h>
 
 __BEGIN_DECLS
 
@@ -30,6 +31,7 @@ __BEGIN_DECLS
 struct emv_ttl_t;
 struct emv_app_list_t;
 struct emv_tlv_list_t;
+struct emv_tlv_t;
 
 /**
  * Read Payment System Environment (PSE) records and build application list
@@ -66,6 +68,25 @@ int emv_tal_find_supported_apps(
 	struct emv_ttl_t* ttl,
 	struct emv_tlv_list_t* supported_aids,
 	struct emv_app_list_t* app_list
+);
+
+/**
+ * Parse GET PROCESSING OPTIONS response
+ * @param buf Buffer containing GET PROCESSING OPTIONS response data
+ * @param len Length of buffer in bytes
+ * @param list List to which decoded EMV TLV fields will be appended
+ * @param aip Pointer to Application Interchange Profile (AIP) field on
+ *            @c list for convenience. Do not free. NULL to ignore.
+ * @param afl Pointer to Application File Locator (AFL) field on @c list
+ *            for convenience. Do not free. NULL to ignore.
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_tal_parse_gpo_response(
+	const void* buf,
+	size_t len,
+	struct emv_tlv_list_t* list,
+	struct emv_tlv_t** aip,
+	struct emv_tlv_t** afl
 );
 
 __END_DECLS

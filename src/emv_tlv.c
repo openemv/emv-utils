@@ -192,6 +192,24 @@ struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int ta
 	return NULL;
 }
 
+int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other)
+{
+	if (!emv_tlv_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (!emv_tlv_list_is_valid(other)) {
+		return -2;
+	}
+
+	list->back->next = other->front;
+	list->back = other->back;
+	other->front = NULL;
+	other->back = NULL;
+
+	return 0;
+}
+
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 {
 	int r;

@@ -106,12 +106,36 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
+		case EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2:
+			info->tag_name = "Response Message Template Format 2";
+			info->tag_desc =
+				"Contains the data objects (with tags and lengths) returned "
+				"by the ICC in response to a command";
+			info->format = EMV_FORMAT_VAR;
+			return 0;
+
+		case EMV_TAG_80_RESPONSE_MESSAGE_TEMPLATE_FORMAT_1:
+			info->tag_name = "Response Message Template Format 1";
+			info->tag_desc =
+				"Contains the data objects (without tags and lengths) "
+				"returned by the ICC in response to a command";
+			info->format = EMV_FORMAT_VAR;
+			return 0;
+
 		case EMV_TAG_81_AMOUNT_AUTHORISED_BINARY:
 			info->tag_name = "Amount, Authorised (Binary)";
 			info->tag_desc =
 				"Authorised amount of the transaction (excluding adjustments)";
 			info->format = EMV_FORMAT_B;
 			return emv_amount_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE:
+			info->tag_name = "Application Interchange Profile (AIP)";
+			info->tag_desc =
+				"Indicates the capabilities of the card to support specific "
+				"functions in the application";
+			info->format = EMV_FORMAT_B;
+			return 0;
 
 		case EMV_TAG_83_COMMAND_TEMPLATE:
 			info->tag_name = "Command Template";
@@ -145,6 +169,15 @@ int emv_tlv_get_info(
 				"object having a value in the range 1 - 30 and with the three "
 				"high order bits set to zero.";
 			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_94_APPLICATION_FILE_LOCATOR:
+			info->tag_name = "Application File Locator (AFL)";
+			info->tag_desc =
+				"Indicates the location (SFI, range of records) of the "
+				"Application Elementary Files (AEFs) related to a given "
+				"application";
+			info->format = EMV_FORMAT_VAR;
 			return 0;
 
 		case EMV_TAG_9A_TRANSACTION_DATE:

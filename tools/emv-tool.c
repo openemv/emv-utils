@@ -557,6 +557,18 @@ int main(int argc, char** argv)
 		if (sw1sw2 != 0x9000) {
 			goto emv_exit;
 		}
+
+		// Extract AIP and AFL
+		printf("\nProcessing options:\n");
+		struct emv_tlv_t* aip = NULL;
+		struct emv_tlv_t* afl = NULL;
+		r = emv_tal_parse_gpo_response(gpo_response, gpo_response_len, &emv_txn.icc, &aip, &afl);
+		if (r) {
+			printf("emv_tal_parse_gpo_response() failed; r=%d\n", r);
+			goto emv_exit;
+		}
+		print_emv_tlv(aip, "  ", 1);
+		print_emv_tlv(afl, "  ", 1);
 	}
 
 	r = pcsc_reader_disconnect(reader);

@@ -54,8 +54,23 @@ __BEGIN_DECLS
 /// EMV tag 73 Directory Discretionary Template. Template 61.
 #define EMV_TAG_73_DIRECTORY_DISCRETIONARY_TEMPLATE             (0x73)
 
+/// EMV tag 77 Response Message Template Format 2
+/// @remark Used as GET PROCESSING OPTIONS Response Message Template
+/// @remark Used as INTERNAL AUTHENTICATE Response Message Template
+/// @remark Used as GENERATE AC Response Message Template
+#define EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2           (0x77)
+
+/// EMV tag 80 Response Message Template Format 1
+/// @remark Used as GET PROCESSING OPTIONS Response Message Template
+/// @remark Used as INTERNAL AUTHENTICATE Response Message Template
+/// @remark Used as GENERATE AC Response Message Template
+#define EMV_TAG_80_RESPONSE_MESSAGE_TEMPLATE_FORMAT_1           (0x80)
+
 /// EMV tag 81 Amount, Authorised (Binary)
 #define EMV_TAG_81_AMOUNT_AUTHORISED_BINARY                     (0x81)
+
+/// EMV tag 82 Application Interchange Profile (AIP). Template 77 or 80.
+#define EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE              (0x82)
 
 /// EMV tag 83 Command Template
 #define EMV_TAG_83_COMMAND_TEMPLATE                             (0x83)
@@ -68,6 +83,9 @@ __BEGIN_DECLS
 
 /// EMV tag 88 Short File Indicator (SFI). Template A5.
 #define EMV_TAG_88_SFI                                          (0x88)
+
+/// EMV tag 94 Application File Locator (AFL). Template 77 or 80.
+#define EMV_TAG_94_APPLICATION_FILE_LOCATOR                     (0x94)
 
 /// EMV tag 9A Transaction Date
 #define EMV_TAG_9A_TRANSACTION_DATE                             (0x9A)
