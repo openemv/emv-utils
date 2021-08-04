@@ -135,7 +135,7 @@ int emv_tlv_get_info(
 				"Indicates the capabilities of the card to support specific "
 				"functions in the application";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_aip_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_83_COMMAND_TEMPLATE:
 			info->tag_name = "Command Template";
@@ -1227,6 +1227,63 @@ int emv_addl_term_caps_get_string_list(
 	}
 	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_1)) {
 		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 1");
+	}
+
+	return 0;
+}
+
+int emv_aip_get_string_list(
+	const uint8_t* aip,
+	size_t aip_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!aip || !aip_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (aip_len != 2) {
+		// Application Interchange Profile (field 82) must be 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Application Interchange Profile (field 82) byte 1
+	// See EMV 4.3 Book 3, Annex C1, Table 37
+	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+	if (aip[0] & EMV_AIP_SDA_SUPPORTED) {
+		emv_str_list_add(&itr, "Static Data Authentication (SDA) is supported");
+	}
+	if (aip[0] & EMV_AIP_DDA_SUPPORTED) {
+		emv_str_list_add(&itr, "Dynamic Data Authentication (DDA) is supported");
+	}
+	if (aip[0] & EMV_AIP_CV_SUPPORTED) {
+		emv_str_list_add(&itr, "Cardholder verification is supported");
+	}
+	if (aip[0] & EMV_AIP_TERMINAL_RISK_MANAGEMENT_REQUIRED) {
+		emv_str_list_add(&itr, "Terminal risk management is to be performed");
+	}
+	if (aip[0] & EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED) {
+		emv_str_list_add(&itr, "Issuer authentication is supported");
+	}
+	if (aip[0] & EMV_AIP_ODCV_SUPPORTED) {
+		emv_str_list_add(&itr, "On device cardholder verification is supported");
+	}
+	if (aip[0] & EMV_AIP_CDA_SUPPORTED) {
+		emv_str_list_add(&itr, "Combined DDA/Application Cryptogram Generation (CDA) is supported");
+	}
+
+	// Application Interchange Profile (field 82) byte 2
+	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+	if (aip[1] & EMV_AIP_EMV_MODE_SUPPORTED) {
+		emv_str_list_add(&itr, "Contactless EMV mode is supported");
+	}
+	if (aip[1] & EMV_RRP_SUPPORTED) {
+		emv_str_list_add(&itr, "Relay Resistance Protocol (RRP) is supported");
 	}
 
 	return 0;

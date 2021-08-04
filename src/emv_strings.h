@@ -269,6 +269,22 @@ int emv_addl_term_caps_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Application Interchange Profile (field 82)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param aip Application Interchange Profile (AIP) field. Must be 2 bytes.
+ * @param aip_len Length of Application Interchange Profile (AIP) field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_aip_get_string_list(
+	const uint8_t* aip,
+	size_t aip_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif

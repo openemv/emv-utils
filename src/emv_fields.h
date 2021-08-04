@@ -127,6 +127,22 @@ __BEGIN_DECLS
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_2                  (0x02) ///< Terminal Data Output Capability: Code table 2
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_1                  (0x01) ///< Terminal Data Output Capability: Code table 1
 
+// Application Interchange Profile (field 82) byte 1
+// See EMV 4.3 Book 3, Annex C1, Table 37
+// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+#define EMV_AIP_SDA_SUPPORTED                                   (0x40) ///< Static Data Authentication (SDA) is supported
+#define EMV_AIP_DDA_SUPPORTED                                   (0x20) ///< Dynamic Data Authentication (DDA) is supported
+#define EMV_AIP_CV_SUPPORTED                                    (0x10) ///< Cardholder verification is supported
+#define EMV_AIP_TERMINAL_RISK_MANAGEMENT_REQUIRED               (0x08) ///< Terminal risk management is to be performed
+#define EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED                 (0x04) ///< Issuer authentication is supported
+#define EMV_AIP_ODCV_SUPPORTED                                  (0x02) ///< On device cardholder verification is supported
+#define EMV_AIP_CDA_SUPPORTED                                   (0x01) ///< Combined DDA/Application Cryptogram Generation (CDA) is supported
+
+// Application Interchange Profile (field 82) byte 2
+// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+#define EMV_AIP_EMV_MODE_SUPPORTED                              (0x80) ///< Contactless EMV mode is supported
+#define EMV_RRP_SUPPORTED                                       (0x01) ///< Relay Resistance Protocol (RRP) is supported
+
 __END_DECLS
 
 #endif
