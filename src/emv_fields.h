@@ -143,6 +143,11 @@ __BEGIN_DECLS
 #define EMV_AIP_EMV_MODE_SUPPORTED                              (0x80) ///< Contactless EMV mode is supported
 #define EMV_RRP_SUPPORTED                                       (0x01) ///< Relay Resistance Protocol (RRP) is supported
 
+// Application File Locator (field 94) byte 1
+// See EMV 4.3 Book 3, 10.2
+#define EMV_AFL_SFI_MASK                                        (0xF8) ///< Application File Locator (AFL) mask for Short File Identifier (SFI)
+#define EMV_AFL_SFI_SHIFT                                       (3) ///< Application File Locator (AFL) shift for Short File Identifier (SFI)
+
 __END_DECLS
 
 #endif

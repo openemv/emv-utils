@@ -25,6 +25,7 @@
 #include "emv_fields.h"
 
 #include <string.h>
+#include <stdio.h> // for snprintf()
 
 struct str_itr_t {
 	char* ptr;
@@ -178,7 +179,7 @@ int emv_tlv_get_info(
 				"Application Elementary Files (AEFs) related to a given "
 				"application";
 			info->format = EMV_FORMAT_VAR;
-			return 0;
+			return emv_afl_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9A_TRANSACTION_DATE:
 			info->tag_name = "Transaction Date";
@@ -1284,6 +1285,94 @@ int emv_aip_get_string_list(
 	}
 	if (aip[1] & EMV_RRP_SUPPORTED) {
 		emv_str_list_add(&itr, "Relay Resistance Protocol (RRP) is supported");
+	}
+
+	return 0;
+}
+
+int emv_afl_get_string_list(
+	const uint8_t* afl,
+	size_t afl_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t itr;
+
+	if (!afl || !afl_len || !str || !str_len) {
+		return -1;
+	}
+
+	if ((afl_len & 0x3) != 0) {
+		// Application File Locator (field 94) must be multiples of 4 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// For each Application File Locator entry, build a temporary string and
+	// add it to the string list
+	while (afl_len) {
+		char tmp[128];
+		size_t tmp_len = sizeof(tmp);
+		size_t tmp_offset;
+		uint8_t sfi;
+		uint8_t first_record;
+		uint8_t last_record;
+		uint8_t oda_count;
+
+		// Decode AFL entry
+		sfi = (afl[0] & EMV_AFL_SFI_MASK) >> EMV_AFL_SFI_SHIFT;
+		first_record = afl[1];
+		last_record = afl[2];
+		oda_count = afl[3];
+
+		// Build tmp string: "SFI <x>, record <y> - <z>"
+		if (first_record == last_record) {
+			r = snprintf(tmp, tmp_len, "SFI %u, record %u", sfi, first_record);
+		} else {
+			r = snprintf(tmp, tmp_len, "SFI %u, record %u - %u", sfi, first_record, last_record);
+		}
+		if (r >= tmp_len) {
+			// Not enough space left; internal error
+			str[0] = 0;
+			return -2;
+		}
+		if (r < 0) {
+			// Unknown error
+			str[0] = 0;
+			return -3;
+		}
+		tmp_offset = r;
+
+		// Append "<x> number of record(s) used for offline data authentication"
+		if (oda_count) {
+			r = snprintf(
+				tmp + tmp_offset,
+				tmp_len - tmp_offset,
+				", %u record%s used for offline data authentication",
+				oda_count,
+				oda_count > 1 ? "s" : ""
+			);
+			if (r >= tmp_len - tmp_offset) {
+				// Not enough space left; internal error
+				str[0] = 0;
+				return -4;
+			}
+			if (r < 0) {
+				// Unknown error
+				str[0] = 0;
+				return -5;
+			}
+		}
+
+		// Add temporary string to list
+		emv_str_list_add(&itr, tmp);
+
+		// Advance to next AFL entry
+		afl += 4;
+		afl_len -= 4;
 	}
 
 	return 0;
