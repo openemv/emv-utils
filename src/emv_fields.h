@@ -1,6 +1,6 @@
 /**
  * @file emv_fields.h
- * @brief EMV field definitions
+ * @brief EMV field definitions and helper functions
  *
  * Copyright (c) 2021 Leon Lynch
  *
@@ -23,6 +23,8 @@
 #define EMV_FIELDS_H
 
 #include <sys/cdefs.h>
+#include <stddef.h>
+#include <stdint.h>
 
 __BEGIN_DECLS
 
@@ -147,6 +149,37 @@ __BEGIN_DECLS
 // See EMV 4.3 Book 3, 10.2
 #define EMV_AFL_SFI_MASK                                        (0xF8) ///< Application File Locator (AFL) mask for Short File Identifier (SFI)
 #define EMV_AFL_SFI_SHIFT                                       (3) ///< Application File Locator (AFL) shift for Short File Identifier (SFI)
+
+/// Application File Locator (AFL) iterator
+struct emv_afl_itr_t {
+	const void* ptr;
+	size_t len;
+};
+
+/// Application File Locator (AFL) entry
+struct emv_afl_entry_t {
+	uint8_t sfi; ///< Short File Identifier (SFI) for AFL entry
+	uint8_t first_record; ///< First record in SFI for AFL entry
+	uint8_t last_record; ///< Last record in SFI for AFL entry
+	uint8_t oda_record_count; ///< Number of records (starting at @ref first_record) involved in offline data authentication
+};
+
+/**
+ * Initialize Application File Locator (AFL) iterator
+ * @param afl Application File Locator (AFL) field. Must be multiples of 4 bytes.
+ * @param afl_len Length of Application File Locator (AFL) field. Must be multiples of 4 bytes.
+ * @param itr Application File Locator (AFL) iterator output
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_afl_itr_init(const void* afl, size_t afl_len, struct emv_afl_itr_t* itr);
+
+/**
+ * Decode next entry and advance iterator
+ * @param itr Application File Locator (AFL) iterator
+ * @param entry Decoded Application File Locator (AFL) entry output
+ * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
+ */
+int emv_afl_itr_next(struct emv_afl_itr_t* itr, struct emv_afl_entry_t* entry);
 
 __END_DECLS
 

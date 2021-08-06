@@ -1298,43 +1298,47 @@ int emv_afl_get_string_list(
 )
 {
 	int r;
-	struct str_itr_t itr;
+	struct emv_afl_itr_t afl_itr;
+	struct emv_afl_entry_t afl_entry;
+	struct str_itr_t str_itr;
 
 	if (!afl || !afl_len || !str || !str_len) {
 		return -1;
 	}
 
-	if ((afl_len & 0x3) != 0) {
-		// Application File Locator (field 94) must be multiples of 4 bytes
-		return 1;
+	r = emv_afl_itr_init(afl, afl_len, &afl_itr);
+	if (r) {
+		return r;
 	}
 
-	emv_str_list_init(&itr, str, str_len);
+	emv_str_list_init(&str_itr, str, str_len);
 
 	// For each Application File Locator entry, build a temporary string and
 	// add it to the string list
-	while (afl_len) {
+	while ((r = emv_afl_itr_next(&afl_itr, &afl_entry)) > 0) {
 		char tmp[128];
-		size_t tmp_len = sizeof(tmp);
-		size_t tmp_offset;
-		uint8_t sfi;
-		uint8_t first_record;
-		uint8_t last_record;
-		uint8_t oda_count;
-
-		// Decode AFL entry
-		sfi = (afl[0] & EMV_AFL_SFI_MASK) >> EMV_AFL_SFI_SHIFT;
-		first_record = afl[1];
-		last_record = afl[2];
-		oda_count = afl[3];
+		size_t offset;
 
 		// Build tmp string: "SFI <x>, record <y> - <z>"
-		if (first_record == last_record) {
-			r = snprintf(tmp, tmp_len, "SFI %u, record %u", sfi, first_record);
+		if (afl_entry.first_record == afl_entry.last_record) {
+			r = snprintf(
+				tmp,
+				sizeof(tmp),
+				"SFI %u, record %u",
+				afl_entry.sfi,
+				afl_entry.first_record
+			);
 		} else {
-			r = snprintf(tmp, tmp_len, "SFI %u, record %u - %u", sfi, first_record, last_record);
+			r = snprintf(
+				tmp,
+				sizeof(tmp),
+				"SFI %u, record %u to %u",
+				afl_entry.sfi,
+				afl_entry.first_record,
+				afl_entry.last_record
+			);
 		}
-		if (r >= tmp_len) {
+		if (r >= sizeof(tmp)) {
 			// Not enough space left; internal error
 			str[0] = 0;
 			return -2;
@@ -1344,18 +1348,18 @@ int emv_afl_get_string_list(
 			str[0] = 0;
 			return -3;
 		}
-		tmp_offset = r;
+		offset = r;
 
 		// Append "<x> number of record(s) used for offline data authentication"
-		if (oda_count) {
+		if (afl_entry.oda_record_count) {
 			r = snprintf(
-				tmp + tmp_offset,
-				tmp_len - tmp_offset,
+				tmp + offset,
+				sizeof(tmp) - offset,
 				", %u record%s used for offline data authentication",
-				oda_count,
-				oda_count > 1 ? "s" : ""
+				afl_entry.oda_record_count,
+				afl_entry.oda_record_count > 1 ? "s" : ""
 			);
-			if (r >= tmp_len - tmp_offset) {
+			if (r >= sizeof(tmp) - offset) {
 				// Not enough space left; internal error
 				str[0] = 0;
 				return -4;
@@ -1368,11 +1372,13 @@ int emv_afl_get_string_list(
 		}
 
 		// Add temporary string to list
-		emv_str_list_add(&itr, tmp);
+		emv_str_list_add(&str_itr, tmp);
+	}
 
-		// Advance to next AFL entry
-		afl += 4;
-		afl_len -= 4;
+	if (r < 0) {
+		// Parsing error
+		str[0] = 0;
+		return -r;
 	}
 
 	return 0;
