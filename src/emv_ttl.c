@@ -53,6 +53,10 @@ int emv_ttl_trx(
 		return -1;
 	}
 
+	if (c_apdu_len < 4) {
+		return -1;
+	}
+
 	// Determine the APDU case
 	// See ISO 7816-3:2006, 12.1.3, table 13
 	// See EMV 4.3 Book 1, 9.3.1.1
