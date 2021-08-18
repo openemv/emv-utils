@@ -26,6 +26,14 @@
 #include <stdbool.h>
 #include <string.h>
 
+// TODO: implement debugging
+#define emv_debug_error(fmt, ...) do {} while (0)
+#define emv_debug_info(fmt, ...) do {} while (0)
+#define emv_debug_capdu(buf, buf_len) do {} while (0)
+#define emv_debug_rapdu(buf, buf_len) do {} while (0)
+#define emv_debug_ctpdu(buf, buf_len) do {} while (0)
+#define emv_debug_rtpdu(buf, buf_len) do {} while (0)
+
 int emv_ttl_trx(
 	struct emv_ttl_t* ctx,
 	const void* c_apdu,
@@ -53,6 +61,8 @@ int emv_ttl_trx(
 		return -1;
 	}
 
+	emv_debug_capdu(c_apdu, c_apdu_len);
+
 	if (c_apdu_len < 4) {
 		return -1;
 	}
@@ -70,17 +80,23 @@ int emv_ttl_trx(
 
 	if (c_apdu_len == 4) {
 		apdu_case = ISO7816_APDU_CASE_1;
+		emv_debug_info("APDU case 1");
 	} else if (c_apdu_len == 5) {
 		apdu_case = ISO7816_APDU_CASE_2S;
+		emv_debug_info("APDU case 2S");
 	} else {
 		// Extract byte C5 from header; See ISO 7816-3:2006, 12.1.3
 		unsigned int C5 = *(uint8_t*)(c_apdu + 4);
 
 		if (C5 != 0 && C5 + 5 == c_apdu_len) { // If C5 is Lc and Le is absent
 			apdu_case = ISO7816_APDU_CASE_3S;
+			emv_debug_info("APDU case 3S");
 		} else if (C5 != 0 && C5 + 6 == c_apdu_len) { // If C5 is Lc and Le is present
 			apdu_case = ISO7816_APDU_CASE_4S;
+			emv_debug_info("APDU case 4S");
 		} else {
+			// Unknown APDU case
+			emv_debug_error("Unknown APDU case");
 			return -2;
 		}
 	}
@@ -130,14 +146,19 @@ int emv_ttl_trx(
 		bool tx_get_response = false;
 		bool tx_update_le  = false;
 
+		emv_debug_ctpdu(tx_buf, tx_buf_len);
+
 		r = ctx->cardreader.trx(ctx->cardreader.ctx, tx_buf, tx_buf_len, rx_buf, &rx_len);
 		if (r) {
 			return r;
 		}
 		if (rx_len == 0) {
 			// No response
+			emv_debug_error("No response");
 			return 1;
 		}
+
+		emv_debug_rtpdu(rx_buf, rx_len);
 
 		// Store INS of most recent tx for later use
 		INS = *((uint8_t*)(tx_buf + 1));
@@ -169,6 +190,7 @@ int emv_ttl_trx(
 			*sw1sw2 = ((uint16_t)SW1 << 8) | SW2;
 
 			// Let Terminal Application Layer (TAL) process the response
+			emv_debug_rapdu(r_apdu, *r_apdu_len);
 			return 0;
 		}
 
@@ -417,6 +439,7 @@ int emv_ttl_trx(
 			*r_apdu_len = (void*)r_apdu_ptr - r_apdu;
 
 			// Let Terminal Application Layer (TAL) process the response
+			emv_debug_rapdu(r_apdu, *r_apdu_len);
 			return 0;
 		}
 

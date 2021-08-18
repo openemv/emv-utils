@@ -31,6 +31,9 @@
 #include <stdint.h>
 #include <string.h>
 
+// TODO: implement debugging
+#define emv_debug_info_tlv(fmt, buf, buf_len, ...) do {} while (0)
+
 // Helper functions
 static int emv_tal_parse_aef_record(
 	struct emv_tlv_list_t* pse_tlv_list,
@@ -92,7 +95,7 @@ int emv_tal_read_pse(
 		return 3;
 	}
 
-	// TODO: log FCI data here
+	emv_debug_info_tlv("FCI", fci, fci_len);
 
 	// Parse File Control Information (FCI) provided by PSE DDF
 	// NOTE: FCI may contain padding (r > 0)
@@ -142,6 +145,8 @@ int emv_tal_read_pse(
 			// See EMV 4.3 Book 1, 12.3.2, step 2
 			continue;
 		}
+
+		emv_debug_info_tlv("AEF", aef_record, aef_record_len);
 
 		r = emv_tal_parse_aef_record(
 			&pse_tlv_list,
@@ -283,6 +288,8 @@ int emv_tal_find_supported_apps(
 			exact_match = true;
 			continue;
 		}
+
+		emv_debug_info_tlv("FCI", fci, fci_len);
 
 		// Extract FCI data
 		// See EMV 4.3 Book 1, 12.3.3, step 3
