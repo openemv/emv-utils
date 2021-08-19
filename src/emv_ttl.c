@@ -23,16 +23,11 @@
 #include "emv_tags.h"
 #include "iso7816_apdu.h"
 
+#define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_TTL
+#include "emv_debug.h"
+
 #include <stdbool.h>
 #include <string.h>
-
-// TODO: implement debugging
-#define emv_debug_error(fmt, ...) do {} while (0)
-#define emv_debug_info(fmt, ...) do {} while (0)
-#define emv_debug_capdu(buf, buf_len) do {} while (0)
-#define emv_debug_rapdu(buf, buf_len) do {} while (0)
-#define emv_debug_ctpdu(buf, buf_len) do {} while (0)
-#define emv_debug_rtpdu(buf, buf_len) do {} while (0)
 
 int emv_ttl_trx(
 	struct emv_ttl_t* ctx,
@@ -80,20 +75,20 @@ int emv_ttl_trx(
 
 	if (c_apdu_len == 4) {
 		apdu_case = ISO7816_APDU_CASE_1;
-		emv_debug_info("APDU case 1");
+		emv_debug_apdu("APDU case 1");
 	} else if (c_apdu_len == 5) {
 		apdu_case = ISO7816_APDU_CASE_2S;
-		emv_debug_info("APDU case 2S");
+		emv_debug_apdu("APDU case 2S");
 	} else {
 		// Extract byte C5 from header; See ISO 7816-3:2006, 12.1.3
 		unsigned int C5 = *(uint8_t*)(c_apdu + 4);
 
 		if (C5 != 0 && C5 + 5 == c_apdu_len) { // If C5 is Lc and Le is absent
 			apdu_case = ISO7816_APDU_CASE_3S;
-			emv_debug_info("APDU case 3S");
+			emv_debug_apdu("APDU case 3S");
 		} else if (C5 != 0 && C5 + 6 == c_apdu_len) { // If C5 is Lc and Le is present
 			apdu_case = ISO7816_APDU_CASE_4S;
-			emv_debug_info("APDU case 4S");
+			emv_debug_apdu("APDU case 4S");
 		} else {
 			// Unknown APDU case
 			emv_debug_error("Unknown APDU case");

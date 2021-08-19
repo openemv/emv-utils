@@ -45,11 +45,13 @@ add_library(emv
 	src/emv_fields.c
 	src/emv_tlv.c
 	src/emv_dol.c
+	src/emv_debug.c
 	src/emv_ttl.c
 	src/emv_app.c
 	src/emv_tal.c
 	src/emv_strings.c
 )
+target_compile_definitions(emv PRIVATE EMV_DEBUG_ENABLED) # Enabled all debugging
 target_link_libraries(emv iso8825)
 target_include_directories(emv INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>

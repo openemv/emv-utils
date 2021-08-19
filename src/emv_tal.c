@@ -26,13 +26,13 @@
 #include "emv_tlv.h"
 #include "emv_app.h"
 
+#define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_TAL
+#include "emv_debug.h"
+
 #include "iso8825_ber.h"
 
 #include <stdint.h>
 #include <string.h>
-
-// TODO: implement debugging
-#define emv_debug_info_tlv(fmt, buf, buf_len, ...) do {} while (0)
 
 // Helper functions
 static int emv_tal_parse_aef_record(
