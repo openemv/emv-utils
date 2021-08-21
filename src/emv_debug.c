@@ -28,11 +28,17 @@
 // TODO: replace with HAL interface in future
 #include <time.h>
 
+static unsigned int debug_sources_mask = EMV_DEBUG_SOURCE_NONE;
 static enum emv_debug_level_t debug_level = EMV_DEBUG_NONE;
 static emv_debug_func_t debug_func = NULL;
 
-int emv_debug_init(enum emv_debug_level_t level, emv_debug_func_t func)
+int emv_debug_init(
+	unsigned int sources_mask,
+	enum emv_debug_level_t level,
+	emv_debug_func_t func
+)
 {
+	debug_sources_mask = sources_mask;
 	debug_level = level;
 	debug_func = func;
 
@@ -40,7 +46,7 @@ int emv_debug_init(enum emv_debug_level_t level, emv_debug_func_t func)
 }
 
 void emv_debug_internal(
-	enum emv_debug_source_t src,
+	enum emv_debug_source_t source,
 	enum emv_debug_level_t level,
 	enum emv_debug_type_t debug_type,
 	const char* fmt,
@@ -55,6 +61,10 @@ void emv_debug_internal(
 	uint32_t timestamp;
 
 	if (!debug_func) {
+		return;
+	}
+
+	if ((debug_sources_mask & source) == 0) {
 		return;
 	}
 
@@ -77,5 +87,5 @@ void emv_debug_internal(
 	// Pack timespec fields into 32-bit timestamp with microsecond granularity
 	timestamp = (uint32_t)(((t.tv_sec * 1000000) + (t.tv_nsec / 1000)));
 
-	debug_func(timestamp, src, level, debug_type, str, buf, buf_len);
+	debug_func(timestamp, source, level, debug_type, str, buf, buf_len);
 }

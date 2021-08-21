@@ -29,11 +29,12 @@ __BEGIN_DECLS
 
 /// Debug event source
 enum emv_debug_source_t {
-	EMV_DEBUG_SOURCE_NONE,                      ///< Source: None (for general use)
-	EMV_DEBUG_SOURCE_TTL,                       ///< Source: Terminal Transport Layer (TTL)
-	EMV_DEBUG_SOURCE_TAL,                       ///< Source: Terminal Application Layer (TAL)
-	EMV_DEBUG_SOURCE_EMV,                       ///< Source: EMV kernel
-	EMV_DEBUG_SOURCE_APP,                       ///< Source: Application
+	EMV_DEBUG_SOURCE_NONE = 0x00,               ///< Source: None. Can be passed to @ref emv_debug_init().
+	EMV_DEBUG_SOURCE_TTL = 0x01,                ///< Source: Terminal Transport Layer (TTL)
+	EMV_DEBUG_SOURCE_TAL = 0x02,                ///< Source: Terminal Application Layer (TAL)
+	EMV_DEBUG_SOURCE_EMV = 0x04,                ///< Source: EMV kernel
+	EMV_DEBUG_SOURCE_APP = 0x08,                ///< Source: Application
+	EMV_DEBUG_SOURCE_ALL = 0xFF,                ///< Source: All. Can be passed to @ref emv_debug_init().
 };
 
 /// Debug event level in descending order of importance
@@ -60,7 +61,7 @@ enum emv_debug_type_t {
 /**
  * EMV debug event function signature
  * @param timestamp 32-bit microsecond timestamp value
- * @param src Debug event source
+ * @param source Debug event source
  * @param level Debug event level
  * @param debug_type Debug event type
  * @param str Debug event string
@@ -69,7 +70,7 @@ enum emv_debug_type_t {
  */
 typedef void (*emv_debug_func_t)(
 	unsigned int timestamp,
-	enum emv_debug_source_t src,
+	enum emv_debug_source_t source,
 	enum emv_debug_level_t level,
 	enum emv_debug_type_t debug_type,
 	const char* str,
@@ -79,14 +80,19 @@ typedef void (*emv_debug_func_t)(
 
 /**
  * Initialise EMV debug event function
+ * @param sources_mask Bitmask of debug sources to pass to event function. See @ref emv_debug_source_t
  * @param level Maximum debug level event to pass to event function
  * @param func Callback function to use for debug events
  */
-int emv_debug_init(enum emv_debug_level_t level, emv_debug_func_t func);
+int emv_debug_init(
+	unsigned int sources_mask,
+	enum emv_debug_level_t level,
+	emv_debug_func_t func
+);
 
 /**
  * Internal EMV debugging implementation used by macros. Callers should use the macros instead.
- * @param src Debug event source
+ * @param source Debug event source
  * @param level Debug event level
  * @param debug_type Debug event type
  * @param fmt Debug event format string (printf-style)
@@ -95,7 +101,7 @@ int emv_debug_init(enum emv_debug_level_t level, emv_debug_func_t func);
  * @param ... Variable arguments for @c fmt
  */
 void emv_debug_internal(
-	enum emv_debug_source_t src,
+	enum emv_debug_source_t source,
 	enum emv_debug_level_t level,
 	enum emv_debug_type_t debug_type,
 	const char* fmt,
