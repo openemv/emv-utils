@@ -31,6 +31,7 @@
 #include "emv_dol.h"
 #include "emv_app.h"
 #include "emv_strings.h"
+#include "emv_debug.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -49,7 +50,9 @@ static bool str_is_list(const char* str)
 void print_buf(const char* buf_name, const void* buf, size_t length)
 {
 	const uint8_t* ptr = buf;
-	printf("%s: ", buf_name);
+	if (buf_name) {
+		printf("%s: ", buf_name);
+	}
 	for (size_t i = 0; i < length; i++) {
 		printf("%02X", ptr[i]);
 	}
@@ -456,4 +459,128 @@ void print_emv_app(const struct emv_app_t* app)
 		printf(", Cardholder confirmation required");
 	}
 	printf("\n");
+}
+
+static void print_emv_debug_internal(
+	enum emv_debug_type_t debug_type,
+	const char* str,
+	const void* buf,
+	size_t buf_len
+)
+{
+	if (debug_type == EMV_DEBUG_TYPE_MSG) {
+		printf("%s\n", str);
+		return;
+	} else {
+		printf("%s: ", str);
+		print_buf(NULL, buf, buf_len);
+
+		switch (debug_type) {
+			case EMV_DEBUG_TYPE_TLV:
+				print_emv_buf(buf, buf_len, "  ", 1);
+				return;
+
+			default:
+				return;
+		}
+	}
+}
+
+void print_emv_debug(
+	unsigned int timestamp,
+	enum emv_debug_source_t source,
+	enum emv_debug_level_t level,
+	enum emv_debug_type_t debug_type,
+	const char* str,
+	const void* buf,
+	size_t buf_len
+)
+{
+	const char* src_str;
+
+	switch (source) {
+		case EMV_DEBUG_SOURCE_TTL:
+			src_str = "TTL";
+			break;
+
+		case EMV_DEBUG_SOURCE_TAL:
+			src_str = "TAL";
+			break;
+
+		case EMV_DEBUG_SOURCE_EMV:
+			src_str = "EMV";
+			break;
+
+		case EMV_DEBUG_SOURCE_APP:
+			src_str = "APP";
+			break;
+
+		default:
+			src_str = "???";
+			break;
+	}
+
+	printf("[%s] ", src_str);
+	print_emv_debug_internal(debug_type, str, buf, buf_len);
+}
+
+void print_emv_debug_verbose(
+	unsigned int timestamp,
+	enum emv_debug_source_t source,
+	enum emv_debug_level_t level,
+	enum emv_debug_type_t debug_type,
+	const char* str,
+	const void* buf,
+	size_t buf_len
+)
+{
+	const char* src_str;
+	const char* level_str;
+
+	switch (source) {
+		case EMV_DEBUG_SOURCE_TTL:
+			src_str = "TTL";
+			break;
+
+		case EMV_DEBUG_SOURCE_TAL:
+			src_str = "TAL";
+			break;
+
+		case EMV_DEBUG_SOURCE_EMV:
+			src_str = "EMV";
+			break;
+
+		case EMV_DEBUG_SOURCE_APP:
+			src_str = "APP";
+			break;
+
+		default:
+			src_str = "???";
+			break;
+	}
+
+	switch (level) {
+		case EMV_DEBUG_ERROR:
+			level_str = "ERROR";
+			break;
+
+		case EMV_DEBUG_INFO:
+			level_str = "INFO";
+			break;
+
+		case EMV_DEBUG_CARD:
+			level_str = "CARD";
+			break;
+
+		case EMV_DEBUG_TRACE:
+			level_str = "TRACE";
+			break;
+
+		default:
+			level_str = "????";
+			break;
+	}
+
+	printf("[%010u,%s,%s] ", timestamp, src_str, level_str);
+	print_emv_debug_internal(debug_type, str, buf, buf_len);
 }

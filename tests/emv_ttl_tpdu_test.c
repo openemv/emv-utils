@@ -20,6 +20,7 @@
  */
 
 #include "emv_ttl.h"
+#include "emv_debug.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -336,6 +337,13 @@ int main(void)
 	uint8_t data[EMV_RAPDU_DATA_MAX];
 	size_t data_len;
 	uint16_t sw1sw2;
+
+	// Enable debug output
+	r = emv_debug_init(EMV_DEBUG_SOURCE_ALL, EMV_DEBUG_ALL, &print_emv_debug);
+	if (r) {
+		fprintf(stderr, "emv_debug_init() failed; r=%d\n", r);
+		return 1;
+	}
 
 	// Test APDU case 1; normal processing
 	printf("\nTesting APDU case 1 (TPDU mode); normal processing...\n");
