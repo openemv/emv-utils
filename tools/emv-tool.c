@@ -28,9 +28,13 @@
 #include "emv_tlv.h"
 #include "emv_tal.h"
 
+#define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
+#include "emv_debug.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <argp.h>
 
@@ -39,7 +43,6 @@
 #include "emv_ttl.h"
 #include "emv_app.h"
 #include "iso7816_strings.h"
-#include <string.h> // for memset() and memcpy() that should be removed later
 
 // Forward declarations
 struct emv_txn_t;
@@ -56,6 +59,9 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_TXN_TYPE = 1,
 	EMV_TOOL_PARAM_TXN_AMOUNT,
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
+	EMV_TOOL_PARAM_DEBUG_VERBOSE,
+	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
+	EMV_TOOL_PARAM_DEBUG_LEVEL,
 };
 
 // argp option structure
@@ -64,6 +70,12 @@ static struct argp_option argp_options[] = {
 	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
+
+	{ NULL, 0, NULL, 0, "Debug options", 2 },
+	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
+	{ "debug-source", EMV_TOOL_PARAM_DEBUG_SOURCES_MASK, "x,y,z...", 0, "Comma separated list of debug sources. Allowed values are TTL, TAL, EMV, APP, ALL. Default is ALL." },
+	{ "debug-level", EMV_TOOL_PARAM_DEBUG_LEVEL, "LEVEL", 0, "Maximum debug level. Allowed values are NONE, ERROR, INFO, CARD, TRACE, ALL. Default is INFO." },
+
 	{ 0 },
 };
 
@@ -79,6 +91,26 @@ static struct argp argp_config = {
 static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
 static uint32_t txn_amount = 0;
 static uint32_t txn_amount_other = 0;
+
+// Debug parameters
+static bool debug_verbose = false;
+static const char* debug_source_str[] = {
+	"TTL",
+	"TAL",
+	"EMV",
+	"APP",
+	"ALL",
+};
+static unsigned int debug_sources_mask = EMV_DEBUG_SOURCE_ALL;
+static const char* debug_level_str[] = {
+	"NONE",
+	"ERROR",
+	"INFO",
+	"CARD",
+	"TRACE",
+	"ALL",
+};
+static enum emv_debug_level_t debug_level = EMV_DEBUG_INFO;
 
 struct emv_txn_t {
 	// Terminal Transport Layer
@@ -165,6 +197,51 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			txn_amount_other = value;
 
 			return 0;
+		}
+
+		case EMV_TOOL_PARAM_DEBUG_VERBOSE: {
+			debug_verbose = true;
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_DEBUG_SOURCES_MASK: {
+			debug_sources_mask = 0;
+			const char* str;
+
+			// Parse comma separated list
+			while ((str = strtok(arg, ","))) {
+				size_t i;
+				for (i = 0; i < sizeof(debug_source_str) / sizeof(debug_source_str[0]); ++i) {
+					if (strcasecmp(str, debug_source_str[i]) == 0) {
+						break;
+					}
+				}
+
+				if (i >= sizeof(debug_source_str) / sizeof(debug_source_str[0])) {
+					// Failed to find debug source string in list
+					argp_error(state, "Unknown debug source (--debug-source) argument \"%s\"", str);
+				}
+
+				// Found debug source string in list; shift into mask
+				debug_sources_mask |= 1 << i;
+
+				arg = NULL;
+			}
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_DEBUG_LEVEL: {
+			for (size_t i = 0; i < sizeof(debug_level_str) / sizeof(debug_level_str[0]); ++i) {
+				if (strcasecmp(arg, debug_level_str[i]) == 0) {
+					// Found debug level string in list; use index as debug level
+					debug_level = i;
+					return 0;
+				}
+			}
+
+			// Failed to find debug level string in list
+			argp_error(state, "Unknown debug level (--debug-level) argument \"%s\"", arg);
 		}
 
 		default:
@@ -307,6 +384,17 @@ int main(int argc, char** argv)
 		fprintf(stderr, "Secondary transaction amount (--txn-amount-other) must be non-zero for cashback transaction\n");
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 	}
+
+	r = emv_debug_init(
+		debug_sources_mask,
+		debug_level,
+		debug_verbose ? &print_emv_debug_verbose : &print_emv_debug
+	);
+	if (r) {
+		printf("Failed to initialise EMV debugging\n");
+		return 1;
+	}
+	emv_debug_trace_msg("Debugging enabled; debug_verbose=%d; debug_sources_mask=0x%02X; debug_level=%u", debug_verbose, debug_sources_mask, debug_level);
 
 	r = pcsc_init(&pcsc);
 	if (r) {
