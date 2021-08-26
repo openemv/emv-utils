@@ -657,6 +657,31 @@ int main(int argc, char** argv)
 		}
 		print_emv_tlv(aip, "  ", 1);
 		print_emv_tlv(afl, "  ", 1);
+
+		// Read application data
+		struct emv_afl_itr_t afl_itr;
+		struct emv_afl_entry_t afl_entry;
+		r = emv_afl_itr_init(afl->value, afl->length, &afl_itr);
+		if (r) {
+			printf("emv_afl_itr_init() failed; r=%d\n", r);
+			goto emv_exit;
+		}
+		while ((r = emv_afl_itr_next(&afl_itr, &afl_entry)) > 0) {
+			for (uint8_t record_number = afl_entry.first_record; record_number <= afl_entry.last_record; ++record_number) {
+				uint8_t record[EMV_RAPDU_DATA_MAX];
+				size_t record_len = sizeof(record);
+
+				printf("\nReading application data from SFI %u, record %u\n", afl_entry.sfi, record_number);
+
+				r = emv_ttl_read_record(&emv_txn.ttl, afl_entry.sfi, record_number, record, &record_len, &sw1sw2);
+				if (r) {
+					printf("emv_ttl_read_record() failed; r=%d\n", r);
+					goto emv_exit;
+				}
+
+				print_emv_buf(record, record_len, "  ", 0);
+			}
+		}
 	}
 
 	r = pcsc_reader_disconnect(reader);
