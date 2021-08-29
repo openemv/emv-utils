@@ -38,6 +38,9 @@ __BEGIN_DECLS
 /// EMV tag 50 Application Label. Template 61 or A5.
 #define EMV_TAG_50_APPLICATION_LABEL                            (0x50)
 
+/// EMV tag 57 Track 2 Equivalent Data. Template 70 or 77.
+#define EMV_TAG_57_TRACK2_EQUIVALENT_DATA                       (0x57)
+
 /// EMV tag 61 Application Template. Template 70.
 /// @remark See ISO 7816-4:2005, 8.2.1.3
 #define EMV_TAG_61_APPLICATION_TEMPLATE                         (0x61)

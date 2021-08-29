@@ -78,6 +78,15 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 16, value_str, value_str_len);
 
+		case EMV_TAG_57_TRACK2_EQUIVALENT_DATA:
+			info->tag_name = "Track 2 Equivalent Data";
+			info->tag_desc =
+				"Contains the data elements of track 2 according to "
+				"ISO/IEC 7813, excluding start sentinel, end sentinel, and "
+				"Longitudinal Redundancy Check (LRC)";
+			info->format = EMV_FORMAT_B;
+			return emv_track2_equivalent_data_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_61_APPLICATION_TEMPLATE:
 			info->tag_name = "Application Template";
 			info->tag_desc =
@@ -1380,6 +1389,52 @@ int emv_afl_get_string_list(
 		str[0] = 0;
 		return -r;
 	}
+
+	return 0;
+}
+
+int emv_track2_equivalent_data_get_string(
+	const uint8_t* track2,
+	size_t track2_len,
+	char* str,
+	size_t str_len
+)
+{
+	if (!track2 || !track2_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	// The easiest way to convert track2 data to a string is to simply extract
+	// each nibble and add 0x30 ('0') to create the equivalent ASCII character
+	// All ASCII digits from 0x30 to 0x3F are printable and it is only
+	// necessary to check for the padding nibble (0xF)
+	for (unsigned int i = 0; i < track2_len; ++i) {
+		uint8_t digit;
+
+		// Convert most significant nibble
+		digit = track2[i] >> 4;
+		if (digit == 0xF) {
+			// Padding; ignore rest of buffer; NULL terminate
+			str[(i * 2)] = 0;
+			return 0;
+		}
+		str[(i * 2)] = '0' + digit;
+
+		// Convert least significant nibble
+		digit = track2[i] & 0xf;
+		if (digit == 0xF) {
+			// Padding; ignore rest of buffer; NULL terminate
+			str[(i * 2) + 1] = 0;
+			return 0;
+		}
+		str[(i * 2) + 1] = '0' + digit;
+	}
+	str[track2_len * 2] = 0; // NULL terminate
 
 	return 0;
 }

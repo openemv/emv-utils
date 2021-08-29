@@ -301,6 +301,21 @@ int emv_afl_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Track 2 Equivalent Data (field 57)
+ * @param track2 Track 2 Equivalent Data field
+ * @param track2_len Length of Track 2 Equivalent Data field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_track2_equivalent_data_get_string(
+	const uint8_t* track2,
+	size_t track2_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif
