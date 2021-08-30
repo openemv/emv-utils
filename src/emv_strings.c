@@ -87,6 +87,13 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return emv_track2_equivalent_data_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
+		case EMV_TAG_5A_APPLICATION_PAN:
+			info->tag_name = "Application Primary Account Number (PAN)";
+			info->tag_desc =
+				"Valid cardholder account number";
+			info->format = EMV_FORMAT_CN;
+			return emv_tlv_value_get_string(tlv, info->format, 19, value_str, value_str_len);
+
 		case EMV_TAG_61_APPLICATION_TEMPLATE:
 			info->tag_name = "Application Template";
 			info->tag_desc =
@@ -181,6 +188,28 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX:
+			info->tag_name = "Certification Authority Public Key Index";
+			info->tag_desc =
+				"Identifies the certification authority’s public key in "
+				"conjunction with the RID";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE:
+			info->tag_name = "Issuer Public Key Certificate";
+			info->tag_desc =
+				"Issuer public key certified by a certification authority";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER:
+			info->tag_name = "Issuer Public Key Remainder";
+			info->tag_desc =
+				"Remaining digits of the Issuer Public Key Modulus";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_94_APPLICATION_FILE_LOCATOR:
 			info->tag_name = "Application File Locator (AFL)";
 			info->tag_desc =
@@ -224,6 +253,27 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
+		case EMV_TAG_5F20_CARDHOLDER_NAME:
+			info->tag_name = "Cardholder Name";
+			info->tag_desc =
+				"Indicates cardholder name according to ISO 7813";
+			info->format = EMV_FORMAT_ANS;
+			return emv_tlv_value_get_string(tlv, info->format, 26, value_str, value_str_len);
+
+		case EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE:
+			info->tag_name = "Application Expiration Date";
+			info->tag_desc =
+				"Date after which application expires";
+			info->format = EMV_FORMAT_N;
+			return emv_date_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_5F25_APPLICATION_EFFECTIVE_DATE:
+			info->tag_name = "Application Effective Date";
+			info->tag_desc =
+				"Date from which the application may be used";
+			info->format = EMV_FORMAT_N;
+			return emv_date_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE:
 			info->tag_name = "Transaction Currency Code";
 			info->tag_desc =
@@ -240,6 +290,13 @@ int emv_tlv_get_info(
 				"ISO 639";
 			info->format = EMV_FORMAT_AN;
 			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
+
+		case EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER:
+			info->tag_name = "Application Primary Account Number (PAN) Sequence Number";
+			info->tag_desc =
+				"Identifies and differentiates cards with the same PAN";
+			info->format = EMV_FORMAT_N;
+			return 0;
 
 		case EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT:
 			info->tag_name = "Transaction Currency Exponent";
@@ -319,6 +376,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_9F08_APPLICATION_VERSION_NUMBER:
+			info->tag_name = "Application Version Number";
+			info->tag_desc =
+				"Version number assigned by the payment system for the "
+				"application";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX:
 			info->tag_name = "Issuer Code Table Index";
 			info->tag_desc =
@@ -365,12 +430,28 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_AN;
 			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
 
+		case EMV_TAG_9F1F_TRACK1_DISCRETIONARY_DATA:
+			info->tag_name = "Track 1 Discretionary Data";
+			info->tag_desc =
+				"Discretionary part of track 1 according to ISO/IEC 7813";
+			info->format = EMV_FORMAT_ANS;
+			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
+
 		case EMV_TAG_9F21_TRANSACTION_TIME:
 			info->tag_name = "Transaction Time";
 			info->tag_desc =
 				"Local time that the transaction was authorised";
 			info->format = EMV_FORMAT_N;
 			return emv_time_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT:
+			info->tag_name = "Issuer Public Key Exponent";
+			info->tag_desc =
+				"Issuer public key exponent used for the verification of the "
+				"Signed Static Application Data and the ICC Public Key "
+				"Certificate";
+			info->format = EMV_FORMAT_B;
+			return 0;
 
 		case EMV_TAG_9F33_TERMINAL_CAPABILITIES:
 			info->tag_name = "Terminal Capabilities";
@@ -412,6 +493,28 @@ int emv_tlv_get_info(
 				"one for each transaction";
 			info->format = EMV_FORMAT_N;
 			return emv_tlv_value_get_string(tlv, info->format, 4, value_str, value_str_len);
+
+		case EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE:
+			info->tag_name = "Integrated Circuit Card (ICC) Public Key Certificate";
+			info->tag_desc =
+				"ICC Public Key certified by the issuer";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT:
+			info->tag_name = "Integrated Circuit Card (ICC) Public Key Exponent";
+			info->tag_desc =
+				"ICC Public Key Exponent used for the verification of the "
+				"Signed Dynamic Application Data";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER:
+			info->tag_name = "Integrated Circuit Card (ICC) Public Key Remainder";
+			info->tag_desc =
+				"Remaining digits of the ICC Public Key Modulus";
+			info->format = EMV_FORMAT_B;
+			return 0;
 
 		case EMV_TAG_9F4D_LOG_ENTRY:
 			info->tag_name = "Log Entry";

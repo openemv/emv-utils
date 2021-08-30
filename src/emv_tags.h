@@ -41,6 +41,9 @@ __BEGIN_DECLS
 /// EMV tag 57 Track 2 Equivalent Data. Template 70 or 77.
 #define EMV_TAG_57_TRACK2_EQUIVALENT_DATA                       (0x57)
 
+/// EMV tag 5A Application Primary Account Number (PAN). Template 70 or 77.
+#define EMV_TAG_5A_APPLICATION_PAN                              (0x5A)
+
 /// EMV tag 61 Application Template. Template 70.
 /// @remark See ISO 7816-4:2005, 8.2.1.3
 #define EMV_TAG_61_APPLICATION_TEMPLATE                         (0x61)
@@ -87,6 +90,15 @@ __BEGIN_DECLS
 /// EMV tag 88 Short File Indicator (SFI). Template A5.
 #define EMV_TAG_88_SFI                                          (0x88)
 
+/// EMV tag 8F Certification Authority Public Key Index. Template 70 or 77.
+#define EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX     (0x8F)
+
+/// EMV tag 90 Issuer Public Key Certificate. Template 70 or 77.
+#define EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE                (0x90)
+
+/// EMV tag 92 Issuer Public Key Remainder. Template 70 or 77.
+#define EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER                  (0x92)
+
 /// EMV tag 94 Application File Locator (AFL). Template 77 or 80.
 #define EMV_TAG_94_APPLICATION_FILE_LOCATOR                     (0x94)
 
@@ -102,11 +114,23 @@ __BEGIN_DECLS
 /// EMV tag A5 File Control Information (FCI) Proprietary Template. Template 6F.
 #define EMV_TAG_A5_FCI_PROPRIETARY_TEMPLATE                     (0xA5)
 
+/// EMV tag 5F20 Cardholder Name. Template 70 or 77.
+#define EMV_TAG_5F20_CARDHOLDER_NAME                            (0x5F20)
+
+/// EMV tag 5F24 Application Expiration Date. Template 70 or 77.
+#define EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE                (0x5F24)
+
+/// EMV tag 5F25 Application Effective Date. Template 70 or 77.
+#define EMV_TAG_5F25_APPLICATION_EFFECTIVE_DATE                 (0x5F25)
+
 /// EMV tag 5F2A Currency Code
 #define EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE                  (0x5F2A)
 
 /// EMV tag 5F2D Language Preference. Template A5.
 #define EMV_TAG_5F2D_LANGUAGE_PREFERENCE                        (0x5F2D)
+
+/// EMV tag 5F34 Application Primary Account Number (PAN) Sequence Number. Template 70 or 77.
+#define EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER            (0x5F34)
 
 /// EMV tag 5F36 Transaction Currenct Exponent
 #define EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT              (0x5F36)
@@ -138,6 +162,9 @@ __BEGIN_DECLS
 /// EMV tag 9F06 Application Identifier (AID) - terminal
 #define EMV_TAG_9F06_AID                                        (0x9F06)
 
+/// EMV tag 9F08 Application Version Number. Template 70 or 77.
+#define EMV_TAG_9F08_APPLICATION_VERSION_NUMBER                 (0x9F08)
+
 /// EMV tag 9F11 Issuer Code Table Index. Template A5.
 #define EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX                    (0x9F11)
 
@@ -156,8 +183,14 @@ __BEGIN_DECLS
 /// EMV tag 9F1E Interface Device (IFD) Serial Number
 #define EMV_TAG_9F1E_IFD_SERIAL_NUMBER                          (0x9F1E)
 
+/// EMV tag 9F1F Track 1 Discretionary Data. Template 70 or 77.
+#define EMV_TAG_9F1F_TRACK1_DISCRETIONARY_DATA                  (0x9F1F)
+
 /// EMV tag 9F21 Transaction Time
 #define EMV_TAG_9F21_TRANSACTION_TIME                           (0x9F21)
+
+/// EMV tag 9F32 Issuer Public Key Exponent. Template 70 or 77.
+#define EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT                 (0x9F32)
 
 /// EMV tag 9F33 Terminal Capabilities
 #define EMV_TAG_9F33_TERMINAL_CAPABILITIES                      (0x9F33)
@@ -173,6 +206,15 @@ __BEGIN_DECLS
 
 /// EMV tag 9F41 Transaction Sequence Counter
 #define EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER               (0x9F41)
+
+/// EMV tag 9F46 Integrated Circuit Card (ICC) Public Key Certificate. Template 70 or 77.
+#define EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE                 (0x9F46)
+
+/// EMV tag 9F47 Integrated Circuit Card (ICC) Public Key Exponent. Template 70 or 77.
+#define EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT                    (0x9F47)
+
+/// EMV tag 9F48 Integrated Circuit Card (ICC) Public Key Remainder. Template 70 or 77.
+#define EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER                   (0x9F48)
 
 /// EMMV tag 9F4D Log Entry. Template BF0C or 73.
 #define EMV_TAG_9F4D_LOG_ENTRY                                  (0x9F4D)
