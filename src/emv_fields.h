@@ -150,6 +150,34 @@ __BEGIN_DECLS
 #define EMV_AFL_SFI_MASK                                        (0xF8) ///< Application File Locator (AFL) mask for Short File Identifier (SFI)
 #define EMV_AFL_SFI_SHIFT                                       (3) ///< Application File Locator (AFL) shift for Short File Identifier (SFI)
 
+// Cardholder Verification (CV) Rule byte 1, CVM Codes
+// See EMV 4.3 Book 3, Annex C3, Table 39
+#define EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL                  (0x40) ///< Apply succeeding CV Rule if this CVM is unsuccessful
+#define EMV_CV_RULE_CVM_MASK                                    (0x3F) ///< Cardholder Verification (CV) Rule mask for CVM Code
+#define EMV_CV_RULE_CVM_FAIL                                    (0x00) ///< CVM: Fail CVM processing
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT                   (0x01) ///< CVM: Plaintext PIN verification performed by ICC
+#define EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED                   (0x02) ///< CVM: Enciphered PIN verified online
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE     (0x03) ///< CVM: Plaintext PIN verification performed by ICC and signature (paper)
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED                  (0x04) ///< CVM: Enciphered PIN verification performed by ICC
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE    (0x05) ///< CVM: Enciphered PIN verification performed by ICC and signature (paper)
+#define EMV_CV_RULE_CVM_SIGNATURE                               (0x1E) ///< CVM: Signature (paper)
+#define EMV_CV_RULE_NO_CVM                                      (0x1F) ///< CVM: No CVM required
+#define EMV_CV_RULE_INVALID                                     (0x3F) ///< Cardholder Verification (CV) Rule invalid
+
+// Cardholder Verification (CV) Rule byte 2, CVM Condition Codes
+// See EMV 4.3 Book 3, Annex C3, Table 40
+// See EMVCo General Bulletin No. 14 - Migration Schedule for New CVM Condition Codes
+#define EMV_CV_RULE_COND_ALWAYS                                 (0x00) ///< CVM Condition: Always
+#define EMV_CV_RULE_COND_UNATTENDED_CASH                        (0x01) ///< CVM Condition: If unattended cash
+#define EMV_CV_RULE_COND_NOT_CASH_OR_CASHBACK                   (0x02) ///< CVM Condition: If not unattended cash and not manual cash and not purchase with cashback
+#define EMV_CV_RULE_COND_CVM_SUPPORTED                          (0x03) ///< CVM Condition: If terminal supports the CVM
+#define EMV_CV_RULE_COND_MANUAL_CASH                            (0x04) ///< CVM Condition: If manual cash
+#define EMV_CV_RULE_COND_CASHBACK                               (0x05) ///< CVM Condition: If purchase with cashback
+#define EMV_CV_RULE_COND_LESS_THAN_X                            (0x06) ///< CVM Condition: If transaction is in the application currency and is under X value
+#define EMV_CV_RULE_COND_MORE_THAN_X                            (0x07) ///< CVM Condition: If transaction is in the application currency and is over X value
+#define EMV_CV_RULE_COND_LESS_THAN_Y                            (0x08) ///< CVM Condition: If transaction is in the application currency and is under Y value
+#define EMV_CV_RULE_COND_MORE_THAN_Y                            (0x09) ///< CVM Condition: If transaction is in the application currency and is over Y value
+
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {
 	const void* ptr;
@@ -180,6 +208,48 @@ int emv_afl_itr_init(const void* afl, size_t afl_len, struct emv_afl_itr_t* itr)
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int emv_afl_itr_next(struct emv_afl_itr_t* itr, struct emv_afl_entry_t* entry);
+
+/// Cardholder Verification Method (CVM) List iterator
+struct emv_cvmlist_itr_t {
+	const void* ptr;
+	size_t len;
+};
+
+/// Cardholder Verification Method (CVM) List amounts
+struct emv_cvmlist_amounts_t {
+	uint32_t X; ///< First amount field, referred to as "X" in EMV 4.3 Book 3, Annex C3, Table 40
+	uint32_t Y; ///< Second amount field, referred to as "Y" in EMV 4.3 Book 3, Annex C3, Table 40
+};
+
+/// Cardholder Verification (CV) Rule
+/// @remark See EMV 4.3 Book 3, Annex C3
+struct emv_cv_rule_t {
+	uint8_t cvm; /// Cardholder Verification Method (CVM) Code
+	uint8_t cvm_cond; /// Cardholder Verification Method (CVM) Condition
+};
+
+/**
+ * Initialize Cardholder Verification Method (CVM) List amounts and iterator
+ * @param cvmlist Cardholder Verification Method (CVM) List field
+ * @param cvmlist_len Length of Cardholder Verification Method (CVM) List field
+ * @param amounts Cardholder Verification Method (CVM) List amounts output
+ * @param itr Cardholder Verification Method (CVM) List iterator output
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_cvmlist_itr_init(
+	const void* cvmlist,
+	size_t cvmlist_len,
+	struct emv_cvmlist_amounts_t* amounts,
+	struct emv_cvmlist_itr_t* itr
+);
+
+/**
+ * Decode next Cardholder Verification (CV) Rule and advance iterator
+ * @param itr Cardholder Verification Method (CVM) List iterator
+ * @param entry Decoded Cardholder Verification (CV) Rule output
+ * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
+ */
+int emv_cvmlist_itr_next(struct emv_cvmlist_itr_t* itr, struct emv_cv_rule_t* rule);
 
 __END_DECLS
 

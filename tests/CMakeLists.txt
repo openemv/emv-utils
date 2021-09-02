@@ -19,4 +19,8 @@ if (BUILD_TESTING)
 	add_executable(emv_str_parse_test emv_str_parse_test.c ../tools/print_helpers.c)
 	target_link_libraries(emv_str_parse_test emv iso7816)
 	add_test(emv_str_parse_test emv_str_parse_test)
+
+	add_executable(emv_cvmlist_test emv_cvmlist_test.c)
+	target_link_libraries(emv_cvmlist_test emv)
+	add_test(emv_cvmlist_test emv_cvmlist_test)
 endif()
