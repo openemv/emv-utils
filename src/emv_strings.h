@@ -316,6 +316,21 @@ int emv_track2_equivalent_data_get_string(
 	size_t str_len
 );
 
+/**
+ * Stringify Cardholder Verification Method (CVM) List (field 8E)
+ * @param cvmlist Cardholder Verification Method (CVM) List field
+ * @param cvmlist_len Length of Cardholder Verification Method (CVM) List field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_cvmlist_get_string_list(
+	const uint8_t* cvmlist,
+	size_t cvmlist_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif

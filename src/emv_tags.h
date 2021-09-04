@@ -90,6 +90,9 @@ __BEGIN_DECLS
 /// EMV tag 88 Short File Indicator (SFI). Template A5.
 #define EMV_TAG_88_SFI                                          (0x88)
 
+/// EMV tag 8E Cardholder Verification Method (CVM) List. Template 70 or 77.
+#define EMV_TAG_8E_CVM_LIST                                     (0x8E)
+
 /// EMV tag 8F Certification Authority Public Key Index. Template 70 or 77.
 #define EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX     (0x8F)
 
