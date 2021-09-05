@@ -25,7 +25,8 @@
 #include "emv_fields.h"
 
 #include <string.h>
-#include <stdio.h> // for snprintf()
+#include <stdarg.h>
+#include <stdio.h> // for vsnprintf() and snprintf()
 
 struct str_itr_t {
 	char* ptr;
@@ -36,7 +37,7 @@ struct str_itr_t {
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len);
 static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
-static void emv_str_list_add(struct str_itr_t* itr, const char* str);
+static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
@@ -1045,18 +1046,41 @@ static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len)
 	itr->len = len;
 }
 
-static void emv_str_list_add(struct str_itr_t* itr, const char* str)
+__attribute__((format(printf, 2, 3)))
+static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...)
 {
-	size_t str_len = strlen(str);
+	int r;
+	size_t str_len_max;
+	size_t str_len;
 
-	// Ensure that the string, delimiter and NULL termination do not exceed
-	// the remaining buffer length
-	if (str_len + 2 > itr->len) {
+	// Ensure that the iterator has enough space for at least one character,
+	// the delimiter, and the NULL termination
+	if (itr->len < 3) {
 		return;
 	}
 
-	// This is safe because we know str_len < itr->len
-	memcpy(itr->ptr, str, str_len);
+	// Leave space for delimiter. This should be used for calling vsnprintf()
+	// and evaluating the return value
+	str_len_max = itr->len - 1;
+
+	va_list ap;
+	va_start(ap, fmt);
+	r = vsnprintf(itr->ptr, str_len_max, fmt, ap);
+	va_end(ap);
+	if (r < 0) {
+		// vsnprintf() error; NULL terminate
+		*itr->ptr = 0;
+		return;
+	}
+	if (r >= str_len_max) {
+		// vsnprintf() output truncated
+		// str_len_max already has space for delimiter so leave enough space
+		// for NULL termination
+		str_len = str_len_max - 1;
+	} else {
+		// vsnprintf() successful
+		str_len = r;
+	}
 
 	// Delimiter
 	itr->ptr[str_len] = '\n';
@@ -1433,66 +1457,48 @@ int emv_afl_get_string_list(
 
 	emv_str_list_init(&str_itr, str, str_len);
 
-	// For each Application File Locator entry, build a temporary string and
-	// add it to the string list
+	// For each Application File Locator entry, format the string according
+	// to the details and add it to the string list
 	while ((r = emv_afl_itr_next(&afl_itr, &afl_entry)) > 0) {
-		char tmp[128];
-		size_t offset;
 
-		// Build tmp string: "SFI <x>, record <y> - <z>"
 		if (afl_entry.first_record == afl_entry.last_record) {
-			r = snprintf(
-				tmp,
-				sizeof(tmp),
-				"SFI %u, record %u",
-				afl_entry.sfi,
-				afl_entry.first_record
-			);
+			if (afl_entry.oda_record_count) {
+				emv_str_list_add(
+					&str_itr,
+					"SFI %u, record %u, %u record used for offline data authentication",
+					afl_entry.sfi,
+					afl_entry.first_record,
+					afl_entry.oda_record_count
+				);
+			} else {
+				emv_str_list_add(
+					&str_itr,
+					"SFI %u, record %u",
+					afl_entry.sfi,
+					afl_entry.first_record
+				);
+			}
 		} else {
-			r = snprintf(
-				tmp,
-				sizeof(tmp),
-				"SFI %u, record %u to %u",
-				afl_entry.sfi,
-				afl_entry.first_record,
-				afl_entry.last_record
-			);
-		}
-		if (r >= sizeof(tmp)) {
-			// Not enough space left; internal error
-			str[0] = 0;
-			return -2;
-		}
-		if (r < 0) {
-			// Unknown error
-			str[0] = 0;
-			return -3;
-		}
-		offset = r;
-
-		// Append "<x> number of record(s) used for offline data authentication"
-		if (afl_entry.oda_record_count) {
-			r = snprintf(
-				tmp + offset,
-				sizeof(tmp) - offset,
-				", %u record%s used for offline data authentication",
-				afl_entry.oda_record_count,
-				afl_entry.oda_record_count > 1 ? "s" : ""
-			);
-			if (r >= sizeof(tmp) - offset) {
-				// Not enough space left; internal error
-				str[0] = 0;
-				return -4;
-			}
-			if (r < 0) {
-				// Unknown error
-				str[0] = 0;
-				return -5;
+			if (afl_entry.oda_record_count) {
+				emv_str_list_add(
+					&str_itr,
+					"SFI %u, record %u to %u, %u record%s used for offline data authentication",
+					afl_entry.sfi,
+					afl_entry.first_record,
+					afl_entry.last_record,
+					afl_entry.oda_record_count,
+					afl_entry.oda_record_count > 1 ? "s" : ""
+				);
+			} else {
+				emv_str_list_add(
+					&str_itr,
+					 "SFI %u, record %u to %u",
+					 afl_entry.sfi,
+					 afl_entry.first_record,
+					 afl_entry.last_record
+				);
 			}
 		}
-
-		// Add temporary string to list
-		emv_str_list_add(&str_itr, tmp);
 	}
 
 	if (r < 0) {
@@ -1580,7 +1586,6 @@ int emv_cvmlist_get_string_list(
 		char cond_str_tmp[128];
 		const char* cvm_str;
 		const char* proc_str;
-		char cv_rule_str[256];
 
 		// CVM Condition string
 		// See EMV 4.3 Book 3, Annex C3, Table 40
@@ -1744,28 +1749,14 @@ int emv_cvmlist_get_string_list(
 			proc_str = "Fail cardholder verification if this CVM is unsuccessful";
 		}
 
-		// Build string
-		r = snprintf(
-			cv_rule_str,
-			sizeof(cv_rule_str),
+		// Add CV Rule string to list
+		emv_str_list_add(
+			&str_itr,
 			"%s; %s; %s",
 			cond_str,
 			cvm_str,
 			proc_str
 		);
-		if (r >= sizeof(cv_rule_str)) {
-			// Not enough space left; internal error
-			str[0] = 0;
-			return -4;
-		}
-		if (r < 0) {
-			// Unknown error
-			str[0] = 0;
-			return -5;
-		}
-
-		// Add CV Rule string to list
-		emv_str_list_add(&str_itr, cv_rule_str);
 	}
 
 	return 0;
