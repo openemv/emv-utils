@@ -90,6 +90,12 @@ __BEGIN_DECLS
 /// EMV tag 88 Short File Indicator (SFI). Template A5.
 #define EMV_TAG_88_SFI                                          (0x88)
 
+/// EMV tag 8C Card Risk Management Data Object List 1 (CDOL1). Template 70 or 77.
+#define EMV_TAG_8C_CDOL1                                        (0x8C)
+
+/// EMV tag 8D Card Risk Management Data Object List 2 (CDOL2). Template 70 or 77.
+#define EMV_TAG_8D_CDOL2                                        (0x8D)
+
 /// EMV tag 8E Cardholder Verification Method (CVM) List. Template 70 or 77.
 #define EMV_TAG_8E_CVM_LIST                                     (0x8E)
 
@@ -218,6 +224,9 @@ __BEGIN_DECLS
 
 /// EMV tag 9F48 Integrated Circuit Card (ICC) Public Key Remainder. Template 70 or 77.
 #define EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER                   (0x9F48)
+
+/// EMV tag 9F49 Dynamic Data Authentication Data Object List (DDOL). Template 70 or 77.
+#define EMV_TAG_9F49_DDOL                                       (0x9F49)
 
 /// EMMV tag 9F4D Log Entry. Template BF0C or 73.
 #define EMV_TAG_9F4D_LOG_ENTRY                                  (0x9F4D)

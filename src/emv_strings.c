@@ -189,6 +189,22 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_8C_CDOL1:
+			info->tag_name = "Card Risk Management Data Object List 1 (CDOL1)";
+			info->tag_desc =
+				"List of data objects (tag and length) to be passed to the "
+				"ICC in the first GENERATE AC command";
+			info->format = EMV_FORMAT_DOL;
+			return 0;
+
+		case EMV_TAG_8D_CDOL2:
+			info->tag_name = "Card Risk Management Data Object List 2 (CDOL2)";
+			info->tag_desc =
+				"List of data objects (tag and length) to be passed to the "
+				"ICC in the second GENERATE AC command";
+			info->format = EMV_FORMAT_DOL;
+			return 0;
+
 		case EMV_TAG_8E_CVM_LIST:
 			info->tag_name = "Cardholder Verification Method (CVM) List";
 			info->tag_desc =
@@ -243,6 +259,12 @@ int emv_tlv_get_info(
 				"The actual values to be used for the Transaction Type data "
 				"element are defined by the relevant payment system.";
 			info->format = EMV_FORMAT_N;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
 			return emv_transaction_type_get_string(tlv->value[0], value_str, value_str_len);
 
 		case EMV_TAG_9D_DDF_NAME:
@@ -476,6 +498,12 @@ int emv_tlv_get_info(
 				"Indicates the environment of the terminal, its "
 				"communications capability, and its operational control";
 			info->format = EMV_FORMAT_N;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
 			return emv_term_type_get_string_list(tlv->value[0], value_str, value_str_len);
 
 		case EMV_TAG_9F38_PDOL:
@@ -523,6 +551,14 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Remaining digits of the ICC Public Key Modulus";
 			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F49_DDOL:
+			info->tag_name = "Dynamic Data Authentication Data Object List (DDOL)";
+			info->tag_desc =
+				"List of data objects (tag and length) to be passed to the "
+				"ICC in the INTERNAL AUTHENTICATE command";
+			info->format = EMV_FORMAT_DOL;
 			return 0;
 
 		case EMV_TAG_9F4D_LOG_ENTRY:
