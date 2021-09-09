@@ -171,6 +171,9 @@ __BEGIN_DECLS
 /// EMV tag 9F06 Application Identifier (AID) - terminal
 #define EMV_TAG_9F06_AID                                        (0x9F06)
 
+/// EMV tag 9F07 Application Usage Control. Template 70 or 77.
+#define EMV_TAG_9F07_APPLICATION_USAGE_CONTROL                  (0x9F07)
+
 /// EMV tag 9F08 Application Version Number. Template 70 or 77.
 #define EMV_TAG_9F08_APPLICATION_VERSION_NUMBER                 (0x9F08)
 

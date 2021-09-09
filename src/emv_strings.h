@@ -302,6 +302,22 @@ int emv_afl_get_string_list(
 );
 
 /**
+ * Stringify Application Usage Control (field 9F07)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param auc Application Usage Control field. Must be two bytes.
+ * @param auc_len Length of Application Usage Control field. Must be two bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_app_usage_control_get_string_list(
+	const uint8_t* auc,
+	size_t auc_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Track 2 Equivalent Data (field 57)
  * @param track2 Track 2 Equivalent Data field
  * @param track2_len Length of Track 2 Equivalent Data field

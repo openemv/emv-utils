@@ -150,6 +150,23 @@ __BEGIN_DECLS
 #define EMV_AFL_SFI_MASK                                        (0xF8) ///< Application File Locator (AFL) mask for Short File Identifier (SFI)
 #define EMV_AFL_SFI_SHIFT                                       (3) ///< Application File Locator (AFL) shift for Short File Identifier (SFI)
 
+// Application Usage Control (field 9F07) byte 1
+// See EMV 4.3 Book 3, Annex C2, Table 38
+#define EMV_AUC_DOMESTIC_CASH                                   (0x80) ///< Application Usage Control: Valid for domestic cash transactions
+#define EMV_AUC_INTERNATIONAL_CASH                              (0x40) ///< Application Usage Control: Valid for international cash transactions
+#define EMV_AUC_DOMESTIC_GOODS                                  (0x20) ///< Application Usage Control: Valid for domestic goods
+#define EMV_AUC_INTERNATIONAL_GOODS                             (0x10) ///< Application Usage Control: Valid for international goods
+#define EMV_AUC_DOMESTIC_SERVICES                               (0x08) ///< Application Usage Control: Valid for domestic services
+#define EMV_AUC_INTERNATIONAL_SERVICES                          (0x04) ///< Application Usage Control: Valid for international services
+#define EMV_AUC_ATM                                             (0x02) ///< Application Usage Control: Valid at ATMs
+#define EMV_AUC_NON_ATM                                         (0x01) ///< Application Usage Control: Valid at terminals other than ATMs
+
+// Application Usage Control (field 9F07) byte 2
+// See EMV 4.3 Book 3, Annex C2, Table 38
+#define EMV_AUC_DOMESTIC_CASHBACK                               (0x80) ///< Application Usage Control: Domestic cashback allowed
+#define EMV_AUC_INTERNATIONAL_CASHBACK                          (0x40) ///< Application Usage Control: International cashback allowed
+#define EMV_AUC_RFU                                             (0x3F) ///< Application Usage Control: RFU
+
 // Cardholder Verification (CV) Rule byte 1, CVM Codes
 // See EMV 4.3 Book 3, Annex C3, Table 39
 #define EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL                  (0x40) ///< Apply succeeding CV Rule if this CVM is unsuccessful

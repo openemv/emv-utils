@@ -407,6 +407,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_9F07_APPLICATION_USAGE_CONTROL:
+			info->tag_name = "Application Usage Control";
+			info->tag_desc =
+				"Indicates issuer’s specified restrictions on the geographic "
+				"usage and services allowed for the application";
+			info->format = EMV_FORMAT_B;
+			return emv_app_usage_control_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_9F08_APPLICATION_VERSION_NUMBER:
 			info->tag_name = "Application Version Number";
 			info->tag_desc =
@@ -1541,6 +1549,73 @@ int emv_afl_get_string_list(
 		// Parsing error
 		str[0] = 0;
 		return -r;
+	}
+
+	return 0;
+}
+
+int emv_app_usage_control_get_string_list(
+	const uint8_t* auc,
+	size_t auc_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!auc || !auc_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (auc_len != 2) {
+		// Application Usage Control (field 9F07) must be 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Application Usage Control (field 9F07) byte 1
+	// See EMV 4.3 Book 3, Annex C2, Table 38
+	if (auc[0] & EMV_AUC_DOMESTIC_CASH) {
+		emv_str_list_add(&itr, "Valid for domestic cash transactions");
+	}
+	if (auc[0] & EMV_AUC_INTERNATIONAL_CASH) {
+		emv_str_list_add(&itr, "Valid for international cash transactions");
+	}
+	if (auc[0] & EMV_AUC_DOMESTIC_GOODS) {
+		emv_str_list_add(&itr, "Valid for domestic goods");
+	}
+	if (auc[0] & EMV_AUC_INTERNATIONAL_GOODS) {
+		emv_str_list_add(&itr, "Valid for international goods");
+	}
+	if (auc[0] & EMV_AUC_DOMESTIC_SERVICES) {
+		emv_str_list_add(&itr, "Valid for domestic services");
+	}
+	if (auc[0] & EMV_AUC_INTERNATIONAL_SERVICES) {
+		emv_str_list_add(&itr, "Valid for international services");
+	}
+	if (auc[0] & EMV_AUC_ATM) {
+		emv_str_list_add(&itr, "Valid at ATMs");
+	}
+	if (auc[0] & EMV_AUC_NON_ATM) {
+		emv_str_list_add(&itr, "Valid at terminals other than ATMs");
+	}
+
+	// Application Usage Control (field 9F07) byte 2
+	// See EMV 4.3 Book 3, Annex C2, Table 38
+	if (auc[1] & EMV_AUC_DOMESTIC_CASHBACK) {
+		emv_str_list_add(&itr, "Domestic cashback allowed");
+	}
+	if (auc[1] & EMV_AUC_INTERNATIONAL_CASHBACK) {
+		emv_str_list_add(&itr, "International cashback allowed");
+	}
+	if (auc[1] & EMV_AUC_RFU) {
+		emv_str_list_add(&itr, "RFU");
 	}
 
 	return 0;
