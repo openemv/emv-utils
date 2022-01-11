@@ -210,6 +210,9 @@ __BEGIN_DECLS
 /// EMV tag 9F35 Terminal Type
 #define EMV_TAG_9F35_TERMINAL_TYPE                              (0x9F35)
 
+/// EMV tag 9F37 Unpredictable Number
+#define EMV_TAG_9F37_UNPREDICTABLE_NUMBER                       (0x9F37)
+
 /// EMV tag 9F38 Processing Options Data Object List (PDOL). Template A5.
 #define EMV_TAG_9F38_PDOL                                       (0x9F38)
 

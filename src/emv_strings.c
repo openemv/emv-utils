@@ -514,6 +514,14 @@ int emv_tlv_get_info(
 			}
 			return emv_term_type_get_string_list(tlv->value[0], value_str, value_str_len);
 
+		case EMV_TAG_9F37_UNPREDICTABLE_NUMBER:
+			info->tag_name = "Unpredictable Number";
+			info->tag_desc =
+				"Value to provide variability and uniqueness to the "
+				"generation of a cryptogram";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F38_PDOL:
 			info->tag_name = "Processing Options Data Object List (PDOL)";
 			info->tag_desc =
