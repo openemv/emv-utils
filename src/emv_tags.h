@@ -38,6 +38,10 @@ __BEGIN_DECLS
 /// EMV tag 50 Application Label. Template 61 or A5.
 #define EMV_TAG_50_APPLICATION_LABEL                            (0x50)
 
+/// EMV tag 56 Track 1 Data. Template 70.
+/// @remark See EMV Contactless Book C-2 v2.10, Annex A.1.176
+#define EMV_TAG_56_TRACK1_DATA                                  (0x56)
+
 /// EMV tag 57 Track 2 Equivalent Data. Template 70 or 77.
 #define EMV_TAG_57_TRACK2_EQUIVALENT_DATA                       (0x57)
 

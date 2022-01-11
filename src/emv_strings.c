@@ -79,6 +79,15 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 16, value_str, value_str_len);
 
+		case EMV_TAG_56_TRACK1_DATA:
+			info->tag_name = "Track 1 Data";
+			info->tag_desc =
+				"Contains the data objects of the track 1 according to "
+				"ISO/IEC 7813 Structure B, excluding start sentinel, end "
+				"sentinel and Longitudinal Redundancy Check (LRC)";
+			info->format = EMV_FORMAT_ANS;
+			return emv_tlv_value_get_string(tlv, info->format, 76, value_str, value_str_len);
+
 		case EMV_TAG_57_TRACK2_EQUIVALENT_DATA:
 			info->tag_name = "Track 2 Equivalent Data";
 			info->tag_desc =
