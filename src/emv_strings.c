@@ -540,6 +540,20 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_DOL;
 			return 0;
 
+		case EMV_TAG_9F39_POS_ENTRY_MODE:
+			info->tag_name = "Point-of-Service (POS) Entry Mode";
+			info->tag_desc =
+				"Indicates the method by which the PAN was entered, according "
+				"to the first two digits of the ISO 8583:1987 POS Entry Mode";
+			info->format = EMV_FORMAT_N;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
+			return emv_pos_entry_mode_get_string(tlv->value[0], value_str, value_str_len);
+
 		case EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES:
 			info->tag_name = "Additional Terminal Capabilities";
 			info->tag_desc =
@@ -1308,6 +1322,88 @@ int emv_term_caps_get_string_list(
 	}
 
 	return 0;
+}
+
+int emv_pos_entry_mode_get_string(
+	uint8_t pos_entry_mode,
+	char* str,
+	size_t str_len
+)
+{
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	switch (pos_entry_mode) {
+		case EMV_POS_ENTRY_MODE_UNKNOWN:
+			strncpy(str, "Unknown", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_MANUAL:
+			strncpy(str, "Manual PAN entry", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_MAG:
+			strncpy(str, "Magnetic stripe", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_BARCODE:
+			strncpy(str, "Barcode", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_OCR:
+			strncpy(str, "OCR", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_ICC_WITH_CVV:
+			strncpy(str, "Integrated circuit card (ICC). CVV can be checked.", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_CONTACTLESS_EMV:
+			strncpy(str, "Auto entry via contactless EMV", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_CARDHOLDER_ON_FILE:
+			strncpy(str, "Merchant has Cardholder Credentials on File", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_MAG_FALLBACK:
+			strncpy(str, "Fallback from integrated circuit card (ICC) to magnetic stripe", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_MAG_WITH_CVV:
+			strncpy(str, "Magnetic stripe as read from track 2. CVV can be checked.", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_CONTACTLESS_MAG:
+			strncpy(str, "Auto entry via contactless magnetic stripe", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_ICC_WITHOUT_CVV:
+			strncpy(str, "Integrated circuit card (ICC). CVV may not be checked.", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_POS_ENTRY_MODE_ORIGINAL_TXN:
+			strncpy(str, "Same as original transaction", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		default:
+			return 1;
+	}
 }
 
 int emv_addl_term_caps_get_string_list(

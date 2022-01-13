@@ -254,6 +254,19 @@ int emv_term_caps_get_string_list(
 );
 
 /**
+ * Stringify Point-of-Service (POS) Entry Mode (field 9F39)
+ * @param txn_type POS entry mode field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_pos_entry_mode_get_string(
+	uint8_t pos_entry_mode,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Additional Terminal Capabilities (field 9F40)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param addl_term_caps Additional terminal capabilities field. Must be 5 bytes.

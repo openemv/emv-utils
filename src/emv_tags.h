@@ -220,6 +220,9 @@ __BEGIN_DECLS
 /// EMV tag 9F38 Processing Options Data Object List (PDOL). Template A5.
 #define EMV_TAG_9F38_PDOL                                       (0x9F38)
 
+/// EMV tag 9F39 Point-of-Service (POS) Entry Mode
+#define EMV_TAG_9F39_POS_ENTRY_MODE                             (0x9F39)
+
 /// EMV tag 9F40 Additional Terminal Capabilities
 #define EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES           (0x9F40)
 

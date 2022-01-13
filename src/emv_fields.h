@@ -39,7 +39,8 @@ __BEGIN_DECLS
 #define EMV_ASI_PARTIAL_MATCH                                   (0x01)
 
 // Transaction Type (field 9C)
-// See ISO 8583:1987
+// See ISO 8583:1987, 4.3.8
+// See ISO 8583:1993, A.9
 #define EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES                 (0x00) ///< Transaction Type: Goods and services
 #define EMV_TRANSACTION_TYPE_CASH                               (0x01) ///< Transaction Type: Cash
 #define EMV_TRANSACTION_TYPE_CASHBACK                           (0x09) ///< Transaction Type: Cashback
@@ -83,6 +84,24 @@ __BEGIN_DECLS
 #define EMV_TERM_CAPS_SECURITY_CARD_CAPTURE                     (0x20) ///< Security Capability: Card capture
 #define EMV_TERM_CAPS_SECURITY_CDA                              (0x08) ///< Security Capability: Combined DDA/Application Cryptogram Generation (CDA)
 #define EMV_TERM_CAPS_SECURITY_RFU                              (0x17) ///< Security Capability: RFU
+
+// Point-of-Service (POS) Entry Mode (field 9F39)
+// See ISO 8583:1987, 4.3.14
+// See ISO 8583:1993, A.8
+// See ISO 8583:2003
+#define EMV_POS_ENTRY_MODE_UNKNOWN                              (0x00) ///< POS Entry Mode: Unknown
+#define EMV_POS_ENTRY_MODE_MANUAL                               (0x01) ///< POS Entry Mode: Manual PAN entry
+#define EMV_POS_ENTRY_MODE_MAG                                  (0x02) ///< POS Entry Mode: Magnetic stripe
+#define EMV_POS_ENTRY_MODE_BARCODE                              (0x03) ///< POS Entry Mode: Barcode
+#define EMV_POS_ENTRY_MODE_OCR                                  (0x04) ///< POS Entry Mode: OCR
+#define EMV_POS_ENTRY_MODE_ICC_WITH_CVV                         (0x05) ///< POS Entry Mode: Integrated circuit card (ICC). CVV can be checked.
+#define EMV_POS_ENTRY_MODE_CONTACTLESS_EMV                      (0x07) ///< POS Entry Mode: Auto entry via contactless EMV
+#define EMV_POS_ENTRY_MODE_CARDHOLDER_ON_FILE                   (0x10) ///< POS Entry Mode: Merchant has Cardholder Credentials on File
+#define EMV_POS_ENTRY_MODE_MAG_FALLBACK                         (0x80) ///< POS Entry Mode: Fallback from integrated circuit card (ICC) to magnetic stripe
+#define EMV_POS_ENTRY_MODE_MAG_WITH_CVV                         (0x90) ///< POS Entry Mode: Magnetic stripe as read from track 2. CVV can be checked.
+#define EMV_POS_ENTRY_MODE_CONTACTLESS_MAG                      (0x91) ///< POS Entry Mode: Auto entry via contactless magnetic stripe
+#define EMV_POS_ENTRY_MODE_ICC_WITHOUT_CVV                      (0x95) ///< POS Entry Mode: Integrated circuit card (ICC). CVV may not be checked.
+#define EMV_POS_ENTRY_MODE_ORIGINAL_TXN                         (0x99) ///< POS Entry Mode: Same as original transaction
 
 // Additional Terminal Capabilities (field 9F40) byte 1
 // See EMV 4.3 Book 4, Annex A3, table 28
