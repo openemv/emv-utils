@@ -568,7 +568,7 @@ int emv_tlv_get_info(
 				"Counter maintained by the terminal that is incremented by "
 				"one for each transaction";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 4, value_str, value_str_len);
+			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
 
 		case EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE:
 			info->tag_name = "Integrated Circuit Card (ICC) Public Key Certificate";
@@ -621,6 +621,15 @@ int emv_tlv_get_info(
 	}
 }
 
+/**
+ * Internal function to stringify EMV values according to their format
+ *
+ * @param tlv Decoded EMV TLV structure
+ * @param format EMV field format. See @ref emv_format_t
+ * @param max_format_len Maximum number of format digits
+ * @param value_str Value string buffer output. NULL to ignore.
+ * @param value_str_len Length of value string buffer in bytes. Zero to ignore.
+ */
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len)
 {
 	int r;
@@ -632,14 +641,34 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 
 	// Validate max format length
 	if (max_format_len) {
-		if (tlv->length > max_format_len) {
-			// Value exceeds maximum format length
-			return -2;
+		switch (format) {
+			case EMV_FORMAT_A:
+			case EMV_FORMAT_AN:
+			case EMV_FORMAT_ANS:
+				// Formats that specify a single digit per byte
+				if (tlv->length > max_format_len) {
+					// Value exceeds maximum format length
+					return -2;
+				}
+				break;
+
+			case EMV_FORMAT_CN:
+			case EMV_FORMAT_N:
+				// Formats that specify two digits per byte
+				if (tlv->length > (max_format_len + 1) / 2) {
+					// Value exceeds maximum format length
+					return -3;
+				}
+				break;
+
+			default:
+				// Unknown format
+				return -4;
 		}
 
 		if (value_str_len < max_format_len + 1) { // +1 is for NULL terminator
 			// Value string output buffer is shorter than maximum format length
-			return -3;
+			return -5;
 		}
 	}
 
@@ -683,7 +712,7 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 
 		default:
 			// Unknown format
-			return -4;
+			return -6;
 	}
 }
 
