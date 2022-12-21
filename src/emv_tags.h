@@ -136,6 +136,9 @@ __BEGIN_DECLS
 /// EMV tag 5F25 Application Effective Date. Template 70 or 77.
 #define EMV_TAG_5F25_APPLICATION_EFFECTIVE_DATE                 (0x5F25)
 
+/// EMV tag 5F28 Issuer Country Code. Template 70 or 77.
+#define EMV_TAG_5F28_ISSUER_COUNTRY_CODE                        (0x5F28)
+
 /// EMV tag 5F2A Currency Code
 #define EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE                  (0x5F2A)
 
@@ -163,6 +166,9 @@ __BEGIN_DECLS
 /// EMV tag 5F56 Issuer Country Code (alpha3 format). Template BF0C or 73.
 #define EMV_TAG_5F56_ISSUER_COUNTRY_CODE_ALPHA3                 (0x5F56)
 
+/// EMV tag 9F01 Acquirer Identifier
+#define EMV_TAG_9F01_ACQUIRER_IDENTIFIER                        (0x9F01)
+
 /// EMV tag 9F02 Amount, Authorised (Numeric)
 #define EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC                  (0x9F02)
 
@@ -181,11 +187,17 @@ __BEGIN_DECLS
 /// EMV tag 9F08 Application Version Number. Template 70 or 77.
 #define EMV_TAG_9F08_APPLICATION_VERSION_NUMBER                 (0x9F08)
 
+/// EMV tag 9F09 Application Version Number - terminal
+#define EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL        (0x9F09)
+
 /// EMV tag 9F11 Issuer Code Table Index. Template A5.
 #define EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX                    (0x9F11)
 
 /// EMV tag 9F12 Application Preferred Name. Template 61 or A5.
 #define EMV_TAG_9F12_APPLICATION_PREFERRED_NAME                 (0x9F12)
+
+/// EMV tag 9F16 Merchant Identifier
+#define EMV_TAG_9F16_MERCHANT_IDENTIFIER                        (0x9F16)
 
 /// EMV tag 9F1A Terminal Country Code
 #define EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE                      (0x9F1A)
@@ -205,6 +217,12 @@ __BEGIN_DECLS
 /// EMV tag 9F21 Transaction Time
 #define EMV_TAG_9F21_TRANSACTION_TIME                           (0x9F21)
 
+/// EMV tag 9F26 Application Cryptogram. Template 77 or 80.
+#define EMV_TAG_9F26_APPLICATION_CRYPTOGRAM                     (0x9F26)
+
+/// EMV tag 9F27 Cryptogram Information Data. Template 77 or 80.
+#define EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA                (0x9F27)
+
 /// EMV tag 9F32 Issuer Public Key Exponent. Template 70 or 77.
 #define EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT                 (0x9F32)
 
@@ -213,6 +231,9 @@ __BEGIN_DECLS
 
 /// EMV tag 9F35 Terminal Type
 #define EMV_TAG_9F35_TERMINAL_TYPE                              (0x9F35)
+
+/// EMV tag 9F36 Application Transaction Counter (ATC). Template 77 or 80.
+#define EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER            (0x9F36)
 
 /// EMV tag 9F37 Unpredictable Number
 #define EMV_TAG_9F37_UNPREDICTABLE_NUMBER                       (0x9F37)
@@ -229,6 +250,9 @@ __BEGIN_DECLS
 /// EMV tag 9F41 Transaction Sequence Counter
 #define EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER               (0x9F41)
 
+/// EMV tag 9F42 Application Currency Code. Template 70 or 77.
+#define EMV_TAG_9F42_APPLICATION_CURRENCY_CODE                  (0x9F42)
+
 /// EMV tag 9F46 Integrated Circuit Card (ICC) Public Key Certificate. Template 70 or 77.
 #define EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE                 (0x9F46)
 
@@ -241,8 +265,14 @@ __BEGIN_DECLS
 /// EMV tag 9F49 Dynamic Data Authentication Data Object List (DDOL). Template 70 or 77.
 #define EMV_TAG_9F49_DDOL                                       (0x9F49)
 
+/// EMV tag 9F4C Integrated Circuit Card (ICC) Dynamic Number
+#define EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER                         (0x9F4C)
+
 /// EMMV tag 9F4D Log Entry. Template BF0C or 73.
 #define EMV_TAG_9F4D_LOG_ENTRY                                  (0x9F4D)
+
+/// EMV tag 9F4E Merchant Name and Location
+#define EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION                 (0x9F4E)
 
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.
 #define EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA              (0xBF0C)
