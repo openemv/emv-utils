@@ -51,6 +51,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_TERM_CAPS,
 	EMV_DECODE_ADDL_TERM_CAPS,
 	EMV_DECODE_CVM_LIST,
+	EMV_DECODE_TVR,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
@@ -74,6 +75,8 @@ static struct argp_option argp_options[] = {
 	{ "9F40", EMV_DECODE_ADDL_TERM_CAPS, NULL, OPTION_ALIAS },
 	{ "cvm-list", EMV_DECODE_CVM_LIST, NULL, 0, "Decode Cardholder Verification Method (CVM) List (field 8E)" },
 	{ "8E", EMV_DECODE_CVM_LIST, NULL, OPTION_ALIAS },
+	{ "tvr", EMV_DECODE_TVR, NULL, 0, "Decode Terminal Verification Results (field 95)" },
+	{ "95", EMV_DECODE_TVR, NULL, OPTION_ALIAS },
 
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
@@ -137,6 +140,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_TERM_CAPS:
 		case EMV_DECODE_ADDL_TERM_CAPS:
 		case EMV_DECODE_CVM_LIST:
+		case EMV_DECODE_TVR:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
 			}
@@ -337,6 +341,24 @@ int main(int argc, char** argv)
 			r = emv_cvmlist_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Cardholder Verification Method (CVM) List (field 8E)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_TVR: {
+			char str[2048];
+
+			if (data_len != 5) {
+				fprintf(stderr, "EMV Terminal Verification Results (field 95) must be exactly 5 bytes\n");
+				break;
+			}
+
+			r = emv_tvr_get_string_list(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse EMV Terminal Verification Results (field 95)\n");
 				break;
 			}
 			printf("%s", str); // No \n required for string list

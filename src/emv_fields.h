@@ -214,6 +214,60 @@ __BEGIN_DECLS
 #define EMV_CV_RULE_COND_LESS_THAN_Y                            (0x08) ///< CVM Condition: If transaction is in the application currency and is under Y value
 #define EMV_CV_RULE_COND_MORE_THAN_Y                            (0x09) ///< CVM Condition: If transaction is in the application currency and is over Y value
 
+// Terminal Verification Results (field 95) byte 1
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED                 (0x80) ///< Terminal Verification Results: Offline data authentication was not performed
+#define EMV_TVR_SDA_FAILED                                      (0x40) ///< Terminal Verification Results: Static Data Authentication (SDA) failed
+#define EMV_TVR_ICC_DATA_MISSING                                (0x20) ///< Terminal Verification Results: Integrated circuit card (ICC) data missing
+#define EMV_TVR_CARD_ON_EXCEPTION_FILE                          (0x10) ///< Terminal Verification Results: Card appears on terminal exception file
+#define EMV_TVR_DDA_FAILED                                      (0x08) ///< Terminal Verification Results: Dynamic Data Authentication (DDA) failed
+#define EMV_TVR_CDA_FAILED                                      (0x04) ///< Terminal Verification Results: Combined DDA/Application Cryptogram Generation (CDA) failed
+#define EMV_TVR_SDA_SELECTED                                    (0x02) ///< Terminal Verification Results: Static Data Authentication (SDA) selected
+#define EMV_TVR_XDA_SELECTED                                    (0x01) ///< Terminal Verification Results: Extended Data Authentication (XDA) selected
+
+// Terminal Verification Results (field 95) byte 2
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_APPLICATION_VERSIONS_DIFFERENT                  (0x80) ///< Terminal Verification Results: ICC and terminal have different application versions
+#define EMV_TVR_APPLICATION_EXPIRED                             (0x40) ///< Terminal Verification Results: Expired application
+#define EMV_TVR_APPLICATION_NOT_EFFECTIVE                       (0x20) ///< Terminal Verification Results: Application not yet effective
+#define EMV_TVR_SERVICE_NOT_ALLOWED                             (0x10) ///< Terminal Verification Results: Requested service not allowed for card product
+#define EMV_TVR_NEW_CARD                                        (0x08) ///< Terminal Verification Results: New card
+#define EMV_TVR_RFU                                             (0x04) ///< Terminal Verification Results: RFU
+#define EMV_TVR_BIOMETRIC_PERFORMED_SUCCESSFUL                  (0x02) ///< Terminal Verification Results: Biometric performed and successful
+#define EMV_TVR_BIOMETRIC_TEMPLATE_FORMAT_NOT_SUPPORTED         (0x01) ///< Terminal Verification Results: Biometric template format not supported
+
+// Terminal Verification Results (field 95) byte 3
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_CV_PROCESSING_FAILED                            (0x80) ///< Terminal Verification Results: Cardholder verification was not successful
+#define EMV_TVR_CVM_UNRECOGNISED                                (0x40) ///< Terminal Verification Results: Unrecognised CVM
+#define EMV_TVR_PIN_TRY_LIMIT_EXCEEDED                          (0x20) ///< Terminal Verification Results: PIN Try Limit exceeded
+#define EMV_TVR_PIN_PAD_FAILED                                  (0x10) ///< Terminal Verification Results: PIN entry required and PIN pad not present or not working
+#define EMV_TVR_PIN_NOT_ENTERED                                 (0x08) ///< Terminal Verification Results: PIN entry required, PIN pad present, but PIN was not entered
+#define EMV_TVR_ONLINE_CVM_CAPTURED                             (0x04) ///< Terminal Verification Results: Online CVM captured
+#define EMV_TVR_BIOMETRIC_CAPTURE_FAILED                        (0x02) ///< Terminal Verification Results: Biometric required but Biometric capture device not working
+#define EMV_TVR_BIOMETRIC_SUBTYPE_BYPASSED                      (0x01) ///< Terminal Verification Results: Biometric required, Biometric capture device present, but Biometric Subtype entry was bypassed
+
+// Terminal Verification Results (field 95) byte 4
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED                        (0x80) ///< Terminal Verification Results: Transaction exceeds floor limit
+#define EMV_TVR_LOWER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED        (0x40) ///< Terminal Verification Results: Lower consecutive offline limit exceeded
+#define EMV_TVR_UPPER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED        (0x20) ///< Terminal Verification Results: Upper consecutive offline limit exceeded
+#define EMV_TVR_RANDOM_SELECTED_ONLINE                          (0x10) ///< Terminal Verification Results: Transaction selected randomly for online processing
+#define EMV_TVR_MERCHANT_FORCED_ONLINE                          (0x08) ///< Terminal Verification Results: Merchant forced transaction online
+#define EMV_TVR_BIOMETRIC_TRY_LIMIT_EXCEEDED                    (0x04) ///< Terminal Verification Results: Biometric Try Limit exceeded
+#define EMV_TVR_BIOMETRIC_TYPE_NOT_SUPPORTED                    (0x02) ///< Terminal Verification Results: A selected Biometric Type not supported
+#define EMV_TVR_XDA_FAILED                                      (0x01) ///< Terminal Verification Results: XDA signature verification failed
+
+// Terminal Verification Results (field 95) byte 5
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_DEFAULT_TDOL                                    (0x80) ///< Terminal Verification Results: Default TDOL used
+#define EMV_TVR_ISSUER_AUTHENTICATION_FAILED                    (0x40) ///< Terminal Verification Results: Issuer authentication failed
+#define EMV_TVR_SCRIPT_PROCESSING_FAILED_BEFORE_GEN_AC          (0x20) ///< Terminal Verification Results: Script processing failed before final GENERATE AC
+#define EMV_TVR_SCRIPT_PROCESSING_FAILED_AFTER_GEN_AC           (0x10) ///< Terminal Verification Results: Script processing failed after final GENERATE AC
+#define EMV_TVR_CA_ECC_KEY_MISSING                              (0x04) ///< Terminal Verification Results: CA ECC key missing
+#define EMV_TVR_ECC_KEY_RECOVERY_FAILED                         (0x02) ///< Terminal Verification Results: ECC key recovery failed
+#define EMV_TVR_RESERVED_FOR_CONTACTLESS                        (0x09) ///< Terminal Verification Results: Reserved for use by the EMV Contactless Specifications
+
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {
 	const void* ptr;

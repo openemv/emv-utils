@@ -115,6 +115,9 @@ __BEGIN_DECLS
 /// EMV tag 94 Application File Locator (AFL). Template 77 or 80.
 #define EMV_TAG_94_APPLICATION_FILE_LOCATOR                     (0x94)
 
+/// EMV tag 95 Terminal Verification Results (TVR)
+#define EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS                (0x95)
+
 /// EMV tag 9A Transaction Date
 #define EMV_TAG_9A_TRANSACTION_DATE                             (0x9A)
 

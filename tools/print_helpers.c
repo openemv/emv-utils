@@ -325,7 +325,7 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int depth)
 {
 	struct emv_tlv_info_t info;
-	char value_str[1024];
+	char value_str[2048];
 
 	emv_tlv_get_info(tlv, &info, value_str, sizeof(value_str));
 

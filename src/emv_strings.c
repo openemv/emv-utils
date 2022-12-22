@@ -253,6 +253,13 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return emv_afl_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
+		case EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS:
+			info->tag_name = "Terminal Verification Results (TVR)";
+			info->tag_desc =
+				"Status of the different functions as seen from the terminal";
+			info->format = EMV_FORMAT_B;
+			return emv_tvr_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_9A_TRANSACTION_DATE:
 			info->tag_name = "Transaction Date";
 			info->tag_desc =
@@ -2087,6 +2094,166 @@ int emv_cvmlist_get_string_list(
 			cvm_str,
 			proc_str
 		);
+	}
+
+	return 0;
+}
+
+int emv_tvr_get_string_list(
+	const uint8_t* tvr,
+	size_t tvr_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!tvr || !tvr_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (tvr_len != 5) {
+		// Terminal Verification Results (field 95) must be 5 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Terminal Verification Results (field 95) byte 1
+	// See EMV 4.4 Book 3, Annex C5, Table 46
+	if (tvr[0] & EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED) {
+		emv_str_list_add(&itr, "Offline data authentication was not performed");
+	}
+	if (tvr[0] & EMV_TVR_SDA_FAILED) {
+		emv_str_list_add(&itr, "Static Data Authentication (SDA) failed");
+	}
+	if (tvr[0] & EMV_TVR_ICC_DATA_MISSING) {
+		emv_str_list_add(&itr, "Integrated circuit card (ICC) data missing");
+	}
+	if (tvr[0] & EMV_TVR_CARD_ON_EXCEPTION_FILE) {
+		emv_str_list_add(&itr, "Card appears on terminal exception file");
+	}
+	if (tvr[0] & EMV_TVR_DDA_FAILED) {
+		emv_str_list_add(&itr, "Dynamic Data Authentication (DDA) failed");
+	}
+	if (tvr[0] & EMV_TVR_CDA_FAILED) {
+		emv_str_list_add(&itr, "Combined DDA/Application Cryptogram Generation (CDA) failed");
+	}
+	if (tvr[0] & EMV_TVR_SDA_SELECTED) {
+		emv_str_list_add(&itr, "Static Data Authentication (SDA) selected");
+	}
+	if (tvr[0] & EMV_TVR_XDA_SELECTED) {
+		emv_str_list_add(&itr, "Extended Data Authentication (XDA) selected");
+	}
+
+	// Terminal Verification Results (field 95) byte 2
+	// See EMV 4.4 Book 3, Annex C5, Table 46
+	if (tvr[1] & EMV_TVR_APPLICATION_VERSIONS_DIFFERENT) {
+		emv_str_list_add(&itr, "ICC and terminal have different application versions");
+	}
+	if (tvr[1] & EMV_TVR_APPLICATION_EXPIRED) {
+		emv_str_list_add(&itr, "Expired application");
+	}
+	if (tvr[1] & EMV_TVR_APPLICATION_NOT_EFFECTIVE) {
+		emv_str_list_add(&itr, "Application not yet effective");
+	}
+	if (tvr[1] & EMV_TVR_SERVICE_NOT_ALLOWED) {
+		emv_str_list_add(&itr, "Requested service not allowed for card product");
+	}
+	if (tvr[1] & EMV_TVR_NEW_CARD) {
+		emv_str_list_add(&itr, "New card");
+	}
+	if (tvr[1] & EMV_TVR_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+	if (tvr[1] & EMV_TVR_BIOMETRIC_PERFORMED_SUCCESSFUL) {
+		emv_str_list_add(&itr, "Biometric performed and successful");
+	}
+	if (tvr[1] & EMV_TVR_BIOMETRIC_TEMPLATE_FORMAT_NOT_SUPPORTED) {
+		emv_str_list_add(&itr, "Biometric template format not supported");
+	}
+
+	// Terminal Verification Results (field 95) byte 3
+	// See EMV 4.4 Book 3, Annex C5, Table 46
+	if (tvr[2] & EMV_TVR_CV_PROCESSING_FAILED) {
+		emv_str_list_add(&itr, "Cardholder verification was not successful");
+	}
+	if (tvr[2] & EMV_TVR_CVM_UNRECOGNISED) {
+		emv_str_list_add(&itr, "Unrecognised CVM");
+	}
+	if (tvr[2] & EMV_TVR_PIN_TRY_LIMIT_EXCEEDED) {
+		emv_str_list_add(&itr, "PIN Try Limit exceeded");
+	}
+	if (tvr[2] & EMV_TVR_PIN_PAD_FAILED) {
+		emv_str_list_add(&itr, "PIN entry required and PIN pad not present or not working");
+	}
+	if (tvr[2] & EMV_TVR_PIN_NOT_ENTERED) {
+		emv_str_list_add(&itr, "PIN entry required, PIN pad present, but PIN was not entered");
+	}
+	if (tvr[2] & EMV_TVR_ONLINE_CVM_CAPTURED) {
+		emv_str_list_add(&itr, "Online CVM captured");
+	}
+	if (tvr[2] & EMV_TVR_BIOMETRIC_CAPTURE_FAILED) {
+		emv_str_list_add(&itr, "Biometric required but Biometric capture device not working");
+	}
+	if (tvr[2] & EMV_TVR_BIOMETRIC_SUBTYPE_BYPASSED) {
+		emv_str_list_add(&itr, "Biometric required, Biometric capture device present, but Biometric Subtype entry was bypassed");
+	}
+
+	// Terminal Verification Results (field 95) byte 4
+	// See EMV 4.4 Book 3, Annex C5, Table 46
+	if (tvr[3] & EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED) {
+		emv_str_list_add(&itr, "Transaction exceeds floor limit");
+	}
+	if (tvr[3] & EMV_TVR_LOWER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED) {
+		emv_str_list_add(&itr, "Lower consecutive offline limit exceeded");
+	}
+	if (tvr[3] & EMV_TVR_UPPER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED) {
+		emv_str_list_add(&itr, "Upper consecutive offline limit exceeded");
+	}
+	if (tvr[3] & EMV_TVR_RANDOM_SELECTED_ONLINE) {
+		emv_str_list_add(&itr, "Transaction selected randomly for online processing");
+	}
+	if (tvr[3] & EMV_TVR_MERCHANT_FORCED_ONLINE) {
+		emv_str_list_add(&itr, "Merchant forced transaction online");
+	}
+	if (tvr[3] & EMV_TVR_BIOMETRIC_TRY_LIMIT_EXCEEDED) {
+		emv_str_list_add(&itr, "Biometric Try Limit exceeded");
+	}
+	if (tvr[3] & EMV_TVR_BIOMETRIC_TYPE_NOT_SUPPORTED) {
+		emv_str_list_add(&itr, "A selected Biometric Type not supported");
+	}
+	if (tvr[3] & EMV_TVR_XDA_FAILED) {
+		emv_str_list_add(&itr, "XDA signature verification failed");
+	}
+
+	// Terminal Verification Results (field 95) byte 5
+	// See EMV 4.4 Book 3, Annex C5, Table 46
+	if (tvr[4] & EMV_TVR_DEFAULT_TDOL) {
+		emv_str_list_add(&itr, "Default TDOL used");
+	}
+	if (tvr[4] & EMV_TVR_ISSUER_AUTHENTICATION_FAILED) {
+		emv_str_list_add(&itr, "Issuer authentication failed");
+	}
+	if (tvr[4] & EMV_TVR_SCRIPT_PROCESSING_FAILED_BEFORE_GEN_AC) {
+		emv_str_list_add(&itr, "Script processing failed before final GENERATE AC");
+	}
+	if (tvr[4] & EMV_TVR_SCRIPT_PROCESSING_FAILED_AFTER_GEN_AC) {
+		emv_str_list_add(&itr, "Script processing failed after final GENERATE AC");
+	}
+	if (tvr[4] & EMV_TVR_CA_ECC_KEY_MISSING) {
+		emv_str_list_add(&itr, "CA ECC key missing");
+	}
+	if (tvr[4] & EMV_TVR_ECC_KEY_RECOVERY_FAILED) {
+		emv_str_list_add(&itr, "ECC key recovery failed");
+	}
+	if (tvr[4] & EMV_TVR_RESERVED_FOR_CONTACTLESS) {
+		emv_str_list_add(&itr, "Reserved for use by the EMV Contactless Specifications");
 	}
 
 	return 0;
