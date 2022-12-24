@@ -268,6 +268,20 @@ __BEGIN_DECLS
 #define EMV_TVR_ECC_KEY_RECOVERY_FAILED                         (0x02) ///< Terminal Verification Results: ECC key recovery failed
 #define EMV_TVR_RESERVED_FOR_CONTACTLESS                        (0x09) ///< Terminal Verification Results: Reserved for use by the EMV Contactless Specifications
 
+// Transaction Status Information (field 9B) byte 1
+// See EMV 4.4 Book 3, Annex C6, Table 47
+#define EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED                     (0x80) ///< Transaction Status Information: Offline data authentication was performed
+#define EMV_TSI_CV_PERFORMED                                    (0x40) ///< Transaction Status Information: Cardholder verification was performed
+#define EMV_TSI_CARD_RISK_MANAGEMENT_PERFORMED                  (0x20) ///< Transaction Status Information: Card risk management was performed
+#define EMV_TSI_ISSUER_AUTHENTICATION_PERFORMED                 (0x10) ///< Transaction Status Information: Issuer authentication was performed
+#define EMV_TSI_TERMINAL_RISK_MANAGEMENT_PERFORMED              (0x08) ///< Transaction Status Information: Terminal risk management was performed
+#define EMV_TSI_SCRIPT_PROCESSING_PERFORMED                     (0x04) ///< Transaction Status Information: Script processing was performed
+#define EMV_TSI_BYTE1_RFU                                       (0x03) ///< Transaction Status Information: RFU
+
+// Transaction Status Information (field 9B) byte 2
+// See EMV 4.4 Book 3, Annex C6, Table 47
+#define EMV_TSI_BYTE2_RFU                                       (0xFF) ///< Transaction Status Information: RFU
+
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {
 	const void* ptr;

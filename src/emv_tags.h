@@ -121,6 +121,9 @@ __BEGIN_DECLS
 /// EMV tag 9A Transaction Date
 #define EMV_TAG_9A_TRANSACTION_DATE                             (0x9A)
 
+/// EMV tag 9B Transaction Status Information (TSI)
+#define EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION               (0x9B)
+
 /// EMV tag 9C Transaction Type
 #define EMV_TAG_9C_TRANSACTION_TYPE                             (0x9C)
 

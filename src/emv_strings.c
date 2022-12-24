@@ -267,6 +267,13 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_N;
 			return emv_date_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
+		case EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION:
+			info->tag_name = "Transaction Status Information (TSI)";
+			info->tag_desc =
+				"Indicates the functions performed in a transaction";
+			info->format = EMV_FORMAT_B;
+			return emv_tsi_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_9C_TRANSACTION_TYPE:
 			info->tag_name = "Transaction Type";
 			info->tag_desc =
@@ -2254,6 +2261,58 @@ int emv_tvr_get_string_list(
 	}
 	if (tvr[4] & EMV_TVR_RESERVED_FOR_CONTACTLESS) {
 		emv_str_list_add(&itr, "Reserved for use by the EMV Contactless Specifications");
+	}
+
+	return 0;
+}
+
+int emv_tsi_get_string_list(
+	const uint8_t* tsi,
+	size_t tsi_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!tsi || !tsi_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (tsi_len != 2) {
+		// Transaction Status Information (field 9B) must be 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Transaction Status Information (field 9B)
+	// See EMV 4.4 Book 3, Annex C6, Table 47
+	if (tsi[0] & EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED) {
+		emv_str_list_add(&itr, "Offline data authentication was performed");
+	}
+	if (tsi[0] & EMV_TSI_CV_PERFORMED) {
+		emv_str_list_add(&itr, "Cardholder verification was performed");
+	}
+	if (tsi[0] & EMV_TSI_CARD_RISK_MANAGEMENT_PERFORMED) {
+		emv_str_list_add(&itr, "Card risk management was performed");
+	}
+	if (tsi[0] & EMV_TSI_ISSUER_AUTHENTICATION_PERFORMED) {
+		emv_str_list_add(&itr, "Issuer authentication was performed");
+	}
+	if (tsi[0] & EMV_TSI_TERMINAL_RISK_MANAGEMENT_PERFORMED) {
+		emv_str_list_add(&itr, "Terminal risk management was performed");
+	}
+	if (tsi[0] & EMV_TSI_SCRIPT_PROCESSING_PERFORMED) {
+		emv_str_list_add(&itr, "Script processing was performed");
+	}
+	if (tsi[0] & EMV_TSI_BYTE1_RFU || tsi[1] & EMV_TSI_BYTE2_RFU) {
+		emv_str_list_add(&itr, "RFU");
 	}
 
 	return 0;

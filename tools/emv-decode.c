@@ -52,6 +52,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ADDL_TERM_CAPS,
 	EMV_DECODE_CVM_LIST,
 	EMV_DECODE_TVR,
+	EMV_DECODE_TSI,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
@@ -77,6 +78,8 @@ static struct argp_option argp_options[] = {
 	{ "8E", EMV_DECODE_CVM_LIST, NULL, OPTION_ALIAS },
 	{ "tvr", EMV_DECODE_TVR, NULL, 0, "Decode Terminal Verification Results (field 95)" },
 	{ "95", EMV_DECODE_TVR, NULL, OPTION_ALIAS },
+	{ "tsi", EMV_DECODE_TSI, NULL, 0, "Decode Transaction Status Information (field 9B)" },
+	{ "9B", EMV_DECODE_TSI, NULL, OPTION_ALIAS },
 
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
@@ -141,6 +144,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_ADDL_TERM_CAPS:
 		case EMV_DECODE_CVM_LIST:
 		case EMV_DECODE_TVR:
+		case EMV_DECODE_TSI:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
 			}
@@ -359,6 +363,24 @@ int main(int argc, char** argv)
 			r = emv_tvr_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Terminal Verification Results (field 95)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_TSI: {
+			char str[2048];
+
+			if (data_len != 2) {
+				fprintf(stderr, "EMV Transaction Status Information (field 9B) must be exactly 2 bytes\n");
+				break;
+			}
+
+			r = emv_tsi_get_string_list(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse EMV Transaction Status Information (field 9B)\n");
 				break;
 			}
 			printf("%s", str); // No \n required for string list

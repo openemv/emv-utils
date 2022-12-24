@@ -376,6 +376,22 @@ int emv_tvr_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Transaction Status Information (field 9B)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param tsi Transaction Status Information (TSI) field. Must be 2 bytes.
+ * @param tsi_len Length of Transaction Status Information (TSI) field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_tsi_get_string_list(
+	const uint8_t* tsi,
+	size_t tsi_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif
