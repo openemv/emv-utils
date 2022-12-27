@@ -187,22 +187,31 @@ __BEGIN_DECLS
 #define EMV_AUC_RFU                                             (0x3F) ///< Application Usage Control: RFU
 
 // Cardholder Verification (CV) Rule byte 1, CVM Codes
-// See EMV 4.3 Book 3, Annex C3, Table 39
+// See EMV 4.4 Book 3, Annex C3, Table 43
 #define EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL                  (0x40) ///< Apply succeeding CV Rule if this CVM is unsuccessful
 #define EMV_CV_RULE_CVM_MASK                                    (0x3F) ///< Cardholder Verification (CV) Rule mask for CVM Code
 #define EMV_CV_RULE_CVM_FAIL                                    (0x00) ///< CVM: Fail CVM processing
 #define EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT                   (0x01) ///< CVM: Plaintext PIN verification performed by ICC
 #define EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED                   (0x02) ///< CVM: Enciphered PIN verified online
-#define EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE     (0x03) ///< CVM: Plaintext PIN verification performed by ICC and signature (paper)
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE     (0x03) ///< CVM: Plaintext PIN verification performed by ICC and signature
 #define EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED                  (0x04) ///< CVM: Enciphered PIN verification performed by ICC
-#define EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE    (0x05) ///< CVM: Enciphered PIN verification performed by ICC and signature (paper)
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE    (0x05) ///< CVM: Enciphered PIN verification performed by ICC and signature
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_FACIAL                (0x06) ///< CVM: Facial biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_FACIAL                 (0x07) ///< CVM: Facial biometric verified online
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_FINGER                (0x08) ///< CVM: Finger biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_FINGER                 (0x09) ///< CVM: Finger biometric verified online
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_PALM                  (0x0A) ///< CVM: Palm biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_PALM                   (0x0B) ///< CVM: Palm biometric verified online
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_IRIS                  (0x0C) ///< CVM: Iris biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_IRIS                   (0x0D) ///< CVM: Iris biometric verified online
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_VOICE                 (0x0E) ///< CVM: Voice biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_VOICE                  (0x0F) ///< CVM: Voice biometric verified online
 #define EMV_CV_RULE_CVM_SIGNATURE                               (0x1E) ///< CVM: Signature (paper)
 #define EMV_CV_RULE_NO_CVM                                      (0x1F) ///< CVM: No CVM required
 #define EMV_CV_RULE_INVALID                                     (0x3F) ///< Cardholder Verification (CV) Rule invalid
 
 // Cardholder Verification (CV) Rule byte 2, CVM Condition Codes
-// See EMV 4.3 Book 3, Annex C3, Table 40
-// See EMVCo General Bulletin No. 14 - Migration Schedule for New CVM Condition Codes
+// See EMV 4.4 Book 3, Annex C3, Table 44
 #define EMV_CV_RULE_COND_ALWAYS                                 (0x00) ///< CVM Condition: Always
 #define EMV_CV_RULE_COND_UNATTENDED_CASH                        (0x01) ///< CVM Condition: If unattended cash
 #define EMV_CV_RULE_COND_NOT_CASH_OR_CASHBACK                   (0x02) ///< CVM Condition: If not unattended cash and not manual cash and not purchase with cashback
@@ -213,6 +222,12 @@ __BEGIN_DECLS
 #define EMV_CV_RULE_COND_MORE_THAN_X                            (0x07) ///< CVM Condition: If transaction is in the application currency and is over X value
 #define EMV_CV_RULE_COND_LESS_THAN_Y                            (0x08) ///< CVM Condition: If transaction is in the application currency and is under Y value
 #define EMV_CV_RULE_COND_MORE_THAN_Y                            (0x09) ///< CVM Condition: If transaction is in the application currency and is over Y value
+
+// Cardholder Verification Method (CVM) Results (field 9F34) byte 3
+// See EMV 4.4 Book 4, Annex A4, Table 33
+#define EMV_CVM_RESULT_UNKNOWN                                  (0x00) ///< CVM Result: Unknown
+#define EMV_CVM_RESULT_FAILED                                   (0x01) ///< CVM Result: Failed
+#define EMV_CVM_RESULT_SUCCESSFUL                               (0x02) ///< CVM Result: Successful
 
 // Terminal Verification Results (field 95) byte 1
 // See EMV 4.4 Book 3, Annex C5, Table 46

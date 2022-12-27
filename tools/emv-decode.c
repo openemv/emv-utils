@@ -51,6 +51,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_TERM_CAPS,
 	EMV_DECODE_ADDL_TERM_CAPS,
 	EMV_DECODE_CVM_LIST,
+	EMV_DECODE_CVM_RESULTS,
 	EMV_DECODE_TVR,
 	EMV_DECODE_TSI,
 };
@@ -76,6 +77,8 @@ static struct argp_option argp_options[] = {
 	{ "9F40", EMV_DECODE_ADDL_TERM_CAPS, NULL, OPTION_ALIAS },
 	{ "cvm-list", EMV_DECODE_CVM_LIST, NULL, 0, "Decode Cardholder Verification Method (CVM) List (field 8E)" },
 	{ "8E", EMV_DECODE_CVM_LIST, NULL, OPTION_ALIAS },
+	{ "cvm-results", EMV_DECODE_CVM_RESULTS, NULL, 0, "Decode Cardholder Verification Method (CVM) Results (field 9F34)" },
+	{ "9F34", EMV_DECODE_CVM_RESULTS, NULL, OPTION_ALIAS },
 	{ "tvr", EMV_DECODE_TVR, NULL, 0, "Decode Terminal Verification Results (field 95)" },
 	{ "95", EMV_DECODE_TVR, NULL, OPTION_ALIAS },
 	{ "tsi", EMV_DECODE_TSI, NULL, 0, "Decode Transaction Status Information (field 9B)" },
@@ -143,6 +146,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_TERM_CAPS:
 		case EMV_DECODE_ADDL_TERM_CAPS:
 		case EMV_DECODE_CVM_LIST:
+		case EMV_DECODE_CVM_RESULTS:
 		case EMV_DECODE_TVR:
 		case EMV_DECODE_TSI:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
@@ -342,9 +346,27 @@ int main(int argc, char** argv)
 		case EMV_DECODE_CVM_LIST: {
 			char str[2048];
 
-			r = emv_cvmlist_get_string_list(data, data_len, str, sizeof(str));
+			r = emv_cvm_list_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Cardholder Verification Method (CVM) List (field 8E)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_CVM_RESULTS: {
+			char str[1024];
+
+			if (data_len != 3) {
+				fprintf(stderr, "EMV Cardholder Verification Method (CVM) Results (field 9F34) must be exactly 3 bytes\n");
+				break;
+			}
+
+			r = emv_cvm_results_get_string_list(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse EMV Cardholder Verification Method (CVM) Results (field 9F34)\n");
 				break;
 			}
 			printf("%s", str); // No \n required for string list

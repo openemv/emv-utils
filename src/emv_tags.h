@@ -235,6 +235,9 @@ __BEGIN_DECLS
 /// EMV tag 9F33 Terminal Capabilities
 #define EMV_TAG_9F33_TERMINAL_CAPABILITIES                      (0x9F33)
 
+/// EMV tag 9F34 Cardholder Verification Method (CVM) Results
+#define EMV_TAG_9F34_CVM_RESULTS                                (0x9F34)
+
 /// EMV tag 9F35 Terminal Type
 #define EMV_TAG_9F35_TERMINAL_TYPE                              (0x9F35)
 

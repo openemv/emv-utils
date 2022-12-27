@@ -38,6 +38,8 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+static const char* emv_cvm_code_get_string(uint8_t cvm_code);
+static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
 
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
@@ -220,7 +222,7 @@ int emv_tlv_get_info(
 				"Identifies a method of verification of the cardholder "
 				"supported by the application";
 			info->format = EMV_FORMAT_B;
-			return emv_cvmlist_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			return emv_cvm_list_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX:
 			info->tag_name = "Certification Authority Public Key Index";
@@ -568,6 +570,13 @@ int emv_tlv_get_info(
 				"capabilities of the terminal";
 			info->format = EMV_FORMAT_B;
 			return emv_term_caps_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F34_CVM_RESULTS:
+			info->tag_name = "Cardholder Verification Method (CVM) Results";
+			info->tag_desc =
+				"Indicates the results of the last CVM performed";
+			info->format = EMV_FORMAT_B;
+			return emv_cvm_results_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F35_TERMINAL_TYPE:
 			info->tag_name = "Terminal Type";
@@ -1900,7 +1909,227 @@ int emv_track2_equivalent_data_get_string(
 	return 0;
 }
 
-int emv_cvmlist_get_string_list(
+static const char* emv_cvm_code_get_string(uint8_t cvm_code)
+{
+	const char* cvm_str;
+
+	// Cardholder Verification Rule Format byte 1 (CVM Codes)
+	// See EMV 4.4 Book 3, Annex C3, Table 43
+	switch (cvm_code & EMV_CV_RULE_CVM_MASK) {
+		case EMV_CV_RULE_CVM_FAIL:
+			cvm_str = "Fail CVM processing";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT:
+			cvm_str = "Plaintext PIN verification performed by ICC";
+			break;
+
+		case EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED:
+			cvm_str = "Enciphered PIN verified online";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE:
+			cvm_str = "Plaintext PIN verification performed by ICC and signature";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED:
+			cvm_str = "Enciphered PIN verification performed by ICC";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE:
+			cvm_str = "Enciphered PIN verification performed by ICC and signature";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_FACIAL:
+			cvm_str = "Facial biometric verified offline (by ICC)";
+			break;
+
+		case EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_FACIAL:
+			cvm_str = "Facial biometric verified online";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_FINGER:
+			cvm_str = "Finger biometric verified offline (by ICC)";
+			break;
+
+		case EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_FINGER:
+			cvm_str = "Finger biometric verified online";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_PALM:
+			cvm_str = "Palm biometric verified offline (by ICC)";
+			break;
+
+		case EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_PALM:
+			cvm_str = "Palm biometric verified online";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_IRIS:
+			cvm_str = "Iris biometric verified offline (by ICC)";
+			break;
+
+		case EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_IRIS:
+			cvm_str = "Iris biometric verified online";
+			break;
+
+		case EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_VOICE:
+			cvm_str = "Voice biometric verified offline (by ICC)";
+			break;
+
+		case EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_VOICE:
+			cvm_str = "Voice biometric verified online";
+			break;
+
+		case EMV_CV_RULE_CVM_SIGNATURE:
+			cvm_str = "Signature (paper)";
+			break;
+
+		case EMV_CV_RULE_NO_CVM:
+			cvm_str = "No CVM required";
+			break;
+
+		case EMV_CV_RULE_INVALID:
+			cvm_str = "Invalid CV Rule";
+			break;
+
+		default:
+			cvm_str = "Unknown CVM";
+			break;
+	}
+
+	return cvm_str;
+}
+
+static int emv_cvm_cond_code_get_string(
+	uint8_t cvm_cond_code,
+	const struct emv_cvmlist_amounts_t* amounts,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	const char* cond_str;
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	// Cardholder Verification Rule Format byte 2 (CVM Condition Codes)
+	// See EMV 4.4 Book 3, Annex C3, Table 44
+	switch (cvm_cond_code) {
+		case EMV_CV_RULE_COND_ALWAYS:
+			cond_str = "Always";
+			break;
+
+		case EMV_CV_RULE_COND_UNATTENDED_CASH:
+			cond_str = "If unattended cash";
+			break;
+
+		case EMV_CV_RULE_COND_NOT_CASH_OR_CASHBACK:
+			cond_str = "If not unattended cash and not manual cash and not purchase with cashback";
+			break;
+
+		case EMV_CV_RULE_COND_CVM_SUPPORTED:
+			cond_str = "If terminal supports the CVM";
+			break;
+
+		case EMV_CV_RULE_COND_MANUAL_CASH:
+			cond_str = "If manual cash";
+			break;
+
+		case EMV_CV_RULE_COND_CASHBACK:
+			cond_str = "If purchase with cashback";
+			break;
+
+		case EMV_CV_RULE_COND_LESS_THAN_X:
+			if (amounts) {
+				r = snprintf(
+					str,
+					str_len,
+					"If transaction is in the application currency and is under %u value",
+					amounts->X
+				);
+				if (r < 0) {
+					// Unknown error
+					str[0] = 0;
+					return -1;
+				}
+				return 0;
+			} else {
+				cond_str = "If transaction is in the application currency and is under X value";
+			}
+			break;
+
+		case EMV_CV_RULE_COND_MORE_THAN_X:
+			if (amounts) {
+				r = snprintf(
+					str,
+					str_len,
+					"If transaction is in the application currency and is over %u value",
+					amounts->X
+				);
+				if (r < 0) {
+					// Unknown error
+					str[0] = 0;
+					return -1;
+				}
+				return 0;
+			} else {
+				cond_str = "If transaction is in the application currency and is over X value";
+			}
+			break;
+
+		case EMV_CV_RULE_COND_LESS_THAN_Y:
+			if (amounts) {
+				r = snprintf(
+					str,
+					str_len,
+					"If transaction is in the application currency and is under %u value",
+					amounts->Y
+				);
+				if (r < 0) {
+					// Unknown error
+					str[0] = 0;
+					return -1;
+				}
+				return 0;
+			} else {
+				cond_str = "If transaction is in the application currency and is under Y value";
+			}
+			break;
+
+		case EMV_CV_RULE_COND_MORE_THAN_Y:
+			if (amounts) {
+				r = snprintf(
+					str,
+					str_len,
+					"If transaction is in the application currency and is over %u value",
+					amounts->Y
+				);
+				if (r < 0) {
+					// Unknown error
+					str[0] = 0;
+					return -1;
+				}
+				return 0;
+			} else {
+				cond_str = "If transaction is in the application currency and is over Y value";
+			}
+			break;
+
+		default:
+			cond_str = "Unknown condition";
+			break;
+	}
+
+	strncpy(str, cond_str, str_len);
+	str[str_len - 1] = 0;
+
+	return 0;
+}
+
+int emv_cvm_list_get_string_list(
 	const uint8_t* cvmlist,
 	size_t cvmlist_len,
 	char* str,
@@ -1926,167 +2155,28 @@ int emv_cvmlist_get_string_list(
 
 	// For each CV Rule entry build a string
 	while ((r = emv_cvmlist_itr_next(&cvmlist_itr, &cv_rule)) > 0) {
-		const char* cond_str;
-		char cond_str_tmp[128];
 		const char* cvm_str;
+		char cond_str[128];
 		const char* proc_str;
 
-		// CVM Condition string
-		// See EMV 4.3 Book 3, Annex C3, Table 40
-		switch (cv_rule.cvm_cond) {
-			case EMV_CV_RULE_COND_ALWAYS:
-				cond_str = "Always";
-				break;
-
-			case EMV_CV_RULE_COND_UNATTENDED_CASH:
-				cond_str = "If unattended cash";
-				break;
-
-			case EMV_CV_RULE_COND_NOT_CASH_OR_CASHBACK:
-				cond_str = "If not unattended cash and not manual cash and not purchase with cashback";
-				break;
-
-			case EMV_CV_RULE_COND_CVM_SUPPORTED:
-				cond_str = "If terminal supports the CVM";
-				break;
-
-			case EMV_CV_RULE_COND_MANUAL_CASH:
-				cond_str = "If manual cash";
-				break;
-
-			case EMV_CV_RULE_COND_CASHBACK:
-				cond_str = "If purchase with cashback";
-				break;
-
-			case EMV_CV_RULE_COND_LESS_THAN_X:
-				r = snprintf(
-					cond_str_tmp,
-					sizeof(cond_str_tmp),
-					"If transaction is in the application currency and is under %u value",
-					cvmlist_amounts.X
-				);
-				if (r >= sizeof(cond_str_tmp)) {
-					// Not enough space left; internal error
-					str[0] = 0;
-					return -2;
-				}
-				if (r < 0) {
-					// Unknown error
-					str[0] = 0;
-					return -3;
-				}
-				cond_str = cond_str_tmp;
-				break;
-
-			case EMV_CV_RULE_COND_MORE_THAN_X:
-				r = snprintf(
-					cond_str_tmp,
-					sizeof(cond_str_tmp),
-					"If transaction is in the application currency and is over %u value",
-					cvmlist_amounts.X
-				);
-				if (r >= sizeof(cond_str_tmp)) {
-					// Not enough space left; internal error
-					str[0] = 0;
-					return -2;
-				}
-				if (r < 0) {
-					// Unknown error
-					str[0] = 0;
-					return -3;
-				}
-				cond_str = cond_str_tmp;
-				break;
-
-			case EMV_CV_RULE_COND_LESS_THAN_Y:
-				r = snprintf(
-					cond_str_tmp,
-					sizeof(cond_str_tmp),
-					"If transaction is in the application currency and is under %u value",
-					cvmlist_amounts.Y
-				);
-				if (r >= sizeof(cond_str_tmp)) {
-					// Not enough space left; internal error
-					str[0] = 0;
-					return -2;
-				}
-				if (r < 0) {
-					// Unknown error
-					str[0] = 0;
-					return -3;
-				}
-				cond_str = cond_str_tmp;
-				break;
-
-			case EMV_CV_RULE_COND_MORE_THAN_Y:
-				r = snprintf(
-					cond_str_tmp,
-					sizeof(cond_str_tmp),
-					"If transaction is in the application currency and is over %u value",
-					cvmlist_amounts.Y
-				);
-				if (r >= sizeof(cond_str_tmp)) {
-					// Not enough space left; internal error
-					str[0] = 0;
-					return -2;
-				}
-				if (r < 0) {
-					// Unknown error
-					str[0] = 0;
-					return -3;
-				}
-				cond_str = cond_str_tmp;
-				break;
-
-			default:
-				cond_str = "Unknown condition";
-				break;
-		}
-
 		// CVM Code string
-		// See EMV 4.3 Book 3, Annex C3, Table 39
-		switch (cv_rule.cvm & EMV_CV_RULE_CVM_MASK) {
-			case EMV_CV_RULE_CVM_FAIL:
-				cvm_str = "Fail CVM processing";
-				break;
-
-			case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT:
-				cvm_str = "Plaintext PIN verification performed by ICC";
-				break;
-
-			case EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED:
-				cvm_str = "Enciphered PIN verified online";
-				break;
-
-			case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE:
-				cvm_str = "Plaintext PIN verification performed by ICC and signature (paper)";
-				break;
-
-			case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED:
-				cvm_str = "Enciphered PIN verification performed by ICC";
-				break;
-
-			case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE:
-				cvm_str = "Enciphered PIN verification performed by ICC and signature (paper)";
-				break;
-
-			case EMV_CV_RULE_CVM_SIGNATURE:
-				cvm_str = "Signature (paper)";
-				break;
-
-			case EMV_CV_RULE_NO_CVM:
-				cvm_str = "No CVM required";
-				break;
-
-			case EMV_CV_RULE_INVALID:
-				cvm_str = "Invalid CV Rule";
-				break;
-
-			default:
-				cvm_str = "Unknown CVM";
-				break;
+		cvm_str = emv_cvm_code_get_string(cv_rule.cvm);
+		if (!cvm_str) {
+			return -2;
 		}
 
+		// CVM condition string
+		r = emv_cvm_cond_code_get_string(
+			cv_rule.cvm_cond,
+			&cvmlist_amounts,
+			cond_str,
+			sizeof(cond_str)
+		);
+		if (r) {
+			return r;
+		}
+
+		// CVM processing string
 		if (cv_rule.cvm & EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL) {
 			proc_str = "Apply succeeding CV Rule if this CVM is unsuccessful";
 		} else {
@@ -2101,6 +2191,78 @@ int emv_cvmlist_get_string_list(
 			cvm_str,
 			proc_str
 		);
+	}
+
+	return 0;
+}
+
+int emv_cvm_results_get_string_list(
+	const uint8_t* cvmresults,
+	size_t cvmresults_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t itr;
+	const char* cvm_str;
+	char cond_str[128];
+
+	if (!cvmresults || !cvmresults_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (cvmresults_len != 3) {
+		// Cardholder Verification Method (CVM) Results (field 9F34) must be 3 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Cardholder Verification Method (CVM) Results (field 9F34) byte 1
+	// See EMV 4.4 Book 4, Annex A4, Table 33
+	cvm_str = emv_cvm_code_get_string(cvmresults[0]);
+	if (!cvm_str) {
+		return -1;
+	}
+	emv_str_list_add(&itr, "CVM Performed: %s", cvm_str);
+
+	// Cardholder Verification Method (CVM) Results (field 9F34) byte 2
+	// See EMV 4.4 Book 4, Annex A4, Table 33
+	r = emv_cvm_cond_code_get_string(
+		cvmresults[1],
+		NULL,
+		cond_str,
+		sizeof(cond_str)
+	);
+	if (r) {
+		return r;
+	}
+	emv_str_list_add(&itr, "CVM Condition: %s", cond_str);
+
+	// Cardholder Verification Method (CVM) Results (field 9F34) byte 3
+	// See EMV 4.4 Book 4, Annex A4, Table 33
+	switch (cvmresults[2]) {
+		case EMV_CVM_RESULT_UNKNOWN:
+			emv_str_list_add(&itr, "CVM Result: Unknown");
+			break;
+
+		case EMV_CVM_RESULT_FAILED:
+			emv_str_list_add(&itr, "CVM Result: Failed");
+			break;
+
+		case EMV_CVM_RESULT_SUCCESSFUL:
+			emv_str_list_add(&itr, "CVM Result: Successful");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "CVM Result: %u", cvmresults[2]);
+			break;
 	}
 
 	return 0;

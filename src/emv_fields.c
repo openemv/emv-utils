@@ -124,10 +124,17 @@ int emv_cvmlist_itr_init(
 		return 2;
 	}
 
+	if ((cvmlist_len - 4 - 4) & 0x1) {
+		// CVM List (field 8E) must contain two 4-byte amounts and a list of
+		// 2-byte data elements
+		// See EMV 4.3 Book 3, 10.5
+		return 3;
+	}
+
 	if (cvmlist_len > 252) {
 		// CVM List (field 8E) may be up to 252 bytes
 		// See EMV 4.3 Book 3, Annex A
-		return 3;
+		return 4;
 	}
 
 	// Extract first amount as big endian
