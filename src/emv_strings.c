@@ -470,6 +470,39 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_9F0D_ISSUER_ACTION_CODE_DEFAULT:
+			info->tag_name = "Issuer Action Code (IAC) - Default";
+			info->tag_desc =
+				"Specifies the issuer's conditions that cause a transaction "
+				"to be rejected if it might have been approved online, but "
+				"the terminal is unable to process the transaction online";
+			info->format = EMV_FORMAT_B;
+			return emv_tvr_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F0E_ISSUER_ACTION_CODE_DENIAL:
+			info->tag_name = "Issuer Action Code (IAC) - Denial";
+			info->tag_desc =
+				"Specifies the issuer's conditions that cause the denial of a "
+				"transaction without attempt to go online";
+			info->format = EMV_FORMAT_B;
+			return emv_tvr_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F0F_ISSUER_ACTION_CODE_ONLINE:
+			info->tag_name = "Issuer Action Code (IAC) - Online";
+			info->tag_desc =
+				"Specifies the issuer’s conditions that cause a transaction "
+				"to be transmitted online";
+			info->format = EMV_FORMAT_B;
+			return emv_tvr_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F10_ISSUER_APPLICATION_DATA:
+			info->tag_name = "Issuer Application Data";
+			info->tag_desc =
+				"Contains proprietary application data for transmission to "
+				"the issuer in an online transaction.";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX:
 			info->tag_name = "Issuer Code Table Index";
 			info->tag_desc =
@@ -655,6 +688,15 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_N;
 			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
 
+		case EMV_TAG_9F45_DATA_AUTHENTICATION_CODE:
+			info->tag_name = "Data Authentication Code";
+			info->tag_desc =
+				"An issuer assigned value that is retained by the terminal "
+				"during the verification process of the Signed Static "
+				"Application Data";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE:
 			info->tag_name = "Integrated Circuit Card (ICC) Public Key Certificate";
 			info->tag_desc =
@@ -683,6 +725,15 @@ int emv_tlv_get_info(
 				"List of data objects (tag and length) to be passed to the "
 				"ICC in the INTERNAL AUTHENTICATE command";
 			info->format = EMV_FORMAT_DOL;
+			return 0;
+
+		case EMV_TAG_9F4A_SDA_TAG_LIST:
+			info->tag_name = "Static Data Authentication (SDA) Tag List";
+			info->tag_desc =
+				"List of tags of primitive data objects defined in this "
+				"specification whose value fields are to be included in the "
+				"Signed Static or Dynamic Application Data";
+			info->format = EMV_FORMAT_TAG_LIST;
 			return 0;
 
 		case EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER:

@@ -196,6 +196,18 @@ __BEGIN_DECLS
 /// EMV tag 9F09 Application Version Number - terminal
 #define EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL        (0x9F09)
 
+/// EMV tag 9F0D Issuer Action Code (IAC) - Default. Template 70 or 77.
+#define EMV_TAG_9F0D_ISSUER_ACTION_CODE_DEFAULT                 (0x9F0D)
+
+/// EMV tag 9F0E Issuer Action Code (IAC) - Denial. Template 70 or 77.
+#define EMV_TAG_9F0E_ISSUER_ACTION_CODE_DENIAL                  (0x9F0E)
+
+/// EMV tag 9F0F Issuer Action Code (IAC) - Online. Template 70 or 77.
+#define EMV_TAG_9F0F_ISSUER_ACTION_CODE_ONLINE                  (0x9F0F)
+
+/// EMV tag 9F10 Issuer Application Data. Template 77 or 80.
+#define EMV_TAG_9F10_ISSUER_APPLICATION_DATA                    (0x9F10)
+
 /// EMV tag 9F11 Issuer Code Table Index. Template A5.
 #define EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX                    (0x9F11)
 
@@ -262,6 +274,9 @@ __BEGIN_DECLS
 /// EMV tag 9F42 Application Currency Code. Template 70 or 77.
 #define EMV_TAG_9F42_APPLICATION_CURRENCY_CODE                  (0x9F42)
 
+/// EMV tag 9F45 Data Authentication Code
+#define EMV_TAG_9F45_DATA_AUTHENTICATION_CODE                   (0x9F45)
+
 /// EMV tag 9F46 Integrated Circuit Card (ICC) Public Key Certificate. Template 70 or 77.
 #define EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE                 (0x9F46)
 
@@ -273,6 +288,9 @@ __BEGIN_DECLS
 
 /// EMV tag 9F49 Dynamic Data Authentication Data Object List (DDOL). Template 70 or 77.
 #define EMV_TAG_9F49_DDOL                                       (0x9F49)
+
+/// EMV tag 9F4A Static Data Authentication (SDA) Tag List. Template 70 or 77.
+#define EMV_TAG_9F4A_SDA_TAG_LIST                               (0x9F4A)
 
 /// EMV tag 9F4C Integrated Circuit Card (ICC) Dynamic Number
 #define EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER                         (0x9F4C)
