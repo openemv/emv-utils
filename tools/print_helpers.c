@@ -360,6 +360,9 @@ void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int
 			if (info.format == EMV_FORMAT_DOL) {
 				print_emv_dol(tlv->value, tlv->length, prefix, depth + 1);
 			}
+			if (info.format == EMV_FORMAT_TAG_LIST) {
+				print_emv_tag_list(tlv->value, tlv->length, prefix, depth + 1);
+			}
 		} else if (value_str[0]) {
 			// Use quotes for strings and parentheses for everything else
 			if (info.format == EMV_FORMAT_A ||
@@ -442,6 +445,41 @@ void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int
 		} else {
 			printf("%02X : [%u]\n", entry.tag, entry.length);
 		}
+	}
+}
+
+void print_emv_tag_list(const void* ptr, size_t len, const char* prefix, unsigned int depth)
+{
+	int r;
+	unsigned int tag;
+
+	for (unsigned int i = 0; i < depth; ++i) {
+		printf("%s", prefix ? prefix : "");
+	}
+	printf("Tag List:\n");
+	++depth;
+
+	while ((r = iso8825_ber_tag_decode(ptr, len, &tag)) > 0) {
+		struct emv_tlv_t emv_tlv;
+		struct emv_tlv_info_t info;
+
+		memset(&emv_tlv, 0, sizeof(emv_tlv));
+		emv_tlv.tag = tag;
+		emv_tlv_get_info(&emv_tlv, &info, NULL, 0);
+
+		for (unsigned int i = 0; i < depth; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+
+		if (info.tag_name) {
+			printf("%02X | %s\n", tag, info.tag_name);
+		} else {
+			printf("%02X\n", tag);
+		}
+
+		// Advance
+		ptr += r;
+		len -= r;
 	}
 }
 

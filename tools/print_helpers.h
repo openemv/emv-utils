@@ -120,6 +120,15 @@ void print_emv_tlv_list(const struct emv_tlv_list_t* list);
 void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int depth);
 
 /**
+ * Print EMV Tag List
+ * @param ptr EMV Tag List data
+ * @param len Length of EMV Tag List data in bytes
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ */
+void print_emv_tag_list(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+
+/**
  * Print EMV application description
  * @param app EMV application object
  */

@@ -99,6 +99,11 @@ enum emv_format_t {
 	 * Encoded according to EMV Book 3, 5.4
 	 */
 	EMV_FORMAT_DOL,
+
+	/**
+	 * Tag List
+	 */
+	EMV_FORMAT_TAG_LIST,
 };
 
 /**

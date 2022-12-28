@@ -47,6 +47,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_BER,
 	EMV_DECODE_TLV,
 	EMV_DECODE_DOL,
+	EMV_DECODE_TAG_LIST,
 	EMV_DECODE_TERM_TYPE,
 	EMV_DECODE_TERM_CAPS,
 	EMV_DECODE_ADDL_TERM_CAPS,
@@ -67,6 +68,7 @@ static struct argp_option argp_options[] = {
 	{ "ber", EMV_DECODE_BER, NULL, 0, "Decode ISO 8825-1 BER encoded data" },
 	{ "tlv", EMV_DECODE_TLV, NULL, 0, "Decode EMV TLV data" },
 	{ "dol", EMV_DECODE_DOL, NULL, 0, "Decode EMV Data Object List (DOL)" },
+	{ "tag-list", EMV_DECODE_TAG_LIST, NULL, 0, "Decode EMV Tag List" },
 
 	{ NULL, 0, NULL, 0, "Individual EMV fields:", 3 },
 	{ "term-type", EMV_DECODE_TERM_TYPE, NULL, 0, "Decode Terminal Type (field 9F35)" },
@@ -142,6 +144,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_BER:
 		case EMV_DECODE_TLV:
 		case EMV_DECODE_DOL:
+		case EMV_DECODE_TAG_LIST:
 		case EMV_DECODE_TERM_TYPE:
 		case EMV_DECODE_TERM_CAPS:
 		case EMV_DECODE_ADDL_TERM_CAPS:
@@ -286,6 +289,11 @@ int main(int argc, char** argv)
 
 		case EMV_DECODE_DOL: {
 			print_emv_dol(data, data_len, "  ", 0);
+			break;
+		}
+
+		case EMV_DECODE_TAG_LIST: {
+			print_emv_tag_list(data, data_len, "  ", 0);
 			break;
 		}
 
