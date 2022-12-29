@@ -1,0 +1,54 @@
+##############################################################################
+# Copyright (c) 2022 Leon Lynch
+#
+# This file is licensed under the terms of the LGPL v2.1 license.
+# See LICENSE file.
+##############################################################################
+
+name: Fedora build
+
+on: [push]
+
+jobs:
+  build-fedora-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Fedora 36", fedora_version: 36, deps: "none", build_emv_tool: NO }
+          - { name: "Fedora 36", fedora_version: 36, deps: "pcsclite", build_emv_tool: YES }
+          - { name: "Fedora 37", fedora_version: 37, deps: "pcsclite", build_emv_tool: YES }
+
+    name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
+    runs-on: ubuntu-latest
+    container: fedora:${{ matrix.fedora_version }}
+
+    steps:
+    - name: Install build tools
+      run: sudo dnf -y install git cmake gcc
+
+    - name: Install PCSCLite
+      if: contains(matrix.deps, 'pcsclite')
+      run: sudo dnf -y install pcsc-lite-devel
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    # Container user doesn't match runner user
+    # Github has only fixed https://github.com/actions/checkout/issues/760
+    # not https://github.com/actions/checkout/issues/766
+    - name: Configure Git
+      run: |
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        git describe --always --dirty
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE="Debug" -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }}
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: cmake --build build --target test
