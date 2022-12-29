@@ -11,6 +11,14 @@ cmake_minimum_required(VERSION 3.16)
 option(BUILD_EMV_DECODE "Build emv-decode" ON)
 option(BUILD_EMV_TOOL "Build emv-tool" ON)
 
+# Check for argp
+find_package(argp)
+if(NOT argp_FOUND)
+	if(BUILD_EMV_DECODE OR BUILD_EMV_TOOL)
+		message(FATAL_ERROR "Could NOT find argp. This is required to build command line tools.")
+	endif()
+endif()
+
 find_package(PCSCLite 1.8)
 if(NOT PCSCLite_FOUND)
 	if(BUILD_EMV_TOOL)
