@@ -1,0 +1,45 @@
+##############################################################################
+# Copyright (c) 2022 Leon Lynch
+#
+# This file is licensed under the terms of the LGPL v2.1 license.
+# See LICENSE file.
+##############################################################################
+
+name: Ubuntu build
+
+on: [push]
+
+jobs:
+  build-ubuntu-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "none", build_emv_tool: NO }
+          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "pcsclite", build_emv_tool: YES }
+          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "pcsclite", build_emv_tool: YES }
+
+    name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Install PCSCLite
+      if: contains(matrix.deps, 'pcsclite')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpcsclite-dev
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - run: git describe --always --dirty
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE="Debug" -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }}
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: cmake --build build --target test

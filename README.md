@@ -1,6 +1,8 @@
 emv-tools
 =========
 
+[![Ubuntu build](https://github.com/openemv/emv-tools/actions/workflows/ubuntu-build.yaml/badge.svg)](https://github.com/openemv/emv-tools/actions/workflows/ubuntu-build.yaml)<br/>
+
 Simple EMV tools
 
 License
