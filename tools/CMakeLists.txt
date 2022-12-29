@@ -11,11 +11,19 @@ cmake_minimum_required(VERSION 3.16)
 option(BUILD_EMV_DECODE "Build emv-decode" ON)
 option(BUILD_EMV_TOOL "Build emv-tool" ON)
 
-# Check for argp
-find_package(argp)
+# Check for argp or allow the FETCH_ARGP option to download and build a local
+# copy of libargp for monolithic builds on platforms without package managers
+# like MacOS and Windows.
+option(FETCH_ARGP "Download and build libargp")
+if(FETCH_ARGP)
+	set(ARGP_OSX_ARCHITECTURES ${CMAKE_OSX_ARCHITECTURES})
+	include(FetchLibArgp)
+else()
+	find_package(argp)
+endif()
 if(NOT argp_FOUND)
 	if(BUILD_EMV_DECODE OR BUILD_EMV_TOOL)
-		message(FATAL_ERROR "Could NOT find argp. This is required to build command line tools.")
+		message(FATAL_ERROR "Could NOT find argp. Enable FETCH_ARGP to download and build libargp. This is required to build command line tools.")
 	endif()
 endif()
 
