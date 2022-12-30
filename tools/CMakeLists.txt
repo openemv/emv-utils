@@ -27,11 +27,22 @@ if(NOT argp_FOUND)
 	endif()
 endif()
 
-find_package(PCSCLite 1.8)
-if(NOT PCSCLite_FOUND)
-	if(BUILD_EMV_TOOL)
-		message(FATAL_ERROR "Could NOT find PCSCLite. This is required to build emv-tool")
+# Check for PC/SC API using PCSCLite on Linux and MacOS or Win32 API on Windows
+if(WIN32)
+	include(CheckIncludeFile)
+	check_include_file(winscard.h HAVE_WINSCARD_H)
+	if(NOT HAVE_WINSCARD_H AND BUILD_EMV_TOOL)
+		message(FATAL_ERROR "Could NOT find winscard.h. This is required to build emv-tool.")
 	endif()
+	set(PCSC_LIBRARIES WinSCard)
+else()
+	find_package(PCSCLite 1.8)
+	if(NOT PCSCLite_FOUND)
+		if(BUILD_EMV_TOOL)
+			message(FATAL_ERROR "Could NOT find PCSCLite. This is required to build emv-tool.")
+		endif()
+	endif()
+	set(PCSC_LIBRARIES PCSCLite::PCSCLite)
 endif()
 
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
@@ -54,10 +65,20 @@ endif()
 
 # EMV processing command line tool
 if(BUILD_EMV_TOOL)
+	if(PCSCLite_FOUND)
+		set_source_files_properties(../src/pcsc.c
+			PROPERTIES
+				COMPILE_DEFINITIONS USE_PCSCLITE
+		)
+	endif()
+
 	add_executable(emv-tool emv-tool.c print_helpers.c ../src/pcsc.c)
-	target_link_libraries(emv-tool PRIVATE emv iso7816 PCSCLite::PCSCLite)
+	target_link_libraries(emv-tool PRIVATE emv iso7816)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-tool PRIVATE libargp::argp)
+	endif()
+	if(PCSC_LIBRARIES)
+		target_link_libraries(emv-tool PRIVATE ${PCSC_LIBRARIES})
 	endif()
 
 	install(

@@ -2,7 +2,7 @@
  * @file pcsc.c
  * @brief PC/SC abstraction
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2022 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,12 +21,21 @@
 
 #include "pcsc.h"
 
-#include <pcsclite.h>
 #include <winscard.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifndef USE_PCSCLITE
+// Only PCSCLite provides pcsc_stringify_error()
+static char* pcsc_stringify_error(unsigned int result)
+{
+	static char str[16];
+	snprintf(str, sizeof(str), "0x%08X", result);
+	return str;
+}
+#endif
 
 struct pcsc_t {
 	SCARDCONTEXT context;
