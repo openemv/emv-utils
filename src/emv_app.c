@@ -323,7 +323,7 @@ void emv_app_list_clear(struct emv_app_list_t* list)
 	while (list->front) {
 		struct emv_app_t* app;
 		int r;
-		int emv_app_is_safe_to_free;
+		int emv_app_is_safe_to_free __attribute__((unused));
 
 		app = emv_app_list_pop(list);
 		r = emv_app_free(app);

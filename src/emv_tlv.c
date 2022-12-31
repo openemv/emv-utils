@@ -112,7 +112,7 @@ void emv_tlv_list_clear(struct emv_tlv_list_t* list)
 	while (list->front) {
 		struct emv_tlv_t* tlv;
 		int r;
-		int emv_tlv_is_safe_to_free;
+		int emv_tlv_is_safe_to_free __attribute__((unused));
 
 		tlv = emv_tlv_list_pop(list);
 		r = emv_tlv_free(tlv);
