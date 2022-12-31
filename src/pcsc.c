@@ -75,7 +75,7 @@ int pcsc_init(pcsc_ctx_t* ctx)
 	// Create the PC/SC context
 	result = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &pcsc->context);
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardEstablishContext() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardEstablishContext() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		pcsc_release(ctx);
 		return -1;
 	}
@@ -83,7 +83,7 @@ int pcsc_init(pcsc_ctx_t* ctx)
 	// Get the size of the reader list
 	result = SCardListReaders(pcsc->context, NULL, NULL, &pcsc->reader_strings_size);
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardListReaders() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardListReaders() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		pcsc_release(ctx);
 		return -1;
 	}
@@ -92,7 +92,7 @@ int pcsc_init(pcsc_ctx_t* ctx)
 	pcsc->reader_strings = malloc(pcsc->reader_strings_size);
 	result = SCardListReaders(pcsc->context, NULL, pcsc->reader_strings, &pcsc->reader_strings_size);
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardListReaders() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardListReaders() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		pcsc_release(ctx);
 		return -1;
 	}
@@ -144,7 +144,7 @@ void pcsc_release(pcsc_ctx_t* ctx)
 	// Release the PC/SC context
 	result = SCardReleaseContext(pcsc->context);
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardReleaseContext() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardReleaseContext() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 	}
 
 	// Cleanup the PC/SC variables
@@ -229,7 +229,7 @@ int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state)
 		1
 	);
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardGetStatusChange() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardGetStatusChange() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		return -1;
 	}
 
@@ -265,7 +265,7 @@ int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx)
 		return 1;
 	}
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardGetStatusChange() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardGetStatusChange() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		return -1;
 	}
 
@@ -303,7 +303,7 @@ int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx)
 		&reader->protocol
 	);
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardConnect() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardConnect() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		return -1;
 	}
 
@@ -311,7 +311,7 @@ int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx)
 	reader->atr_len = sizeof(reader->atr);
 	result = SCardStatus(reader->card, NULL, NULL, &state, &reader->protocol, reader->atr, &reader->atr_len);
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardStatus() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardStatus() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		pcsc_reader_disconnect(reader);
 		return -1;
 	}
@@ -332,7 +332,7 @@ int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx)
 	// Disconnect from reader and unpower card
 	result = SCardDisconnect(reader->card, SCARD_UNPOWER_CARD);
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardDisconnect() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardDisconnect() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		return -1;
 	}
 
@@ -390,10 +390,14 @@ int pcsc_reader_trx(
 		case SCARD_PROTOCOL_T1:
 			result = SCardTransmit(reader->card, SCARD_PCI_T1, tx_buf, tx_buf_len, NULL, rx_buf, &rx_len);
 			break;
+
+		default:
+			result = SCARD_F_INTERNAL_ERROR;
+			break;
 	}
 
 	if (result != SCARD_S_SUCCESS) {
-		fprintf(stderr, "SCardTransmit() failed; result=0x%lx [%s]\n", result, pcsc_stringify_error(result));
+		fprintf(stderr, "SCardTransmit() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		return -1;
 	}
 
