@@ -2,7 +2,7 @@
  * @file iso7816_strings.c
  * @brief ISO/IEC 7816 string helper functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2022 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -76,7 +76,9 @@ const char* iso7816_sw1sw2_get_string(uint8_t SW1, uint8_t SW2, char* str, size_
 	}
 
 	// According to ISO 7816-4:2005, 5.1.3:
-	// Any value different from 6XXX and 9XXX is invalid any value 60XX is also invalid
+	// Any value different from 6XXX and 9XXX is invalid
+	// and any value 60XX is also invalid
+	// Also see ISO 7816-3:2006, 10.3.3
 	if ((SW1 & 0xF0) != 0x60 && (SW1 & 0xF0) != 0x90) {
 		snprintf(str, str_len, "Invalid");
 		return str;
@@ -89,14 +91,14 @@ const char* iso7816_sw1sw2_get_string(uint8_t SW1, uint8_t SW2, char* str, size_
 	// According to ISO 7816-4:2005, 5.1.3:
 	// 67XX, 6BXX, 6DXX, 6EXX, 6FXX and 9XXX are proprietary, except for
 	// 6700, 6B00, 6D00, 6E00, 6F00 and 9000 that are interindustry
-	if ((SW1 == 0x67 ||
+	if (((
+			SW1 == 0x67 ||
 			SW1 == 0x6B ||
 			SW1 == 0x6D ||
 			SW1 == 0x6E ||
-			SW1 == 0x6F ||
-			(SW1 & 0xF0) == 0x90
-		) &&
-		SW2 != 0x00
+			SW1 == 0x6F
+		) && SW2 != 0x00) ||
+		(SW1 & 0xF0) == 0x90 // 9000 is checked for earlier
 	) {
 		snprintf(str, str_len, "Proprietary");
 		return str;
@@ -127,6 +129,10 @@ const char* iso7816_sw1sw2_get_string(uint8_t SW1, uint8_t SW2, char* str, size_
 		case 0x6F:
 			r = snprintf(str_ptr, str_len, "Checking error: ");
 			break;
+
+		default:
+			// This should never happen
+			return NULL;
 	}
 	if (r >= str_len) {
 		// Not enough space in string buffer; return truncated content
