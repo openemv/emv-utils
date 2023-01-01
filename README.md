@@ -9,8 +9,8 @@ emv-tools
 Simple EMV tools
 
 License
-=======
+-------
 
-Copyright (c) 2021 Leon Lynch.
+Copyright (c) 2021, 2022 [Leon Lynch](https://github.com/leonlynch).
 
 This project is licensed under the terms of the LGPL v2.1 license. See LICENSE file.
