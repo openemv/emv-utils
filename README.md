@@ -1,11 +1,11 @@
 EMV libraries and tools
 =======================
 
-[![License: LGPL-2.1](https://img.shields.io/github/license/openemv/emv-tools)](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)<br/>
-[![Ubuntu build](https://github.com/openemv/emv-tools/actions/workflows/ubuntu-build.yaml/badge.svg)](https://github.com/openemv/emv-tools/actions/workflows/ubuntu-build.yaml)<br/>
-[![Fedora build](https://github.com/openemv/emv-tools/actions/workflows/fedora-build.yaml/badge.svg)](https://github.com/openemv/emv-tools/actions/workflows/fedora-build.yaml)<br/>
-[![MacOS build](https://github.com/openemv/emv-tools/actions/workflows/macos-build.yaml/badge.svg)](https://github.com/openemv/emv-tools/actions/workflows/macos-build.yaml)<br/>
-[![Windows build](https://github.com/openemv/emv-tools/actions/workflows/windows-build.yaml/badge.svg)](https://github.com/openemv/emv-tools/actions/workflows/windows-build.yaml)<br/>
+[![License: LGPL-2.1](https://img.shields.io/github/license/openemv/emv-utils)](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)<br/>
+[![Ubuntu build](https://github.com/openemv/emv-utils/actions/workflows/ubuntu-build.yaml/badge.svg)](https://github.com/openemv/emv-utils/actions/workflows/ubuntu-build.yaml)<br/>
+[![Fedora build](https://github.com/openemv/emv-utils/actions/workflows/fedora-build.yaml/badge.svg)](https://github.com/openemv/emv-utils/actions/workflows/fedora-build.yaml)<br/>
+[![MacOS build](https://github.com/openemv/emv-utils/actions/workflows/macos-build.yaml/badge.svg)](https://github.com/openemv/emv-utils/actions/workflows/macos-build.yaml)<br/>
+[![Windows build](https://github.com/openemv/emv-utils/actions/workflows/windows-build.yaml/badge.svg)](https://github.com/openemv/emv-utils/actions/workflows/windows-build.yaml)<br/>
 
 This project is a partial implementation of the EMVCo specifications for card
 payment terminals. It is mostly intended for validation and debugging purposes

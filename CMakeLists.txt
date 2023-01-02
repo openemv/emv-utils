@@ -7,22 +7,22 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-project(emv-tools
+project(emv-utils
 	VERSION 0.0.1
 	DESCRIPTION "EMV libraries and tools"
-	HOMEPAGE_URL "https://github.com/openemv/emv-tools"
+	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
 	LANGUAGES C
 )
 
 # Determine whether this project is the top-level project
 if(${CMAKE_VERSION} VERSION_LESS "3.21")
-	get_directory_property(EMV_TOOLS_HAS_PARENT PARENT_DIRECTORY)
-	if(NOT EMV_TOOLS_HAS_PARENT)
-		set(EMV_TOOLS_IS_TOP_LEVEL True)
+	get_directory_property(EMV_UTILS_HAS_PARENT PARENT_DIRECTORY)
+	if(NOT EMV_UTILS_HAS_PARENT)
+		set(EMV_UTILS_IS_TOP_LEVEL True)
 	endif()
 else()
 	# CMake >=3.21 provides <PROJECT-NAME>_IS_TOP_LEVEL
-	set(EMV_TOOLS_IS_TOP_LEVEL ${emv-tools_IS_TOP_LEVEL})
+	set(EMV_UTILS_IS_TOP_LEVEL ${emv-utils_IS_TOP_LEVEL})
 endif()
 
 # Configure compiler
@@ -38,7 +38,7 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
 # Configure testing before adding subdirectories
-if(EMV_TOOLS_IS_TOP_LEVEL)
+if(EMV_UTILS_IS_TOP_LEVEL)
 	# Configure Valgrind before including CTest module
 	find_program(VALGRIND_COMMAND valgrind)
 	set(MEMORYCHECK_TYPE Valgrind)
