@@ -53,3 +53,11 @@ add_subdirectory(tools)
 add_subdirectory(tests)
 
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
+
+# Install README and LICENSE files to runtime component
+install(FILES
+	"${CMAKE_CURRENT_SOURCE_DIR}/README.md"
+	"${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+	TYPE DOC
+	COMPONENT emv_runtime
+)
