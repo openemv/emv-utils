@@ -58,6 +58,7 @@ if(BUILD_EMV_DECODE)
 	install(
 		TARGETS
 			emv-decode
+		EXPORT emvUtilsTargets # For use by install(EXPORT) command
 		RUNTIME
 			COMPONENT emv_runtime
 	)
@@ -84,6 +85,7 @@ if(BUILD_EMV_TOOL)
 	install(
 		TARGETS
 			emv-tool
+		EXPORT emvUtilsTargets # For use by install(EXPORT) command
 		RUNTIME
 			COMPONENT emv_runtime
 	)

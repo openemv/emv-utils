@@ -61,3 +61,32 @@ install(FILES
 	TYPE DOC
 	COMPONENT emv_runtime
 )
+
+# Generate and install basic CMake config files
+include(CMakePackageConfigHelpers) # Provides CMake config generator macros
+set(EMV_UTILS_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME} CACHE STRING "Installation location for emv-utils CMake config files")
+message(STATUS "Using CMake config install location \"${EMV_UTILS_INSTALL_CMAKEDIR}\"")
+configure_package_config_file(cmake/emvUtilsConfig.cmake.in
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsConfig.cmake"
+	INSTALL_DESTINATION "${EMV_UTILS_INSTALL_CMAKEDIR}"
+)
+write_basic_package_version_file(
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsConfigVersion.cmake"
+	COMPATIBILITY AnyNewerVersion
+)
+install(FILES
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsConfig.cmake"
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsConfigVersion.cmake"
+	DESTINATION "${EMV_UTILS_INSTALL_CMAKEDIR}"
+	COMPONENT emv_development
+)
+install(EXPORT emvUtilsTargets
+	FILE emvUtilsTargets.cmake
+	DESTINATION "${EMV_UTILS_INSTALL_CMAKEDIR}"
+	NAMESPACE emv::
+	COMPONENT emv_development
+)
+export(EXPORT emvUtilsTargets
+	FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsTargets.cmake"
+	NAMESPACE emv::
+)

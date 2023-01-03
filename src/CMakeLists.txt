@@ -34,6 +34,7 @@ target_include_directories(iso7816 INTERFACE
 install(
 	TARGETS
 		iso7816
+	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/iso7816"
 		COMPONENT emv_development
@@ -67,6 +68,7 @@ target_include_directories(iso8825 INTERFACE
 install(
 	TARGETS
 		iso8825
+	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/iso8825"
 		COMPONENT emv_development
@@ -118,6 +120,7 @@ target_include_directories(emv INTERFACE
 install(
 	TARGETS
 		emv
+	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/emv"
 		COMPONENT emv_development
