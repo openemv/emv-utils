@@ -106,6 +106,10 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 add_library(emv::emv ALIAS emv)
 target_compile_definitions(emv PUBLIC EMV_DEBUG_ENABLED) # Enabled all debugging
 target_link_libraries(emv PUBLIC iso8825)
+# The EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV variables are set
+# for the parent scope to facilitate the generation of pkgconfig files.
+set(EMV_PKGCONFIG_REQ_PRIV "libiso8825" PARENT_SCOPE)
+set(EMV_PKGCONFIG_LIBS_PRIV "-liso8825" PARENT_SCOPE)
 set_target_properties(emv
 	PROPERTIES
 		PUBLIC_HEADER "${emv_HEADERS}"

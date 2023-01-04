@@ -90,3 +90,35 @@ export(EXPORT emvUtilsTargets
 	FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsTargets.cmake"
 	NAMESPACE emv::
 )
+
+# Generate and install pkgconfig files
+set(EMV_UTILS_INSTALL_PKGCONFIG_DIR ${CMAKE_INSTALL_LIBDIR}/pkgconfig CACHE STRING "Installation location for emv-utils pkgconfig files")
+message(STATUS "Using pkgconfig install location \"${EMV_UTILS_INSTALL_PKGCONFIG_DIR}\"")
+# Generate pkgconfig for iso7816 library
+set(EMV_UTILS_PKGCONFIG_LIB_NAME iso7816)
+# NOTE: src subdirectory may provide ISO7816_PKGCONFIG_REQ_PRIV and ISO7816_PKGCONFIG_LIBS_PRIV
+configure_file(pkgconfig/libiso7816.pc.in
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso7816.pc"
+	@ONLY
+)
+# Generate pkgconfig for iso8825 library
+set(EMV_UTILS_PKGCONFIG_LIB_NAME iso8825)
+# NOTE: src subdirectory may provide ISO8825_PKGCONFIG_REQ_PRIV and ISO8825_PKGCONFIG_LIBS_PRIV
+configure_file(pkgconfig/libiso8825.pc.in
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8825.pc"
+	@ONLY
+)
+# Generate pkgconfig for emv library
+set(EMV_UTILS_PKGCONFIG_LIB_NAME emv)
+# NOTE: src subdirectory may provide EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV
+configure_file(pkgconfig/libemv.pc.in
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv.pc"
+	@ONLY
+)
+install(FILES
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso7816.pc"
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8825.pc"
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv.pc"
+	DESTINATION "${EMV_UTILS_INSTALL_PKGCONFIG_DIR}"
+	COMPONENT emv_development
+)
