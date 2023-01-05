@@ -29,6 +29,9 @@ Dependencies
   [PCSCLite](https://pcsclite.apdu.fr/) on Linux/MacOS. Use the
   `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built and avoid the
   dependency on PC/SC.
+* [Doxygen](https://github.com/doxygen/doxygen) can _optionally_ be used to
+  generate API documentation if it is available; see
+  [Documentation](#documentation)
 
 Build
 -----
@@ -65,6 +68,20 @@ performed or the number of jobs to be set, for example:
 ```
 ctest -T MemCheck -j 10
 ```
+
+Documentation
+-------------
+
+If Doxygen was found by CMake, then HTML documentation can be generated using
+the `docs` target of the generated build system.
+
+To generate the documentation using CMake, do:
+```
+cmake --build build --target docs
+```
+
+Alternatively, the `BUILD_DOCS` option can be specified when generating the
+build system by adding `-DBUILD_DOCS=YES`.
 
 MacOS / Windows
 ---------------

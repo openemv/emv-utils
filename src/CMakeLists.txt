@@ -19,6 +19,7 @@ set(iso7816_HEADERS # PUBLIC_HEADER property requires a list instead of individu
 	iso7816.h
 	iso7816_compact_tlv.h
 	iso7816_strings.h
+	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
 add_library(emv::iso7816 ALIAS iso7816)
 set_target_properties(iso7816
@@ -53,6 +54,7 @@ add_library(iso8825
 )
 set(iso8825_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	iso8825_ber.h
+	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
 add_library(emv::iso8825 ALIAS iso8825)
 set_target_properties(iso8825
@@ -102,6 +104,7 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_app.h
 	emv_tal.h
 	emv_strings.h
+	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
 add_library(emv::emv ALIAS emv)
 target_compile_definitions(emv PUBLIC EMV_DEBUG_ENABLED) # Enabled all debugging

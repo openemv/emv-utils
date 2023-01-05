@@ -141,3 +141,36 @@ if(BASH_COMPLETION_FOUND)
 		COMPONENT emv_runtime
 	)
 endif()
+
+# Build and install doxygen documentation
+option(BUILD_DOCS "Build documentation")
+find_package(Doxygen) # Optional for generating doxygen files
+if(Doxygen_FOUND)
+	# Use doxygen to generate HTML
+	set(DOXYGEN_GENERATE_HTML YES)
+
+	# Generate docs for public headers
+	if(BUILD_DOCS)
+		doxygen_add_docs(docs
+			${iso7816_HEADERS}
+			${iso8825_HEADERS}
+			${emv_HEADERS}
+			ALL # Build by default
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
+		)
+
+		# Install generated docs by default
+		install(
+			DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html
+			TYPE DOC
+			COMPONENT emv_docs
+		)
+	else()
+		doxygen_add_docs(docs
+			${iso7816_HEADERS}
+			${iso8825_HEADERS}
+			${emv_HEADERS}
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
+		)
+	endif()
+endif()
