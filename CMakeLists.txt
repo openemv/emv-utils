@@ -122,3 +122,22 @@ install(FILES
 	DESTINATION "${EMV_UTILS_INSTALL_PKGCONFIG_DIR}"
 	COMPONENT emv_development
 )
+
+# Install bash-completion files
+find_package(bash-completion) # Optional for providing bash-completion files
+if(BASH_COMPLETION_FOUND)
+	set(EMV_UTILS_INSTALL_BASH_COMPLETION_DIR ${CMAKE_INSTALL_DATADIR}/bash-completion/completions CACHE STRING "Installation location for emv-utils bash-completion files")
+	message(STATUS "Using bash-completion install location \"${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}\"")
+
+	# Install bash completion files
+	install(FILES
+		"${CMAKE_CURRENT_SOURCE_DIR}/bash-completion/emv-decode"
+		DESTINATION "${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}"
+		COMPONENT emv_runtime
+	)
+	install(FILES
+		"${CMAKE_CURRENT_SOURCE_DIR}/bash-completion/emv-tool"
+		DESTINATION "${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}"
+		COMPONENT emv_runtime
+	)
+endif()
