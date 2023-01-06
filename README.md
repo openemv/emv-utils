@@ -83,6 +83,31 @@ cmake --build build --target docs
 Alternatively, the `BUILD_DOCS` option can be specified when generating the
 build system by adding `-DBUILD_DOCS=YES`.
 
+Packaging
+---------
+
+If the required packaging tools were found (`dpkg` and/or `rpmbuild` on Linux)
+by CMake, packages can be created using the `package` target of the generated
+build system.
+
+To generate the packages using CMake, do:
+```
+cmake --build build --target package
+```
+
+Alternatively, [cpack](https://cmake.org/cmake/help/latest/manual/cpack.1.html)
+can be used directly from within the build directory (`build` in the above
+[Build](#build) steps).
+
+This is an example of how monolithic release packages can be built from
+scratch on Ubuntu or Fedora:
+```
+rm -Rf build &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=YES -DBUILD_DOCS=YES -DCPACK_COMPONENTS_GROUPING=ALL_COMPONENTS_IN_ONE &&
+cmake --build build &&
+cmake --build build --target package
+```
+
 MacOS / Windows
 ---------------
 

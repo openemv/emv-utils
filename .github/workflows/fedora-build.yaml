@@ -52,3 +52,56 @@ jobs:
 
     - name: Test
       run: cmake --build build --target test
+
+  build-fedora-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Fedora 36", fedora_version: 36 }
+          - { name: "Fedora 37", fedora_version: 37 }
+
+    name: ${{ matrix.name }} release
+    runs-on: ubuntu-latest
+    container: fedora:${{ matrix.fedora_version }}
+
+    steps:
+    - name: Install dependencies
+      run: |
+        sudo dnf -y install git gh cmake gcc pcsc-lite-devel bash-completion doxygen rpm-build
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    # Container user doesn't match runner user
+    # Github has only fixed https://github.com/actions/checkout/issues/760
+    # not https://github.com/actions/checkout/issues/766
+    - name: Configure Git
+      run: |
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        git describe --always --dirty
+
+    - name: Get version from git tag
+      run: echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> $GITHUB_ENV
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=YES -DBUILD_DOCS=YES -DCPACK_COMPONENTS_GROUPING=ALL_COMPONENTS_IN_ONE
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: cmake --build build --target test
+
+    - name: Package
+      run: cmake --build build --target package
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: emv-utils-${{ env.GIT_DESCRIBE }}-fedora${{ matrix.fedora_version }}
+        path: build/emv-utils-*.rpm
+        if-no-files-found: error

@@ -174,3 +174,81 @@ if(Doxygen_FOUND)
 		)
 	endif()
 endif()
+
+# Configure CPack to generate .tar.gz package
+set(CPACK_GENERATOR "TGZ")
+set(CPACK_PACKAGE_VENDOR "OpenEMV")
+set(CPACK_PACKAGE_CONTACT "lynch.leon@gmail.com")
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+set(CPACK_VERBATIM_VARIABLES ON)
+
+# Configure generic component packaging attributes
+set(CPACK_COMPONENT_EMV_RUNTIME_DISPLAY_NAME "EMV libraries and tools")
+set(CPACK_COMPONENT_EMV_RUNTIME_DESCRIPTION "EMV runtime libraries (iso7816, iso8825, emv) and command line tools (emv-decode, emv-tool)")
+set(CPACK_COMPONENT_EMV_DEVELOPMENT_DISPLAY_NAME "EMV development files")
+set(CPACK_COMPONENT_EMV_DEVELOPMENT_DESCRIPTION "Development files (headers, pkgconfig files, CMake config files, etc) for EMV libraries")
+set(CPACK_COMPONENT_EMV_DOCS_DISPLAY_NAME "Documentation for EMV libraries")
+set(CPACK_COMPONENT_EMV_DOCS_DESCRIPTION ${CPACK_COMPONENT_EMV_DOCS_DISPLAY_NAME})
+if(BUILD_SHARED_LIBS)
+	set(CPACK_COMPONENT_EMV_DEVELOPMENT_DEPENDS emv_runtime)
+endif()
+
+# NOTE: for monolithic packages, uncomment the line below or specify it when
+# invoking CMake
+#set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+
+# Generate Debian/Ubuntu packages if dpkg is available
+find_package(dpkg) # Optional for building Debian/Ubuntu packages
+if(dpkg_FOUND)
+	# Configure CPack to generate .deb package
+	list(APPEND CPACK_GENERATOR "DEB")
+	# Generate component packages
+	# NOTE: This is overridden by CPACK_COMPONENTS_GROUPING above
+	set(CPACK_DEB_COMPONENT_INSTALL ON)
+	set(CPACK_DEBIAN_ENABLE_COMPONENT_DEPENDS ON)
+	# Use default debian package naming
+	set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+	# Assign package names to components
+	set(CPACK_DEBIAN_EMV_RUNTIME_PACKAGE_NAME "emv-utils-runtime")
+	set(CPACK_DEBIAN_EMV_DEVELOPMENT_PACKAGE_NAME "emv-utils-dev")
+	set(CPACK_DEBIAN_EMV_DOCS_PACKAGE_NAME "emv-utils-doc")
+	# Assign package architecture to documentation component
+	set(CPACK_DEBIAN_EMV_DOCS_PACKAGE_ARCHITECTURE "all")
+	# Assign package sections to components
+	set(CPACK_DEBIAN_EMV_RUNTIME_PACKAGE_SECTION "utils")
+	set(CPACK_DEBIAN_EMV_DEVELOPMENT_PACKAGE_SECTION "devel")
+	set(CPACK_DEBIAN_EMV_DOCS_PACKAGE_SECTION "doc")
+	# Assign package suggestions
+	set(CPACK_DEBIAN_EMV_DOCS_PACKAGE_SUGGESTS "emv-utils-dev")
+	# Generate package dependency list
+	set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+	set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/src/) # dpkg-shlibdeps cannot find dependencies that aren't installed, so it needs some help
+endif()
+
+# Generate RedHat/Fedora packages if rpmbuild is available
+find_package(rpmbuild) # Optional for building RedHat/Fedora packages
+if(rpmbuild_FOUND)
+	list(APPEND CPACK_GENERATOR "RPM")
+	# Generate component packages
+	# NOTE: This is overridden by CPACK_COMPONENTS_GROUPING above
+	set(CPACK_RPM_COMPONENT_INSTALL ON)
+	# Use default rpm package naming
+	set(CPACK_RPM_FILE_NAME "RPM-DEFAULT")
+	set(CPACK_RPM_PACKAGE_RELEASE_DIST ON)
+	# Configure license and changelog
+	set(CPACK_RPM_PACKAGE_LICENSE "LGPLv2+")
+	set(CPACK_RPM_CHANGELOG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/rpm_changelog.txt")
+	# Assign package names to components
+	set(CPACK_RPM_EMV_RUNTIME_PACKAGE_NAME "emv-utils-runtime")
+	set(CPACK_RPM_EMV_DEVELOPMENT_PACKAGE_NAME "emv-utils-devel")
+	set(CPACK_RPM_EMV_DOCS_PACKAGE_NAME "emv-utils-doc")
+	# Assign package architecture to documentation component
+	set(CPACK_RPM_EMV_DOCS_PACKAGE_ARCHITECTURE "noarch")
+	# Assign package suggestions
+	set(CPACK_RPM_EMV_DOCS_PACKAGE_SUGGESTS "emv-utils-devel")
+	# NOTE: RPM generator automatically detects dependencies
+endif()
+
+include(CPack)
