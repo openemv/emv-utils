@@ -90,3 +90,81 @@ if(BUILD_EMV_TOOL)
 			COMPONENT emv_runtime
 	)
 endif()
+
+if(TARGET emv-decode AND BUILD_TESTING)
+	add_test(NAME emv_decode_test1
+		COMMAND emv-decode --atr 3BDA18FF81B1FE751F030031F573C78A40009000B0
+	)
+	set_tests_properties(emv_decode_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^ATR: 3BDA18FF81B1FE751F030031F573C78A40009000B0[\r\n]  TS  = 0x3B: Direct convention.*  TCK = 0xB0[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test2
+		COMMAND emv-decode --tlv 810400000320
+	)
+	set_tests_properties(emv_decode_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^81 \\| Amount, Authorised \\(Binary\\) : \\[4\\] 00 00 03 20 \\(800\\)[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test3
+		COMMAND emv-decode --tlv 9A03221215
+	)
+	set_tests_properties(emv_decode_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^9A \\| Transaction Date : \\[3\\] 22 12 15 \\(2022-12-15\\)[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test4
+		COMMAND emv-decode --tlv 9F2103111542
+	)
+	set_tests_properties(emv_decode_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^9F21 \\| Transaction Time : \\[3\\] 11 15 42 \\(11:15:42\\)[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test5
+		COMMAND emv-decode --tlv 9C0100
+	)
+	set_tests_properties(emv_decode_test5
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^9C \\| Transaction Type : \\[1\\] 00 \\(Goods and services\\)[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test6
+		COMMAND emv-decode --tlv 9F390105
+	)
+	set_tests_properties(emv_decode_test6
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^9F39 \\| Point-of-Service \\(POS\\) Entry Mode : \\[1\\] 05 \\(Integrated circuit card \\(ICC\\)\\. CVV can be checked\\.\\)[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test7
+		COMMAND emv-decode --tlv 571040123456789095D2512201197339300F
+	)
+	set_tests_properties(emv_decode_test7
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^57 \\| Track 2 Equivalent Data : \\[16\\] 40 12 34 56 78 90 95 D2 51 22 01 19 73 39 30 0F \\(40123456789095=2512201197339300\\)[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test8
+		COMMAND emv-decode --tlv 701A9F390105571040123456789095D2512201197339300F82025900
+	)
+	set_tests_properties(emv_decode_test8
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70 \\| EMV Data Template : \\[26\\][\r\n]  9F39 \\| Point-of-Service \\(POS\\) Entry Mode : \\[1\\] 05 \\(Integrated circuit card \\(ICC\\)\\. CVV can be checked\\.\\)[\r\n]  57 \\| Track 2 Equivalent Data : \\[16\\] 40 12 34 56 78 90 95 D2 51 22 01 19 73 39 30 0F \\(40123456789095=2512201197339300\\)[\r\n]  82 \\| Application Interchange Profile \\(AIP\\) : \\[2\\] 59 00[\r\n]"
+	)
+
+	if(WIN32)
+		# Ensure that tests can find required DLLs (if any)
+		# Assume that the PATH already contains the compiler runtime DLLs
+		set(EMVTOOLS_TEST_PATH "${CMAKE_CURRENT_BINARY_DIR}/../src/;$ENV{PATH}")
+		cmake_path(NATIVE_PATH EMVTOOLS_TEST_PATH NORMALIZE EMVTOOLS_TEST_PATH)
+		get_property(EMVTOOLS_TEST_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY TESTS)
+		set_property(TEST ${EMVTOOLS_TEST_TARGETS}
+			PROPERTY
+				ENVIRONMENT "PATH=${EMVTOOLS_TEST_PATH}"
+		)
+	endif()
+endif()
