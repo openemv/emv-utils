@@ -181,7 +181,7 @@ __BEGIN_DECLS
 /// EMV tag 9F03 Amount, Other (Numeric)
 #define EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC                       (0x9F03)
 
-/// EMV tag 9F04 Amount, Other (Binary
+/// EMV tag 9F04 Amount, Other (Binary)
 #define EMV_TAG_9F04_AMOUNT_OTHER_BINARY                        (0x9F04)
 
 /// EMV tag 9F06 Application Identifier (AID) - terminal
@@ -215,6 +215,7 @@ __BEGIN_DECLS
 #define EMV_TAG_9F12_APPLICATION_PREFERRED_NAME                 (0x9F12)
 
 /// EMV tag 9F16 Merchant Identifier
+/// @remark Also used as the Card Acceptor Identification by ISO 8583. See EMV 4.3 Book 4, Annex C, Table 37
 #define EMV_TAG_9F16_MERCHANT_IDENTIFIER                        (0x9F16)
 
 /// EMV tag 9F1A Terminal Country Code
@@ -224,6 +225,7 @@ __BEGIN_DECLS
 #define EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT                       (0x9F1B)
 
 /// EMV tag 9F1C Terminal Identification
+/// @remark Also used as the Card Acceptor Terminal Identification by ISO 8583. See EMV 4.3 Book 4, Annex C, Table 37
 #define EMV_TAG_9F1C_TERMINAL_IDENTIFICATION                    (0x9F1C)
 
 /// EMV tag 9F1E Interface Device (IFD) Serial Number
@@ -295,7 +297,7 @@ __BEGIN_DECLS
 /// EMV tag 9F4C Integrated Circuit Card (ICC) Dynamic Number
 #define EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER                         (0x9F4C)
 
-/// EMMV tag 9F4D Log Entry. Template BF0C or 73.
+/// EMV tag 9F4D Log Entry. Template BF0C or 73.
 #define EMV_TAG_9F4D_LOG_ENTRY                                  (0x9F4D)
 
 /// EMV tag 9F4E Merchant Name and Location

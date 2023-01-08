@@ -260,7 +260,7 @@ int emv_term_caps_get_string_list(
 
 /**
  * Stringify Point-of-Service (POS) Entry Mode (field 9F39)
- * @param txn_type POS entry mode field
+ * @param pos_entry_mode POS entry mode field
  * @param str String buffer output
  * @param str_len Length of string buffer in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
@@ -322,8 +322,8 @@ int emv_afl_get_string_list(
 /**
  * Stringify Application Usage Control (field 9F07)
  * @note Strings in output buffer are delimited using "\n", including the last string
- * @param auc Application Usage Control field. Must be two bytes.
- * @param auc_len Length of Application Usage Control field. Must be two bytes.
+ * @param auc Application Usage Control (AUC) field. Must be 2 bytes.
+ * @param auc_len Length of Application Usage Control (AUC) field. Must be 2 bytes.
  * @param str String buffer output
  * @param str_len Length of string buffer in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.

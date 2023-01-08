@@ -343,8 +343,8 @@ struct emv_cvmlist_amounts_t {
 /// Cardholder Verification (CV) Rule
 /// @remark See EMV 4.3 Book 3, Annex C3
 struct emv_cv_rule_t {
-	uint8_t cvm; /// Cardholder Verification Method (CVM) Code
-	uint8_t cvm_cond; /// Cardholder Verification Method (CVM) Condition
+	uint8_t cvm; ///< Cardholder Verification Method (CVM) Code
+	uint8_t cvm_cond; ///< Cardholder Verification Method (CVM) Condition
 };
 
 /**
@@ -365,7 +365,7 @@ int emv_cvmlist_itr_init(
 /**
  * Decode next Cardholder Verification (CV) Rule and advance iterator
  * @param itr Cardholder Verification Method (CVM) List iterator
- * @param entry Decoded Cardholder Verification (CV) Rule output
+ * @param rule Decoded Cardholder Verification (CV) Rule output
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int emv_cvmlist_itr_next(struct emv_cvmlist_itr_t* itr, struct emv_cv_rule_t* rule);
