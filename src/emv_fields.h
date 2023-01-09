@@ -149,20 +149,25 @@ __BEGIN_DECLS
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_1                  (0x01) ///< Terminal Data Output Capability: Code table 1
 
 // Application Interchange Profile (field 82) byte 1
-// See EMV 4.3 Book 3, Annex C1, Table 37
+// See EMV 4.4 Book 3, Annex C1, Table 41
 // See EMV Contactless Book C-2 v2.10, Annex A.1.16
-#define EMV_AIP_SDA_SUPPORTED                                   (0x40) ///< Static Data Authentication (SDA) is supported
-#define EMV_AIP_DDA_SUPPORTED                                   (0x20) ///< Dynamic Data Authentication (DDA) is supported
-#define EMV_AIP_CV_SUPPORTED                                    (0x10) ///< Cardholder verification is supported
-#define EMV_AIP_TERMINAL_RISK_MANAGEMENT_REQUIRED               (0x08) ///< Terminal risk management is to be performed
-#define EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED                 (0x04) ///< Issuer authentication is supported
-#define EMV_AIP_ODCV_SUPPORTED                                  (0x02) ///< On device cardholder verification is supported
-#define EMV_AIP_CDA_SUPPORTED                                   (0x01) ///< Combined DDA/Application Cryptogram Generation (CDA) is supported
+#define EMV_AIP_XDA_SUPPORTED                                   (0x80) ///< Application Interchange Profile: Extended Data Authentication (XDA) is supported
+#define EMV_AIP_SDA_SUPPORTED                                   (0x40) ///< Application Interchange Profile: Static Data Authentication (SDA) is supported
+#define EMV_AIP_DDA_SUPPORTED                                   (0x20) ///< Application Interchange Profile: Dynamic Data Authentication (DDA) is supported
+#define EMV_AIP_CV_SUPPORTED                                    (0x10) ///< Application Interchange Profile: Cardholder verification is supported
+#define EMV_AIP_TERMINAL_RISK_MANAGEMENT_REQUIRED               (0x08) ///< Application Interchange Profile: Terminal risk management is to be performed
+#define EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED                 (0x04) ///< Application Interchange Profile: Issuer authentication is supported
+#define EMV_AIP_ODCV_SUPPORTED                                  (0x02) ///< Application Interchange Profile: On device cardholder verification is supported
+#define EMV_AIP_CDA_SUPPORTED                                   (0x01) ///< Application Interchange Profile: Combined DDA/Application Cryptogram Generation (CDA) is supported
 
 // Application Interchange Profile (field 82) byte 2
 // See EMV Contactless Book C-2 v2.10, Annex A.1.16
-#define EMV_AIP_EMV_MODE_SUPPORTED                              (0x80) ///< Contactless EMV mode is supported
-#define EMV_RRP_SUPPORTED                                       (0x01) ///< Relay Resistance Protocol (RRP) is supported
+// See EMV Contactless Book C-3 v2.10, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
+#define EMV_AIP_EMV_MODE_SUPPORTED                              (0x80) ///< Application Interchange Profile: Contactless EMV mode is supported
+#define EMV_AIP_MOBILE_PHONE                                    (0x40) ///< Application Interchange Profile: Mobile phone
+#define EMV_AIP_CONTACTLESS_TXN                                 (0x20) ///< Application Interchange Profile: Contactless transaction
+#define EMV_AIP_RFU                                             (0x1E) ///< Application Interchange Profile: RFU
+#define EMV_AIP_RRP_SUPPORTED                                   (0x01) ///< Application Interchange Profile: Relay Resistance Protocol (RRP) is supported
 
 // Application File Locator (field 94) byte 1
 // See EMV 4.4 Book 3, 10.2

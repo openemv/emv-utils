@@ -1735,8 +1735,11 @@ int emv_aip_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Application Interchange Profile (field 82) byte 1
-	// See EMV 4.3 Book 3, Annex C1, Table 37
+	// See EMV 4.4 Book 3, Annex C1, Table 41
 	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+	if (aip[0] & EMV_AIP_XDA_SUPPORTED) {
+		emv_str_list_add(&itr, "Extended Data Authentication (XDA) is supported");
+	}
 	if (aip[0] & EMV_AIP_SDA_SUPPORTED) {
 		emv_str_list_add(&itr, "Static Data Authentication (SDA) is supported");
 	}
@@ -1761,10 +1764,20 @@ int emv_aip_get_string_list(
 
 	// Application Interchange Profile (field 82) byte 2
 	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+	// See EMV Contactless Book C-3 v2.10, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
 	if (aip[1] & EMV_AIP_EMV_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Contactless EMV mode is supported");
 	}
-	if (aip[1] & EMV_RRP_SUPPORTED) {
+	if (aip[1] & EMV_AIP_MOBILE_PHONE) {
+		emv_str_list_add(&itr, "Mobile phone");
+	}
+	if (aip[1] & EMV_AIP_CONTACTLESS_TXN) {
+		emv_str_list_add(&itr, "Contactless transaction");
+	}
+	if (aip[1] & EMV_AIP_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+	if (aip[1] & EMV_AIP_RRP_SUPPORTED) {
 		emv_str_list_add(&itr, "Relay Resistance Protocol (RRP) is supported");
 	}
 
