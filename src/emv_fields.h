@@ -29,12 +29,12 @@
 __BEGIN_DECLS
 
 // Application Priority Indicator
-// See EMV 4.3 Book 1, 12.2.3, table 48
+// See EMV 4.4 Book 1, 12.2.3, table 13
 #define EMV_APP_PRIORITY_INDICATOR_MASK                         (0x0F)
 #define EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED                (0x80)
 
 // Application Selection Indicator
-// See EMV 4.3 Book 1, 12.3.1
+// See EMV 4.4 Book 1, 12.3.1
 #define EMV_ASI_EXACT_MATCH                                     (0x00)
 #define EMV_ASI_PARTIAL_MATCH                                   (0x01)
 
@@ -48,7 +48,7 @@ __BEGIN_DECLS
 #define EMV_TRANSACTION_TYPE_INQUIRY                            (0x30) ///< Transaction Type: Inquiry
 
 // Terminal Type (field 9F35)
-// See EMV 4.3 Book 4, Annex A1, table 24
+// See EMV 4.4 Book 4, Annex A1, table 24
 #define EMV_TERM_TYPE_OPERATIONAL_CONTROL_MASK                  (0xF0) ///< Terminal Type mask for operational control
 #define EMV_TERM_TYPE_OPERATIONAL_CONTROL_FINANCIAL_INSTITUTION (0x10) ///< Operational Control: Financial Institution
 #define EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT              (0x20) ///< Operationsl Control: Merchant
@@ -165,12 +165,12 @@ __BEGIN_DECLS
 #define EMV_RRP_SUPPORTED                                       (0x01) ///< Relay Resistance Protocol (RRP) is supported
 
 // Application File Locator (field 94) byte 1
-// See EMV 4.3 Book 3, 10.2
+// See EMV 4.4 Book 3, 10.2
 #define EMV_AFL_SFI_MASK                                        (0xF8) ///< Application File Locator (AFL) mask for Short File Identifier (SFI)
 #define EMV_AFL_SFI_SHIFT                                       (3) ///< Application File Locator (AFL) shift for Short File Identifier (SFI)
 
 // Application Usage Control (field 9F07) byte 1
-// See EMV 4.3 Book 3, Annex C2, Table 38
+// See EMV 4.4 Book 3, Annex C2, Table 42
 #define EMV_AUC_DOMESTIC_CASH                                   (0x80) ///< Application Usage Control: Valid for domestic cash transactions
 #define EMV_AUC_INTERNATIONAL_CASH                              (0x40) ///< Application Usage Control: Valid for international cash transactions
 #define EMV_AUC_DOMESTIC_GOODS                                  (0x20) ///< Application Usage Control: Valid for domestic goods
@@ -181,7 +181,7 @@ __BEGIN_DECLS
 #define EMV_AUC_NON_ATM                                         (0x01) ///< Application Usage Control: Valid at terminals other than ATMs
 
 // Application Usage Control (field 9F07) byte 2
-// See EMV 4.3 Book 3, Annex C2, Table 38
+// See EMV 4.4 Book 3, Annex C2, Table 42
 #define EMV_AUC_DOMESTIC_CASHBACK                               (0x80) ///< Application Usage Control: Domestic cashback allowed
 #define EMV_AUC_INTERNATIONAL_CASHBACK                          (0x40) ///< Application Usage Control: International cashback allowed
 #define EMV_AUC_RFU                                             (0x3F) ///< Application Usage Control: RFU
@@ -336,12 +336,12 @@ struct emv_cvmlist_itr_t {
 
 /// Cardholder Verification Method (CVM) List amounts
 struct emv_cvmlist_amounts_t {
-	uint32_t X; ///< First amount field, referred to as "X" in EMV 4.3 Book 3, Annex C3, Table 40
-	uint32_t Y; ///< Second amount field, referred to as "Y" in EMV 4.3 Book 3, Annex C3, Table 40
+	uint32_t X; ///< First amount field, referred to as "X" in EMV 4.4 Book 3, Annex C3, Table 44
+	uint32_t Y; ///< Second amount field, referred to as "Y" in EMV 4.4 Book 3, Annex C3, Table 44
 };
 
 /// Cardholder Verification (CV) Rule
-/// @remark See EMV 4.3 Book 3, Annex C3
+/// @remark See EMV 4.4 Book 3, Annex C3
 struct emv_cv_rule_t {
 	uint8_t cvm; ///< Cardholder Verification Method (CVM) Code
 	uint8_t cvm_cond; ///< Cardholder Verification Method (CVM) Condition

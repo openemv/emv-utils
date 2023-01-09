@@ -1364,7 +1364,7 @@ int emv_term_type_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Operational Control
-	// See EMV 4.3 Book 4, Annex A1, table 24
+	// See EMV 4.4 Book 4, Annex A1, table 24
 	switch (term_type & EMV_TERM_TYPE_OPERATIONAL_CONTROL_MASK) {
 		case EMV_TERM_TYPE_OPERATIONAL_CONTROL_FINANCIAL_INSTITUTION:
 			emv_str_list_add(&itr, "Operational Control: Financial Institution");
@@ -1384,7 +1384,7 @@ int emv_term_type_get_string_list(
 	}
 
 	// Environment
-	// See EMV 4.3 Book 4, Annex A1, table 24
+	// See EMV 4.4 Book 4, Annex A1, table 24
 	switch (term_type & EMV_TERM_TYPE_ENV_MASK) {
 		case EMV_TERM_TYPE_ENV_ATTENDED_ONLINE_ONLY:
 			emv_str_list_add(&itr, "Environment: Attended, online only");
@@ -1873,7 +1873,7 @@ int emv_app_usage_control_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Application Usage Control (field 9F07) byte 1
-	// See EMV 4.3 Book 3, Annex C2, Table 38
+	// See EMV 4.4 Book 3, Annex C2, Table 42
 	if (auc[0] & EMV_AUC_DOMESTIC_CASH) {
 		emv_str_list_add(&itr, "Valid for domestic cash transactions");
 	}
@@ -1900,7 +1900,7 @@ int emv_app_usage_control_get_string_list(
 	}
 
 	// Application Usage Control (field 9F07) byte 2
-	// See EMV 4.3 Book 3, Annex C2, Table 38
+	// See EMV 4.4 Book 3, Annex C2, Table 42
 	if (auc[1] & EMV_AUC_DOMESTIC_CASHBACK) {
 		emv_str_list_add(&itr, "Domestic cashback allowed");
 	}

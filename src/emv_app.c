@@ -202,7 +202,7 @@ static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_li
 
 	// Although the Application Label field is mandatory, the terminal shall
 	// proceed if it is missing.
-	// See EMV 4.3 Book 1, 12.2.4
+	// See EMV 4.4 Book 1, 12.2.4
 
 	// Use Application Identifier (AID) as display name
 	if (app->aid) {
@@ -230,7 +230,7 @@ static int emv_app_extract_priority_indicator(struct emv_app_t* app)
 		return 0;
 	}
 
-	// See EMV 4.3 Book 1, 12.2.3, table 48
+	// See EMV 4.4 Book 1, 12.2.3, table 13
 	app->priority = tlv->value[0] & EMV_APP_PRIORITY_INDICATOR_MASK;
 	app->confirmation_required = tlv->value[0] & EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED;
 
@@ -263,6 +263,7 @@ bool emv_app_is_supported(struct emv_app_t* app, struct emv_tlv_list_t* supporte
 		return false;
 	}
 
+	// See EMV 4.4 Book 1, 12.3.1
 	for (tlv = supported_aids->front; tlv != NULL; tlv = tlv->next) {
 		if (tlv->flags == EMV_ASI_EXACT_MATCH &&
 			tlv->length == app->aid->length &&

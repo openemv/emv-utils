@@ -1,8 +1,8 @@
 /**
  * @file emv_tags.h
  * @brief EMV tag definitions
- * @remark See EMV 4.3 Book 1, Annex B
- * @remark See EMV 4.3 Book 3, Annex A
+ * @remark See EMV 4.4 Book 1, Annex B
+ * @remark See EMV 4.4 Book 3, Annex A
  * @remark See ISO 7816-4:2005, 5.2.4
  *
  * Copyright (c) 2021, 2022 Leon Lynch
@@ -215,7 +215,7 @@ __BEGIN_DECLS
 #define EMV_TAG_9F12_APPLICATION_PREFERRED_NAME                 (0x9F12)
 
 /// EMV tag 9F16 Merchant Identifier
-/// @remark Also used as the Card Acceptor Identification by ISO 8583. See EMV 4.3 Book 4, Annex C, Table 37
+/// @remark Also used as the Card Acceptor Identification by ISO 8583. See EMV 4.4 Book 4, Annex C, Table 40
 #define EMV_TAG_9F16_MERCHANT_IDENTIFIER                        (0x9F16)
 
 /// EMV tag 9F1A Terminal Country Code
@@ -225,7 +225,7 @@ __BEGIN_DECLS
 #define EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT                       (0x9F1B)
 
 /// EMV tag 9F1C Terminal Identification
-/// @remark Also used as the Card Acceptor Terminal Identification by ISO 8583. See EMV 4.3 Book 4, Annex C, Table 37
+/// @remark Also used as the Card Acceptor Terminal Identification by ISO 8583. See EMV 4.4 Book 4, Annex C, Table 40
 #define EMV_TAG_9F1C_TERMINAL_IDENTIFICATION                    (0x9F1C)
 
 /// EMV tag 9F1E Interface Device (IFD) Serial Number

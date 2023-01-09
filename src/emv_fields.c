@@ -34,7 +34,7 @@ int emv_afl_itr_init(const void* afl, size_t afl_len, struct emv_afl_itr_t* itr)
 
 	if (afl_len > 252) {
 		// Application File Locator (field 94) may be up to 252 bytes
-		// See EMV 4.3 Book 3, Annex A
+		// See EMV 4.4 Book 3, Annex A
 		return 2;
 	}
 
@@ -63,7 +63,7 @@ int emv_afl_itr_next(struct emv_afl_itr_t* itr, struct emv_afl_entry_t* entry)
 	}
 
 	// Validate AFL entry
-	// See EMV 4.3 Book 3, 10.2
+	// See EMV 4.4 Book 3, 10.2
 	afl = itr->ptr;
 	if ((afl[0] & ~EMV_AFL_SFI_MASK) != 0) {
 		// Remaining bits of AFL byte 1 must be zero
@@ -83,7 +83,7 @@ int emv_afl_itr_next(struct emv_afl_itr_t* itr, struct emv_afl_entry_t* entry)
 	}
 
 	// Decode AFL entry
-	// See EMV 4.3 Book 3, 10.2
+	// See EMV 4.4 Book 3, 10.2
 	entry->sfi = (afl[0] & EMV_AFL_SFI_MASK) >> EMV_AFL_SFI_SHIFT;
 	entry->first_record = afl[1];
 	entry->last_record = afl[2];
@@ -112,28 +112,28 @@ int emv_cvmlist_itr_init(
 
 	if ((cvmlist_len & 0x1) != 0) {
 		// CVM List (field 8E) must be a multiple of 2 bytes
-		// See EMV 4.3 Book 3, 10.5
+		// See EMV 4.4 Book 3, 10.5
 		return 1;
 	}
 
 	if (cvmlist_len < 4 + 4 + 2) {
 		// CVM List (field 8E) must contain two 4-byte amounts and at least
 		// one 2-byte CV Rule
-		// See EMV 4.3 Book 3, 10.5
-		// See EMV 4.3 Book 3, Annex A
+		// See EMV 4.4 Book 3, 10.5
+		// See EMV 4.4 Book 3, Annex A
 		return 2;
 	}
 
 	if ((cvmlist_len - 4 - 4) & 0x1) {
 		// CVM List (field 8E) must contain two 4-byte amounts and a list of
 		// 2-byte data elements
-		// See EMV 4.3 Book 3, 10.5
+		// See EMV 4.4 Book 3, 10.5
 		return 3;
 	}
 
 	if (cvmlist_len > 252) {
 		// CVM List (field 8E) may be up to 252 bytes
-		// See EMV 4.3 Book 3, Annex A
+		// See EMV 4.4 Book 3, Annex A
 		return 4;
 	}
 
