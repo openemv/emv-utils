@@ -1616,7 +1616,10 @@ int emv_addl_term_caps_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Transaction Type Capability (byte 1)
-	// See EMV 4.3 Book 4, Annex A3, table 28
+	// See EMV 4.4 Book 4, Annex A3, table 28
+	if (!addl_term_caps[0] && !addl_term_caps[1]) {
+		emv_str_list_add(&itr, "Transaction Type Capability: None");
+	}
 	if ((addl_term_caps[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_CASH)) {
 		emv_str_list_add(&itr, "Transaction Type Capability: Cash");
 	}
@@ -1643,7 +1646,7 @@ int emv_addl_term_caps_get_string_list(
 	}
 
 	// Transaction Type Capability (byte 2)
-	// See EMV 4.3 Book 4, Annex A3, table 29
+	// See EMV 4.4 Book 4, Annex A3, table 29
 	if ((addl_term_caps[1] & EMV_ADDL_TERM_CAPS_TXN_TYPE_CASH_DEPOSIT)) {
 		emv_str_list_add(&itr, "Transaction Type Capability: Cash deposit");
 	}
@@ -1652,12 +1655,15 @@ int emv_addl_term_caps_get_string_list(
 	}
 
 	// Terminal Data Input Capability (byte 3)
-	// See EMV 4.3 Book 4, Annex A3, table 30
+	// See EMV 4.4 Book 4, Annex A3, table 30
+	if (!addl_term_caps[2]) {
+		emv_str_list_add(&itr, "Terminal Data Input Capability: None");
+	}
 	if ((addl_term_caps[2] & EMV_ADDL_TERM_CAPS_INPUT_NUMERIC_KEYS)) {
 		emv_str_list_add(&itr, "Terminal Data Input Capability: Numeric keys");
 	}
 	if ((addl_term_caps[2] & EMV_ADDL_TERM_CAPS_INPUT_ALPHABETIC_AND_SPECIAL_KEYS)) {
-		emv_str_list_add(&itr, "Terminal Data Input Capability: Alphabetic and special character keys");
+		emv_str_list_add(&itr, "Terminal Data Input Capability: Alphabetic and special characters keys");
 	}
 	if ((addl_term_caps[2] & EMV_ADDL_TERM_CAPS_INPUT_COMMAND_KEYS)) {
 		emv_str_list_add(&itr, "Terminal Data Input Capability: Command keys");
@@ -1670,12 +1676,15 @@ int emv_addl_term_caps_get_string_list(
 	}
 
 	// Terminal Data Output Capability (byte 4)
-	// See EMV 4.3 Book 4, Annex A3, table 31
+	// See EMV 4.4 Book 4, Annex A3, table 31
+	if (!(addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_PRINT_OR_DISPLAY)) {
+		emv_str_list_add(&itr, "Terminal Data Input Capability: No print, electronic or display output");
+	}
 	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_PRINT_ATTENDANT)) {
-		emv_str_list_add(&itr, "Terminal Data Output Capability: Print, attendant");
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Print or electronic, attendant");
 	}
 	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_PRINT_CARDHOLDER)) {
-		emv_str_list_add(&itr, "Terminal Data Output Capability: Print, cardholder");
+		emv_str_list_add(&itr, "Terminal Data Output Capability: Print or electronic, cardholder");
 	}
 	if ((addl_term_caps[3] & EMV_ADDL_TERM_CAPS_OUTPUT_DISPLAY_ATTENDANT)) {
 		emv_str_list_add(&itr, "Terminal Data Output Capability: Display, attendant");
@@ -1694,7 +1703,7 @@ int emv_addl_term_caps_get_string_list(
 	}
 
 	// Terminal Data Output Capability (byte 5)
-	// See EMV 4.3 Book 4, Annex A3, table 32
+	// See EMV 4.4 Book 4, Annex A3, table 32
 	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_8)) {
 		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 8");
 	}
