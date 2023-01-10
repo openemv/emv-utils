@@ -1439,7 +1439,7 @@ int emv_term_caps_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Card Data Input Capability
-	// See EMV 4.3 Book 4, Annex A2, table 25
+	// See EMV 4.4 Book 4, Annex A2, table 25
 	if (!term_caps[0]) {
 		emv_str_list_add(&itr, "Card Data Input Capability: None");
 	}
@@ -1457,7 +1457,7 @@ int emv_term_caps_get_string_list(
 	}
 
 	// CVM Capability
-	// See EMV 4.3 Book 4, Annex A2, table 26
+	// See EMV 4.4 Book 4, Annex A2, table 26
 	if (!term_caps[1]) {
 		emv_str_list_add(&itr, "CVM Capability: None");
 	}
@@ -1468,20 +1468,26 @@ int emv_term_caps_get_string_list(
 		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for online verification");
 	}
 	if ((term_caps[1] & EMV_TERM_CAPS_CVM_SIGNATURE)) {
-		emv_str_list_add(&itr, "CVM Capability: Signature (paper)");
+		emv_str_list_add(&itr, "CVM Capability: Signature");
 	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE)) {
-		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for offline verification");
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_RSA)) {
+		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for offline verification (RSA ODE)");
 	}
 	if ((term_caps[1] & EMV_TERM_CAPS_CVM_NO_CVM)) {
 		emv_str_list_add(&itr, "CVM Capability: No CVM required");
 	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_RFU)) {
-		emv_str_list_add(&itr, "CVM Capability: RFU");
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_BIOMETRIC_ONLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Online Biometric");
+	}
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_BIOMETRIC_OFFLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Offline Biometric");
+	}
+	if ((term_caps[1] & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_ECC)) {
+		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for offline verification (ECC ODE)");
 	}
 
 	// Security Capability
-	// See EMV 4.3 Book 4, Annex A2, table 27
+	// See EMV 4.4 Book 4, Annex A2, table 27
 	if (!term_caps[2]) {
 		emv_str_list_add(&itr, "Security Capability: None");
 	}
@@ -1496,6 +1502,9 @@ int emv_term_caps_get_string_list(
 	}
 	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_CDA)) {
 		emv_str_list_add(&itr, "Security Capability: Combined DDA/Application Cryptogram Generation (CDA)");
+	}
+	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_XDA)) {
+		emv_str_list_add(&itr, "Security Capability: Extended Data Authentication (XDA)");
 	}
 	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_RFU)) {
 		emv_str_list_add(&itr, "Security Capability: RFU");
