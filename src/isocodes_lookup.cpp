@@ -2,7 +2,7 @@
  * @file isocodes_lookup.cpp
  * @brief Wrapper for iso-codes package
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -49,6 +49,15 @@ struct isocodes_currency_t {
 static std::vector<isocodes_currency_t> currency_list;
 static std::map<std::string,const isocodes_currency_t&> currency_alpha3_map;
 static std::map<unsigned int,const isocodes_currency_t&> currency_numeric_map;
+
+struct isocodes_language_t {
+	std::string name;
+	std::string alpha2;
+	std::string alpha3;
+};
+static std::vector<isocodes_language_t> language_list;
+static std::map<std::string,const isocodes_language_t&> language_alpha2_map;
+static std::map<std::string,const isocodes_language_t&> language_alpha3_map;
 
 
 static boost::json::value parse_json_file(const std::string& filename)
@@ -192,6 +201,68 @@ static bool build_currency_list(const boost::json::value& jv) noexcept
 	return true;
 }
 
+// Conversion function invoked by Boost to build isocodes_language_t from JSON object
+static isocodes_language_t tag_invoke(boost::json::value_to_tag<isocodes_language_t>, const boost::json::value& jv)
+{
+	const auto& obj = jv.as_object();
+	bool has_alpha2;
+
+	// Check whether alpha_2 element is available because schema-639-2.json
+	// indicates that only name and alpha_3 are required elements
+	try {
+		obj.at("alpha_2");
+		has_alpha2 = true;
+	} catch (const std::out_of_range& e) {
+		has_alpha2 = false;
+	}
+
+	return isocodes_language_t {
+		boost::json::value_to<std::string>(obj.at("name")),
+		has_alpha2 ? boost::json::value_to<std::string>(obj.at("alpha_2")) : "",
+		boost::json::value_to<std::string>(obj.at("alpha_3")),
+	};
+}
+
+static bool build_language_list(const boost::json::value& jv) noexcept
+{
+	/* iso-codes package's iso_639-2.json file should have this structure
+	{
+		"639-2": [
+			...
+			{
+				"alpha_2": "en",
+				"alpha_3": "eng",
+				"name": "English"
+			},
+			...
+		]
+	}
+	*/
+
+	try {
+		const auto& iso639_2 = jv.as_object();
+		const auto& iso639_2_list = iso639_2.at("639-2");
+		language_list = boost::json::value_to<decltype(language_list)>(iso639_2_list);
+	} catch (const std::exception& e) {
+		std::fprintf(stderr, "Exception: %s\n", e.what());
+		return false;
+	}
+
+	// Build alpha2->language map
+	for (auto&& language : language_list) {
+		if (!language.alpha2.empty()) {
+			language_alpha2_map.emplace(language.alpha2, language);
+		}
+	}
+
+	// Build alpha3->language map
+	for (auto&& language : language_list) {
+		language_alpha3_map.emplace(language.alpha3, language);
+	}
+
+	return true;
+}
+
 int isocodes_init(const char* path)
 {
 	std::string path_str;
@@ -233,6 +304,21 @@ int isocodes_init(const char* path)
 	}
 
 	result = build_currency_list(jv);
+	if (!result) {
+		return -4;
+	}
+
+	try {
+		jv = parse_json_file(path_str + "iso_639-2.json");
+		if (jv.kind() == boost::json::kind::null) {
+			return 2;
+		}
+	} catch (const std::exception& e) {
+		std::fprintf(stderr, "Exception: %s\n", e.what());
+		return -3;
+	}
+
+	result = build_language_list(jv);
 	if (!result) {
 		return -4;
 	}
@@ -289,6 +375,28 @@ const char* isocodes_lookup_currency_by_numeric(unsigned int numeric)
 	auto itr = currency_numeric_map.find(numeric);
 	if (itr == currency_numeric_map.end()) {
 		// Numeric currency code not found
+		return nullptr;
+	}
+
+	return itr->second.name.c_str();
+}
+
+const char* isocodes_lookup_language_by_alpha2(const char* alpha2)
+{
+	auto itr = language_alpha2_map.find(alpha2);
+	if (itr == language_alpha2_map.end()) {
+		// Alpha2 language code not found
+		return nullptr;
+	}
+
+	return itr->second.name.c_str();
+}
+
+const char* isocodes_lookup_language_by_alpha3(const char* alpha3)
+{
+	auto itr = language_alpha3_map.find(alpha3);
+	if (itr == language_alpha3_map.end()) {
+		// Alpha3 language code not found
 		return nullptr;
 	}
 

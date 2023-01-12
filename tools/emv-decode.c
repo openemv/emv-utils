@@ -2,7 +2,7 @@
  * @file emv-decode.c
  * @brief Simple EMV decoding tool
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -55,6 +55,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ADDL_TERM_CAPS,
 	EMV_DECODE_ISO3166_1,
 	EMV_DECODE_ISO4217,
+	EMV_DECODE_ISO639,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
@@ -82,6 +83,8 @@ static struct argp_option argp_options[] = {
 	{ "iso3166-1", EMV_DECODE_ISO3166_1, NULL, OPTION_ALIAS },
 	{ "currency", EMV_DECODE_ISO4217, NULL, 0, "Lookup currency name by ISO 4217 alpha-3 or numeric code" },
 	{ "iso4217", EMV_DECODE_ISO4217, NULL, OPTION_ALIAS },
+	{ "language", EMV_DECODE_ISO639, NULL, 0, "Lookup language name by ISO 639 alpha-2 or alpha-3 code" },
+	{ "iso639", EMV_DECODE_ISO639, NULL, OPTION_ALIAS },
 
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
@@ -104,9 +107,10 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 	switch (key) {
 		case ARGP_KEY_ARG: {
 			if (emv_decode_mode == EMV_DECODE_ISO3166_1 ||
-				emv_decode_mode == EMV_DECODE_ISO4217
+				emv_decode_mode == EMV_DECODE_ISO4217 ||
+				emv_decode_mode == EMV_DECODE_ISO639
 			) {
-				// Country and currency lookups use the verbatim string input
+				// Country, currency and language lookups use the verbatim string input
 				arg_str = strdup(arg);
 				arg_str_len = strlen(arg);
 				return 0;
@@ -155,6 +159,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_ADDL_TERM_CAPS:
 		case EMV_DECODE_ISO3166_1:
 		case EMV_DECODE_ISO4217:
+		case EMV_DECODE_ISO639:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
 			}
@@ -422,6 +427,29 @@ int main(int argc, char** argv)
 			}
 
 			printf("%s\n", currency);
+
+			break;
+		}
+
+		case EMV_DECODE_ISO639: {
+			const char* language;
+
+			if (arg_str_len != 2 && arg_str_len != 3) {
+				fprintf(stderr, "ISO 639 currency code must be alpha-2 or alpha-3 code\n");
+				break;
+			}
+
+			if (arg_str_len == 2) {
+				language = isocodes_lookup_language_by_alpha2(arg_str);
+			} else {
+				language = isocodes_lookup_language_by_alpha3(arg_str);
+			}
+			if (!language) {
+				fprintf(stderr, "Unknown\n");
+				break;
+			}
+
+			printf("%s\n", language);
 
 			break;
 		}

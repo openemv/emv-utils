@@ -2,7 +2,7 @@
  * @file isocodes_test.c
  * @brief Various tests related to iso-codes package
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -32,6 +32,7 @@ int main(void)
 	int r;
 	const char* country;
 	const char* currency;
+	const char* language;
 
 	setlocale(LC_ALL, "nl_NL.UTF-8");
 	printf("%s\n", dgettext("iso_639-2", "French"));
@@ -91,6 +92,26 @@ int main(void)
 	}
 	if (strcmp(currency, "Euro") != 0) {
 		fprintf(stderr, "isocodes_lookup_currency_by_numeric() found unexpected currency '%s'\n", currency);
+		return 1;
+	}
+
+	language = isocodes_lookup_language_by_alpha2("fr");
+	if (!language) {
+		fprintf(stderr, "isocodes_lookup_language_by_alpha2() failed\n");
+		return 1;
+	}
+	if (strcmp(language, "French") != 0) {
+		fprintf(stderr, "isocodes_lookup_language_by_alpha2() found unexpected language '%s'\n", language);
+		return 1;
+	}
+
+	language = isocodes_lookup_language_by_alpha3("frr");
+	if (!language) {
+		fprintf(stderr, "isocodes_lookup_language_by_alpha3() failed\n");
+		return 1;
+	}
+	if (strcmp(language, "Northern Frisian") != 0) {
+		fprintf(stderr, "isocodes_lookup_language_by_alpha3() found unexpected language '%s'\n", language);
 		return 1;
 	}
 

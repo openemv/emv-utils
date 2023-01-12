@@ -2,7 +2,7 @@
  * @file isocodes_lookup.h
  * @brief Wrapper for iso-codes package
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -68,6 +68,20 @@ const char* isocodes_lookup_currency_by_alpha3(const char* alpha3);
  * @return Currency name. NULL if not found.
  */
 const char* isocodes_lookup_currency_by_numeric(unsigned int numeric);
+
+/**
+ * Lookup language name by ISO 639-1 2-digit alpha code
+ * @param alpha2 ISO 639-1 2-digit alpha code
+ * @return Language name. NULL if not found.
+ */
+const char* isocodes_lookup_language_by_alpha2(const char* alpha2);
+
+/**
+ * Lookup language name by ISO 639-2 3-digit alpha code
+ * @param alpha3 ISO 639-2 3-digit alpha code
+ * @return Language name. NULL if not found.
+ */
+const char* isocodes_lookup_language_by_alpha3(const char* alpha3);
 
 __END_DECLS
 
