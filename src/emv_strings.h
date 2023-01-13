@@ -2,7 +2,7 @@
  * @file emv_strings.h
  * @brief EMV string helper functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2022 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -99,6 +99,11 @@ enum emv_format_t {
 	 * Encoded according to EMV Book 3, 5.4
 	 */
 	EMV_FORMAT_DOL,
+
+	/**
+	 * Tag List
+	 */
+	EMV_FORMAT_TAG_LIST,
 };
 
 /**
@@ -254,6 +259,19 @@ int emv_term_caps_get_string_list(
 );
 
 /**
+ * Stringify Point-of-Service (POS) Entry Mode (field 9F39)
+ * @param pos_entry_mode POS entry mode field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_pos_entry_mode_get_string(
+	uint8_t pos_entry_mode,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Additional Terminal Capabilities (field 9F40)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param addl_term_caps Additional terminal capabilities field. Must be 5 bytes.
@@ -265,6 +283,133 @@ int emv_term_caps_get_string_list(
 int emv_addl_term_caps_get_string_list(
 	const uint8_t* addl_term_caps,
 	size_t addl_term_caps_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Application Interchange Profile (field 82)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param aip Application Interchange Profile (AIP) field. Must be 2 bytes.
+ * @param aip_len Length of Application Interchange Profile (AIP) field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_aip_get_string_list(
+	const uint8_t* aip,
+	size_t aip_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Application File Locator (field 94)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param afl Application File Locator (AFL) field. Must be multiples of 4 bytes.
+ * @param afl_len Length of Application File Locator (AFL) field. Must be multiples of 4 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_afl_get_string_list(
+	const uint8_t* afl,
+	size_t afl_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Application Usage Control (field 9F07)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param auc Application Usage Control (AUC) field. Must be 2 bytes.
+ * @param auc_len Length of Application Usage Control (AUC) field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_app_usage_control_get_string_list(
+	const uint8_t* auc,
+	size_t auc_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Track 2 Equivalent Data (field 57)
+ * @param track2 Track 2 Equivalent Data field
+ * @param track2_len Length of Track 2 Equivalent Data field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_track2_equivalent_data_get_string(
+	const uint8_t* track2,
+	size_t track2_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Cardholder Verification Method (CVM) List (field 8E)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param cvmlist Cardholder Verification Method (CVM) List field
+ * @param cvmlist_len Length of Cardholder Verification Method (CVM) List field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_cvm_list_get_string_list(
+	const uint8_t* cvmlist,
+	size_t cvmlist_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Cardholder Verification Method (CVM) Results (field 9F34)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param cvmresults Cardholder Verification Method (CVM) Results field. Must be 3 bytes.
+ * @param cvmresults_len Length of Cardholder Verification Method (CVM) Results field. Must be 3 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_cvm_results_get_string_list(
+	const uint8_t* cvmresults,
+	size_t cvmresults_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Terminal Verification Results (field 95)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param tvr Terminal Verification Results (TVR) field. Must be 5 bytes.
+ * @param tvr_len Length of Terminal Verification Results (TVR) field. Must be 5 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_tvr_get_string_list(
+	const uint8_t* tvr,
+	size_t tvr_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Transaction Status Information (field 9B)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param tsi Transaction Status Information (TSI) field. Must be 2 bytes.
+ * @param tsi_len Length of Transaction Status Information (TSI) field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_tsi_get_string_list(
+	const uint8_t* tsi,
+	size_t tsi_len,
 	char* str,
 	size_t str_len
 );

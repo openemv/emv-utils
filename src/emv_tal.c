@@ -26,6 +26,9 @@
 #include "emv_tlv.h"
 #include "emv_app.h"
 
+#define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_TAL
+#include "emv_debug.h"
+
 #include "iso8825_ber.h"
 
 #include <stdint.h>
@@ -92,7 +95,7 @@ int emv_tal_read_pse(
 		return 3;
 	}
 
-	// TODO: log FCI data here
+	emv_debug_info_tlv("FCI", fci, fci_len);
 
 	// Parse File Control Information (FCI) provided by PSE DDF
 	// NOTE: FCI may contain padding (r > 0)
@@ -142,6 +145,8 @@ int emv_tal_read_pse(
 			// See EMV 4.3 Book 1, 12.3.2, step 2
 			continue;
 		}
+
+		emv_debug_info_tlv("AEF", aef_record, aef_record_len);
 
 		r = emv_tal_parse_aef_record(
 			&pse_tlv_list,
@@ -284,6 +289,8 @@ int emv_tal_find_supported_apps(
 			continue;
 		}
 
+		emv_debug_info_tlv("FCI", fci, fci_len);
+
 		// Extract FCI data
 		// See EMV 4.3 Book 1, 12.3.3, step 3
 		app = emv_app_create_from_fci(fci, fci_len);
@@ -354,6 +361,113 @@ int emv_tal_find_supported_apps(
 				continue;
 			}
 		}
+	}
+
+	return 0;
+}
+
+int emv_tal_parse_gpo_response(
+	const void* buf,
+	size_t len,
+	struct emv_tlv_list_t* list,
+	struct emv_tlv_t** aip,
+	struct emv_tlv_t** afl
+)
+{
+	int r;
+	struct iso8825_tlv_t gpo_tlv;
+	struct emv_tlv_list_t gpo_list = EMV_TLV_LIST_INIT;
+	struct emv_tlv_t* tlv;
+
+	if (!buf || !len || !list) {
+		return -1;
+	}
+
+	// Determine GPO response format
+	r = iso8825_ber_decode(buf, len, &gpo_tlv);
+	if (r <= 0) {
+		// Parse error
+		return 1;
+	}
+
+	if (gpo_tlv.tag == EMV_TAG_80_RESPONSE_MESSAGE_TEMPLATE_FORMAT_1) {
+		// GPO response format 1
+		// See EMV 4.3 Book 3, 6.5.8.4
+
+		// Validate length
+		// See EMV 4.3 Book 3, 10.2
+		// AIP is 2 bytes
+		// AFL is multiples of 4 bytes
+		if (gpo_tlv.length < 6 || // AIP and at least one AFL entry
+			((gpo_tlv.length - 2) & 0x3) != 0 // AFL is multiple of 4 bytes
+		) {
+			// Parse error
+			return 2;
+		}
+
+		// Create Application Interchange Profile (field 82)
+		r = emv_tlv_list_push(
+			&gpo_list,
+			EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE,
+			2,
+			gpo_tlv.value,
+			0
+		);
+		if (r) {
+			// Internal error
+			emv_tlv_list_clear(&gpo_list);
+			return -2;
+		}
+
+		// Create Application File Locator (field 94)
+		r = emv_tlv_list_push(
+			&gpo_list,
+			EMV_TAG_94_APPLICATION_FILE_LOCATOR,
+			gpo_tlv.length - 2,
+			gpo_tlv.value + 2,
+			0
+		);
+		if (r) {
+			// Internal error
+			emv_tlv_list_clear(&gpo_list);
+			return -3;
+		}
+	}
+
+	if (gpo_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
+		// GPO response format 2
+		// See EMV 4.3 Book 3, 6.5.8.4
+
+		r = emv_tlv_parse(gpo_tlv.value, gpo_tlv.length, &gpo_list);
+		if (r < 0) {
+			// Internal error
+			emv_tlv_list_clear(&gpo_list);
+			return -4;
+		}
+		if (r > 0) {
+			// Parse error
+			emv_tlv_list_clear(&gpo_list);
+			return 3;
+		}
+	}
+
+	// Populate AIP pointer
+	tlv = emv_tlv_list_find(&gpo_list, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+	if (tlv && aip) {
+		*aip = tlv;
+	}
+
+	// Populate AFL pointer
+	tlv = emv_tlv_list_find(&gpo_list, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	if (tlv && afl) {
+		*afl = tlv;
+	}
+
+	r = emv_tlv_list_append(list, &gpo_list);
+	if (r) {
+		// Internal error
+		emv_tlv_list_clear(&gpo_list);
+		return -5;
 	}
 
 	return 0;

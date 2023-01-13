@@ -46,9 +46,9 @@ struct iso7816_compact_tlv_itr_t {
 
 /// ISO/IEC 7816 COMPACT-TLV element
 struct iso7816_compact_tlv_t {
-	uint8_t tag;
-	uint8_t length;
-	const uint8_t* value;
+	uint8_t tag; ///< Tag number
+	uint8_t length; ///< Length of @c value in bytes
+	const uint8_t* value; ///< Pointer to value
 };
 
 /**

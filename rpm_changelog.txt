@@ -1,0 +1,2 @@
+* Fri Jan 06 2023 Leon Lynch <lynch.leon@gmail.com> - 0.0.1-1
+- Initial CPack RPM packaging

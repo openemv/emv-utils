@@ -1,8 +1,8 @@
 /**
  * @file emv_fields.h
- * @brief EMV field definitions
+ * @brief EMV field definitions and helper functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2022 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,6 +23,8 @@
 #define EMV_FIELDS_H
 
 #include <sys/cdefs.h>
+#include <stddef.h>
+#include <stdint.h>
 
 __BEGIN_DECLS
 
@@ -37,7 +39,8 @@ __BEGIN_DECLS
 #define EMV_ASI_PARTIAL_MATCH                                   (0x01)
 
 // Transaction Type (field 9C)
-// See ISO 8583:1987
+// See ISO 8583:1987, 4.3.8
+// See ISO 8583:1993, A.9
 #define EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES                 (0x00) ///< Transaction Type: Goods and services
 #define EMV_TRANSACTION_TYPE_CASH                               (0x01) ///< Transaction Type: Cash
 #define EMV_TRANSACTION_TYPE_CASHBACK                           (0x09) ///< Transaction Type: Cashback
@@ -81,6 +84,24 @@ __BEGIN_DECLS
 #define EMV_TERM_CAPS_SECURITY_CARD_CAPTURE                     (0x20) ///< Security Capability: Card capture
 #define EMV_TERM_CAPS_SECURITY_CDA                              (0x08) ///< Security Capability: Combined DDA/Application Cryptogram Generation (CDA)
 #define EMV_TERM_CAPS_SECURITY_RFU                              (0x17) ///< Security Capability: RFU
+
+// Point-of-Service (POS) Entry Mode (field 9F39)
+// See ISO 8583:1987, 4.3.14
+// See ISO 8583:1993, A.8
+// See ISO 8583:2003
+#define EMV_POS_ENTRY_MODE_UNKNOWN                              (0x00) ///< POS Entry Mode: Unknown
+#define EMV_POS_ENTRY_MODE_MANUAL                               (0x01) ///< POS Entry Mode: Manual PAN entry
+#define EMV_POS_ENTRY_MODE_MAG                                  (0x02) ///< POS Entry Mode: Magnetic stripe
+#define EMV_POS_ENTRY_MODE_BARCODE                              (0x03) ///< POS Entry Mode: Barcode
+#define EMV_POS_ENTRY_MODE_OCR                                  (0x04) ///< POS Entry Mode: OCR
+#define EMV_POS_ENTRY_MODE_ICC_WITH_CVV                         (0x05) ///< POS Entry Mode: Integrated circuit card (ICC). CVV can be checked.
+#define EMV_POS_ENTRY_MODE_CONTACTLESS_EMV                      (0x07) ///< POS Entry Mode: Auto entry via contactless EMV
+#define EMV_POS_ENTRY_MODE_CARDHOLDER_ON_FILE                   (0x10) ///< POS Entry Mode: Merchant has Cardholder Credentials on File
+#define EMV_POS_ENTRY_MODE_MAG_FALLBACK                         (0x80) ///< POS Entry Mode: Fallback from integrated circuit card (ICC) to magnetic stripe
+#define EMV_POS_ENTRY_MODE_MAG_WITH_CVV                         (0x90) ///< POS Entry Mode: Magnetic stripe as read from track 2. CVV can be checked.
+#define EMV_POS_ENTRY_MODE_CONTACTLESS_MAG                      (0x91) ///< POS Entry Mode: Auto entry via contactless magnetic stripe
+#define EMV_POS_ENTRY_MODE_ICC_WITHOUT_CVV                      (0x95) ///< POS Entry Mode: Integrated circuit card (ICC). CVV may not be checked.
+#define EMV_POS_ENTRY_MODE_ORIGINAL_TXN                         (0x99) ///< POS Entry Mode: Same as original transaction
 
 // Additional Terminal Capabilities (field 9F40) byte 1
 // See EMV 4.3 Book 4, Annex A3, table 28
@@ -126,6 +147,228 @@ __BEGIN_DECLS
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_3                  (0x04) ///< Terminal Data Output Capability: Code table 3
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_2                  (0x02) ///< Terminal Data Output Capability: Code table 2
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_1                  (0x01) ///< Terminal Data Output Capability: Code table 1
+
+// Application Interchange Profile (field 82) byte 1
+// See EMV 4.3 Book 3, Annex C1, Table 37
+// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+#define EMV_AIP_SDA_SUPPORTED                                   (0x40) ///< Static Data Authentication (SDA) is supported
+#define EMV_AIP_DDA_SUPPORTED                                   (0x20) ///< Dynamic Data Authentication (DDA) is supported
+#define EMV_AIP_CV_SUPPORTED                                    (0x10) ///< Cardholder verification is supported
+#define EMV_AIP_TERMINAL_RISK_MANAGEMENT_REQUIRED               (0x08) ///< Terminal risk management is to be performed
+#define EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED                 (0x04) ///< Issuer authentication is supported
+#define EMV_AIP_ODCV_SUPPORTED                                  (0x02) ///< On device cardholder verification is supported
+#define EMV_AIP_CDA_SUPPORTED                                   (0x01) ///< Combined DDA/Application Cryptogram Generation (CDA) is supported
+
+// Application Interchange Profile (field 82) byte 2
+// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+#define EMV_AIP_EMV_MODE_SUPPORTED                              (0x80) ///< Contactless EMV mode is supported
+#define EMV_RRP_SUPPORTED                                       (0x01) ///< Relay Resistance Protocol (RRP) is supported
+
+// Application File Locator (field 94) byte 1
+// See EMV 4.3 Book 3, 10.2
+#define EMV_AFL_SFI_MASK                                        (0xF8) ///< Application File Locator (AFL) mask for Short File Identifier (SFI)
+#define EMV_AFL_SFI_SHIFT                                       (3) ///< Application File Locator (AFL) shift for Short File Identifier (SFI)
+
+// Application Usage Control (field 9F07) byte 1
+// See EMV 4.3 Book 3, Annex C2, Table 38
+#define EMV_AUC_DOMESTIC_CASH                                   (0x80) ///< Application Usage Control: Valid for domestic cash transactions
+#define EMV_AUC_INTERNATIONAL_CASH                              (0x40) ///< Application Usage Control: Valid for international cash transactions
+#define EMV_AUC_DOMESTIC_GOODS                                  (0x20) ///< Application Usage Control: Valid for domestic goods
+#define EMV_AUC_INTERNATIONAL_GOODS                             (0x10) ///< Application Usage Control: Valid for international goods
+#define EMV_AUC_DOMESTIC_SERVICES                               (0x08) ///< Application Usage Control: Valid for domestic services
+#define EMV_AUC_INTERNATIONAL_SERVICES                          (0x04) ///< Application Usage Control: Valid for international services
+#define EMV_AUC_ATM                                             (0x02) ///< Application Usage Control: Valid at ATMs
+#define EMV_AUC_NON_ATM                                         (0x01) ///< Application Usage Control: Valid at terminals other than ATMs
+
+// Application Usage Control (field 9F07) byte 2
+// See EMV 4.3 Book 3, Annex C2, Table 38
+#define EMV_AUC_DOMESTIC_CASHBACK                               (0x80) ///< Application Usage Control: Domestic cashback allowed
+#define EMV_AUC_INTERNATIONAL_CASHBACK                          (0x40) ///< Application Usage Control: International cashback allowed
+#define EMV_AUC_RFU                                             (0x3F) ///< Application Usage Control: RFU
+
+// Cardholder Verification (CV) Rule byte 1, CVM Codes
+// See EMV 4.4 Book 3, Annex C3, Table 43
+#define EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL                  (0x40) ///< Apply succeeding CV Rule if this CVM is unsuccessful
+#define EMV_CV_RULE_CVM_MASK                                    (0x3F) ///< Cardholder Verification (CV) Rule mask for CVM Code
+#define EMV_CV_RULE_CVM_FAIL                                    (0x00) ///< CVM: Fail CVM processing
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT                   (0x01) ///< CVM: Plaintext PIN verification performed by ICC
+#define EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED                   (0x02) ///< CVM: Enciphered PIN verified online
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE     (0x03) ///< CVM: Plaintext PIN verification performed by ICC and signature
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED                  (0x04) ///< CVM: Enciphered PIN verification performed by ICC
+#define EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE    (0x05) ///< CVM: Enciphered PIN verification performed by ICC and signature
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_FACIAL                (0x06) ///< CVM: Facial biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_FACIAL                 (0x07) ///< CVM: Facial biometric verified online
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_FINGER                (0x08) ///< CVM: Finger biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_FINGER                 (0x09) ///< CVM: Finger biometric verified online
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_PALM                  (0x0A) ///< CVM: Palm biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_PALM                   (0x0B) ///< CVM: Palm biometric verified online
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_IRIS                  (0x0C) ///< CVM: Iris biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_IRIS                   (0x0D) ///< CVM: Iris biometric verified online
+#define EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_VOICE                 (0x0E) ///< CVM: Voice biometric verified offline (by ICC)
+#define EMV_CV_RULE_CVM_ONLINE_BIOMETRIC_VOICE                  (0x0F) ///< CVM: Voice biometric verified online
+#define EMV_CV_RULE_CVM_SIGNATURE                               (0x1E) ///< CVM: Signature (paper)
+#define EMV_CV_RULE_NO_CVM                                      (0x1F) ///< CVM: No CVM required
+#define EMV_CV_RULE_INVALID                                     (0x3F) ///< Cardholder Verification (CV) Rule invalid
+
+// Cardholder Verification (CV) Rule byte 2, CVM Condition Codes
+// See EMV 4.4 Book 3, Annex C3, Table 44
+#define EMV_CV_RULE_COND_ALWAYS                                 (0x00) ///< CVM Condition: Always
+#define EMV_CV_RULE_COND_UNATTENDED_CASH                        (0x01) ///< CVM Condition: If unattended cash
+#define EMV_CV_RULE_COND_NOT_CASH_OR_CASHBACK                   (0x02) ///< CVM Condition: If not unattended cash and not manual cash and not purchase with cashback
+#define EMV_CV_RULE_COND_CVM_SUPPORTED                          (0x03) ///< CVM Condition: If terminal supports the CVM
+#define EMV_CV_RULE_COND_MANUAL_CASH                            (0x04) ///< CVM Condition: If manual cash
+#define EMV_CV_RULE_COND_CASHBACK                               (0x05) ///< CVM Condition: If purchase with cashback
+#define EMV_CV_RULE_COND_LESS_THAN_X                            (0x06) ///< CVM Condition: If transaction is in the application currency and is under X value
+#define EMV_CV_RULE_COND_MORE_THAN_X                            (0x07) ///< CVM Condition: If transaction is in the application currency and is over X value
+#define EMV_CV_RULE_COND_LESS_THAN_Y                            (0x08) ///< CVM Condition: If transaction is in the application currency and is under Y value
+#define EMV_CV_RULE_COND_MORE_THAN_Y                            (0x09) ///< CVM Condition: If transaction is in the application currency and is over Y value
+
+// Cardholder Verification Method (CVM) Results (field 9F34) byte 3
+// See EMV 4.4 Book 4, Annex A4, Table 33
+#define EMV_CVM_RESULT_UNKNOWN                                  (0x00) ///< CVM Result: Unknown
+#define EMV_CVM_RESULT_FAILED                                   (0x01) ///< CVM Result: Failed
+#define EMV_CVM_RESULT_SUCCESSFUL                               (0x02) ///< CVM Result: Successful
+
+// Terminal Verification Results (field 95) byte 1
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED                 (0x80) ///< Terminal Verification Results: Offline data authentication was not performed
+#define EMV_TVR_SDA_FAILED                                      (0x40) ///< Terminal Verification Results: Static Data Authentication (SDA) failed
+#define EMV_TVR_ICC_DATA_MISSING                                (0x20) ///< Terminal Verification Results: Integrated circuit card (ICC) data missing
+#define EMV_TVR_CARD_ON_EXCEPTION_FILE                          (0x10) ///< Terminal Verification Results: Card appears on terminal exception file
+#define EMV_TVR_DDA_FAILED                                      (0x08) ///< Terminal Verification Results: Dynamic Data Authentication (DDA) failed
+#define EMV_TVR_CDA_FAILED                                      (0x04) ///< Terminal Verification Results: Combined DDA/Application Cryptogram Generation (CDA) failed
+#define EMV_TVR_SDA_SELECTED                                    (0x02) ///< Terminal Verification Results: Static Data Authentication (SDA) selected
+#define EMV_TVR_XDA_SELECTED                                    (0x01) ///< Terminal Verification Results: Extended Data Authentication (XDA) selected
+
+// Terminal Verification Results (field 95) byte 2
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_APPLICATION_VERSIONS_DIFFERENT                  (0x80) ///< Terminal Verification Results: ICC and terminal have different application versions
+#define EMV_TVR_APPLICATION_EXPIRED                             (0x40) ///< Terminal Verification Results: Expired application
+#define EMV_TVR_APPLICATION_NOT_EFFECTIVE                       (0x20) ///< Terminal Verification Results: Application not yet effective
+#define EMV_TVR_SERVICE_NOT_ALLOWED                             (0x10) ///< Terminal Verification Results: Requested service not allowed for card product
+#define EMV_TVR_NEW_CARD                                        (0x08) ///< Terminal Verification Results: New card
+#define EMV_TVR_RFU                                             (0x04) ///< Terminal Verification Results: RFU
+#define EMV_TVR_BIOMETRIC_PERFORMED_SUCCESSFUL                  (0x02) ///< Terminal Verification Results: Biometric performed and successful
+#define EMV_TVR_BIOMETRIC_TEMPLATE_FORMAT_NOT_SUPPORTED         (0x01) ///< Terminal Verification Results: Biometric template format not supported
+
+// Terminal Verification Results (field 95) byte 3
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_CV_PROCESSING_FAILED                            (0x80) ///< Terminal Verification Results: Cardholder verification was not successful
+#define EMV_TVR_CVM_UNRECOGNISED                                (0x40) ///< Terminal Verification Results: Unrecognised CVM
+#define EMV_TVR_PIN_TRY_LIMIT_EXCEEDED                          (0x20) ///< Terminal Verification Results: PIN Try Limit exceeded
+#define EMV_TVR_PIN_PAD_FAILED                                  (0x10) ///< Terminal Verification Results: PIN entry required and PIN pad not present or not working
+#define EMV_TVR_PIN_NOT_ENTERED                                 (0x08) ///< Terminal Verification Results: PIN entry required, PIN pad present, but PIN was not entered
+#define EMV_TVR_ONLINE_CVM_CAPTURED                             (0x04) ///< Terminal Verification Results: Online CVM captured
+#define EMV_TVR_BIOMETRIC_CAPTURE_FAILED                        (0x02) ///< Terminal Verification Results: Biometric required but Biometric capture device not working
+#define EMV_TVR_BIOMETRIC_SUBTYPE_BYPASSED                      (0x01) ///< Terminal Verification Results: Biometric required, Biometric capture device present, but Biometric Subtype entry was bypassed
+
+// Terminal Verification Results (field 95) byte 4
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED                        (0x80) ///< Terminal Verification Results: Transaction exceeds floor limit
+#define EMV_TVR_LOWER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED        (0x40) ///< Terminal Verification Results: Lower consecutive offline limit exceeded
+#define EMV_TVR_UPPER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED        (0x20) ///< Terminal Verification Results: Upper consecutive offline limit exceeded
+#define EMV_TVR_RANDOM_SELECTED_ONLINE                          (0x10) ///< Terminal Verification Results: Transaction selected randomly for online processing
+#define EMV_TVR_MERCHANT_FORCED_ONLINE                          (0x08) ///< Terminal Verification Results: Merchant forced transaction online
+#define EMV_TVR_BIOMETRIC_TRY_LIMIT_EXCEEDED                    (0x04) ///< Terminal Verification Results: Biometric Try Limit exceeded
+#define EMV_TVR_BIOMETRIC_TYPE_NOT_SUPPORTED                    (0x02) ///< Terminal Verification Results: A selected Biometric Type not supported
+#define EMV_TVR_XDA_FAILED                                      (0x01) ///< Terminal Verification Results: XDA signature verification failed
+
+// Terminal Verification Results (field 95) byte 5
+// See EMV 4.4 Book 3, Annex C5, Table 46
+#define EMV_TVR_DEFAULT_TDOL                                    (0x80) ///< Terminal Verification Results: Default TDOL used
+#define EMV_TVR_ISSUER_AUTHENTICATION_FAILED                    (0x40) ///< Terminal Verification Results: Issuer authentication failed
+#define EMV_TVR_SCRIPT_PROCESSING_FAILED_BEFORE_GEN_AC          (0x20) ///< Terminal Verification Results: Script processing failed before final GENERATE AC
+#define EMV_TVR_SCRIPT_PROCESSING_FAILED_AFTER_GEN_AC           (0x10) ///< Terminal Verification Results: Script processing failed after final GENERATE AC
+#define EMV_TVR_CA_ECC_KEY_MISSING                              (0x04) ///< Terminal Verification Results: CA ECC key missing
+#define EMV_TVR_ECC_KEY_RECOVERY_FAILED                         (0x02) ///< Terminal Verification Results: ECC key recovery failed
+#define EMV_TVR_RESERVED_FOR_CONTACTLESS                        (0x09) ///< Terminal Verification Results: Reserved for use by the EMV Contactless Specifications
+
+// Transaction Status Information (field 9B) byte 1
+// See EMV 4.4 Book 3, Annex C6, Table 47
+#define EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED                     (0x80) ///< Transaction Status Information: Offline data authentication was performed
+#define EMV_TSI_CV_PERFORMED                                    (0x40) ///< Transaction Status Information: Cardholder verification was performed
+#define EMV_TSI_CARD_RISK_MANAGEMENT_PERFORMED                  (0x20) ///< Transaction Status Information: Card risk management was performed
+#define EMV_TSI_ISSUER_AUTHENTICATION_PERFORMED                 (0x10) ///< Transaction Status Information: Issuer authentication was performed
+#define EMV_TSI_TERMINAL_RISK_MANAGEMENT_PERFORMED              (0x08) ///< Transaction Status Information: Terminal risk management was performed
+#define EMV_TSI_SCRIPT_PROCESSING_PERFORMED                     (0x04) ///< Transaction Status Information: Script processing was performed
+#define EMV_TSI_BYTE1_RFU                                       (0x03) ///< Transaction Status Information: RFU
+
+// Transaction Status Information (field 9B) byte 2
+// See EMV 4.4 Book 3, Annex C6, Table 47
+#define EMV_TSI_BYTE2_RFU                                       (0xFF) ///< Transaction Status Information: RFU
+
+/// Application File Locator (AFL) iterator
+struct emv_afl_itr_t {
+	const void* ptr;
+	size_t len;
+};
+
+/// Application File Locator (AFL) entry
+struct emv_afl_entry_t {
+	uint8_t sfi; ///< Short File Identifier (SFI) for AFL entry
+	uint8_t first_record; ///< First record in SFI for AFL entry
+	uint8_t last_record; ///< Last record in SFI for AFL entry
+	uint8_t oda_record_count; ///< Number of records (starting at @ref first_record) involved in offline data authentication
+};
+
+/**
+ * Initialize Application File Locator (AFL) iterator
+ * @param afl Application File Locator (AFL) field. Must be multiples of 4 bytes.
+ * @param afl_len Length of Application File Locator (AFL) field. Must be multiples of 4 bytes.
+ * @param itr Application File Locator (AFL) iterator output
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_afl_itr_init(const void* afl, size_t afl_len, struct emv_afl_itr_t* itr);
+
+/**
+ * Decode next entry and advance iterator
+ * @param itr Application File Locator (AFL) iterator
+ * @param entry Decoded Application File Locator (AFL) entry output
+ * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
+ */
+int emv_afl_itr_next(struct emv_afl_itr_t* itr, struct emv_afl_entry_t* entry);
+
+/// Cardholder Verification Method (CVM) List iterator
+struct emv_cvmlist_itr_t {
+	const void* ptr;
+	size_t len;
+};
+
+/// Cardholder Verification Method (CVM) List amounts
+struct emv_cvmlist_amounts_t {
+	uint32_t X; ///< First amount field, referred to as "X" in EMV 4.3 Book 3, Annex C3, Table 40
+	uint32_t Y; ///< Second amount field, referred to as "Y" in EMV 4.3 Book 3, Annex C3, Table 40
+};
+
+/// Cardholder Verification (CV) Rule
+/// @remark See EMV 4.3 Book 3, Annex C3
+struct emv_cv_rule_t {
+	uint8_t cvm; ///< Cardholder Verification Method (CVM) Code
+	uint8_t cvm_cond; ///< Cardholder Verification Method (CVM) Condition
+};
+
+/**
+ * Initialize Cardholder Verification Method (CVM) List amounts and iterator
+ * @param cvmlist Cardholder Verification Method (CVM) List field
+ * @param cvmlist_len Length of Cardholder Verification Method (CVM) List field
+ * @param amounts Cardholder Verification Method (CVM) List amounts output
+ * @param itr Cardholder Verification Method (CVM) List iterator output
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_cvmlist_itr_init(
+	const void* cvmlist,
+	size_t cvmlist_len,
+	struct emv_cvmlist_amounts_t* amounts,
+	struct emv_cvmlist_itr_t* itr
+);
+
+/**
+ * Decode next Cardholder Verification (CV) Rule and advance iterator
+ * @param itr Cardholder Verification Method (CVM) List iterator
+ * @param rule Decoded Cardholder Verification (CV) Rule output
+ * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
+ */
+int emv_cvmlist_itr_next(struct emv_cvmlist_itr_t* itr, struct emv_cv_rule_t* rule);
 
 __END_DECLS
 

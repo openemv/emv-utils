@@ -4,22 +4,23 @@
  *
  * Copyright (c) 2021 Leon Lynch
  *
- * This library is free software; you can redistribute it and/or
+ * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library. If not, see
+ * License along with this program. If not, see
  * <https://www.gnu.org/licenses/>.
  */
 
 #include "emv_ttl.h"
+#include "emv_debug.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -336,6 +337,13 @@ int main(void)
 	uint8_t data[EMV_RAPDU_DATA_MAX];
 	size_t data_len;
 	uint16_t sw1sw2;
+
+	// Enable debug output
+	r = emv_debug_init(EMV_DEBUG_SOURCE_ALL, EMV_DEBUG_ALL, &print_emv_debug);
+	if (r) {
+		fprintf(stderr, "emv_debug_init() failed; r=%d\n", r);
+		return 1;
+	}
 
 	// Test APDU case 1; normal processing
 	printf("\nTesting APDU case 1 (TPDU mode); normal processing...\n");

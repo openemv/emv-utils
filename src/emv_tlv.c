@@ -2,7 +2,7 @@
  * @file emv_tlv.c
  * @brief EMV TLV structures and helper functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2022 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -112,7 +112,7 @@ void emv_tlv_list_clear(struct emv_tlv_list_t* list)
 	while (list->front) {
 		struct emv_tlv_t* tlv;
 		int r;
-		int emv_tlv_is_safe_to_free;
+		int emv_tlv_is_safe_to_free __attribute__((unused));
 
 		tlv = emv_tlv_list_pop(list);
 		r = emv_tlv_free(tlv);
@@ -190,6 +190,24 @@ struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int ta
 	}
 
 	return NULL;
+}
+
+int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other)
+{
+	if (!emv_tlv_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (!emv_tlv_list_is_valid(other)) {
+		return -2;
+	}
+
+	list->back->next = other->front;
+	list->back = other->back;
+	other->front = NULL;
+	other->back = NULL;
+
+	return 0;
 }
 
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)

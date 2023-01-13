@@ -2,7 +2,7 @@
  * @file print_helpers.h
  * @brief Helper functions for command line output
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2022 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,6 +24,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+
+#include "emv_debug.h"
 
 // Forward declarations
 struct iso7816_atr_info_t;
@@ -118,9 +120,61 @@ void print_emv_tlv_list(const struct emv_tlv_list_t* list);
 void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int depth);
 
 /**
+ * Print EMV Tag List
+ * @param ptr EMV Tag List data
+ * @param len Length of EMV Tag List data in bytes
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ */
+void print_emv_tag_list(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+
+/**
  * Print EMV application description
  * @param app EMV application object
  */
 void print_emv_app(const struct emv_app_t* app);
+
+/**
+ * Print simple EMV debug event including source, message and data only.
+ * @see emv_debug_func_t
+ * @param timestamp 32-bit microsecond timestamp value
+ * @param source Debug event source
+ * @param level Debug event level
+ * @param debug_type Debug event type
+ * @param str Debug event string
+ * @param buf Debug event data
+ * @param buf_len Length of debug event data in bytes
+ */
+void print_emv_debug(
+	unsigned int timestamp,
+	enum emv_debug_source_t source,
+	enum emv_debug_level_t level,
+	enum emv_debug_type_t debug_type,
+	const char* str,
+	const void* buf,
+	size_t buf_len
+);
+
+/**
+ * Print verbose EMV debug event including timestamp, source, level, message,
+ * and data
+ * @see emv_debug_func_t
+ * @param timestamp 32-bit microsecond timestamp value
+ * @param source Debug event source
+ * @param level Debug event level
+ * @param debug_type Debug event type
+ * @param str Debug event string
+ * @param buf Debug event data
+ * @param buf_len Length of debug event data in bytes
+ */
+void print_emv_debug_verbose(
+	unsigned int timestamp,
+	enum emv_debug_source_t source,
+	enum emv_debug_level_t level,
+	enum emv_debug_type_t debug_type,
+	const char* str,
+	const void* buf,
+	size_t buf_len
+);
 
 #endif

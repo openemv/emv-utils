@@ -1,0 +1,63 @@
+##############################################################################
+# Copyright (c) 2022 Leon Lynch
+#
+# This file is licensed under the terms of the LGPL v2.1 license.
+# See LICENSE file.
+##############################################################################
+
+name: Windows build
+
+on: [push]
+
+jobs:
+  build-windows-msys2-debug:
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { sys: mingw64, env: x86_64, build_type: "Release", lib_type: "static", shared_libs: "NO", build_emv_tool: NO }
+          - { sys: mingw64, env: x86_64, build_type: "Debug", lib_type: "dll", shared_libs: "YES", build_emv_tool: YES }
+          - { sys: mingw64, env: x86_64, build_type: "Release", lib_type: "static", shared_libs: "NO", build_emv_tool: YES }
+          - { sys: mingw32, env: i686, build_type: "Debug", lib_type: "static", shared_libs: "NO", build_emv_tool: YES }
+          - { sys: mingw32, env: i686, build_type: "Release", lib_type: "dll", shared_libs: "YES", build_emv_tool: YES }
+
+    name: Windows MSYS2 ${{matrix.sys}} build (${{ matrix.lib_type }}/${{ matrix.build_type }})
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Setup MSYS2 ${{matrix.sys}}
+      uses: msys2/setup-msys2@v2
+      with:
+        release: false
+        msystem: ${{matrix.sys}}
+        install: >-
+          base-devel
+          git
+          mingw-w64-${{matrix.env}}-toolchain
+          mingw-w64-${{matrix.env}}-cmake
+          mingw-w64-${{matrix.env}}-ninja
+
+    # MSYS2 Git assumes CRLF by default
+    - name: Configure Git
+      run: |
+        git config --global core.autocrlf true
+        git describe --always --dirty
+
+    - name: Configure CMake
+      run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} -DFETCH_ARGP=YES -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }}
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: cmake --build build --target test

@@ -2,7 +2,7 @@
  * @file emv_app.c
  * @brief EMV application abstraction and helper functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2022 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -323,7 +323,7 @@ void emv_app_list_clear(struct emv_app_list_t* list)
 	while (list->front) {
 		struct emv_app_t* app;
 		int r;
-		int emv_app_is_safe_to_free;
+		int emv_app_is_safe_to_free __attribute__((unused));
 
 		app = emv_app_list_pop(list);
 		r = emv_app_free(app);

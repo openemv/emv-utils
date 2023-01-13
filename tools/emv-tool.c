@@ -4,18 +4,18 @@
  *
  * Copyright (c) 2021 Leon Lynch
  *
- * This library is free software; you can redistribute it and/or
+ * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library. If not, see
+ * License along with this program. If not, see
  * <https://www.gnu.org/licenses/>.
  */
 
@@ -24,19 +24,93 @@
 #include "print_helpers.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
+#include "emv_strings.h"
 #include "emv_tlv.h"
 #include "emv_tal.h"
 
+#define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
+#include "emv_debug.h"
+
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
+#include <argp.h>
 
 // HACK: remove
 #include "emv_dol.h"
 #include "emv_ttl.h"
 #include "emv_app.h"
 #include "iso7816_strings.h"
-#include <string.h> // for memset() and memcpy() that should be removed later
+
+// Forward declarations
+struct emv_txn_t;
+
+// Helper functions
+static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
+static const char* pcsc_get_reader_state_string(unsigned int reader_state);
+static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
+static void emv_txn_load_config(struct emv_txn_t* emv_txn);
+static void emv_txn_destroy(struct emv_txn_t* emv_txn);
+
+// argp option keys
+enum emv_tool_param_t {
+	EMV_TOOL_PARAM_TXN_TYPE = 1,
+	EMV_TOOL_PARAM_TXN_AMOUNT,
+	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
+	EMV_TOOL_PARAM_DEBUG_VERBOSE,
+	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
+	EMV_TOOL_PARAM_DEBUG_LEVEL,
+};
+
+// argp option structure
+static struct argp_option argp_options[] = {
+	{ NULL, 0, NULL, 0, "Transaction parameters", 1 },
+	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
+	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
+	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
+
+	{ NULL, 0, NULL, 0, "Debug options", 2 },
+	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
+	{ "debug-source", EMV_TOOL_PARAM_DEBUG_SOURCES_MASK, "x,y,z...", 0, "Comma separated list of debug sources. Allowed values are TTL, TAL, EMV, APP, ALL. Default is ALL." },
+	{ "debug-level", EMV_TOOL_PARAM_DEBUG_LEVEL, "LEVEL", 0, "Maximum debug level. Allowed values are NONE, ERROR, INFO, CARD, TRACE, ALL. Default is INFO." },
+
+	{ 0 },
+};
+
+// argp configuration
+static struct argp argp_config = {
+	argp_options,
+	argp_parser_helper,
+	NULL,
+	"Perform EMV transaction",
+};
+
+// Transaction parameters
+static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
+static uint32_t txn_amount = 0;
+static uint32_t txn_amount_other = 0;
+
+// Debug parameters
+static bool debug_verbose = false;
+static const char* debug_source_str[] = {
+	"TTL",
+	"TAL",
+	"EMV",
+	"APP",
+	"ALL",
+};
+static unsigned int debug_sources_mask = EMV_DEBUG_SOURCE_ALL;
+static const char* debug_level_str[] = {
+	"NONE",
+	"ERROR",
+	"INFO",
+	"CARD",
+	"TRACE",
+	"ALL",
+};
+static enum emv_debug_level_t debug_level = EMV_DEBUG_INFO;
 
 struct emv_txn_t {
 	// Terminal Transport Layer
@@ -56,10 +130,124 @@ struct emv_txn_t {
 };
 static struct emv_txn_t emv_txn;
 
-// Helper functions
-static const char* pcsc_get_reader_state_string(unsigned int reader_state);
-static void emv_txn_load_config(struct emv_txn_t* emv_txn);
-static void emv_txn_destroy(struct emv_txn_t* emv_txn);
+
+static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
+{
+	switch (key) {
+		case EMV_TOOL_PARAM_TXN_TYPE: {
+			size_t arg_len = strlen(arg);
+			unsigned long value;
+			char* endptr = arg;
+
+			if (arg_len != 2) {
+				argp_error(state, "Transaction type (--txn-type) argument must be 2 numeric digits");
+			}
+
+			// Transaction Type (field 9C) is EMV format "n", so parse as hex
+			value = strtoul(arg, &endptr, 16);
+			if (!arg[0] || *endptr) {
+				argp_error(state, "Transaction type (--txn-type) argument must be 2 numeric digits");
+			}
+			txn_type = value;
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_TXN_AMOUNT: {
+			size_t arg_len = strlen(arg);
+			unsigned long value;
+			char* endptr = arg;
+
+			if (arg_len == 0) {
+				argp_error(state, "Transaction amount (--txn-amount) argument must be numeric digits");
+			}
+
+			// Amount, Authorised (field 81) is EMV format "b", so parse as decimal
+			value = strtoul(arg, &endptr, 10);
+			if (!arg[0] || *endptr) {
+				argp_error(state, "Transaction amount (--txn-amount) argument must be numeric digits");
+			}
+
+			if (value > 0xFFFFFFFF) {
+				argp_error(state, "Transaction amount (--txn-amount) argument must fit in a 32-bit field");
+			}
+			txn_amount = value;
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_TXN_AMOUNT_OTHER: {
+			size_t arg_len = strlen(arg);
+			unsigned long value;
+			char* endptr = arg;
+
+			if (arg_len == 0) {
+				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must be numeric digits");
+			}
+
+			// Amount, Other (field 9F04) is EMV format "b", so parse as decimal
+			value = strtoul(arg, &endptr, 10);
+			if (!arg[0] || *endptr) {
+				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must be numeric digits");
+			}
+
+			if (value > 0xFFFFFFFF) {
+				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must fit in a 32-bit field");
+			}
+			txn_amount_other = value;
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_DEBUG_VERBOSE: {
+			debug_verbose = true;
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_DEBUG_SOURCES_MASK: {
+			debug_sources_mask = 0;
+			const char* str;
+
+			// Parse comma separated list
+			while ((str = strtok(arg, ","))) {
+				size_t i;
+				for (i = 0; i < sizeof(debug_source_str) / sizeof(debug_source_str[0]); ++i) {
+					if (strcasecmp(str, debug_source_str[i]) == 0) {
+						break;
+					}
+				}
+
+				if (i >= sizeof(debug_source_str) / sizeof(debug_source_str[0])) {
+					// Failed to find debug source string in list
+					argp_error(state, "Unknown debug source (--debug-source) argument \"%s\"", str);
+				}
+
+				// Found debug source string in list; shift into mask
+				debug_sources_mask |= 1 << i;
+
+				arg = NULL;
+			}
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_DEBUG_LEVEL: {
+			for (size_t i = 0; i < sizeof(debug_level_str) / sizeof(debug_level_str[0]); ++i) {
+				if (strcasecmp(arg, debug_level_str[i]) == 0) {
+					// Found debug level string in list; use index as debug level
+					debug_level = i;
+					return 0;
+				}
+			}
+
+			// Failed to find debug level string in list
+			argp_error(state, "Unknown debug level (--debug-level) argument \"%s\"", arg);
+		}
+
+		default:
+			return ARGP_ERR_UNKNOWN;
+	}
+}
 
 static const char* pcsc_get_reader_state_string(unsigned int reader_state)
 {
@@ -158,7 +346,7 @@ static void emv_txn_destroy(struct emv_txn_t* emv_txn)
 	emv_tlv_list_clear(&emv_txn->icc);
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
 	int r;
 	pcsc_ctx_t pcsc;
@@ -170,6 +358,43 @@ int main(void)
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
 	struct iso7816_atr_info_t atr_info;
+
+	if (argc == 1) {
+		// No command line arguments
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
+	}
+
+	r = argp_parse(&argp_config, argc, argv, 0, 0, 0);
+	if (r) {
+		fprintf(stderr, "Failed to parse command line\n");
+		return 1;
+	}
+
+	if (txn_type != EMV_TRANSACTION_TYPE_INQUIRY &&
+		txn_amount == 0
+	) {
+		fprintf(stderr, "Transaction amount (--txn-amount) argument must be non-zero\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+	}
+
+	if (txn_type == EMV_TRANSACTION_TYPE_CASHBACK &&
+		txn_amount_other == 0
+	) {
+		fprintf(stderr, "Secondary transaction amount (--txn-amount-other) must be non-zero for cashback transaction\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+	}
+
+	r = emv_debug_init(
+		debug_sources_mask,
+		debug_level,
+		debug_verbose ? &print_emv_debug_verbose : &print_emv_debug
+	);
+	if (r) {
+		printf("Failed to initialise EMV debugging\n");
+		return 1;
+	}
+	emv_debug_trace_msg("Debugging enabled; debug_verbose=%d; debug_sources_mask=0x%02X; debug_level=%u", debug_verbose, debug_sources_mask, debug_level);
 
 	r = pcsc_init(&pcsc);
 	if (r) {
@@ -246,9 +471,9 @@ int main(void)
 	emv_txn_load_params(
 		&emv_txn,
 		42, // Transaction Sequence Counter
-		0x00, // Transaction Type: Goods and services
-		1234, // Transaction Amount
-		0 // Transaction Amount, Other
+		txn_type, // Transaction Type
+		txn_amount, // Transaction Amount
+		txn_amount_other // Transaction Amount, Other
 	);
 	emv_txn_load_config(&emv_txn);
 
@@ -403,6 +628,60 @@ int main(void)
 		}
 
 		print_buf("\nGPO data", gpo_data, gpo_data_len);
+
+		// Initiate application processing
+		printf("\nGET PROCESSING OPTIONS\n");
+		uint8_t gpo_response[EMV_RAPDU_DATA_MAX];
+		size_t gpo_response_len = sizeof(gpo_response);
+		r = emv_ttl_get_processing_options(&emv_txn.ttl, gpo_data, gpo_data_len, gpo_response, &gpo_response_len, &sw1sw2);
+		if (r) {
+			printf("Failed to get processign options; r=%d\n", r);
+			goto emv_exit;
+		}
+		print_buf("GPO response", gpo_response, gpo_response_len);
+		print_emv_buf(gpo_response, gpo_response_len, "  ", 0);
+		printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
+
+		if (sw1sw2 != 0x9000) {
+			goto emv_exit;
+		}
+
+		// Extract AIP and AFL
+		printf("\nProcessing options:\n");
+		struct emv_tlv_t* aip = NULL;
+		struct emv_tlv_t* afl = NULL;
+		r = emv_tal_parse_gpo_response(gpo_response, gpo_response_len, &emv_txn.icc, &aip, &afl);
+		if (r) {
+			printf("emv_tal_parse_gpo_response() failed; r=%d\n", r);
+			goto emv_exit;
+		}
+		print_emv_tlv(aip, "  ", 1);
+		print_emv_tlv(afl, "  ", 1);
+
+		// Read application data
+		struct emv_afl_itr_t afl_itr;
+		struct emv_afl_entry_t afl_entry;
+		r = emv_afl_itr_init(afl->value, afl->length, &afl_itr);
+		if (r) {
+			printf("emv_afl_itr_init() failed; r=%d\n", r);
+			goto emv_exit;
+		}
+		while ((r = emv_afl_itr_next(&afl_itr, &afl_entry)) > 0) {
+			for (uint8_t record_number = afl_entry.first_record; record_number <= afl_entry.last_record; ++record_number) {
+				uint8_t record[EMV_RAPDU_DATA_MAX];
+				size_t record_len = sizeof(record);
+
+				printf("\nReading application data from SFI %u, record %u\n", afl_entry.sfi, record_number);
+
+				r = emv_ttl_read_record(&emv_txn.ttl, afl_entry.sfi, record_number, record, &record_len, &sw1sw2);
+				if (r) {
+					printf("emv_ttl_read_record() failed; r=%d\n", r);
+					goto emv_exit;
+				}
+
+				print_emv_buf(record, record_len, "  ", 0);
+			}
+		}
 	}
 
 	r = pcsc_reader_disconnect(reader);

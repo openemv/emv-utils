@@ -119,6 +119,15 @@ struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list);
 struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int tag);
 
 /**
+ * Append one EMV TLV list to another
+ * @param list EMV TLV list to which to append
+ * @param other EMV TLV list that will be appended to the list provided in @c list.
+ *              This list will be empty if the function succeeds.
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other);
+
+/**
  * Parse EMV data.
  * This function will recursively parse ISO 8825-1 BER encoded EMV data and
  * output a flat list which omits the constructed/template fields.

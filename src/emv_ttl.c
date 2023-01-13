@@ -20,7 +20,11 @@
  */
 
 #include "emv_ttl.h"
+#include "emv_tags.h"
 #include "iso7816_apdu.h"
+
+#define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_TTL
+#include "emv_debug.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -52,6 +56,12 @@ int emv_ttl_trx(
 		return -1;
 	}
 
+	emv_debug_capdu(c_apdu, c_apdu_len);
+
+	if (c_apdu_len < 4) {
+		return -1;
+	}
+
 	// Determine the APDU case
 	// See ISO 7816-3:2006, 12.1.3, table 13
 	// See EMV 4.3 Book 1, 9.3.1.1
@@ -65,17 +75,23 @@ int emv_ttl_trx(
 
 	if (c_apdu_len == 4) {
 		apdu_case = ISO7816_APDU_CASE_1;
+		emv_debug_apdu("APDU case 1");
 	} else if (c_apdu_len == 5) {
 		apdu_case = ISO7816_APDU_CASE_2S;
+		emv_debug_apdu("APDU case 2S");
 	} else {
 		// Extract byte C5 from header; See ISO 7816-3:2006, 12.1.3
 		unsigned int C5 = *(uint8_t*)(c_apdu + 4);
 
 		if (C5 != 0 && C5 + 5 == c_apdu_len) { // If C5 is Lc and Le is absent
 			apdu_case = ISO7816_APDU_CASE_3S;
+			emv_debug_apdu("APDU case 3S");
 		} else if (C5 != 0 && C5 + 6 == c_apdu_len) { // If C5 is Lc and Le is present
 			apdu_case = ISO7816_APDU_CASE_4S;
+			emv_debug_apdu("APDU case 4S");
 		} else {
+			// Unknown APDU case
+			emv_debug_error("Unknown APDU case");
 			return -2;
 		}
 	}
@@ -125,14 +141,19 @@ int emv_ttl_trx(
 		bool tx_get_response = false;
 		bool tx_update_le  = false;
 
+		emv_debug_ctpdu(tx_buf, tx_buf_len);
+
 		r = ctx->cardreader.trx(ctx->cardreader.ctx, tx_buf, tx_buf_len, rx_buf, &rx_len);
 		if (r) {
 			return r;
 		}
 		if (rx_len == 0) {
 			// No response
+			emv_debug_error("No response");
 			return 1;
 		}
+
+		emv_debug_rtpdu(rx_buf, rx_len);
 
 		// Store INS of most recent tx for later use
 		INS = *((uint8_t*)(tx_buf + 1));
@@ -164,6 +185,7 @@ int emv_ttl_trx(
 			*sw1sw2 = ((uint16_t)SW1 << 8) | SW2;
 
 			// Let Terminal Application Layer (TAL) process the response
+			emv_debug_rapdu(r_apdu, *r_apdu_len);
 			return 0;
 		}
 
@@ -412,6 +434,7 @@ int emv_ttl_trx(
 			*r_apdu_len = (void*)r_apdu_ptr - r_apdu;
 
 			// Let Terminal Application Layer (TAL) process the response
+			emv_debug_rapdu(r_apdu, *r_apdu_len);
 			return 0;
 		}
 
@@ -599,6 +622,73 @@ int emv_ttl_read_record(
 	// Copy record data from R-APDU
 	*data_len = r_apdu_len - 2;
 	memcpy(data, r_apdu, *data_len);
+
+	return 0;
+}
+
+int emv_ttl_get_processing_options(
+	struct emv_ttl_t* ctx,
+	const void* pdol_data,
+	size_t pdol_data_len,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+) {
+	int r;
+	struct iso7816_apdu_case_4s_t c_apdu;
+	uint8_t empty_cmd_data[2];
+	uint8_t r_apdu[EMV_RAPDU_MAX];
+	size_t r_apdu_len = sizeof(r_apdu);
+
+	if (!ctx || !response || !response_len || !*response_len || !sw1sw2) {
+		return -1;
+	}
+
+	if (*response_len < EMV_RAPDU_DATA_MAX) {
+		return -2;
+	}
+
+	if (!pdol_data || !pdol_data_len) {
+		// Use empty Command Template (field 83)
+		// See EMV 4.3 Book 3, 6.5.8.3
+		// See EMV 4.3 Book 3, 10.1
+		empty_cmd_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
+		empty_cmd_data[1] = 0x00;
+
+		pdol_data = empty_cmd_data;
+		pdol_data_len = sizeof(empty_cmd_data);
+	}
+
+	// Build GET PROCESSING OPTIONS command
+	c_apdu.CLA = 0x80; // See EMV 4.3 Book 3, 6.3.2
+	c_apdu.INS = 0xA8; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+	c_apdu.P1  = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+	c_apdu.P2  = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+	c_apdu.Lc  = pdol_data_len;
+	memcpy(c_apdu.data, pdol_data, c_apdu.Lc);
+	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+
+	r = emv_ttl_trx(
+		ctx,
+		&c_apdu,
+		iso7816_apdu_case_4s_length(&c_apdu),
+		r_apdu,
+		&r_apdu_len,
+		sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+	if (r_apdu_len < 2) {
+		return -4;
+	}
+	if (r_apdu_len - 2 > *response_len) {
+		return -5;
+	}
+
+	// Copy response from R-APDU
+	*response_len = r_apdu_len - 2;
+	memcpy(response, r_apdu, *response_len);
 
 	return 0;
 }

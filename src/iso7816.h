@@ -208,14 +208,14 @@ struct iso7816_atr_info_t {
 	size_t historical_bytes_len; ///< Length of historical byte payload, excluding explicit status indicator
 
 	/**
-	 * Status indicator bytes. Available when pointer is non-NULL. NULL if absent.
-	 * @see @ref status_indicator for values
+	 * Pointer to status indicator bytes. Available when pointer is non-NULL. NULL if absent.
+	 * @see @ref status_indicator for extracted values
 	 */
 	const uint8_t* status_indicator_bytes;
 
 	/**
-	 * Number of status indicator bytes.
-	 * @see @ref status_indicator for values
+	 * Number of status indicator bytes at @ref status_indicator_bytes
+	 * @see @ref status_indicator for extracted values
 	 */
 	size_t status_indicator_bytes_len;
 
@@ -285,7 +285,7 @@ struct iso7816_atr_info_t {
 		uint8_t LCS; ///< Card life cycle status; Zero if not available
 		uint8_t SW1; ///< Status Word byte 1; If both SW1 and SW2 are zero, then status word is not avaiable
 		uint8_t SW2; ///< Status Word byte 2; If both SW1 and SW2 are zero, then status word is not avaiable
-	} status_indicator;
+	} status_indicator; ///< Status indicator bytes
 };
 
 /**
