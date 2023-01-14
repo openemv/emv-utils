@@ -86,46 +86,6 @@ install(
 		COMPONENT emv_development
 )
 
-# iso-codes lookup library
-add_library(isocodes_lookup
-	isocodes_lookup.cpp
-)
-set(isocodes_lookup_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
-	isocodes_lookup.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
-)
-add_library(emv::isocodes_lookup ALIAS isocodes_lookup)
-set_target_properties(isocodes_lookup
-	PROPERTIES
-		PUBLIC_HEADER "${isocodes_lookup_HEADERS}"
-		VERSION ${CMAKE_PROJECT_VERSION}
-		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
-)
-configure_file(isocodes_config.h.in isocodes_config.h)
-target_include_directories(isocodes_lookup
-	PRIVATE
-		"${CMAKE_CURRENT_BINARY_DIR}" # for generated isocodes_config.h
-	INTERFACE
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-		$<INSTALL_INTERFACE:include/emv>
-)
-target_link_libraries(isocodes_lookup PRIVATE Boost::json)
-install(
-	TARGETS
-		isocodes_lookup
-	EXPORT emvUtilsTargets # For use by install(EXPORT) command
-	PUBLIC_HEADER
-		DESTINATION "include/emv"
-		COMPONENT emv_development
-	RUNTIME
-		COMPONENT emv_runtime
-	LIBRARY
-		COMPONENT emv_runtime
-		NAMELINK_COMPONENT emv_development
-	ARCHIVE
-		COMPONENT emv_development
-)
-
 # EMV library
 add_library(emv
 	emv_fields.c
@@ -135,7 +95,6 @@ add_library(emv
 	emv_ttl.c
 	emv_app.c
 	emv_tal.c
-	emv_strings.c
 )
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv_tags.h
@@ -146,7 +105,6 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_ttl.h
 	emv_app.h
 	emv_tal.h
-	emv_strings.h
 	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
 add_library(emv::emv ALIAS emv)
@@ -166,10 +124,59 @@ target_include_directories(emv INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 	$<INSTALL_INTERFACE:include/emv>
 )
-
 install(
 	TARGETS
 		emv
+	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	PUBLIC_HEADER
+		DESTINATION "include/emv"
+		COMPONENT emv_development
+	RUNTIME
+		COMPONENT emv_runtime
+	LIBRARY
+		COMPONENT emv_runtime
+		NAMELINK_COMPONENT emv_development
+	ARCHIVE
+		COMPONENT emv_development
+)
+
+# EMV strings library
+add_library(emv_strings
+	emv_strings.c
+	isocodes_lookup.cpp
+)
+set(emv_strings_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
+	emv_strings.h
+	isocodes_lookup.h
+	PARENT_SCOPE # Doxygen generator requires a list of headers
+)
+add_library(emv::emv_strings ALIAS emv_strings)
+# The EMVSTRINGS_PKGCONFIG_REQ_PRIV and EMVSTRINGS_PKGCONFIG_LIBS_PRIV variables are set
+# for the parent scope to facilitate the generation of pkgconfig files.
+# NOTE: Boost has no pkgconfig files so EMVSTRINGS_PKGCONFIG_REQ_PRIV cannot be set
+set(EMVSTRINGS_PKGCONFIG_LIBS_PRIV "-lboost_json" PARENT_SCOPE)
+set_target_properties(emv_strings
+	PROPERTIES
+		PUBLIC_HEADER "${emv_strings_HEADERS}"
+		VERSION ${CMAKE_PROJECT_VERSION}
+		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
+)
+configure_file(isocodes_config.h.in isocodes_config.h)
+target_include_directories(emv_strings
+	PRIVATE
+		"${CMAKE_CURRENT_BINARY_DIR}" # For generated isocodes_config.h
+	INTERFACE
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+		$<INSTALL_INTERFACE:include/emv>
+)
+target_link_libraries(emv_strings
+	PRIVATE
+		emv # Used by emv_strings.c
+		Boost::json # Used by isocodes_lookup.c
+)
+install(
+	TARGETS
+		emv_strings
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/emv"

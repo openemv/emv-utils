@@ -111,7 +111,6 @@ configure_file(pkgconfig/libiso8825.pc.in
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8825.pc"
 	@ONLY
 )
-# TODO: Generate pkgconfig for isocodes_lookup library
 # Generate pkgconfig for emv library
 set(EMV_UTILS_PKGCONFIG_LIB_NAME emv)
 # NOTE: src subdirectory may provide EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV
@@ -119,10 +118,18 @@ configure_file(pkgconfig/libemv.pc.in
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv.pc"
 	@ONLY
 )
+# Generate pkgconfig for emv_strings library
+set(EMV_UTILS_PKGCONFIG_LIB_NAME emv_strings)
+# NOTE: src subdirectory may provide EMVSTRINGS_PKGCONFIG_REQ_PRIV and EMVSTRINGS_PKGCONFIG_LIBS_PRIV
+configure_file(pkgconfig/libemv_strings.pc.in
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv_strings.pc"
+	@ONLY
+)
 install(FILES
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso7816.pc"
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8825.pc"
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv.pc"
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv_strings.pc"
 	DESTINATION "${EMV_UTILS_INSTALL_PKGCONFIG_DIR}"
 	COMPONENT emv_development
 )
@@ -158,8 +165,8 @@ if(Doxygen_FOUND)
 		doxygen_add_docs(docs
 			${iso7816_HEADERS}
 			${iso8825_HEADERS}
-			${isocodes_lookup_HEADERS}
 			${emv_HEADERS}
+			${emv_strings_HEADERS}
 			ALL # Build by default
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
 		)
@@ -174,8 +181,8 @@ if(Doxygen_FOUND)
 		doxygen_add_docs(docs
 			${iso7816_HEADERS}
 			${iso8825_HEADERS}
-			${isocodes_lookup_HEADERS}
 			${emv_HEADERS}
+			${emv_strings_HEADERS}
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
 		)
 	endif()

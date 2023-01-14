@@ -9,15 +9,30 @@ cmake_minimum_required(VERSION 3.16)
 
 if (BUILD_TESTING)
 	add_executable(emv_ttl_tpdu_test emv_ttl_tpdu_test.c ../tools/print_helpers.c)
-	target_link_libraries(emv_ttl_tpdu_test PRIVATE emv iso7816)
+	target_link_libraries(emv_ttl_tpdu_test
+		PRIVATE
+			emv_strings # For print_helpers
+			emv
+			iso7816 # For print_helpers
+	)
 	add_test(emv_ttl_tpdu_test emv_ttl_tpdu_test)
 
 	add_executable(emv_ttl_pcsc_test emv_ttl_pcsc_test.c ../tools/print_helpers.c)
-	target_link_libraries(emv_ttl_pcsc_test PRIVATE emv iso7816)
+	target_link_libraries(emv_ttl_pcsc_test
+		PRIVATE
+			emv_strings # For print_helpers
+			emv
+			iso7816 # For print_helpers
+	)
 	add_test(emv_ttl_pcsc_test emv_ttl_pcsc_test)
 
 	add_executable(emv_str_parse_test emv_str_parse_test.c ../tools/print_helpers.c)
-	target_link_libraries(emv_str_parse_test PRIVATE emv iso7816)
+	target_link_libraries(emv_str_parse_test
+		PRIVATE
+			emv_strings # For print_helpers
+			emv
+			iso7816 # For print_helpers
+	)
 	add_test(emv_str_parse_test emv_str_parse_test)
 
 	add_executable(emv_cvmlist_test emv_cvmlist_test.c)
@@ -33,7 +48,7 @@ if (BUILD_TESTING)
 			target_link_libraries(isocodes_test PRIVATE ${Intl_LIBRARIES})
 		endif()
 	endif()
-	target_link_libraries(isocodes_test PRIVATE isocodes_lookup)
+	target_link_libraries(isocodes_test PRIVATE emv_strings)
 	add_test(isocodes_test isocodes_test)
 
 	if(WIN32)

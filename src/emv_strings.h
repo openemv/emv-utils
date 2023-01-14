@@ -119,6 +119,14 @@ struct emv_tlv_info_t {
 };
 
 /**
+ * Initialize EMV strings. This will load ISO 3166, ISO 4217,
+ * and ISO 639 strings from the iso-codes package.
+ *
+ * @return Zero for success. Less than zero for internal error. Greater than zero if iso-codes package not found.
+ */
+int emv_strings_init(void);
+
+/**
  * Retrieve EMV TLV information, if available, and convert value to human
  * readable string(s), if possible.
  * @note @c value_str output will be empty if human readable string is not available

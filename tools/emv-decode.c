@@ -265,13 +265,13 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	r = isocodes_init(NULL);
+	r = emv_strings_init();
 	if (r < 0) {
-		fprintf(stderr, "Failed to initialise iso-codes data\n");
+		fprintf(stderr, "Failed to initialise EMV strings\n");
 		return 2;
 	}
 	if (r > 0) {
-		fprintf(stderr, "Failed to find iso-codes data; currency and country lookups will not be possible\n");
+		fprintf(stderr, "Failed to find iso-codes data; currency, country and language lookups will not be possible\n");
 	}
 
 	switch (emv_decode_mode) {

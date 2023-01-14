@@ -2,7 +2,7 @@
  * @file emv_strings.c
  * @brief EMV string helper functions
  *
- * Copyright (c) 2021, 2022 Leon Lynch
+ * Copyright (c) 2021, 2022, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,6 +23,7 @@
 #include "emv_tlv.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
+#include "isocodes_lookup.h"
 
 #include <string.h>
 #include <stdarg.h>
@@ -40,6 +41,18 @@ static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
+
+int emv_strings_init(void)
+{
+	int r;
+
+	r = isocodes_init(NULL);
+	if (r) {
+		return r;
+	}
+
+	return 0;
+}
 
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
