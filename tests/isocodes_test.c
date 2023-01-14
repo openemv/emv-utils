@@ -24,8 +24,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef HAVE_LIBINTL_H
 #include <locale.h>
 #include <libintl.h>
+#endif
 
 int main(void)
 {
@@ -34,10 +36,12 @@ int main(void)
 	const char* currency;
 	const char* language;
 
+#ifdef HAVE_LIBINTL_H
 	setlocale(LC_ALL, "nl_NL.UTF-8");
 	printf("%s\n", dgettext("iso_639-2", "French"));
 	printf("%s\n", dgettext("iso_3166-1", "France"));
 	printf("%s\n", dgettext("iso_3166-3", "710")); // Cannot resolve numeric codes via libintl
+#endif
 
 	r = isocodes_init(NULL);
 	if (r) {

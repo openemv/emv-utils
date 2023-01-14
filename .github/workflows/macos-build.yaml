@@ -25,9 +25,15 @@ jobs:
 
     steps:
     - name: Install dependencies
+      # Homebrew doesn't support universal binaries so only install dependencies for x86_64 builds
       run: |
         brew install boost
         brew install iso-codes
+
+    - name: Install gettext
+      # Homebrew doesn't support universal binaries so only install dependencies for x86_64 builds
+      if: ${{ !contains(matrix.osx_arch, 'arm64') }}
+      run: brew install gettext
 
     - name: Install argp-standalone using brew
       # Homebrew doesn't support universal binaries so only install dependencies for x86_64 builds
