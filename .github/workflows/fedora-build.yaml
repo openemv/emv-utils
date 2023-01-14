@@ -24,8 +24,8 @@ jobs:
     container: fedora:${{ matrix.fedora_version }}
 
     steps:
-    - name: Install build tools
-      run: sudo dnf -y install git cmake gcc g++
+    - name: Install build tools and dependencies
+      run: sudo dnf -y install git cmake gcc g++ boost-devel iso-codes-devel
 
     - name: Install PCSCLite
       if: contains(matrix.deps, 'pcsclite')
@@ -68,7 +68,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        sudo dnf -y install git gh cmake gcc g++ pcsc-lite-devel bash-completion doxygen rpm-build
+        sudo dnf -y install git gh cmake gcc g++ boost-devel iso-codes-devel pcsc-lite-devel bash-completion doxygen rpm-build
 
     - name: Checkout
       uses: actions/checkout@v3

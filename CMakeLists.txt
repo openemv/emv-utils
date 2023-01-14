@@ -229,6 +229,7 @@ if(dpkg_FOUND)
 	# Assign package suggestions
 	set(CPACK_DEBIAN_EMV_DOCS_PACKAGE_SUGGESTS "emv-utils-dev")
 	# Generate package dependency list
+	set(CPACK_DEBIAN_PACKAGE_DEPENDS "iso-codes") # Ensure that iso-codes package is a dependency
 	set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 	set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/src/) # dpkg-shlibdeps cannot find dependencies that aren't installed, so it needs some help
 endif()
@@ -254,7 +255,9 @@ if(rpmbuild_FOUND)
 	set(CPACK_RPM_EMV_DOCS_PACKAGE_ARCHITECTURE "noarch")
 	# Assign package suggestions
 	set(CPACK_RPM_EMV_DOCS_PACKAGE_SUGGESTS "emv-utils-devel")
-	# NOTE: RPM generator automatically detects dependencies
+	# Generate package dependency list
+	set(CPACK_RPM_PACKAGE_REQUIRES "iso-codes") # Ensure that iso-codes package is a dependency
+	# NOTE: RPM generator automatically detects library dependencies
 endif()
 
 include(CPack)

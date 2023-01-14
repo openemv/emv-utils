@@ -46,6 +46,8 @@ jobs:
           mingw-w64-${{matrix.env}}-toolchain
           mingw-w64-${{matrix.env}}-cmake
           mingw-w64-${{matrix.env}}-ninja
+          mingw-w64-${{matrix.env}}-boost
+          mingw-w64-${{matrix.env}}-iso-codes
 
     # MSYS2 Git assumes CRLF by default
     - name: Configure Git

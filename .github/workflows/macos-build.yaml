@@ -24,6 +24,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+    - name: Install dependencies
+      run: |
+        brew install boost
+        brew install iso-codes
+
     - name: Install argp-standalone using brew
       # Homebrew doesn't support universal binaries so only install dependencies for x86_64 builds
       if: ${{ matrix.fetch_deps == 'NO' }}
