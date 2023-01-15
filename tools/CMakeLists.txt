@@ -156,6 +156,78 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION "^70 \\| EMV Data Template : \\[26\\][\r\n]  9F39 \\| Point-of-Service \\(POS\\) Entry Mode : \\[1\\] 05 \\(Integrated circuit card \\(ICC\\)\\. CVV can be checked\\.\\)[\r\n]  57 \\| Track 2 Equivalent Data : \\[16\\] 40 12 34 56 78 90 95 D2 51 22 01 19 73 39 30 0F \\(40123456789095=2512201197339300\\)[\r\n]  82 \\| Application Interchange Profile \\(AIP\\) : \\[2\\] 59 00[\r\n]"
 	)
 
+	add_test(NAME emv_decode_test9
+		COMMAND emv-decode --country 528
+	)
+	set_tests_properties(emv_decode_test9
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^Netherlands"
+	)
+
+	add_test(NAME emv_decode_test10
+		COMMAND emv-decode --iso3166-1 GBR
+	)
+	set_tests_properties(emv_decode_test10
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^United Kingdom"
+	)
+
+	add_test(NAME emv_decode_test11
+		COMMAND emv-decode --country US
+	)
+	set_tests_properties(emv_decode_test11
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^United States"
+	)
+
+	add_test(NAME emv_decode_test12
+		COMMAND emv-decode --currency 978
+	)
+	set_tests_properties(emv_decode_test12
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^Euro"
+	)
+
+	add_test(NAME emv_decode_test13
+		COMMAND emv-decode --iso4217 HKD
+	)
+	set_tests_properties(emv_decode_test13
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^Hong Kong Dollar"
+	)
+
+	add_test(NAME emv_decode_test14
+		COMMAND emv-decode --currency 826
+	)
+	set_tests_properties(emv_decode_test14
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^Pound Sterling"
+	)
+
+	add_test(NAME emv_decode_test15
+		COMMAND emv-decode --language fr
+	)
+	set_tests_properties(emv_decode_test15
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^French"
+	)
+
+	add_test(NAME emv_decode_test16
+		COMMAND emv-decode --iso639 zh
+	)
+	set_tests_properties(emv_decode_test16
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^Chinese"
+	)
+
+	add_test(NAME emv_decode_test17
+		COMMAND emv-decode --language wln
+	)
+	set_tests_properties(emv_decode_test17
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^Walloon"
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs
