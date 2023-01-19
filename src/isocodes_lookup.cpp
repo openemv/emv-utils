@@ -28,7 +28,16 @@
 #include <memory>
 #include <cstdio>
 
-#include <boost/json.hpp>
+// NOTE: Older versions of json-c, like the one for Ubuntu 20.04, don't specify
+// C linkage in the headers, which means it must be specified explicitly here
+// to avoid C++ linkage and to ensure successful library linkage.
+#include <sys/cdefs.h>
+__BEGIN_DECLS
+#include <json-c/json.h>
+#include <json-c/json_visit.h>
+__END_DECLS
+
+typedef bool (*isocodes_list_append_func_t)(json_object* jso);
 
 struct isocodes_country_t {
 	std::string name;
@@ -60,54 +69,7 @@ static std::map<std::string,const isocodes_language_t&> language_alpha2_map;
 static std::map<std::string,const isocodes_language_t&> language_alpha3_map;
 
 
-static boost::json::value parse_json_file(const std::string& filename)
-{
-	std::unique_ptr<std::FILE, decltype(&std::fclose)> file(std::fopen(filename.c_str(), "rb"), &std::fclose);
-	if (!file) {
-		// Failed to open file
-		return nullptr;
-	}
-
-	boost::json::stream_parser p;
-	boost::json::error_code ec;
-	while (!std::feof(file.get())) {
-		char buf[4096];
-		size_t len;
-
-		// Read from file
-		len = std::fread(buf, 1, sizeof(buf), file.get());
-
-		// JSON parsing
-		p.write(buf, len, ec);
-		if (ec) {
-			// JSON parsing error
-			return nullptr;
-		}
-	}
-
-	p.finish(ec);
-	if(ec) {
-		// JSON validation error
-		return nullptr;
-	}
-
-	// Caller takes ownership of JSON object
-	return p.release();
-}
-
-// Conversion function invoked by Boost to build isocodes_country_t from JSON object
-static isocodes_country_t tag_invoke(boost::json::value_to_tag<isocodes_country_t>, const boost::json::value& jv)
-{
-	const auto& obj = jv.as_object();
-	return isocodes_country_t {
-		boost::json::value_to<std::string>(obj.at("name")),
-		boost::json::value_to<std::string>(obj.at("alpha_2")),
-		boost::json::value_to<std::string>(obj.at("alpha_3")),
-		boost::json::value_to<std::string>(obj.at("numeric")),
-	};
-}
-
-static bool build_country_list(const boost::json::value& jv) noexcept
+static bool country_list_append(json_object* jso)
 {
 	/* iso-codes package's iso_3166-1.json file should have this structure
 	{
@@ -125,12 +87,242 @@ static bool build_country_list(const boost::json::value& jv) noexcept
 	}
 	*/
 
-	try {
-		const auto& iso3166_1 = jv.as_object();
-		const auto& iso3166_1_list = iso3166_1.at("3166-1");
-		country_list = boost::json::value_to<decltype(country_list)>(iso3166_1_list);
-	} catch (const std::exception& e) {
-		std::fprintf(stderr, "Exception: %s\n", e.what());
+	// Extract name string
+	json_object* name_obj = json_object_object_get(jso, "name");
+	if (!name_obj) {
+		return false;
+	}
+	const char* name_str = json_object_get_string(name_obj);
+	if (!name_str) {
+		return false;
+	}
+
+	// Extract alpha_2 string
+	json_object* alpha_2_obj = json_object_object_get(jso, "alpha_2");
+	if (!alpha_2_obj) {
+		return false;
+	}
+	const char* alpha_2_str = json_object_get_string(alpha_2_obj);
+	if (!alpha_2_str) {
+		return false;
+	}
+
+	// Extract alpha_3 string
+	json_object* alpha_3_obj = json_object_object_get(jso, "alpha_3");
+	if (!alpha_3_obj) {
+		return false;
+	}
+	const char* alpha_3_str = json_object_get_string(alpha_3_obj);
+	if (!alpha_3_str) {
+		return false;
+	}
+
+	// Extract numeric string
+	json_object* numeric_obj = json_object_object_get(jso, "numeric");
+	if (!numeric_obj) {
+		return false;
+	}
+	const char* numeric_str = json_object_get_string(numeric_obj);
+	if (!numeric_str) {
+		return false;
+	}
+
+	// Populate country list entry
+	country_list.push_back({ name_str, alpha_2_str, alpha_3_str, numeric_str });
+
+	return true;
+}
+
+static bool currency_list_append(json_object* jso)
+{
+	/* iso-codes package's iso_4217.json file should have this structure
+	{
+		"4217": [
+			...
+			{
+				"alpha_3": "EUR",
+				"name": "Euro",
+				"numeric": "978"
+			},
+			...
+		]
+	}
+	*/
+
+	// Extract name string
+	json_object* name_obj = json_object_object_get(jso, "name");
+	if (!name_obj) {
+		return false;
+	}
+	const char* name_str = json_object_get_string(name_obj);
+	if (!name_str) {
+		return false;
+	}
+
+	// Extract alpha_3 string
+	json_object* alpha_3_obj = json_object_object_get(jso, "alpha_3");
+	if (!alpha_3_obj) {
+		return false;
+	}
+	const char* alpha_3_str = json_object_get_string(alpha_3_obj);
+	if (!alpha_3_str) {
+		return false;
+	}
+
+	// Extract numeric string
+	json_object* numeric_obj = json_object_object_get(jso, "numeric");
+	if (!numeric_obj) {
+		return false;
+	}
+	const char* numeric_str = json_object_get_string(numeric_obj);
+	if (!numeric_str) {
+		return false;
+	}
+
+	// Populate currency list entry
+	currency_list.push_back({ name_str, alpha_3_str, numeric_str });
+
+	return true;
+}
+
+static bool language_list_append(json_object* jso)
+{
+	/* iso-codes package's iso_639-2.json file should have this structure
+	{
+		"639-2": [
+			...
+			{
+				"alpha_2": "en",
+				"alpha_3": "eng",
+				"name": "English"
+			},
+			...
+		]
+	}
+	*/
+
+	// Extract name string
+	json_object* name_obj = json_object_object_get(jso, "name");
+	if (!name_obj) {
+		return false;
+	}
+	const char* name_str = json_object_get_string(name_obj);
+	if (!name_str) {
+		return false;
+	}
+
+	// Extract alpha_2 string (optional)
+	json_object* alpha_2_obj = json_object_object_get(jso, "alpha_2");
+	const char* alpha_2_str;
+	if (alpha_2_obj) {
+		alpha_2_str = json_object_get_string(alpha_2_obj);
+	}
+	if (!alpha_2_obj || !alpha_2_str) {
+		alpha_2_str = "";
+	}
+
+	// Extract alpha_3 string
+	json_object* alpha_3_obj = json_object_object_get(jso, "alpha_3");
+	if (!alpha_3_obj) {
+		return false;
+	}
+	const char* alpha_3_str = json_object_get_string(alpha_3_obj);
+	if (!alpha_3_str) {
+		return false;
+	}
+
+	// Populate language list entry
+	language_list.push_back({ name_str, alpha_2_str, alpha_3_str });
+
+	return true;
+}
+
+static int json_array_visit_userfunc(
+	json_object* jso,
+	int flags,
+	json_object* parent_jso,
+	const char* jso_key,
+	size_t* jso_index,
+	void* userarg
+)
+{
+	if (flags & JSON_C_VISIT_SECOND) {
+		// Ignore the second visit to the array or object
+		return JSON_C_VISIT_RETURN_CONTINUE;
+	}
+
+	// If there is no parent and it is an array, then it is the top-level array
+	if (!parent_jso && json_object_is_type(jso, json_type_array)) {
+		// Ignore top-level array
+		return JSON_C_VISIT_RETURN_CONTINUE;
+	}
+
+	// If there is an index and it is an object, then it is an array entry
+	if (jso_index && json_object_is_type(jso, json_type_object)) {
+		isocodes_list_append_func_t isocodes_list_append;
+		bool result;
+
+		// Append object to the appropriate using the function pointer provided by userarg
+		isocodes_list_append = (isocodes_list_append_func_t)userarg;
+		result = isocodes_list_append(jso);
+		if (!result) {
+			return JSON_C_VISIT_RETURN_ERROR;
+		}
+
+		// Continue to next array object
+		return JSON_C_VISIT_RETURN_CONTINUE;
+	}
+
+	// If there is a key and it is a string, then it is a leaf string
+	if (jso_key && json_object_is_type(jso, json_type_string)) {
+		// Skip over leaf strings
+		return JSON_C_VISIT_RETURN_POP;
+	}
+
+	// Unexpected object type
+	return JSON_C_VISIT_RETURN_ERROR;
+}
+
+static bool build_country_list(json_object* json_root) noexcept
+{
+	/* iso-codes package's iso_3166-1.json file should have this structure
+	{
+		"3166-1": [
+			...
+			{
+				"alpha_2": "NL",
+				"alpha_3": "NLD",
+				"name": "Netherlands",
+				"numeric": "528",
+				"official_name": "Kingdom of the Netherlands"
+			},
+			...
+		]
+	}
+	*/
+
+	json_bool result;
+	int r;
+	json_object* iso3166_1_obj;
+	json_type iso3166_1_type;
+	size_t iso3166_1_array_length;
+
+	result = json_object_object_get_ex(json_root, "3166-1", &iso3166_1_obj);
+	if (!result) {
+		return false;
+	}
+	iso3166_1_type = json_object_get_type(iso3166_1_obj);
+	if (iso3166_1_type != json_type_array) {
+		return false;
+	}
+	iso3166_1_array_length = json_object_array_length(iso3166_1_obj);
+	if (!iso3166_1_array_length) {
+		return false;
+	}
+
+	country_list.reserve(iso3166_1_array_length);
+	r = json_c_visit(iso3166_1_obj, 0, &json_array_visit_userfunc, (void*)&country_list_append);
+	if (r) {
 		return false;
 	}
 
@@ -152,18 +344,7 @@ static bool build_country_list(const boost::json::value& jv) noexcept
 	return true;
 }
 
-// Conversion function invoked by Boost to build isocodes_currency_t from JSON object
-static isocodes_currency_t tag_invoke(boost::json::value_to_tag<isocodes_currency_t>, const boost::json::value& jv)
-{
-	const auto& obj = jv.as_object();
-	return isocodes_currency_t {
-		boost::json::value_to<std::string>(obj.at("name")),
-		boost::json::value_to<std::string>(obj.at("alpha_3")),
-		boost::json::value_to<std::string>(obj.at("numeric")),
-	};
-}
-
-static bool build_currency_list(const boost::json::value& jv) noexcept
+static bool build_currency_list(json_object* json_root) noexcept
 {
 	/* iso-codes package's iso_4217.json file should have this structure
 	{
@@ -179,12 +360,28 @@ static bool build_currency_list(const boost::json::value& jv) noexcept
 	}
 	*/
 
-	try {
-		const auto& iso4217 = jv.as_object();
-		const auto& iso4217_list = iso4217.at("4217");
-		currency_list = boost::json::value_to<decltype(currency_list)>(iso4217_list);
-	} catch (const std::exception& e) {
-		std::fprintf(stderr, "Exception: %s\n", e.what());
+	json_bool result;
+	int r;
+	json_object* iso4217_obj;
+	json_type iso4217_type;
+	size_t iso4217_array_length;
+
+	result = json_object_object_get_ex(json_root, "4217", &iso4217_obj);
+	if (!result) {
+		return false;
+	}
+	iso4217_type = json_object_get_type(iso4217_obj);
+	if (iso4217_type != json_type_array) {
+		return false;
+	}
+	iso4217_array_length = json_object_array_length(iso4217_obj);
+	if (!iso4217_array_length) {
+		return false;
+	}
+
+	currency_list.reserve(iso4217_array_length);
+	r = json_c_visit(iso4217_obj, 0, &json_array_visit_userfunc, (void*)&currency_list_append);
+	if (r) {
 		return false;
 	}
 
@@ -201,29 +398,7 @@ static bool build_currency_list(const boost::json::value& jv) noexcept
 	return true;
 }
 
-// Conversion function invoked by Boost to build isocodes_language_t from JSON object
-static isocodes_language_t tag_invoke(boost::json::value_to_tag<isocodes_language_t>, const boost::json::value& jv)
-{
-	const auto& obj = jv.as_object();
-	bool has_alpha2;
-
-	// Check whether alpha_2 element is available because schema-639-2.json
-	// indicates that only name and alpha_3 are required elements
-	try {
-		obj.at("alpha_2");
-		has_alpha2 = true;
-	} catch (const std::out_of_range& e) {
-		has_alpha2 = false;
-	}
-
-	return isocodes_language_t {
-		boost::json::value_to<std::string>(obj.at("name")),
-		has_alpha2 ? boost::json::value_to<std::string>(obj.at("alpha_2")) : "",
-		boost::json::value_to<std::string>(obj.at("alpha_3")),
-	};
-}
-
-static bool build_language_list(const boost::json::value& jv) noexcept
+static bool build_language_list(json_object* json_root) noexcept
 {
 	/* iso-codes package's iso_639-2.json file should have this structure
 	{
@@ -239,12 +414,28 @@ static bool build_language_list(const boost::json::value& jv) noexcept
 	}
 	*/
 
-	try {
-		const auto& iso639_2 = jv.as_object();
-		const auto& iso639_2_list = iso639_2.at("639-2");
-		language_list = boost::json::value_to<decltype(language_list)>(iso639_2_list);
-	} catch (const std::exception& e) {
-		std::fprintf(stderr, "Exception: %s\n", e.what());
+	json_bool result;
+	int r;
+	json_object* iso_639_2_obj;
+	json_type iso_639_2_type;
+	size_t iso_639_2_array_length;
+
+	result = json_object_object_get_ex(json_root, "639-2", &iso_639_2_obj);
+	if (!result) {
+		return false;
+	}
+	iso_639_2_type = json_object_get_type(iso_639_2_obj);
+	if (iso_639_2_type != json_type_array) {
+		return false;
+	}
+	iso_639_2_array_length = json_object_array_length(iso_639_2_obj);
+	if (!iso_639_2_array_length) {
+		return false;
+	}
+
+	language_list.reserve(iso_639_2_array_length);
+	r = json_c_visit(iso_639_2_obj, 0, &json_array_visit_userfunc, (void*)language_list_append);
+	if (r) {
 		return false;
 	}
 
@@ -265,9 +456,10 @@ static bool build_language_list(const boost::json::value& jv) noexcept
 
 int isocodes_init(const char* path)
 {
-	std::string path_str;
-	boost::json::value jv;
 	bool result;
+	std::string path_str;
+	json_object* json_root;
+	std::string filename;
 
 	if (path) {
 		path_str = path;
@@ -278,49 +470,46 @@ int isocodes_init(const char* path)
 		path_str += "/";
 	}
 
-	try {
-		jv = parse_json_file(path_str + "iso_3166-1.json");
-		if (jv.kind() == boost::json::kind::null) {
-			return 1;
-		}
-	} catch (const std::exception& e) {
-		std::fprintf(stderr, "Exception: %s\n", e.what());
+	// Parse iso_3166-1.json and build country list
+	filename = path_str + "iso_3166-1.json";
+	json_root = json_object_from_file(filename.c_str());
+	if (!json_root) {
+		std::fprintf(stderr, "%s\n", json_util_get_last_err());
+		return 1;
+	}
+	result = build_country_list(json_root);
+	json_object_put(json_root);
+	if (!result) {
+		std::fprintf(stderr, "Failed to parse %s\n", filename.c_str());
 		return -1;
 	}
 
-	result = build_country_list(jv);
+	// Parse iso_4217.json and build currency list
+	filename = path_str + "iso_4217.json";
+	json_root = json_object_from_file(filename.c_str());
+	if (!json_root) {
+		std::fprintf(stderr, "%s\n", json_util_get_last_err());
+		return 2;
+	}
+	result = build_currency_list(json_root);
+	json_object_put(json_root);
 	if (!result) {
+		std::fprintf(stderr, "Failed to parse %s\n", filename.c_str());
 		return -2;
 	}
 
-	try {
-		jv = parse_json_file(path_str + "iso_4217.json");
-		if (jv.kind() == boost::json::kind::null) {
-			return 2;
-		}
-	} catch (const std::exception& e) {
-		std::fprintf(stderr, "Exception: %s\n", e.what());
-		return -3;
+	// Parse iso_639-2.json and build language list
+	filename = path_str + "iso_639-2.json";
+	json_root = json_object_from_file(filename.c_str());
+	if (!json_root) {
+		std::fprintf(stderr, "%s\n", json_util_get_last_err());
+		return 3;
 	}
-
-	result = build_currency_list(jv);
+	result = build_language_list(json_root);
+	json_object_put(json_root);
 	if (!result) {
-		return -4;
-	}
-
-	try {
-		jv = parse_json_file(path_str + "iso_639-2.json");
-		if (jv.kind() == boost::json::kind::null) {
-			return 2;
-		}
-	} catch (const std::exception& e) {
-		std::fprintf(stderr, "Exception: %s\n", e.what());
+		std::fprintf(stderr, "Failed to parse %s\n", filename.c_str());
 		return -3;
-	}
-
-	result = build_language_list(jv);
-	if (!result) {
-		return -4;
 	}
 
 	return 0;

@@ -7,8 +7,20 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-find_package(Boost REQUIRED COMPONENTS json)
 find_package(IsoCodes REQUIRED)
+
+# Newer versions of json-c have a CMake config file while older versions, like
+# the one for Ubuntu 20.04, do not. Therefore, first try to find the CMake
+# config file and then fallback to the custom Findjson-c.cmake module
+find_package(json-c CONFIG)
+if(json-c_FOUND)
+	# The json-c CMake config doesn't print a find_package() message but it is
+	# always good to know where it was found
+	message(STATUS "Found json-c: ${json-c_CONFIG}")
+else()
+	# Try custom Findjson-c.cmake module
+	find_package(json-c REQUIRED)
+endif()
 
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
@@ -153,8 +165,8 @@ set(emv_strings_HEADERS # PUBLIC_HEADER property requires a list instead of indi
 add_library(emv::emv_strings ALIAS emv_strings)
 # The EMVSTRINGS_PKGCONFIG_REQ_PRIV and EMVSTRINGS_PKGCONFIG_LIBS_PRIV variables are set
 # for the parent scope to facilitate the generation of pkgconfig files.
-# NOTE: Boost has no pkgconfig files so EMVSTRINGS_PKGCONFIG_REQ_PRIV cannot be set
-set(EMVSTRINGS_PKGCONFIG_LIBS_PRIV "-lboost_json" PARENT_SCOPE)
+# NOTE: It is not necessary to set EMVSTRINGS_PKGCONFIG_LIBS_PRIV for linking json-c
+set(EMVSTRINGS_PKGCONFIG_REQ_PRIV "json-c" PARENT_SCOPE)
 set_target_properties(emv_strings
 	PROPERTIES
 		PUBLIC_HEADER "${emv_strings_HEADERS}"
@@ -172,7 +184,7 @@ target_include_directories(emv_strings
 target_link_libraries(emv_strings
 	PRIVATE
 		emv # Used by emv_strings.c
-		Boost::json # Used by isocodes_lookup.c
+		json-c::json-c # Used by isocodes_lookup.c
 )
 install(
 	TARGETS
