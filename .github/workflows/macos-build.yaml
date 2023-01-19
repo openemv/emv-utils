@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "MacOS 11", os: macos-11, osx_arch: "x86_64;arm64", build_type: "Debug", deps: "none", fetch_deps: YES, build_emv_tool: NO }
+          - { name: "MacOS 11", os: macos-11, osx_arch: "x86_64", build_type: "Debug", deps: "none", fetch_deps: YES, build_emv_tool: NO }
           - { name: "MacOS 11", os: macos-11, osx_arch: "x86_64", build_type: "Release", deps: "pcsclite", fetch_deps: NO, build_emv_tool: YES }
           - { name: "MacOS 12", os: macos-12, osx_arch: "x86_64", build_type: "Release", deps: "none", fetch_deps: NO, build_emv_tool: NO }
           - { name: "MacOS 12", os: macos-12, osx_arch: "x86_64", build_type: "Debug", deps: "pcsclite", fetch_deps: YES, build_emv_tool: YES }
@@ -25,23 +25,16 @@ jobs:
 
     steps:
     - name: Install dependencies
-      # Homebrew doesn't support universal binaries so only install dependencies for x86_64 builds
       run: |
         brew install iso-codes
         brew install json-c
-
-    - name: Install gettext
-      # Homebrew doesn't support universal binaries so only install dependencies for x86_64 builds
-      if: ${{ !contains(matrix.osx_arch, 'arm64') }}
-      run: brew install gettext
+        brew install gettext
 
     - name: Install argp-standalone using brew
-      # Homebrew doesn't support universal binaries so only install dependencies for x86_64 builds
       if: ${{ matrix.fetch_deps == 'NO' }}
       run: brew install argp-standalone
 
     - name: Install PCSCLite using brew
-      # Homebrew doesn't support universal binaries so only install Qt for x86_64 builds
       if: contains(matrix.deps, 'pcsclite')
       run: |
         brew install pcsc-lite
