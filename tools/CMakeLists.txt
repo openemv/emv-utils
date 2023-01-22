@@ -244,6 +244,30 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION "^9F3B \\| Application Reference Currency : \\[6\\] 09 78 01 23 08 40[\r\n]  - Euro[\r\n]  - Unknown[\r\n]  - US Dollar[\r\n]"
 	)
 
+	add_test(NAME emv_decode_test20
+		COMMAND emv-decode --tlv 5F2D04656E6672
+	)
+	set_tests_properties(emv_decode_test20
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^5F2D \\| Language Preference : \\[4\\] 65 6E 66 72[\r\n]  - English[\r\n]  - French[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test21
+		COMMAND emv-decode --tlv 5F2D04454E4652
+	)
+	set_tests_properties(emv_decode_test21
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^5F2D \\| Language Preference : \\[4\\] 45 4E 46 52[\r\n]  - English[\r\n]  - French[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test22
+		COMMAND emv-decode --tlv 5F2D04656EFFFF
+	)
+	set_tests_properties(emv_decode_test22
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^5F2D \\| Language Preference : \\[4\\] 65 6E FF FF[\r\n]  - English[\r\n]  - Unknown[\r\n]"
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

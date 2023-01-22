@@ -375,6 +375,22 @@ int emv_app_reference_currency_get_string_list(
 );
 
 /**
+ * Stringify Language Preference (field 5F2D)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param lp Language Preference field. Must be multiples of 2 bytes.
+ * @param lp_len Length of Language Preference field. Must be multiples of 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_language_preference_get_string_list(
+	const uint8_t* lp,
+	size_t lp_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Cardholder Verification Method (CVM) List (field 8E)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param cvmlist Cardholder Verification Method (CVM) List field

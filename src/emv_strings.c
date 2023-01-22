@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h> // for vsnprintf() and snprintf()
+#include <ctype.h>
 
 struct str_itr_t {
 	char* ptr;
@@ -43,6 +44,7 @@ static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len
 static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
 
@@ -371,7 +373,7 @@ int emv_tlv_get_info(
 				"represented by 2 alphabetical characters according to "
 				"ISO 639";
 			info->format = EMV_FORMAT_AN;
-			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
+			return emv_language_preference_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER:
 			info->tag_name = "Application Primary Account Number (PAN) Sequence Number";
@@ -2184,6 +2186,46 @@ static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_l
 	return 0;
 }
 
+static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	char language_alpha2[3];
+	const char* language;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 2) {
+		// Language alpha2 field must be 2 bytes
+		return 1;
+	}
+
+	// EMVCo strongly recommends that terminals accept the data element
+	// whether it is coded in upper or lower case
+	// See EMV 4.4 Book 3, Annex A
+	language_alpha2[0] = tolower(buf[0]);
+	language_alpha2[1] = tolower(buf[1]);
+	language_alpha2[2] = 0;
+
+	language = isocodes_lookup_language_by_alpha2(language_alpha2);
+	if (!language) {
+		// Unknown language code; ignore
+		str[0] = 0;
+		return 0;
+	}
+
+	// Copy language string
+	strncpy(str, language, str_len - 1);
+	str[str_len - 1] = 0;
+
+	return 0;
+}
+
 int emv_app_reference_currency_get_string_list(
 	const uint8_t* arc,
 	size_t arc_len,
@@ -2215,6 +2257,45 @@ int emv_app_reference_currency_get_string_list(
 
 		if (currency_str[0]) {
 			emv_str_list_add(&str_itr, "%s", currency_str);
+		} else {
+			emv_str_list_add(&str_itr, "Unknown");
+		}
+	}
+
+	return 0;
+}
+
+int emv_language_preference_get_string_list(
+	const uint8_t* lp,
+	size_t lp_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+
+	if (!lp || !lp_len || !str || !str_len) {
+		return -1;
+	}
+
+	if ((lp_len & 0x1) != 0) {
+		// Language Preference (field 5F2D) must be multiples of 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	for (size_t i = 0; i < lp_len; i += 2) {
+		char language_str[128];
+
+		r = emv_language_alpha2_code_get_string(lp + i, 2, language_str, sizeof(language_str));
+		if (r) {
+			return r;
+		}
+
+		if (language_str[0]) {
+			emv_str_list_add(&str_itr, "%s", language_str);
 		} else {
 			emv_str_list_add(&str_itr, "Unknown");
 		}
