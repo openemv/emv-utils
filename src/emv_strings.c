@@ -42,6 +42,7 @@ static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) __attr
 static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
 
@@ -361,7 +362,7 @@ int emv_tlv_get_info(
 				"Indicates the currency code of the transaction according to "
 				"ISO 4217";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+			return emv_currency_numeric_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_5F2D_LANGUAGE_PREFERENCE:
 			info->tag_name = "Language Preference";
@@ -692,6 +693,34 @@ int emv_tlv_get_info(
 			}
 			return emv_pos_entry_mode_get_string(tlv->value[0], value_str, value_str_len);
 
+		case EMV_TAG_9F3B_APPLICATION_REFERENCE_CURRENCY:
+			info->tag_name = "Application Reference Currency";
+			info->tag_desc =
+				"1-4 currency codes used between the terminal and the ICC "
+				"when the Transaction Currency Code is different from the "
+				"Application Currency Code; each code is 3 digits according "
+				"to ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return emv_app_reference_currency_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F3C_TRANSACTION_REFERENCE_CURRENCY:
+			info->tag_name = "Transaction Reference Currency";
+			info->tag_desc =
+				"Code defining the common currency used by the terminal in "
+				"case the Transaction Currency Code is different from the "
+				"Application Currency Code";
+			info->format = EMV_FORMAT_N;
+			return emv_currency_numeric_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F3D_TRANSACTION_REFERENCE_CURRENCY_EXPONENT:
+			info->tag_name = "Transaction Reference Currency Exponent";
+			info->tag_desc =
+				"Indicates the implied position of the decimal point from the "
+				"right of the transaction amount, with the Transaction "
+				"Reference Currency Code represented according to ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return 0;
+
 		case EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES:
 			info->tag_name = "Additional Terminal Capabilities";
 			info->tag_desc =
@@ -714,7 +743,24 @@ int emv_tlv_get_info(
 				"Indicates the currency in which the account is managed "
 				"according to ISO 4217";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+			return emv_currency_numeric_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F43_APPLICATION_REFERENCE_CURRENCY_EXPONENT:
+			info->tag_name = "Application Reference Currency Exponent";
+			info->tag_desc =
+				"Indicates the implied position of the decimal point from the "
+				"right of the amount, for each of the 1-4 reference "
+				"currencies represented according to ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return 0;
+
+		case EMV_TAG_9F44_APPLICATION_CURRENCY_EXPONENT:
+			info->tag_name = "Application Currency Exponent";
+			info->tag_desc =
+				"Indicates the implied position of the decimal point from the "
+				"right of the amount represented according to ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return 0;
 
 		case EMV_TAG_9F45_DATA_AUTHENTICATION_CODE:
 			info->tag_name = "Data Authentication Code";
@@ -2095,6 +2141,84 @@ static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_le
 	// Copy country string
 	strncpy(str, country, str_len - 1);
 	str[str_len - 1] = 0;
+
+	return 0;
+}
+
+static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	int r;
+	uint32_t currency_code;
+	const char* currency;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 2) {
+		// Numeric currency code field must be 2 bytes
+		return 1;
+	}
+
+	r = emv_format_n_to_uint(buf, buf_len, &currency_code);
+	if (r) {
+		return r;
+	}
+
+	currency = isocodes_lookup_currency_by_numeric(currency_code);
+	if (!currency) {
+		// Unknown currency code; ignore
+		str[0] = 0;
+		return 0;
+	}
+
+	// Copy currency string
+	strncpy(str, currency, str_len - 1);
+	str[str_len - 1] = 0;
+
+	return 0;
+}
+
+int emv_app_reference_currency_get_string_list(
+	const uint8_t* arc,
+	size_t arc_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+
+	if (!arc || !arc_len || !str || !str_len) {
+		return -1;
+	}
+
+	if ((arc_len & 0x1) != 0) {
+		// Application Reference Currency (field 9F3B) must be multiples of 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	for (size_t i = 0; i < arc_len; i += 2) {
+		char currency_str[128];
+
+		r = emv_currency_numeric_code_get_string(arc + i, 2, currency_str, sizeof(currency_str));
+		if (r) {
+			return r;
+		}
+
+		if (currency_str[0]) {
+			emv_str_list_add(&str_itr, "%s", currency_str);
+		} else {
+			emv_str_list_add(&str_itr, "Unknown");
+		}
+	}
 
 	return 0;
 }

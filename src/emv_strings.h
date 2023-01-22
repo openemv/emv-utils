@@ -359,6 +359,22 @@ int emv_track2_equivalent_data_get_string(
 );
 
 /**
+ * Stringify Application Reference Currency (field 9F3B)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param arc Application Reference Currency field. Must be multiples of 2 bytes.
+ * @param arc_len Length of Application Reference Currency field. Must be multiples of 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_app_reference_currency_get_string_list(
+	const uint8_t* arc,
+	size_t arc_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Cardholder Verification Method (CVM) List (field 8E)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param cvmlist Cardholder Verification Method (CVM) List field

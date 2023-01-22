@@ -145,7 +145,7 @@ __BEGIN_DECLS
 /// EMV tag 5F28 Issuer Country Code. Template 70 or 77.
 #define EMV_TAG_5F28_ISSUER_COUNTRY_CODE                        (0x5F28)
 
-/// EMV tag 5F2A Currency Code
+/// EMV tag 5F2A Transaction Currency Code
 #define EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE                  (0x5F2A)
 
 /// EMV tag 5F2D Language Preference. Template A5.
@@ -154,7 +154,7 @@ __BEGIN_DECLS
 /// EMV tag 5F34 Application Primary Account Number (PAN) Sequence Number. Template 70 or 77.
 #define EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER            (0x5F34)
 
-/// EMV tag 5F36 Transaction Currenct Exponent
+/// EMV tag 5F36 Transaction Currency Exponent
 #define EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT              (0x5F36)
 
 /// EMV tag 5F50 Issuer URL. Template BF0C or 73.
@@ -267,6 +267,15 @@ __BEGIN_DECLS
 /// EMV tag 9F39 Point-of-Service (POS) Entry Mode
 #define EMV_TAG_9F39_POS_ENTRY_MODE                             (0x9F39)
 
+/// EMV tag 9F3B Application Reference Currency. Template 70 or 77.
+#define EMV_TAG_9F3B_APPLICATION_REFERENCE_CURRENCY             (0x9F3B)
+
+/// EMV tag 9F3C Transaction Reference Currency
+#define EMV_TAG_9F3C_TRANSACTION_REFERENCE_CURRENCY             (0x9F3C)
+
+/// EMV tag 9F3D Transaction Reference Currency Exponent
+#define EMV_TAG_9F3D_TRANSACTION_REFERENCE_CURRENCY_EXPONENT    (0x9F3D)
+
 /// EMV tag 9F40 Additional Terminal Capabilities
 #define EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES           (0x9F40)
 
@@ -275,6 +284,12 @@ __BEGIN_DECLS
 
 /// EMV tag 9F42 Application Currency Code. Template 70 or 77.
 #define EMV_TAG_9F42_APPLICATION_CURRENCY_CODE                  (0x9F42)
+
+/// EMV tag 9F43 Application Reference Currency Exponent. Template 70 or 77.
+#define EMV_TAG_9F43_APPLICATION_REFERENCE_CURRENCY_EXPONENT    (0x9F43)
+
+/// EMV tag 9F44 Application Currency Exponent. Template 70 or 77.
+#define EMV_TAG_9F44_APPLICATION_CURRENCY_EXPONENT              (0x9F44)
 
 /// EMV tag 9F45 Data Authentication Code
 #define EMV_TAG_9F45_DATA_AUTHENTICATION_CODE                   (0x9F45)

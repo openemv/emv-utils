@@ -228,6 +228,22 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION "^Walloon"
 	)
 
+	add_test(NAME emv_decode_test18
+		COMMAND emv-decode --tlv 9F3B06097808260840
+	)
+	set_tests_properties(emv_decode_test18
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^9F3B \\| Application Reference Currency : \\[6\\] 09 78 08 26 08 40[\r\n]  - Euro[\r\n]  - Pound Sterling[\r\n]  - US Dollar[\r\n]"
+	)
+
+	add_test(NAME emv_decode_test19
+		COMMAND emv-decode --tlv 9F3B06097801230840
+	)
+	set_tests_properties(emv_decode_test19
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^9F3B \\| Application Reference Currency : \\[6\\] 09 78 01 23 08 40[\r\n]  - Euro[\r\n]  - Unknown[\r\n]  - US Dollar[\r\n]"
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs
