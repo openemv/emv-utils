@@ -232,6 +232,11 @@ __BEGIN_DECLS
 #define EMV_CV_RULE_COND_LESS_THAN_Y                            (0x08) ///< CVM Condition: If transaction is in the application currency and is under Y value
 #define EMV_CV_RULE_COND_MORE_THAN_Y                            (0x09) ///< CVM Condition: If transaction is in the application currency and is over Y value
 
+// Cardholder Verification Method (CVM) Results (field 9F34) byte 1
+// See EMV 4.4 Book 4, Annex A4, Table 33
+// NOTE: This value is invalid for CV Rules but valid for CVM Results
+#define EMV_CVM_NOT_PERFORMED                                   (0x3F) ///< CVM Performed: CVM not performed
+
 // Cardholder Verification Method (CVM) Results (field 9F34) byte 3
 // See EMV 4.4 Book 4, Annex A4, Table 33
 #define EMV_CVM_RESULT_UNKNOWN                                  (0x00) ///< CVM Result: Unknown

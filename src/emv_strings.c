@@ -2308,9 +2308,14 @@ int emv_cvm_results_get_string_list(
 
 	// Cardholder Verification Method (CVM) Results (field 9F34) byte 1
 	// See EMV 4.4 Book 4, Annex A4, Table 33
-	cvm_str = emv_cvm_code_get_string(cvmresults[0]);
-	if (!cvm_str) {
-		return -1;
+	if (cvmresults[0] == EMV_CVM_NOT_PERFORMED) {
+		// This value is invalid for CV Rules but valid for CVM Results
+		cvm_str = "CVM not performed";
+	} else {
+		cvm_str = emv_cvm_code_get_string(cvmresults[0]);
+		if (!cvm_str) {
+			return -1;
+		}
 	}
 	emv_str_list_add(&itr, "CVM Performed: %s", cvm_str);
 
