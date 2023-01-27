@@ -2,7 +2,7 @@
  * @file emv-decode.c
  * @brief Simple EMV decoding tool
  *
- * Copyright (c) 2021, 2022 Leon Lynch
+ * Copyright (c) 2021, 2022, 2023 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,6 +22,7 @@
 #include "iso7816.h"
 #include "print_helpers.h"
 #include "emv_strings.h"
+#include "isocodes_lookup.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -38,6 +39,8 @@ static void* load_from_file(FILE* file, size_t* len);
 // Input data
 static uint8_t* data = NULL;
 static size_t data_len = 0;
+static char* arg_str = NULL;
+static size_t arg_str_len = 0;
 
 // Decoding modes
 enum emv_decode_mode_t {
@@ -55,6 +58,9 @@ enum emv_decode_mode_t {
 	EMV_DECODE_CVM_RESULTS,
 	EMV_DECODE_TVR,
 	EMV_DECODE_TSI,
+	EMV_DECODE_ISO3166_1,
+	EMV_DECODE_ISO4217,
+	EMV_DECODE_ISO639,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
@@ -86,6 +92,14 @@ static struct argp_option argp_options[] = {
 	{ "tsi", EMV_DECODE_TSI, NULL, 0, "Decode Transaction Status Information (field 9B)" },
 	{ "9B", EMV_DECODE_TSI, NULL, OPTION_ALIAS },
 
+	{ NULL, 0, NULL, 0, "Other:", 4 },
+	{ "country", EMV_DECODE_ISO3166_1, NULL, 0, "Lookup country name by ISO 3166-1 alpha-2, alpha-3 or numeric code" },
+	{ "iso3166-1", EMV_DECODE_ISO3166_1, NULL, OPTION_ALIAS },
+	{ "currency", EMV_DECODE_ISO4217, NULL, 0, "Lookup currency name by ISO 4217 alpha-3 or numeric code" },
+	{ "iso4217", EMV_DECODE_ISO4217, NULL, OPTION_ALIAS },
+	{ "language", EMV_DECODE_ISO639, NULL, 0, "Lookup language name by ISO 639 alpha-2 or alpha-3 code" },
+	{ "iso639", EMV_DECODE_ISO639, NULL, OPTION_ALIAS },
+
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
 	{ 0 },
@@ -106,6 +120,16 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 	switch (key) {
 		case ARGP_KEY_ARG: {
+			if (emv_decode_mode == EMV_DECODE_ISO3166_1 ||
+				emv_decode_mode == EMV_DECODE_ISO4217 ||
+				emv_decode_mode == EMV_DECODE_ISO639
+			) {
+				// Country, currency and language lookups use the verbatim string input
+				arg_str = strdup(arg);
+				arg_str_len = strlen(arg);
+				return 0;
+			}
+
 			// Parse INPUT argument
 			size_t arg_len = strlen(arg);
 
@@ -152,6 +176,9 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_CVM_RESULTS:
 		case EMV_DECODE_TVR:
 		case EMV_DECODE_TSI:
+		case EMV_DECODE_ISO3166_1:
+		case EMV_DECODE_ISO4217:
+		case EMV_DECODE_ISO639:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
 			}
@@ -236,6 +263,15 @@ int main(int argc, char** argv)
 	if (r) {
 		fprintf(stderr, "Failed to parse command line\n");
 		return 1;
+	}
+
+	r = emv_strings_init();
+	if (r < 0) {
+		fprintf(stderr, "Failed to initialise EMV strings\n");
+		return 2;
+	}
+	if (r > 0) {
+		fprintf(stderr, "Failed to find iso-codes data; currency, country and language lookups will not be possible\n");
 	}
 
 	switch (emv_decode_mode) {
@@ -417,10 +453,104 @@ int main(int argc, char** argv)
 
 			break;
 		}
+
+		case EMV_DECODE_ISO3166_1: {
+			const char* country;
+
+			if (arg_str_len != 2 && arg_str_len != 3) {
+				fprintf(stderr, "ISO 3166-1 country code must be alpha-2, alpha-3 or 3-digit numeric code\n");
+				break;
+			}
+
+			if (arg_str_len == 2) {
+				country = isocodes_lookup_country_by_alpha2(arg_str);
+			} else {
+				country = isocodes_lookup_country_by_alpha3(arg_str);
+			}
+			if (!country) {
+				unsigned int country_code;
+				char* endptr = arg_str;
+
+				country_code = strtoul(arg_str, &endptr, 10);
+				if (!arg_str[0] || *endptr) {
+					fprintf(stderr, "Invalid ISO 3166-1 country code\n");
+					break;
+				}
+
+				country = isocodes_lookup_country_by_numeric(country_code);
+			}
+
+			if (!country) {
+				fprintf(stderr, "Unknown\n");
+				break;
+			}
+
+			printf("%s\n", country);
+
+			break;
+		}
+
+		case EMV_DECODE_ISO4217: {
+			const char* currency;
+
+			if (arg_str_len != 3) {
+				fprintf(stderr, "ISO 4217 currency code must be alpha-3 or 3-digit numeric code\n");
+				break;
+			}
+
+			currency = isocodes_lookup_currency_by_alpha3(arg_str);
+			if (!currency) {
+				unsigned int currency_code;
+				char* endptr = arg_str;
+
+				currency_code = strtoul(arg_str, &endptr, 10);
+				if (!arg_str[0] || *endptr) {
+					fprintf(stderr, "Invalid ISO 4217 currency code\n");
+					break;
+				}
+
+				currency = isocodes_lookup_currency_by_numeric(currency_code);
+			}
+
+			if (!currency) {
+				fprintf(stderr, "Unknown\n");
+				break;
+			}
+
+			printf("%s\n", currency);
+
+			break;
+		}
+
+		case EMV_DECODE_ISO639: {
+			const char* language;
+
+			if (arg_str_len != 2 && arg_str_len != 3) {
+				fprintf(stderr, "ISO 639 currency code must be alpha-2 or alpha-3 code\n");
+				break;
+			}
+
+			if (arg_str_len == 2) {
+				language = isocodes_lookup_language_by_alpha2(arg_str);
+			} else {
+				language = isocodes_lookup_language_by_alpha3(arg_str);
+			}
+			if (!language) {
+				fprintf(stderr, "Unknown\n");
+				break;
+			}
+
+			printf("%s\n", language);
+
+			break;
+		}
 	}
 
 	if (data) {
 		free(data);
+	}
+	if (arg_str) {
+		free(arg_str);
 	}
 
 	return 0;

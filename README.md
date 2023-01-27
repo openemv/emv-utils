@@ -18,8 +18,11 @@ licensing options.
 Dependencies
 ------------
 
-* C11 compiler such as GCC or Clang
+* C11 and C++11 compilers such as GCC or Clang
 * [CMake](https://cmake.org/)
+* [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+* [iso-codes](https://salsa.debian.org/iso-codes-team/iso-codes)
+* [json-c](https://github.com/json-c/json-c)
 * `emv-decode` and `emv-tool` will be built by default and require `argp`
   (either via Glibc, a system-provided standalone or a downloaded
   implementation; see [MacOS / Windows](#macos--windows)). Use the
@@ -136,7 +139,7 @@ emv-decode --help
 ```
 
 To decode ISO 7816-3 Answer-To-Reset (ATR) data, use the `--atr` option. For
-example (using TODO: where to get test data?):
+example:
 ```
 emv-decode --atr 3BDA18FF81B1FE751F030031F573C78A40009000B0
 ```
@@ -146,6 +149,21 @@ To decode EMV TLV data, use the `--tlv` option. For example:
 emv-decode --tlv 701A9F390105571040123456789095D2512201197339300F82025900
 ```
 
+To decode an ISO 3166-1 country code, use the `--country` option. For example:
+```
+emv-decode --country 528
+```
+
+To decode an ISO 4217 currency code, use the `--currency` option. For example:
+```
+emv-decode --currency 978
+```
+
+To decode an ISO 639 language code, use the `--language` option. For example:
+```
+emv-decode --language fr
+```
+
 The `emv-decode` application can also decode various other EMV structures and
 fields. Use the `--help` option to display all available options.
 
@@ -153,14 +171,16 @@ Roadmap
 -------
 * Document `emv-tool` usage
 * Implement high level EMV processing API
-* Implement ISO 4217 currency decoding
-* Implement ISO 3166-1 country decoding
 * Implement ISO 18245 Merchant Category Code (MCC) decoding
+* Implement ISO 8859 decoding and UTF-8 conversion
+* Implement country, currency, language and MCC searching
+* Implement context-specific EMV string decoding, such as ISO 8859 code pages
+  for UTF-8 conversion and kernel-specific contactless fields
 * Implement Qt plugin for EMV decoding
 
 License
 -------
 
-Copyright (c) 2021, 2022 [Leon Lynch](https://github.com/leonlynch).
+Copyright (c) 2021, 2022, 2023 [Leon Lynch](https://github.com/leonlynch).
 
 This project is licensed under the terms of the LGPL v2.1 license. See LICENSE file.

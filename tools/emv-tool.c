@@ -385,6 +385,15 @@ int main(int argc, char** argv)
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 	}
 
+	r = emv_strings_init();
+	if (r < 0) {
+		fprintf(stderr, "Failed to initialise EMV strings\n");
+		return 2;
+	}
+	if (r > 0) {
+		fprintf(stderr, "Failed to find iso-codes data; currency, country and language lookups will not be possible\n");
+	}
+
 	r = emv_debug_init(
 		debug_sources_mask,
 		debug_level,

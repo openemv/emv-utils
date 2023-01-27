@@ -119,6 +119,14 @@ struct emv_tlv_info_t {
 };
 
 /**
+ * Initialize EMV strings. This will load ISO 3166, ISO 4217,
+ * and ISO 639 strings from the iso-codes package.
+ *
+ * @return Zero for success. Less than zero for internal error. Greater than zero if iso-codes package not found.
+ */
+int emv_strings_init(void);
+
+/**
  * Retrieve EMV TLV information, if available, and convert value to human
  * readable string(s), if possible.
  * @note @c value_str output will be empty if human readable string is not available
@@ -346,6 +354,38 @@ int emv_app_usage_control_get_string_list(
 int emv_track2_equivalent_data_get_string(
 	const uint8_t* track2,
 	size_t track2_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Application Reference Currency (field 9F3B)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param arc Application Reference Currency field. Must be multiples of 2 bytes.
+ * @param arc_len Length of Application Reference Currency field. Must be multiples of 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_app_reference_currency_get_string_list(
+	const uint8_t* arc,
+	size_t arc_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Language Preference (field 5F2D)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param lp Language Preference field. Must be multiples of 2 bytes.
+ * @param lp_len Length of Language Preference field. Must be multiples of 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_language_preference_get_string_list(
+	const uint8_t* lp,
+	size_t lp_len,
 	char* str,
 	size_t str_len
 );

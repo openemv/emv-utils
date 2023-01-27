@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2021, 2022 Leon Lynch
+# Copyright (c) 2021, 2022, 2023 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -11,7 +11,7 @@ project(emv-utils
 	VERSION 0.0.1
 	DESCRIPTION "EMV libraries and tools"
 	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
-	LANGUAGES C
+	LANGUAGES C CXX
 )
 
 # Determine whether this project is the top-level project
@@ -29,7 +29,10 @@ endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 #set(CMAKE_C_EXTENSIONS OFF)
-if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	add_compile_options(-Wall -Werror)
 	add_compile_options($<$<CONFIG:Debug>:-ggdb>)
 	add_compile_options($<$<CONFIG:RelWithDebInfo>:-ggdb>)
@@ -115,10 +118,18 @@ configure_file(pkgconfig/libemv.pc.in
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv.pc"
 	@ONLY
 )
+# Generate pkgconfig for emv_strings library
+set(EMV_UTILS_PKGCONFIG_LIB_NAME emv_strings)
+# NOTE: src subdirectory may provide EMVSTRINGS_PKGCONFIG_REQ_PRIV and EMVSTRINGS_PKGCONFIG_LIBS_PRIV
+configure_file(pkgconfig/libemv_strings.pc.in
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv_strings.pc"
+	@ONLY
+)
 install(FILES
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso7816.pc"
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8825.pc"
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv.pc"
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv_strings.pc"
 	DESTINATION "${EMV_UTILS_INSTALL_PKGCONFIG_DIR}"
 	COMPONENT emv_development
 )
@@ -155,6 +166,7 @@ if(Doxygen_FOUND)
 			${iso7816_HEADERS}
 			${iso8825_HEADERS}
 			${emv_HEADERS}
+			${emv_strings_HEADERS}
 			ALL # Build by default
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
 		)
@@ -170,6 +182,7 @@ if(Doxygen_FOUND)
 			${iso7816_HEADERS}
 			${iso8825_HEADERS}
 			${emv_HEADERS}
+			${emv_strings_HEADERS}
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
 		)
 	endif()
@@ -223,6 +236,7 @@ if(dpkg_FOUND)
 	# Assign package suggestions
 	set(CPACK_DEBIAN_EMV_DOCS_PACKAGE_SUGGESTS "emv-utils-dev")
 	# Generate package dependency list
+	set(CPACK_DEBIAN_PACKAGE_DEPENDS "iso-codes") # Ensure that iso-codes package is a dependency
 	set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 	set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/src/) # dpkg-shlibdeps cannot find dependencies that aren't installed, so it needs some help
 endif()
@@ -248,7 +262,9 @@ if(rpmbuild_FOUND)
 	set(CPACK_RPM_EMV_DOCS_PACKAGE_ARCHITECTURE "noarch")
 	# Assign package suggestions
 	set(CPACK_RPM_EMV_DOCS_PACKAGE_SUGGESTS "emv-utils-devel")
-	# NOTE: RPM generator automatically detects dependencies
+	# Generate package dependency list
+	set(CPACK_RPM_PACKAGE_REQUIRES "iso-codes") # Ensure that iso-codes package is a dependency
+	# NOTE: RPM generator automatically detects library dependencies
 endif()
 
 include(CPack)

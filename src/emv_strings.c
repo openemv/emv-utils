@@ -2,7 +2,7 @@
  * @file emv_strings.c
  * @brief EMV string helper functions
  *
- * Copyright (c) 2021, 2022 Leon Lynch
+ * Copyright (c) 2021, 2022, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,10 +23,12 @@
 #include "emv_tlv.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
+#include "isocodes_lookup.h"
 
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h> // for vsnprintf() and snprintf()
+#include <ctype.h>
 
 struct str_itr_t {
 	char* ptr;
@@ -38,8 +40,25 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
+
+int emv_strings_init(void)
+{
+	int r;
+
+	r = isocodes_init(NULL);
+	if (r) {
+		return r;
+	}
+
+	return 0;
+}
 
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
@@ -48,6 +67,8 @@ int emv_tlv_get_info(
 	size_t value_str_len
 )
 {
+	int r;
+
 	if (!tlv || !info) {
 		return -1;
 	}
@@ -335,7 +356,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Indicates the country of the issuer according to ISO 3166";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+			return emv_country_numeric_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE:
 			info->tag_name = "Transaction Currency Code";
@@ -343,7 +364,7 @@ int emv_tlv_get_info(
 				"Indicates the currency code of the transaction according to "
 				"ISO 4217";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+			return emv_currency_numeric_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_5F2D_LANGUAGE_PREFERENCE:
 			info->tag_name = "Language Preference";
@@ -352,7 +373,7 @@ int emv_tlv_get_info(
 				"represented by 2 alphabetical characters according to "
 				"ISO 639";
 			info->format = EMV_FORMAT_AN;
-			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
+			return emv_language_preference_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER:
 			info->tag_name = "Application Primary Account Number (PAN) Sequence Number";
@@ -399,7 +420,12 @@ int emv_tlv_get_info(
 				"Indicates the country of the issuer as defined in ISO 3166 "
 				"(using a 2 character alphabetic code)";
 			info->format = EMV_FORMAT_A;
-			return emv_tlv_value_get_string(tlv, info->format, 2, value_str, value_str_len);
+			// Lookup country code; fallback to format "a" string
+			r = emv_country_alpha2_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
+			if (r || (value_str && value_str_len && !value_str[0])) {
+				return emv_tlv_value_get_string(tlv, info->format, 2, value_str, value_str_len);
+			}
+			return 0;
 
 		case EMV_TAG_5F56_ISSUER_COUNTRY_CODE_ALPHA3:
 			info->tag_name = "Issuer Country Code (alpha3 format)";
@@ -407,7 +433,12 @@ int emv_tlv_get_info(
 				"Indicates the country of the issuer as defined in ISO 3166 "
 				"(using a 3 character alphabetic code)";
 			info->format = EMV_FORMAT_A;
-			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+			// Lookup country code; fallback to format "a" string
+			r = emv_country_alpha3_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
+			if (r || (value_str && value_str_len && !value_str[0])) {
+				return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+			}
+			return 0;
 
 		case EMV_TAG_9F01_ACQUIRER_IDENTIFIER:
 			info->tag_name = "Acquirer Identifier";
@@ -532,7 +563,7 @@ int emv_tlv_get_info(
 				"Indicates the country of the terminal, represented according "
 				"to ISO 3166";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+			return emv_country_numeric_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT:
 			info->tag_name = "Terminal Floor Limit";
@@ -664,6 +695,34 @@ int emv_tlv_get_info(
 			}
 			return emv_pos_entry_mode_get_string(tlv->value[0], value_str, value_str_len);
 
+		case EMV_TAG_9F3B_APPLICATION_REFERENCE_CURRENCY:
+			info->tag_name = "Application Reference Currency";
+			info->tag_desc =
+				"1-4 currency codes used between the terminal and the ICC "
+				"when the Transaction Currency Code is different from the "
+				"Application Currency Code; each code is 3 digits according "
+				"to ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return emv_app_reference_currency_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F3C_TRANSACTION_REFERENCE_CURRENCY:
+			info->tag_name = "Transaction Reference Currency";
+			info->tag_desc =
+				"Code defining the common currency used by the terminal in "
+				"case the Transaction Currency Code is different from the "
+				"Application Currency Code";
+			info->format = EMV_FORMAT_N;
+			return emv_currency_numeric_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F3D_TRANSACTION_REFERENCE_CURRENCY_EXPONENT:
+			info->tag_name = "Transaction Reference Currency Exponent";
+			info->tag_desc =
+				"Indicates the implied position of the decimal point from the "
+				"right of the transaction amount, with the Transaction "
+				"Reference Currency Code represented according to ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return 0;
+
 		case EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES:
 			info->tag_name = "Additional Terminal Capabilities";
 			info->tag_desc =
@@ -686,7 +745,24 @@ int emv_tlv_get_info(
 				"Indicates the currency in which the account is managed "
 				"according to ISO 4217";
 			info->format = EMV_FORMAT_N;
-			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+			return emv_currency_numeric_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F43_APPLICATION_REFERENCE_CURRENCY_EXPONENT:
+			info->tag_name = "Application Reference Currency Exponent";
+			info->tag_desc =
+				"Indicates the implied position of the decimal point from the "
+				"right of the amount, for each of the 1-4 reference "
+				"currencies represented according to ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return 0;
+
+		case EMV_TAG_9F44_APPLICATION_CURRENCY_EXPONENT:
+			info->tag_name = "Application Currency Exponent";
+			info->tag_desc =
+				"Indicates the implied position of the decimal point from the "
+				"right of the amount represented according to ISO 4217";
+			info->format = EMV_FORMAT_N;
+			return 0;
 
 		case EMV_TAG_9F45_DATA_AUTHENTICATION_CODE:
 			info->tag_name = "Data Authentication Code";
@@ -1987,6 +2063,274 @@ int emv_track2_equivalent_data_get_string(
 		str[(i * 2) + 1] = '0' + digit;
 	}
 	str[track2_len * 2] = 0; // NULL terminate
+
+	return 0;
+}
+
+static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	char country_alpha2[3];
+	const char* country;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 2) {
+		// Country alpha2 field must be 2 bytes
+		return 1;
+	}
+
+	memcpy(country_alpha2, buf, 2);
+	country_alpha2[2] = 0;
+
+	country = isocodes_lookup_country_by_alpha2(country_alpha2);
+	if (!country) {
+		// Unknown country code; ignore
+		str[0] = 0;
+		return 0;
+	}
+
+	// Copy country string
+	strncpy(str, country, str_len - 1);
+	str[str_len - 1] = 0;
+
+	return 0;
+}
+
+static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	char country_alpha3[4];
+	const char* country;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 3) {
+		// Country alpha3 field must be 3 bytes
+		return 1;
+	}
+
+	memcpy(country_alpha3, buf, 3);
+	country_alpha3[3] = 0;
+
+	country = isocodes_lookup_country_by_alpha3(country_alpha3);
+	if (!country) {
+		// Unknown country code; ignore
+		str[0] = 0;
+		return 0;
+	}
+
+	// Copy country string
+	strncpy(str, country, str_len - 1);
+	str[str_len - 1] = 0;
+
+	return 0;
+}
+
+static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	int r;
+	uint32_t country_code;
+	const char* country;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 2) {
+		// Country numeric field must be 2 bytes
+		return 1;
+	}
+
+	r = emv_format_n_to_uint(buf, buf_len, &country_code);
+	if (r) {
+		return r;
+	}
+
+	country = isocodes_lookup_country_by_numeric(country_code);
+	if (!country) {
+		// Unknown country code; ignore
+		str[0] = 0;
+		return 0;
+	}
+
+	// Copy country string
+	strncpy(str, country, str_len - 1);
+	str[str_len - 1] = 0;
+
+	return 0;
+}
+
+static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	int r;
+	uint32_t currency_code;
+	const char* currency;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 2) {
+		// Numeric currency code field must be 2 bytes
+		return 1;
+	}
+
+	r = emv_format_n_to_uint(buf, buf_len, &currency_code);
+	if (r) {
+		return r;
+	}
+
+	currency = isocodes_lookup_currency_by_numeric(currency_code);
+	if (!currency) {
+		// Unknown currency code; ignore
+		str[0] = 0;
+		return 0;
+	}
+
+	// Copy currency string
+	strncpy(str, currency, str_len - 1);
+	str[str_len - 1] = 0;
+
+	return 0;
+}
+
+static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	char language_alpha2[3];
+	const char* language;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 2) {
+		// Language alpha2 field must be 2 bytes
+		return 1;
+	}
+
+	// EMVCo strongly recommends that terminals accept the data element
+	// whether it is coded in upper or lower case
+	// See EMV 4.4 Book 3, Annex A
+	language_alpha2[0] = tolower(buf[0]);
+	language_alpha2[1] = tolower(buf[1]);
+	language_alpha2[2] = 0;
+
+	language = isocodes_lookup_language_by_alpha2(language_alpha2);
+	if (!language) {
+		// Unknown language code; ignore
+		str[0] = 0;
+		return 0;
+	}
+
+	// Copy language string
+	strncpy(str, language, str_len - 1);
+	str[str_len - 1] = 0;
+
+	return 0;
+}
+
+int emv_app_reference_currency_get_string_list(
+	const uint8_t* arc,
+	size_t arc_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+
+	if (!arc || !arc_len || !str || !str_len) {
+		return -1;
+	}
+
+	if ((arc_len & 0x1) != 0) {
+		// Application Reference Currency (field 9F3B) must be multiples of 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	for (size_t i = 0; i < arc_len; i += 2) {
+		char currency_str[128];
+
+		r = emv_currency_numeric_code_get_string(arc + i, 2, currency_str, sizeof(currency_str));
+		if (r) {
+			return r;
+		}
+
+		if (currency_str[0]) {
+			emv_str_list_add(&str_itr, "%s", currency_str);
+		} else {
+			emv_str_list_add(&str_itr, "Unknown");
+		}
+	}
+
+	return 0;
+}
+
+int emv_language_preference_get_string_list(
+	const uint8_t* lp,
+	size_t lp_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+
+	if (!lp || !lp_len || !str || !str_len) {
+		return -1;
+	}
+
+	if ((lp_len & 0x1) != 0) {
+		// Language Preference (field 5F2D) must be multiples of 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	for (size_t i = 0; i < lp_len; i += 2) {
+		char language_str[128];
+
+		r = emv_language_alpha2_code_get_string(lp + i, 2, language_str, sizeof(language_str));
+		if (r) {
+			return r;
+		}
+
+		if (language_str[0]) {
+			emv_str_list_add(&str_itr, "%s", language_str);
+		} else {
+			emv_str_list_add(&str_itr, "Unknown");
+		}
+	}
 
 	return 0;
 }

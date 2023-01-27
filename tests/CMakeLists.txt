@@ -9,20 +9,47 @@ cmake_minimum_required(VERSION 3.16)
 
 if (BUILD_TESTING)
 	add_executable(emv_ttl_tpdu_test emv_ttl_tpdu_test.c ../tools/print_helpers.c)
-	target_link_libraries(emv_ttl_tpdu_test PRIVATE emv iso7816)
+	target_link_libraries(emv_ttl_tpdu_test
+		PRIVATE
+			emv_strings # For print_helpers
+			emv
+			iso7816 # For print_helpers
+	)
 	add_test(emv_ttl_tpdu_test emv_ttl_tpdu_test)
 
 	add_executable(emv_ttl_pcsc_test emv_ttl_pcsc_test.c ../tools/print_helpers.c)
-	target_link_libraries(emv_ttl_pcsc_test PRIVATE emv iso7816)
+	target_link_libraries(emv_ttl_pcsc_test
+		PRIVATE
+			emv_strings # For print_helpers
+			emv
+			iso7816 # For print_helpers
+	)
 	add_test(emv_ttl_pcsc_test emv_ttl_pcsc_test)
 
 	add_executable(emv_str_parse_test emv_str_parse_test.c ../tools/print_helpers.c)
-	target_link_libraries(emv_str_parse_test PRIVATE emv iso7816)
+	target_link_libraries(emv_str_parse_test
+		PRIVATE
+			emv_strings # For print_helpers
+			emv
+			iso7816 # For print_helpers
+	)
 	add_test(emv_str_parse_test emv_str_parse_test)
 
 	add_executable(emv_cvmlist_test emv_cvmlist_test.c)
-	target_link_libraries(emv_cvmlist_test emv)
+	target_link_libraries(emv_cvmlist_test PRIVATE emv)
 	add_test(emv_cvmlist_test emv_cvmlist_test)
+
+	add_executable(isocodes_test isocodes_test.c)
+	find_package(Intl)
+	if(Intl_FOUND)
+		target_compile_definitions(isocodes_test PRIVATE HAVE_LIBINTL_H)
+		if(NOT Intl_IS_BUILT_IN)
+			target_include_directories(isocodes_test PRIVATE ${Intl_INCLUDE_DIRS})
+			target_link_libraries(isocodes_test PRIVATE ${Intl_LIBRARIES})
+		endif()
+	endif()
+	target_link_libraries(isocodes_test PRIVATE emv_strings)
+	add_test(isocodes_test isocodes_test)
 
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)

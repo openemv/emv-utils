@@ -23,11 +23,14 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - name: Install PCSCLite
-      if: contains(matrix.deps, 'pcsclite')
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libpcsclite-dev
+        sudo apt-get install -y iso-codes libjson-c-dev
+
+    - name: Install PCSCLite
+      if: contains(matrix.deps, 'pcsclite')
+      run: sudo apt-get install -y libpcsclite-dev
 
     - name: Checkout
       uses: actions/checkout@v3
@@ -59,7 +62,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libpcsclite-dev doxygen
+        sudo apt-get install -y iso-codes libjson-c-dev libpcsclite-dev doxygen
 
     - name: Checkout
       uses: actions/checkout@v3

@@ -1,11 +1,26 @@
 ##############################################################################
-# Copyright (c) 2022 Leon Lynch
+# Copyright (c) 2022, 2023 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
 ##############################################################################
 
 cmake_minimum_required(VERSION 3.16)
+
+find_package(IsoCodes REQUIRED)
+
+# Newer versions of json-c have a CMake config file while older versions, like
+# the one for Ubuntu 20.04, do not. Therefore, first try to find the CMake
+# config file and then fallback to the custom Findjson-c.cmake module
+find_package(json-c CONFIG)
+if(json-c_FOUND)
+	# The json-c CMake config doesn't print a find_package() message but it is
+	# always good to know where it was found
+	message(STATUS "Found json-c: ${json-c_CONFIG}")
+else()
+	# Try custom Findjson-c.cmake module
+	find_package(json-c REQUIRED)
+endif()
 
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
@@ -92,7 +107,6 @@ add_library(emv
 	emv_ttl.c
 	emv_app.c
 	emv_tal.c
-	emv_strings.c
 )
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv_tags.h
@@ -103,7 +117,6 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_ttl.h
 	emv_app.h
 	emv_tal.h
-	emv_strings.h
 	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
 add_library(emv::emv ALIAS emv)
@@ -123,10 +136,59 @@ target_include_directories(emv INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 	$<INSTALL_INTERFACE:include/emv>
 )
-
 install(
 	TARGETS
 		emv
+	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	PUBLIC_HEADER
+		DESTINATION "include/emv"
+		COMPONENT emv_development
+	RUNTIME
+		COMPONENT emv_runtime
+	LIBRARY
+		COMPONENT emv_runtime
+		NAMELINK_COMPONENT emv_development
+	ARCHIVE
+		COMPONENT emv_development
+)
+
+# EMV strings library
+add_library(emv_strings
+	emv_strings.c
+	isocodes_lookup.cpp
+)
+set(emv_strings_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
+	emv_strings.h
+	isocodes_lookup.h
+	PARENT_SCOPE # Doxygen generator requires a list of headers
+)
+add_library(emv::emv_strings ALIAS emv_strings)
+# The EMVSTRINGS_PKGCONFIG_REQ_PRIV and EMVSTRINGS_PKGCONFIG_LIBS_PRIV variables are set
+# for the parent scope to facilitate the generation of pkgconfig files.
+# NOTE: It is not necessary to set EMVSTRINGS_PKGCONFIG_LIBS_PRIV for linking json-c
+set(EMVSTRINGS_PKGCONFIG_REQ_PRIV "json-c" PARENT_SCOPE)
+set_target_properties(emv_strings
+	PROPERTIES
+		PUBLIC_HEADER "${emv_strings_HEADERS}"
+		VERSION ${CMAKE_PROJECT_VERSION}
+		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
+)
+configure_file(isocodes_config.h.in isocodes_config.h)
+target_include_directories(emv_strings
+	PRIVATE
+		"${CMAKE_CURRENT_BINARY_DIR}" # For generated isocodes_config.h
+	INTERFACE
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+		$<INSTALL_INTERFACE:include/emv>
+)
+target_link_libraries(emv_strings
+	PRIVATE
+		emv # Used by emv_strings.c
+		json-c::json-c # Used by isocodes_lookup.c
+)
+install(
+	TARGETS
+		emv_strings
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/emv"
