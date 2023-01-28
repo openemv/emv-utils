@@ -61,6 +61,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ISO3166_1,
 	EMV_DECODE_ISO4217,
 	EMV_DECODE_ISO639,
+	EMV_DECODE_VERSION,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
@@ -102,6 +103,9 @@ static struct argp_option argp_options[] = {
 
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
+
+	{ "version", EMV_DECODE_VERSION, NULL, 0, "Display emv-utils version" },
+
 	{ 0 },
 };
 
@@ -185,6 +189,12 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			emv_decode_mode = key;
 			return 0;
+
+		case EMV_DECODE_VERSION: {
+			printf("%s\n", EMV_UTILS_VERSION_STRING);
+			exit(EXIT_SUCCESS);
+			return 0;
+		}
 
 		default:
 			return ARGP_ERR_UNKNOWN;
@@ -544,6 +554,10 @@ int main(int argc, char** argv)
 
 			break;
 		}
+
+		case EMV_DECODE_VERSION:
+			// Implemented in argp_parser_helper()
+			break;
 	}
 
 	if (data) {

@@ -62,6 +62,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
 	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
 	EMV_TOOL_PARAM_DEBUG_LEVEL,
+	EMV_TOOL_VERSION,
 };
 
 // argp option structure
@@ -75,6 +76,8 @@ static struct argp_option argp_options[] = {
 	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
 	{ "debug-source", EMV_TOOL_PARAM_DEBUG_SOURCES_MASK, "x,y,z...", 0, "Comma separated list of debug sources. Allowed values are TTL, TAL, EMV, APP, ALL. Default is ALL." },
 	{ "debug-level", EMV_TOOL_PARAM_DEBUG_LEVEL, "LEVEL", 0, "Maximum debug level. Allowed values are NONE, ERROR, INFO, CARD, TRACE, ALL. Default is INFO." },
+
+	{ "version", EMV_TOOL_VERSION, NULL, 0, "Display emv-utils version" },
 
 	{ 0 },
 };
@@ -242,6 +245,12 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			// Failed to find debug level string in list
 			argp_error(state, "Unknown debug level (--debug-level) argument \"%s\"", arg);
+		}
+
+		case EMV_TOOL_VERSION: {
+			printf("%s\n", EMV_UTILS_VERSION_STRING);
+			exit(EXIT_SUCCESS);
+			return 0;
 		}
 
 		default:

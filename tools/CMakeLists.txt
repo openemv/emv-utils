@@ -50,6 +50,10 @@ include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults f
 # EMV decode command line tool
 if(BUILD_EMV_DECODE)
 	add_executable(emv-decode emv-decode.c print_helpers.c)
+	set_source_files_properties(emv-decode.c
+		PROPERTIES
+			COMPILE_DEFINITIONS EMV_UTILS_VERSION_STRING="${EMV_UTILS_VERSION_STRING}"
+	)
 	target_link_libraries(emv-decode PRIVATE emv_strings emv iso7816)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-decode PRIVATE libargp::argp)
@@ -74,6 +78,10 @@ if(BUILD_EMV_TOOL)
 	endif()
 
 	add_executable(emv-tool emv-tool.c print_helpers.c ../src/pcsc.c)
+	set_source_files_properties(emv-tool.c
+		PROPERTIES
+			COMPILE_DEFINITIONS EMV_UTILS_VERSION_STRING="${EMV_UTILS_VERSION_STRING}"
+	)
 	target_link_libraries(emv-tool PRIVATE emv_strings emv iso7816)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-tool PRIVATE libargp::argp)
