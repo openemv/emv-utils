@@ -835,6 +835,24 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
 
+		case EMV_TAG_9F66_TTQ:
+			if (tlv->length == 4) {
+				// Entry Point kernel as well as kernel 3, 6 and 7 define 9F66
+				// as TTQ with a length of 4 bytes
+				info->tag_name = "Terminal Transaction Qualifiers (TTQ)";
+				info->tag_desc =
+					"Indicates the requirements for online and CVM processing "
+					"as a result of Entry Point processing. The scope of this "
+					"tag is limited to Entry Point. Kernels may use this tag "
+					"for different purposes.";
+				info->format = EMV_FORMAT_B;
+				return emv_ttq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
 		case EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA:
 			info->tag_name = "File Control Information (FCI) Issuer Discretionary Data";
 			info->tag_desc =
@@ -2905,6 +2923,132 @@ int emv_tsi_get_string_list(
 		emv_str_list_add(&itr, "Script processing was performed");
 	}
 	if (tsi[0] & EMV_TSI_BYTE1_RFU || tsi[1] & EMV_TSI_BYTE2_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+
+	return 0;
+}
+
+int emv_ttq_get_string_list(
+	const uint8_t* ttq,
+	size_t ttq_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!ttq || !ttq_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (ttq_len != 4) {
+		// Terminal Transaction Qualifiers (field 9F66) must be 4 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Terminal Transaction Qualifiers (field 9F66) byte 1
+	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	if (ttq[0] & EMV_TTQ_MAGSTRIPE_MODE_SUPPORTED) {
+		emv_str_list_add(&itr, "Mag-stripe mode supported");
+	} else {
+		emv_str_list_add(&itr, "Mag-stripe mode not supported");
+	}
+	if (ttq[0] & EMV_TTQ_BYTE1_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+	if (ttq[0] & EMV_TTQ_EMV_MODE_SUPPORTED) {
+		emv_str_list_add(&itr, "EMV mode supported");
+	} else {
+		emv_str_list_add(&itr, "EMV mode not supported");
+	}
+	if (ttq[0] & EMV_TTQ_EMV_CONTACT_SUPPORTED) {
+		emv_str_list_add(&itr, "EMV contact chip supported");
+	} else {
+		emv_str_list_add(&itr, "EMV contact chip not supported");
+	}
+	if (ttq[0] & EMV_TTQ_OFFLINE_ONLY_READER) {
+		emv_str_list_add(&itr, "Offline-only reader");
+	} else {
+		emv_str_list_add(&itr, "Online capable reader");
+	}
+	if (ttq[0] & EMV_TTQ_ONLINE_PIN_SUPPORTED) {
+		emv_str_list_add(&itr, "Online PIN supported");
+	} else {
+		emv_str_list_add(&itr, "Online PIN not supported");
+	}
+	if (ttq[0] & EMV_TTQ_SIGNATURE_SUPPORTED) {
+		emv_str_list_add(&itr, "Signature supported");
+	} else {
+		emv_str_list_add(&itr, "Signature not supported");
+	}
+	if (ttq[0] & EMV_TTQ_ODA_FOR_ONLINE_AUTH_SUPPORTED) {
+		emv_str_list_add(&itr, "Offline Data Authentication for Online Authorizations supported");
+	} else {
+		emv_str_list_add(&itr, "Offline Data Authentication for Online Authorizations not supported");
+	}
+
+	// Terminal Transaction Qualifiers (field 9F66) byte 2
+	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	if (ttq[1] & EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED) {
+		emv_str_list_add(&itr, "Online cryptogram required");
+	} else {
+		emv_str_list_add(&itr, "Online cryptogram not required");
+	}
+	if (ttq[1] & EMV_TTQ_CVM_REQUIRED) {
+		emv_str_list_add(&itr, "CVM required");
+	} else {
+		emv_str_list_add(&itr, "CVM not required");
+	}
+	if (ttq[1] & EMV_TTQ_OFFLINE_PIN_SUPPORTED) {
+		emv_str_list_add(&itr, "(Contact Chip) Offline PIN supported");
+	} else {
+		emv_str_list_add(&itr, "(Contact Chip) Offline PIN not supported");
+	}
+	if (ttq[1] & EMV_TTQ_BYTE2_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+
+	// Terminal Transaction Qualifiers (field 9F66) byte 3
+	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.6, Annex D.11
+	if (ttq[2] & EMV_TTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED) {
+		emv_str_list_add(&itr, "Issuer Update Processing supported");
+	} else {
+		emv_str_list_add(&itr, "Issuer Update Processing not supported");
+	}
+	if (ttq[2] & EMV_TTQ_CDCVM_SUPPORTED) {
+		emv_str_list_add(&itr, "Consumer Device CVM supported");
+	} else {
+		emv_str_list_add(&itr, "Consumer Device CVM not supported");
+	}
+	if (ttq[2] & EMV_TTQ_CDCVM_REQUIRED) {
+		// NOTE: Only EMV Contactless Book C-6 v2.6, Annex D.11 defines this
+		// bit and it avoids confusion for other kernels if no string is
+		// provided when this bit is unset
+		emv_str_list_add(&itr, "Consumer Device CVM required");
+	}
+	if (ttq[2] & EMV_TTQ_BYTE3_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+
+	// Terminal Transaction Qualifiers (field 9F66) byte 4
+	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	// See EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1
+	if (ttq[3] & EMV_TTQ_FDDA_V1_SUPPORTED) {
+		// NOTE: EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1 does not
+		// specify a string when this bit is not set and it avoids confusion
+		// for other kernels if no string is provided when this bit is unset
+		emv_str_list_add(&itr, "fDDA v1.0 Supported");
+	}
+	if (ttq[3] & EMV_TTQ_BYTE4_RFU) {
 		emv_str_list_add(&itr, "RFU");
 	}
 

@@ -58,6 +58,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_CVM_RESULTS,
 	EMV_DECODE_TVR,
 	EMV_DECODE_TSI,
+	EMV_DECODE_TTQ,
 	EMV_DECODE_ISO3166_1,
 	EMV_DECODE_ISO4217,
 	EMV_DECODE_ISO639,
@@ -92,6 +93,8 @@ static struct argp_option argp_options[] = {
 	{ "95", EMV_DECODE_TVR, NULL, OPTION_ALIAS },
 	{ "tsi", EMV_DECODE_TSI, NULL, 0, "Decode Transaction Status Information (field 9B)" },
 	{ "9B", EMV_DECODE_TSI, NULL, OPTION_ALIAS },
+	{ "ttq", EMV_DECODE_TTQ, NULL, 0, "Decode Terminal Transaction Qualifiers (field 9F66)" },
+	{ "9F66", EMV_DECODE_TTQ, NULL, OPTION_ALIAS },
 
 	{ NULL, 0, NULL, 0, "Other:", 4 },
 	{ "country", EMV_DECODE_ISO3166_1, NULL, 0, "Lookup country name by ISO 3166-1 alpha-2, alpha-3 or numeric code" },
@@ -180,6 +183,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_CVM_RESULTS:
 		case EMV_DECODE_TVR:
 		case EMV_DECODE_TSI:
+		case EMV_DECODE_TTQ:
 		case EMV_DECODE_ISO3166_1:
 		case EMV_DECODE_ISO4217:
 		case EMV_DECODE_ISO639:
@@ -457,6 +461,24 @@ int main(int argc, char** argv)
 			r = emv_tsi_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Transaction Status Information (field 9B)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_TTQ: {
+			char str[2048];
+
+			if (data_len != 4) {
+				fprintf(stderr, "EMV Terminal Transaction Qualifiers (field 9F66) must be exactly 4 bytes\n");
+				break;
+			}
+
+			r = emv_ttq_get_string_list(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse EMV Terminal Transaction Qualifiers (field 9F66)\n");
 				break;
 			}
 			printf("%s", str); // No \n required for string list

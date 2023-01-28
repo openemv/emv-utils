@@ -454,6 +454,22 @@ int emv_tsi_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Terminal Transaction Qualifiers (field 9F66)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param ttq Terminal Transaction Qualifiers (TTQ) field. Must be 4 bytes.
+ * @param ttq_len Length of Terminal Transaction Qualifiers (TTQ) field. Must be 4 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_ttq_get_string_list(
+	const uint8_t* ttq,
+	size_t ttq_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif

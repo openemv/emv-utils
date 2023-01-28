@@ -318,6 +318,10 @@ __BEGIN_DECLS
 /// EMV tag 9F4E Merchant Name and Location
 #define EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION                 (0x9F4E)
 
+/// EMV tag 9F66 Terminal Transaction Qualifiers (TTQ)
+/// @remark See EMV Contactless Book A v2.10, 5.7, Table 5-4
+#define EMV_TAG_9F66_TTQ                                        (0x9F66)
+
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.
 #define EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA              (0xBF0C)
 
