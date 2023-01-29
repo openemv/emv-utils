@@ -861,6 +861,32 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return emv_ctq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
+		case AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES:
+			if (tlv->length == 1) {
+				// Kernel 4 defines 9F6D as Contactless Reader Capabilities
+				// with a length of 1 byte
+				info->tag_name = "Contactless Reader Capabilities";
+				info->tag_desc =
+					"A proprietary data element with bits 8, 7, and 4 only "
+					"used to indicate a terminal's capability to support "
+					"Kernel 4 mag-stripe or EMV contactless. This data "
+					"element is OR’d with Terminal Type, Tag '9F35', "
+					"resulting in a modified Tag '9F35', which is passed to "
+					"the card when requested.";
+				info->format = EMV_FORMAT_B;
+				if (!tlv->value) {
+					// Cannot use tlv->value[0], even if value_str is NULL.
+					// This is typically for Data Object List (DOL) entries that
+					// have been packed into TLV entries for this function to use.
+					return 0;
+				}
+				return emv_amex_cl_reader_caps_get_string(tlv->value[0], value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
 		case EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA:
 			info->tag_name = "File Control Information (FCI) Issuer Discretionary Data";
 			info->tag_desc =
@@ -3131,4 +3157,55 @@ int emv_ctq_get_string_list(
 	}
 
 	return 0;
+}
+
+int emv_amex_cl_reader_caps_get_string(
+	uint8_t cl_reader_caps,
+	char* str,
+	size_t str_len
+)
+{
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	// Amex Contactless Reader Capabilities (field 9F6D)
+	// See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
+	switch (cl_reader_caps & AMEX_CL_READER_CAPS_MASK) {
+		case AMEX_CL_READER_CAPS_DEPRECATED:
+			strncpy(str, "Deprecated", str_len - 1);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED:
+			strncpy(str, "Mag-stripe CVM Not Required", str_len - 1);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED:
+			strncpy(str, "Mag-stripe CVM Required", str_len - 1);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED:
+			strncpy(str, "Deprecated - EMV and Mag-stripe", str_len - 1);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED:
+			strncpy(str, "EMV and Mag-stripe CVM Not Required", str_len - 1);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED:
+			strncpy(str, "EMV and Mag-stripe CVM Required", str_len - 1);
+			str[str_len - 1] = 0;
+			return 0;
+
+		default:
+			strncpy(str, "Not Available for Use", str_len - 1);
+			str[str_len - 1] = 0;
+			return 0;
+	}
 }

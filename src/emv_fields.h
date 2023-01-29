@@ -49,11 +49,11 @@ __BEGIN_DECLS
 
 // Terminal Type (field 9F35)
 // See EMV 4.4 Book 4, Annex A1, table 24
-#define EMV_TERM_TYPE_OPERATIONAL_CONTROL_MASK                  (0xF0) ///< Terminal Type mask for operational control
+#define EMV_TERM_TYPE_OPERATIONAL_CONTROL_MASK                  (0x30) ///< Terminal Type mask for operational control
 #define EMV_TERM_TYPE_OPERATIONAL_CONTROL_FINANCIAL_INSTITUTION (0x10) ///< Operational Control: Financial Institution
 #define EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT              (0x20) ///< Operationsl Control: Merchant
 #define EMV_TERM_TYPE_OPERATIONAL_CONTROL_CARDHOLDER            (0x30) ///< Operationsl Control: Cardholder
-#define EMV_TERM_TYPE_ENV_MASK                                  (0x0F) ///< Terminal Type mask for terminal environment
+#define EMV_TERM_TYPE_ENV_MASK                                  (0x07) ///< Terminal Type mask for terminal environment
 #define EMV_TERM_TYPE_ENV_ATTENDED_ONLINE_ONLY                  (0x01) ///< Environment: Attended, online only
 #define EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE          (0x02) ///< Environment: Attended, offline with online capability
 #define EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_ONLY                 (0x03) ///< Environment: Attended, offline only
@@ -364,6 +364,16 @@ __BEGIN_DECLS
 #define EMV_CTQ_CDCVM_PERFORMED                                 (0x80) ///< Card Transaction Qualifiers: Consumer Device CVM Performed
 #define EMV_CTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED              (0x40) ///< Card Transaction Qualifiers: Card supports Issuer Update Processing at the POS
 #define EMV_CTQ_BYTE2_RFU                                       (0x3F) ///< Card Transaction Qualifiers: RFU
+
+// Amex Contactless Reader Capabilities (field 9F6D)
+// See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
+#define AMEX_CL_READER_CAPS_MASK                                (0xC8) ///< Contactless Reader Capabilities mask to distinguish from Terminal Type bits
+#define AMEX_CL_READER_CAPS_DEPRECATED                          (0x00) ///< Contactless Reader Capabilities: Deprecated
+#define AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED          (0x40) ///< Contactless Reader Capabilities: Mag-stripe CVM Not Required
+#define AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED              (0x48) ///< Contactless Reader Capabilities: Mag-stripe CVM Required
+#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED            (0x80) ///< Contactless Reader Capabilities: Deprecated - EMV and Mag-stripe
+#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED          (0xC0) ///< Contactless Reader Capabilities: EMV and Mag-stripe CVM Not Required
+#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED              (0xC8) ///< Contactless Reader Capabilities: EMV and Mag-stripe CVM Required
 
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {

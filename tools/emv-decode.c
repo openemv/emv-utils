@@ -60,6 +60,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_TSI,
 	EMV_DECODE_TTQ,
 	EMV_DECODE_CTQ,
+	EMV_DECODE_AMEX_CL_READER_CAPS,
 	EMV_DECODE_ISO3166_1,
 	EMV_DECODE_ISO4217,
 	EMV_DECODE_ISO639,
@@ -98,6 +99,8 @@ static struct argp_option argp_options[] = {
 	{ "9F66", EMV_DECODE_TTQ, NULL, OPTION_ALIAS },
 	{ "ctq", EMV_DECODE_CTQ, NULL, 0, "Decode Card Transaction Qualifiers (field 9F6C)" },
 	{ "9F6C", EMV_DECODE_CTQ, NULL, OPTION_ALIAS },
+	{ "amex-cl-reader-caps", EMV_DECODE_AMEX_CL_READER_CAPS, NULL, 0, "Decode Amex Contactless Reader Capabilities (field 9F6D)" },
+	{ "9F6D", EMV_DECODE_AMEX_CL_READER_CAPS, NULL, OPTION_ALIAS },
 
 	{ NULL, 0, NULL, 0, "Other:", 4 },
 	{ "country", EMV_DECODE_ISO3166_1, NULL, 0, "Lookup country name by ISO 3166-1 alpha-2, alpha-3 or numeric code" },
@@ -188,6 +191,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_TSI:
 		case EMV_DECODE_TTQ:
 		case EMV_DECODE_CTQ:
+		case EMV_DECODE_AMEX_CL_READER_CAPS:
 		case EMV_DECODE_ISO3166_1:
 		case EMV_DECODE_ISO4217:
 		case EMV_DECODE_ISO639:
@@ -504,6 +508,24 @@ int main(int argc, char** argv)
 				break;
 			}
 			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_AMEX_CL_READER_CAPS: {
+			char str[1024];
+
+			if (data_len != 1) {
+				fprintf(stderr, "Amex Contactless Reader Capabilities (field 9F6D) must be exactly 1 byte\n");
+				break;
+			}
+
+			r = emv_amex_cl_reader_caps_get_string(data[0], str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse Amex Contactless Reader Capabilities (field 9F6D)\n");
+				break;
+			}
+			printf("%s\n", str);
 
 			break;
 		}

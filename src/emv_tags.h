@@ -328,6 +328,10 @@ __BEGIN_DECLS
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define EMV_TAG_9F6C_CTQ                                        (0x9F6C)
 
+/// Amex tag 9F6D Contactless Reader Capabilities
+/// @remark See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
+#define AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES           (0x9F6D)
+
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.
 #define EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA              (0xBF0C)
 
