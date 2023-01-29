@@ -26,6 +26,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
+        brew install pkg-config
         brew install iso-codes
         brew install json-c
         brew install gettext
