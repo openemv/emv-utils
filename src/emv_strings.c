@@ -853,6 +853,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 1;
 
+		case EMV_TAG_9F6C_CTQ:
+			info->tag_name = "Card Transaction Qualifiers (CTQ)";
+			info->tag_desc =
+				"Used to indicate to the device the card CVM requirements, "
+				"issuer preferences, and card capabilities.";
+			info->format = EMV_FORMAT_B;
+			return emv_ctq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA:
 			info->tag_name = "File Control Information (FCI) Issuer Discretionary Data";
 			info->tag_desc =
@@ -3049,6 +3057,76 @@ int emv_ttq_get_string_list(
 		emv_str_list_add(&itr, "fDDA v1.0 Supported");
 	}
 	if (ttq[3] & EMV_TTQ_BYTE4_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+
+	return 0;
+}
+
+int emv_ctq_get_string_list(
+	const uint8_t* ctq,
+	size_t ctq_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!ctq || !ctq_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (ctq_len != 2) {
+		// Card Transaction Qualifiers (field 9F6C) must be 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Card Transaction Qualifiers (field 9F6C) byte 1
+	// See EMV Contactless Book C-3 v2.10, Annex A.2
+	// See EMV Contactless Book C-7 v2.9, Annex A
+	if (ctq[0] & EMV_CTQ_ONLINE_PIN_REQUIRED) {
+		emv_str_list_add(&itr, "Online PIN Required");
+	}
+	if (ctq[0] & EMV_CTQ_SIGNATURE_REQUIRED) {
+		emv_str_list_add(&itr, "Signature Required");
+	}
+	if (ctq[0] & EMV_CTQ_ONLINE_IF_ODA_FAILED) {
+		emv_str_list_add(&itr, "Go Online if Offline Data Authentication Fails and Reader is online capable");
+	}
+	if (ctq[0] & EMV_CTQ_SWITCH_INTERFACE_IF_ODA_FAILED) {
+		emv_str_list_add(&itr, "Switch Interface if Offline Data Authentication fails and Reader supports contact chip");
+	}
+	if (ctq[0] & EMV_CTQ_ONLINE_IF_APPLICATION_EXPIRED) {
+		emv_str_list_add(&itr, "Go Online if Application Expired");
+	}
+	if (ctq[0] & EMV_CTQ_SWITCH_INTERFACE_IF_CASH) {
+		emv_str_list_add(&itr, "Switch Interface for Cash Transactions");
+	}
+	if (ctq[0] & EMV_CTQ_SWITCH_INTERFACE_IF_CASHBACK) {
+		emv_str_list_add(&itr, "Switch Interface for Cashback Transactions");
+	}
+	if (ctq[0] & EMV_CTQ_ATM_NOT_VALID) {
+		// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+		emv_str_list_add(&itr, "Not valid for contactless ATM transactions");
+	}
+
+	// Card Transaction Qualifiers (field 9F6C) byte 2
+	// See EMV Contactless Book C-3 v2.10, Annex A.2
+	// See EMV Contactless Book C-7 v2.9, Annex A
+	if (ctq[1] & EMV_CTQ_CDCVM_PERFORMED) {
+		emv_str_list_add(&itr, "Consumer Device CVM Performed");
+	}
+	if (ctq[1] & EMV_CTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED) {
+		emv_str_list_add(&itr, "Card supports Issuer Update Processing at the POS");
+	}
+	if (ctq[1] & EMV_CTQ_BYTE2_RFU) {
 		emv_str_list_add(&itr, "RFU");
 	}
 

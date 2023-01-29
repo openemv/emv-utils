@@ -322,6 +322,12 @@ __BEGIN_DECLS
 /// @remark See EMV Contactless Book A v2.10, 5.7, Table 5-4
 #define EMV_TAG_9F66_TTQ                                        (0x9F66)
 
+/// EMV tag 9F6C Card Transaction Qualifiers (CTQ)
+/// @remark See EMV Contactless Book C-3 v2.10, Annex A.2
+/// @remark See EMV Contactless Book C-7 v2.9, Annex A
+/// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define EMV_TAG_9F6C_CTQ                                        (0x9F6C)
+
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.
 #define EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA              (0xBF0C)
 

@@ -470,6 +470,22 @@ int emv_ttq_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Card Transaction Qualifiers (field 9F6C)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param ctq Card Transaction Qualifiers (CTQ) field. Must be 2 bytes.
+ * @param ctq_len Length of Card Transaction Qualifiers (CTQ) field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_ctq_get_string_list(
+	const uint8_t* ctq,
+	size_t ctq_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif

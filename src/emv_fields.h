@@ -345,6 +345,26 @@ __BEGIN_DECLS
 #define EMV_TTQ_FDDA_V1_SUPPORTED                               (0x80) ///< Terminal Transaction Qualifiers: fDDA v1.0 Supported
 #define EMV_TTQ_BYTE4_RFU                                       (0x7F) ///< Terminal Transaction Qualifiers: RFU
 
+// Card Transaction Qualifiers (field 9F6C) byte 1
+// See EMV Contactless Book C-3 v2.10, Annex A.2
+// See EMV Contactless Book C-7 v2.9, Annex A
+// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define EMV_CTQ_ONLINE_PIN_REQUIRED                             (0x80) ///< Card Transaction Qualifiers: Online PIN Required
+#define EMV_CTQ_SIGNATURE_REQUIRED                              (0x40) ///< Card Transaction Qualifiers: Signature Required
+#define EMV_CTQ_ONLINE_IF_ODA_FAILED                            (0x20) ///< Card Transaction Qualifiers: Go Online if Offline Data Authentication Fails and Reader is online capable
+#define EMV_CTQ_SWITCH_INTERFACE_IF_ODA_FAILED                  (0x10) ///< Card Transaction Qualifiers: Switch Interface if Offline Data Authentication fails and Reader supports contact chip
+#define EMV_CTQ_ONLINE_IF_APPLICATION_EXPIRED                   (0x08) ///< Card Transaction Qualifiers: Go Online if Application Expired
+#define EMV_CTQ_SWITCH_INTERFACE_IF_CASH                        (0x04) ///< Card Transaction Qualifiers: Switch Interface for Cash Transactions
+#define EMV_CTQ_SWITCH_INTERFACE_IF_CASHBACK                    (0x02) ///< Card Transaction Qualifiers: Switch Interface for Cashback Transactions
+#define EMV_CTQ_ATM_NOT_VALID                                   (0x01) ///< Card Transaction Qualifiers: Not valid for contactless ATM transactions
+
+// Card Transaction Qualifiers (field 9F6C) byte 2
+// See EMV Contactless Book C-3 v2.10, Annex A.2
+// See EMV Contactless Book C-7 v2.9, Annex A
+#define EMV_CTQ_CDCVM_PERFORMED                                 (0x80) ///< Card Transaction Qualifiers: Consumer Device CVM Performed
+#define EMV_CTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED              (0x40) ///< Card Transaction Qualifiers: Card supports Issuer Update Processing at the POS
+#define EMV_CTQ_BYTE2_RFU                                       (0x3F) ///< Card Transaction Qualifiers: RFU
+
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {
 	const void* ptr;
