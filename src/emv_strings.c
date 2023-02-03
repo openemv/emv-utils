@@ -47,6 +47,7 @@ static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_l
 static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
+static const char* emv_mastercard_device_type_get_string(const char* device_type);
 
 int emv_strings_init(void)
 {
@@ -881,6 +882,23 @@ int emv_tlv_get_info(
 					return 0;
 				}
 				return emv_amex_cl_reader_caps_get_string(tlv->value[0], value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case MASTERCARD_TAG_9F6E_THIRD_PARTY_DATA:
+			if (tlv->length > 4 && tlv->length <= 32) {
+				// Kernel 2 defines 9F6E as Third Party Data with a length of
+				// 5 to 32 bytes
+				info->tag_name = "Third Party Data";
+				info->tag_desc =
+					"The Third Party data object may be used to carry "
+					"specific product information to be optionally used by "
+					"the terminal in processing transactions.";
+				info->format = EMV_FORMAT_B;
+				return emv_mastercard_third_party_data_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
 			// Same as default case
@@ -3208,4 +3226,270 @@ int emv_amex_cl_reader_caps_get_string(
 			str[str_len - 1] = 0;
 			return 0;
 	}
+}
+
+static const struct {
+	char device_type[3];
+	const char* str;
+} emv_mastercard_device_type_map[] = {
+	// See M/Chip Requirements for Contact and Contactless, 28 September 2017, Chapter 5, Third Party Data, Device Type
+	// The 2017 version of this document contains Device Types "00" to "19".
+	// Newer versions of this document indicate that the Device Type list can
+	// be found in the Mastercard Customer Interface Specification manual but
+	// that document does not appear to be publically available.
+	// Device Types "20" to "33" were obtained from unverified internet sources
+	{ "00", "Card" },
+	{ "01", "Mobile Phone or Smartphone with Mobile Network Operator (MNO) controlled removable secure element (SIM or UICC) personalized for use with a mobile phone or smartphone" },
+	{ "02", "Key Fob" },
+	{ "03", "Watch using a contactless chip or a fixed (non-removable) secure element not controlled by the MNO" },
+	{ "04", "Mobile Tag" },
+	{ "05", "Wristband" },
+	{ "06", "Mobile Phone Case or Sleeve" },
+	{ "07", "Mobile phone or smartphone with a fixed (non-removable) secure element controlled by the MNO, for example, code division multiple access (CDMA)" },
+	{ "08", "Removable secure element not controlled by the MNO, for example, memory card personalized for used with a mobile phone or smartphone" },
+	{ "09", "Mobile Phone or smartphone with a fixed (non-removable) secure element not controlled by the MNO" },
+	{ "10", "MNO controlled removable secure element (SIM or UICC) personalized for use with a tablet or e-book" },
+	{ "11", "Tablet or e-book with a fixed (non-removable) secure element controlled by the MNO" },
+	{ "12", "Removable secure element not controlled by the MNO, for example, memory card personalized for use with a tablet or e-book" },
+	{ "13", "Tablet or e-book with fixed (non-removable) secure element not controlled by the MNO" },
+	{ "14", "Mobile phone or smartphone with a payment application running in a host processor" },
+	{ "15", "Tablet or e-book with a payment application running in a host processor" },
+	{ "16", "Mobile phone or smartphone with a payment application running in the Trusted Execution Environment (TEE) of a host processor" },
+	{ "17", "Tablet or e-book with a payment application running in the TEE of a host processor" },
+	{ "18", "Watch with a payment application running in the TEE of a host processor" },
+	{ "19", "Watch with a payment application running in a host processor" },
+	{ "20", "Card" },
+	{ "21", "Phone (Mobile phone)" },
+	{ "22", "Tablet/e-reader (Tablet computer or e-reader)" },
+	{ "23", "Watch/Wristband (Watch or wristband, including a fitness band, smart strap, disposable band, watch add-on, and security/ID band)" },
+	{ "24", "Sticker" },
+	{ "25", "PC (PC or laptop)" },
+	{ "26", "Device Peripheral (Mobile phone case or sleeve)" },
+	{ "27", "Tag (Key fob or mobile tag)" },
+	{ "28", "Jewelry (Ring, bracelet, necklace, and cuff links)" },
+	{ "29", "Fashion Accessory (Handbag, bag charm, and glasses)" },
+	{ "30", "Garment (Dress)" },
+	{ "31", "Domestic Appliance (Refrigerator, washing machine)" },
+	{ "32", "Vehicle (Vehicle, including vehicle attached devices)" },
+	{ "33", "Media/Gaming Device (Media or gaming device, including a set top box, media player, and television)" },
+};
+
+static const char* emv_mastercard_device_type_get_string(const char* device_type)
+{
+	for (size_t i = 0; i < sizeof(emv_mastercard_device_type_map) / sizeof(emv_mastercard_device_type_map[0]); ++i) {
+		if (strncmp(emv_mastercard_device_type_map[i].device_type, device_type, 2) == 0) {
+			return emv_mastercard_device_type_map[i].str;
+		}
+	}
+
+	return NULL;
+}
+
+int emv_mastercard_third_party_data_get_string_list(
+	const uint8_t* tpd,
+	size_t tpd_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	const uint8_t* tpd_ptr;
+	struct str_itr_t itr;
+	char country_str[128];
+	uint16_t unique_id;
+	bool is_product_extension = false;
+	size_t tpd_len_min;
+	size_t remaining_len;
+
+	if (!tpd || !tpd_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (tpd_len < 5 || tpd_len > 32) {
+		// Mastercard Third Party Data (field 9F6E) must be 5 to 32 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Mastercard Third Party Data (field 9F6E)
+	// See EMV Contactless Book C-2 v2.10, Annex A.1.171
+	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 12
+	tpd_ptr = tpd;
+
+	// First two byte are the ISO 3166-1 numeric country code
+	memset(country_str, 0, sizeof(country_str));
+	r = emv_country_numeric_code_get_string(tpd_ptr, 2, country_str, sizeof(country_str));
+	if (r == 0 && country_str[0]) {
+		emv_str_list_add(&itr, "Country: %s", country_str);
+	} else {
+		emv_str_list_add(&itr, "Country: Unknown");
+	}
+	tpd_ptr += 2;
+
+	// Next two bytes are the Mastercard Unique Identifier
+	unique_id = (tpd_ptr[0] << 8) + tpd_ptr[1];
+	if (unique_id == 0x0000) {
+		// 0000 if Proprietary Data not used
+		emv_str_list_add(&itr, "Unique Identifier: Proprietary Data not used");
+	} else if (unique_id == 0x0003 || unique_id == 0x8003) {
+		// The value 0003 or 8003 indicate that a Mastercard defined
+		// Product Extension is present in the Proprietary Data
+		is_product_extension = true;
+		emv_str_list_add(&itr, "Unique Identifier: Mastercard Product Extension");
+	} else {
+		emv_str_list_add(&itr, "Unique Identifier: Unknown");
+	}
+	tpd_ptr += 2;
+
+	// Device Type is present when the most significant bit of the
+	// Unique Identifier is unset. The Device Type has format 'an'.
+	if ((unique_id & 0x8000) == 0) {
+		char device_type[3];
+		const char* device_type_str;
+
+		memcpy(device_type, tpd_ptr, 2);
+		device_type[2] = 0; // NULL terminate
+
+		// Lookup Device Type string
+		device_type_str = emv_mastercard_device_type_get_string(device_type);
+		if (device_type_str) {
+			emv_str_list_add(&itr, "Device Type: %s - %s", device_type, device_type_str);
+		} else {
+			emv_str_list_add(&itr, "Device Type: %s", device_type);
+		}
+
+		// If Device Type is present, minimum field length is 7
+		tpd_len_min = 7;
+
+		tpd_ptr += 2;
+	} else {
+		// If Device Type is absent, minimum field length is 5
+		tpd_len_min = 5;
+	}
+
+	if (tpd_len < tpd_len_min) {
+		// Invalid Mastercard Third Party Data (field 9F6E) length
+		return 1;
+	}
+	remaining_len = tpd_len - (tpd_ptr - tpd);
+
+	// Verify Proprietary Data length
+	if (unique_id == 0x0000 &&
+		(tpd_ptr[0] != 0x00 || remaining_len != 1)
+	) {
+		// If Unique Identifier indicates that Proprietary Data is not used,
+		// then the latter should be a single 0x00 byte
+		emv_str_list_add(&itr, "Invalid Proprietary Data");
+		return 1;
+	} else if (is_product_extension && remaining_len < 2) {
+		// If Unique Identifier indicates a Mastercard Product Extension,
+		// then the Proprietary Data should have at least 2 bytes for the
+		// Product Identifier
+		emv_str_list_add(&itr, "Invalid Proprietary Data");
+		return 1;
+	}
+
+	// Decode Mastercard Product Extension
+	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 13
+	if (is_product_extension) {
+		// Extract Product Identifier
+		uint16_t product_identifier = (tpd_ptr[0] << 8) + tpd_ptr[1];
+		if (product_identifier == 0x0001) {
+			// Product Extension for Fleet Cards
+			// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 14
+			emv_str_list_add(&itr, "Product Identifier: Fleet Card");
+
+			// Product Extension for Fleet Cards has length 8
+			if (remaining_len != 8) {
+				emv_str_list_add(&itr, "Invalid Proprietary Data length");
+				return 1;
+			}
+
+			// Product Restriction Code
+			if (tpd_ptr[2] == 0x02) {
+				emv_str_list_add(&itr, "Product Restriction Code: Good for fuel only");
+			} else if (tpd_ptr[2] == 0x01) {
+				emv_str_list_add(&itr, "Product Restriction Code: Good for fuel and other products");
+			} else if (tpd_ptr[2]) {
+				emv_str_list_add(&itr, "Product Restriction Code: RFU");
+			}
+
+			// Product Type Code
+			if (tpd_ptr[3] & 0x08) {
+				emv_str_list_add(&itr, "Product Type Code: Prompt for Odometer");
+			}
+			if (tpd_ptr[3] & 0x04) {
+				emv_str_list_add(&itr, "Product Type Code: Prompt for Driver Number");
+			}
+			if (tpd_ptr[3] & 0x02) {
+				emv_str_list_add(&itr, "Product Type Code: Prompt for Vehicle Number");
+			}
+			if (tpd_ptr[3] & 0x01) {
+				emv_str_list_add(&itr, "Product Type Code: Prompt for ID Number");
+			}
+			if (tpd_ptr[3] & 0xF0) {
+				emv_str_list_add(&itr, "Product Type Code: RFU");
+			}
+
+			// Card Type
+			if (tpd_ptr[4] == 0x80) {
+				emv_str_list_add(&itr, "Card Type: Driver card");
+			} else if (tpd_ptr[4] == 0x40) {
+				emv_str_list_add(&itr, "Card Type: Vehicle card");
+			} else if (tpd_ptr[4]) {
+				emv_str_list_add(&itr, "Card Type: RFU");
+			}
+
+			return 0;
+		}
+
+		if (product_identifier == 0x0002) {
+			// Product Extension for Transit
+			// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 15
+			emv_str_list_add(&itr, "Product Identifier: Transit");
+
+			// Product Extension for Transit has length 5
+			if (remaining_len != 5) {
+				emv_str_list_add(&itr, "Invalid Proprietary Data length");
+				return 1;
+			}
+
+			// Transit Byte 3
+			if (tpd_ptr[2] & 0x80) {
+				emv_str_list_add(&itr, "Transit: Deferred Authorization Not Supported");
+			}
+			if (tpd_ptr[2] & 0x7F) {
+				emv_str_list_add(&itr, "Transit: RFU");
+			}
+
+			// Concession Code
+			switch (tpd_ptr[3]) {
+				case 1: emv_str_list_add(&itr, "Concession Code: 01 - Senior Citizen, potentially eligible for senior citizen discounts"); break;
+				case 2: emv_str_list_add(&itr, "Concession Code: 02 - Student, potentially eligible for student-based discounts"); break;
+				case 3: emv_str_list_add(&itr, "Concession Code: 03 - Active military and veterans, potentially eligible for service member discounts"); break;
+				case 4: emv_str_list_add(&itr, "Concession Code: 04 - Low Income household, potentially eligible for means-based discounts"); break;
+				case 5: emv_str_list_add(&itr, "Concession Code: 05 - Disability, eligible for paratransit and other disability discounts"); break;
+				case 6: emv_str_list_add(&itr, "Concession Code: 06 - Minor Child, potentially enables free travel for under 16 and young kids"); break;
+				case 7: emv_str_list_add(&itr, "Concession Code: 07 - Transit Staff, potentially enables free travel for transit staff"); break;
+				case 8: emv_str_list_add(&itr, "Concession Code: 08 - City/Government/Preferred Employees, potentially enables discounted travel for federal and preferred employees"); break;
+				default: emv_str_list_add(&itr, "Concession Code: RFU"); break;
+			}
+
+			return 0;
+		}
+
+		emv_str_list_add(&itr, "Product Identifier: Unknown");
+		return 0;
+
+	} else if (tpd_ptr[0] == 0x00) {
+		emv_str_list_add(&itr, "Proprietary Data: Not used");
+	}
+
+	return 0;
 }

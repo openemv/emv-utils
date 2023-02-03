@@ -276,6 +276,40 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION "^5F2D \\| Language Preference : \\[4\\] 65 6E FF FF[\r\n]  - English[\r\n]  - Unknown[\r\n]"
 	)
 
+	add_test(NAME emv_decode_9F6E_test1
+		COMMAND emv-decode --tlv 9F6E0E0528000332310001010840000000
+	)
+	string(CONCAT emv_decode_9F6E_test1_regex
+		"^9F6E \\| Third Party Data : \\[14\\] 05 28 00 03 32 31 00 01 01 08 40 00 00 00[\r\n]"
+		"  - Country: Netherlands[\r\n]"
+		"  - Unique Identifier: Mastercard Product Extension[\r\n]"
+		"  - Device Type: 21 - Phone \\(Mobile phone\\)[\r\n]"
+		"  - Product Identifier: Fleet Card[\r\n]"
+		"  - Product Restriction Code: Good for fuel and other products[\r\n]"
+		"  - Product Type Code: Prompt for Odometer[\r\n]"
+		"  - Card Type: Vehicle card[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F6E_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F6E_test1_regex}
+	)
+
+	add_test(NAME emv_decode_9F6E_test2
+		COMMAND emv-decode --tlv 9F6E0B0250000330350002000200
+	)
+	string(CONCAT emv_decode_9F6E_test2_regex
+		"^9F6E \\| Third Party Data : \\[11\\] 02 50 00 03 30 35 00 02 00 02 00[\r\n]"
+		"  - Country: France[\r\n]"
+		"  - Unique Identifier: Mastercard Product Extension[\r\n]"
+		"  - Device Type: 05 - Wristband[\r\n]"
+		"  - Product Identifier: Transit[\r\n]"
+		"  - Concession Code: 02 - Student, potentially eligible for student-based discounts[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F6E_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F6E_test2_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

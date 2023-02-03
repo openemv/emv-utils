@@ -500,6 +500,22 @@ int emv_amex_cl_reader_caps_get_string(
 	size_t str_len
 );
 
+/**
+ * Stringify Mastercard Third Party Data (field 9F6E)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param tpd Third Party Data field. Must be 5 to 32 bytes.
+ * @param tpd_len Length of Third Party Data field. Must be 5 to 32 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_mastercard_third_party_data_get_string_list(
+	const uint8_t* tpd,
+	size_t tpd_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif
