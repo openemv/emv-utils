@@ -375,6 +375,45 @@ __BEGIN_DECLS
 #define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED          (0xC0) ///< Contactless Reader Capabilities: EMV and Mag-stripe CVM Not Required
 #define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED              (0xC8) ///< Contactless Reader Capabilities: EMV and Mag-stripe CVM Required
 
+// Visa Form Factor Indicator (field 9F6E) byte 1
+// See EMV Contactless Book C-3 v2.10, Annex A.2
+// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define VISA_FFI_VERSION_MASK                                   (0xE0) ///< Form Factor Indicator (FFI) mask for Version Number
+#define VISA_FFI_VERSION_SHIFT                                  (5) ///< Form Factor Indicator (FFI) shift for Version Number
+#define VISA_FFI_VERSION_NUMBER_1                               (0x20) ///< Form Factor Indicator (FFI): Version Number 1
+#define VISA_FFI_FORM_FACTOR_MASK                               (0x1F) ///< Form Factor Indicator (FFI) mask for Consumer Payment Device Form Factor
+#define VISA_FFI_FORM_FACTOR_CARD                               (0x00) ///< Consumer Payment Device Form Factor: Card
+#define VISA_FFI_FORM_FACTOR_MINI_CARD                          (0x01) ///< Consumer Payment Device Form Factor: Mini-card
+#define VISA_FFI_FORM_FACTOR_NON_CARD                           (0x02) ///< Consumer Payment Device Form Factor: Non-card Form Factor
+#define VISA_FFI_FORM_FACTOR_CONSUMER_MOBILE_PHONE              (0x03) ///< Consumer Payment Device Form Factor: Consumer mobile phone
+#define VISA_FFI_FORM_FACTOR_WRIST_WORN_DEVICE                  (0x04) ///< Consumer Payment Device Form Factor: Wrist-worn device
+
+// Visa Form Factor Indicator (field 9F6E) byte 2
+// See EMV Contactless Book C-3 v2.10, Annex A.2
+// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define VISA_FFI_FEATURE_PASSCODE                               (0x80) ///< Consumer Payment Device Features: Passcode Capable
+#define VISA_FFI_FEATURE_SIGNATURE                              (0x40) ///< Consumer Payment Device Features: Signature Panel
+#define VISA_FFI_FEATURE_HOLOGRAM                               (0x20) ///< Consumer Payment Device Features: Hologram
+#define VISA_FFI_FEATURE_CVV2                                   (0x10) ///< Consumer Payment Device Features: CVV2
+#define VISA_FFI_FEATURE_TWO_WAY_MESSAGING                      (0x08) ///< Consumer Payment Device Features: Two-way Messaging
+#define VISA_FFI_FEATURE_CLOUD_CREDENTIALS                      (0x04) ///< Consumer Payment Device Features: Cloud Based Payment Credentials
+#define VISA_FFI_FEATURE_BIOMETRIC                              (0x02) ///< Consumer Payment Device Features: Biometric Cardholder Verification Capable
+#define VISA_FFI_FEATURE_RFU                                    (0x01) ///< Consumer Payment Device Features: RFU
+
+// Visa Form Factor Indicator (field 9F6E) byte 3
+// See EMV Contactless Book C-3 v2.10, Annex A.2
+// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define VISA_FFI_BYTE3_RFU                                      (0xFF) ///< Form Factor Indicator (FFI) byte 3: RFU
+
+// Visa Form Factor Indicator (field 9F6E) byte 4
+// See EMV Contactless Book C-3 v2.10, Annex A.2
+// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_MASK                    (0x0F) ///< Form Factor Indicator (FFI) mask for Payment Transaction Technology
+#define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_CONTACTLESS             (0x00) ///< Payment Transaction Technology: Proximity Contactless interface using ISO 14443 (including NFC)
+#define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_NOT_VCPS                (0x01) ///< Payment Transaction Technology: Not used in VCPS
+#define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_RFU                     (0xF0) ///< Payment Transaction Technology: RFU
+
+
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {
 	const void* ptr;

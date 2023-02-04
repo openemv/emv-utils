@@ -310,6 +310,21 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_9F6E_test2_regex}
 	)
 
+	add_test(NAME emv_decode_9F6E_test3
+		COMMAND emv-decode --tlv 9F6E04238C0000
+	)
+	string(CONCAT emv_decode_9F6E_test3_regex
+		"^9F6E \\| Form Factor Indicator \\(FFI\\) : \\[4\\] 23 8C 00 00[\r\n]"
+		"  - Consumer Payment Device Form Factor: Consumer mobile phone[\r\n]"
+		"  - Consumer Payment Device Features: Passcode Capable[\r\n]"
+		"  - Consumer Payment Device Features: Two-way Messaging[\r\n]"
+		"  - Consumer Payment Device Features: Cloud Based Payment Credentials[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F6E_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F6E_test3_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

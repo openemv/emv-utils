@@ -516,6 +516,22 @@ int emv_mastercard_third_party_data_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Visa Form Factor Indicator (field 9F6E)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param ffi Form Factor Indicator (FFI) field. Must be 4 bytes.
+ * @param ffi_len Length of Form Factor Indicator (FFI) field. Must be 4 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_visa_form_factor_indicator_get_string_list(
+	const uint8_t* ffi,
+	size_t ffi_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif

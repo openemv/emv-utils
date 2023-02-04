@@ -337,6 +337,11 @@ __BEGIN_DECLS
 /// @remark See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 12
 #define MASTERCARD_TAG_9F6E_THIRD_PARTY_DATA                    (0x9F6E)
 
+/// Visa tag 9F6E Form Factor Indicator (FFI)
+/// @remark See EMV Contactless Book C-3 v2.10, Annex A.2
+/// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define VISA_TAG_9F6E_FORM_FACTOR_INDICATOR                     (0x9F6E)
+
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.
 #define EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA              (0xBF0C)
 

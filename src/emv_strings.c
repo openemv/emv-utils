@@ -888,8 +888,10 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 1;
 
-		case MASTERCARD_TAG_9F6E_THIRD_PARTY_DATA:
-			if (tlv->length > 4 && tlv->length <= 32) {
+		case 0x9F6E: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F6E_THIRD_PARTY_DATA && // Helps IDE find this case statement
+				tlv->length > 4 && tlv->length <= 32
+			) {
 				// Kernel 2 defines 9F6E as Third Party Data with a length of
 				// 5 to 32 bytes
 				info->tag_name = "Third Party Data";
@@ -899,6 +901,26 @@ int emv_tlv_get_info(
 					"the terminal in processing transactions.";
 				info->format = EMV_FORMAT_B;
 				return emv_mastercard_third_party_data_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			if (tlv->tag == VISA_TAG_9F6E_FORM_FACTOR_INDICATOR && // Helps IDE find this case statement
+				tlv->length == 4 &&
+				tlv->value &&
+				(tlv->value[0] & VISA_FFI_VERSION_MASK) == VISA_FFI_VERSION_NUMBER_1 && // VCPS only defines version number 1
+				!tlv->value[2] && // VCPS indicates that byte 3 is RFU and should be zero'd
+				tlv->value[3] == VISA_FFI_PAYMENT_TXN_TECHNOLOGY_CONTACTLESS // VCPS only defines contactless
+			) {
+				// Kernel 3 defines 9F6E as Form Factor Indicator (FFI) with a
+				// length of 4 bytes and currently only FFI version number 1 is
+				// defined by VCPS.
+				info->tag_name = "Form Factor Indicator (FFI)";
+				info->tag_desc =
+					"Indicates the form factor of the consumer payment device "
+					"and thetype of contactless interface over which the "
+					"transaction was conducted. This information is made "
+					"available to the issuer host.";
+				info->format = EMV_FORMAT_B;
+				return emv_visa_form_factor_indicator_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
 			// Same as default case
@@ -3489,6 +3511,95 @@ int emv_mastercard_third_party_data_get_string_list(
 
 	} else if (tpd_ptr[0] == 0x00) {
 		emv_str_list_add(&itr, "Proprietary Data: Not used");
+	}
+
+	return 0;
+}
+
+int emv_visa_form_factor_indicator_get_string_list(
+	const uint8_t* ffi,
+	size_t ffi_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!ffi || !ffi_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (ffi_len != 4) {
+		// Visa Form Factor Indicator (field 9F6E) must be 4 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Visa Form Factor Indicator (field 9F6E) byte 1
+	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+	if ((ffi[0] & VISA_FFI_VERSION_MASK) != VISA_FFI_VERSION_NUMBER_1) {
+		emv_str_list_add(&itr, "Form Factor Indicator (FFI): Version Number %u", ffi[0] >> VISA_FFI_VERSION_SHIFT);
+
+		// This implementation only supports version 1
+		return 0;
+	}
+	switch (ffi[0] & VISA_FFI_FORM_FACTOR_MASK) {
+		case VISA_FFI_FORM_FACTOR_CARD: emv_str_list_add(&itr, "Consumer Payment Device Form Factor: Card"); break;
+		case VISA_FFI_FORM_FACTOR_MINI_CARD: emv_str_list_add(&itr, "Consumer Payment Device Form Factor: Mini-card"); break;
+		case VISA_FFI_FORM_FACTOR_NON_CARD: emv_str_list_add(&itr, "Consumer Payment Device Form Factor: Non-card Form Factor"); break;
+		case VISA_FFI_FORM_FACTOR_CONSUMER_MOBILE_PHONE: emv_str_list_add(&itr, "Consumer Payment Device Form Factor: Consumer mobile phone"); break;
+		case VISA_FFI_FORM_FACTOR_WRIST_WORN_DEVICE: emv_str_list_add(&itr, "Consumer Payment Device Form Factor: Wrist-worn device"); break;
+		default: emv_str_list_add(&itr, "Consumer Payment Device Form Factor: Unknown"); break;
+	}
+
+	// Visa Form Factor Indicator (field 9F6E) byte 2
+	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+	if (ffi[1] & VISA_FFI_FEATURE_PASSCODE) {
+		emv_str_list_add(&itr, "Consumer Payment Device Features: Passcode Capable");
+	}
+	if (ffi[1] & VISA_FFI_FEATURE_SIGNATURE) {
+		emv_str_list_add(&itr, "Consumer Payment Device Features: Signature Panel");
+	}
+	if (ffi[1] & VISA_FFI_FEATURE_HOLOGRAM) {
+		emv_str_list_add(&itr, "Consumer Payment Device Features: Hologram");
+	}
+	if (ffi[1] & VISA_FFI_FEATURE_CVV2) {
+		emv_str_list_add(&itr, "Consumer Payment Device Features: CVV2");
+	}
+	if (ffi[1] & VISA_FFI_FEATURE_TWO_WAY_MESSAGING) {
+		emv_str_list_add(&itr, "Consumer Payment Device Features: Two-way Messaging");
+	}
+	if (ffi[1] & VISA_FFI_FEATURE_CLOUD_CREDENTIALS) {
+		emv_str_list_add(&itr, "Consumer Payment Device Features: Cloud Based Payment Credentials");
+	}
+	if (ffi[1] & VISA_FFI_FEATURE_BIOMETRIC) {
+		emv_str_list_add(&itr, "Consumer Payment Device Features: Biometric Cardholder Verification Capable");
+	}
+	if (ffi[1] & VISA_FFI_FEATURE_RFU) {
+		emv_str_list_add(&itr, "Consumer Payment Device Features: RFU");
+	}
+
+	// Visa Form Factor Indicator (field 9F6E) byte 3
+	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+	if (ffi[2]) {
+		emv_str_list_add(&itr, "Form Factor Indicator (FFI) byte 3: RFU");
+	}
+
+	// Visa Form Factor Indicator (field 9F6E) byte 4
+	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+	switch (ffi[3] & VISA_FFI_PAYMENT_TXN_TECHNOLOGY_MASK) {
+		case VISA_FFI_PAYMENT_TXN_TECHNOLOGY_CONTACTLESS: emv_str_list_add(&itr, "Payment Transaction Technology: Proximity Contactless interface using ISO 14443 (including NFC)"); break;
+		case VISA_FFI_PAYMENT_TXN_TECHNOLOGY_NOT_VCPS: emv_str_list_add(&itr, "Payment Transaction Technology: Not used in VCPS"); break;
+		default: emv_str_list_add(&itr, "Payment Transaction Technology: Unknown"); break;
+	}
+	if (ffi[3] & VISA_FFI_PAYMENT_TXN_TECHNOLOGY_RFU) {
+		emv_str_list_add(&itr, "Payment Transaction Technology: RFU");
 	}
 
 	return 0;
