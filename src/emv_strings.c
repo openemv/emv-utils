@@ -923,6 +923,33 @@ int emv_tlv_get_info(
 				return emv_visa_form_factor_indicator_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
+			if (tlv->tag == AMEX_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES && // Helps IDE find this case statement
+				tlv->length == 4 &&
+				tlv->value &&
+				// Mandatory according to specification
+				(tlv->value[0] & AMEX_ENH_CL_READER_CAPS_FULL_ONLINE_MODE_SUPPORTED) == 0 &&
+				tlv->value[0] & AMEX_ENH_CL_READER_CAPS_PARTIAL_ONLINE_MODE_SUPPORTED &&
+				tlv->value[0] & AMEX_ENH_CL_READER_CAPS_MOBILE_SUPPORTED &&
+				(tlv->value[0] & AMEX_ENH_CL_READER_CAPS_BYTE1_RFU) == 0 &&
+				tlv->value[1] & AMEX_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED &&
+				(tlv->value[1] & AMEX_ENH_CL_READER_CAPS_BYTE2_RFU) == 0 &&
+				(tlv->value[2] & AMEX_ENH_CL_READER_CAPS_BYTE3_RFU) == 0 &&
+				(tlv->value[3] & AMEX_ENH_CL_READER_CAPS_BYTE4_RFU) == 0 &&
+				tlv->value[3] & AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_MASK
+			) {
+				// Kernel 4 defines 9F6E as Enhanced Contactless Reader
+				// Capabilities with a length of 4 bytes and various mandatory
+				// bits
+				info->tag_name = "Enhanced Contactless Reader Capabilities";
+				info->tag_desc =
+					"Proprietary Data Element for managing Contactless "
+					"transactions and includes Contactless terminal "
+					"capabilities (static) and contactless Mobile transaction "
+					"(dynamic data) around CVM";
+				info->format = EMV_FORMAT_B;
+				return emv_amex_enh_cl_reader_caps_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
 			// Same as default case
 			info->format = EMV_FORMAT_B;
 			return 1;
@@ -3600,6 +3627,109 @@ int emv_visa_form_factor_indicator_get_string_list(
 	}
 	if (ffi[3] & VISA_FFI_PAYMENT_TXN_TECHNOLOGY_RFU) {
 		emv_str_list_add(&itr, "Payment Transaction Technology: RFU");
+	}
+
+	return 0;
+}
+
+int emv_amex_enh_cl_reader_caps_get_string_list(
+	const uint8_t* enh_cl_reader_caps,
+	size_t enh_cl_reader_caps_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!enh_cl_reader_caps || !enh_cl_reader_caps_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (enh_cl_reader_caps_len != 4) {
+		// Amex Enhanced Contactless Reader Capabilities (field 9F6E) must be 4 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
+	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_CONTACT_SUPPORTED) {
+		emv_str_list_add(&itr, "Contact mode supported");
+	}
+	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_MAGSTRIPE_MODE_SUPPORTED) {
+		emv_str_list_add(&itr, "Contactless Mag-Stripe Mode supported");
+	}
+	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_FULL_ONLINE_MODE_SUPPORTED) {
+		emv_str_list_add(&itr, "Contactless EMV full online mode supported (legacy feature and no longer supported)");
+	}
+	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_PARTIAL_ONLINE_MODE_SUPPORTED) {
+		emv_str_list_add(&itr, "Contactless EMV partial online mode supported");
+	}
+	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_MOBILE_SUPPORTED) {
+		emv_str_list_add(&itr, "Contactless Mobile Supported");
+	}
+	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_TRY_ANOTHER_INTERFACE) {
+		emv_str_list_add(&itr, "Try Another Interface after a decline");
+	}
+	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_BYTE1_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+
+	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
+	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	if (enh_cl_reader_caps[1] & AMEX_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED) {
+		emv_str_list_add(&itr, "Mobile CVM supported");
+	}
+	if (enh_cl_reader_caps[1] & AMEX_ENH_CL_READER_CAPS_ONLINE_PIN_SUPPORTED) {
+		emv_str_list_add(&itr, "Online PIN supported");
+	}
+	if (enh_cl_reader_caps[1] & AMEX_ENH_CL_READER_CAPS_SIGNATURE_SUPPORTED) {
+		emv_str_list_add(&itr, "Signature supported");
+	}
+	if (enh_cl_reader_caps[1] & AMEX_ENH_CL_READER_CAPS_OFFLINE_PIN_SUPPORTED) {
+		emv_str_list_add(&itr, "Plaintext Offline PIN supported");
+	}
+	if (enh_cl_reader_caps[1] & AMEX_ENH_CL_READER_CAPS_BYTE2_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+
+	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
+	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	if (enh_cl_reader_caps[2] & AMEX_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER) {
+		emv_str_list_add(&itr, "Reader is offline only");
+	}
+	if (enh_cl_reader_caps[2] & AMEX_ENH_CL_READER_CAPS_CVM_REQUIRED) {
+		emv_str_list_add(&itr, "CVM Required");
+	}
+	if (enh_cl_reader_caps[2] & AMEX_ENH_CL_READER_CAPS_BYTE3_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+
+	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
+	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	if (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM) {
+		emv_str_list_add(&itr, "Terminal exempt from No CVM checks");
+	}
+	if (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_DELAYED_AUTHORISATION) {
+		emv_str_list_add(&itr, "Delayed Authorisation Terminal");
+	}
+	if (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_TRANSIT) {
+		emv_str_list_add(&itr, "Transit Terminal");
+	}
+	if (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_BYTE4_RFU) {
+		emv_str_list_add(&itr, "RFU");
+	}
+	switch (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_MASK) {
+		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_22_23: emv_str_list_add(&itr, "C-4 kernel version 2.2 - 2.3"); break;
+		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26: emv_str_list_add(&itr, "C-4 kernel version 2.4 - 2.6"); break;
+		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7"); break;
+		default: emv_str_list_add(&itr, "C-4 kernel version unknown"); break;
 	}
 
 	return 0;

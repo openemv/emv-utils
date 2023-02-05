@@ -325,6 +325,26 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_9F6E_test3_regex}
 	)
 
+	add_test(NAME emv_decode_9F6E_test4
+		COMMAND emv-decode --tlv 9F6E049CD04003
+	)
+	string(CONCAT emv_decode_9F6E_test4_regex
+		"^9F6E \\| Enhanced Contactless Reader Capabilities : \\[4\\] 9C D0 40 03[\r\n]"
+		"  - Contact mode supported[\r\n]"
+		"  - Contactless EMV partial online mode supported[\r\n]"
+		"  - Contactless Mobile Supported[\r\n]"
+		"  - Try Another Interface after a decline[\r\n]"
+		"  - Mobile CVM supported[\r\n]"
+		"  - Online PIN supported[\r\n]"
+		"  - Plaintext Offline PIN supported[\r\n]"
+		"  - CVM Required[\r\n]"
+		"  - C-4 kernel version 2.7[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F6E_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F6E_test4_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

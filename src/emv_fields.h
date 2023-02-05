@@ -413,6 +413,40 @@ __BEGIN_DECLS
 #define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_NOT_VCPS                (0x01) ///< Payment Transaction Technology: Not used in VCPS
 #define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_RFU                     (0xF0) ///< Payment Transaction Technology: RFU
 
+// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
+// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+#define AMEX_ENH_CL_READER_CAPS_CONTACT_SUPPORTED               (0x80) ///< Enhanced Contactless Reader Capabilities: Contact mode supported
+#define AMEX_ENH_CL_READER_CAPS_MAGSTRIPE_MODE_SUPPORTED        (0x40) ///< Enhanced Contactless Reader Capabilities: Contactless Mag-Stripe Mode supported
+#define AMEX_ENH_CL_READER_CAPS_FULL_ONLINE_MODE_SUPPORTED      (0x20) ///< Enhanced Contactless Reader Capabilities: Contactless EMV full online mode supported (legacy feature and no longer supported)
+#define AMEX_ENH_CL_READER_CAPS_PARTIAL_ONLINE_MODE_SUPPORTED   (0x10) ///< Enhanced Contactless Reader Capabilities: Contactless EMV partial online mode supported
+#define AMEX_ENH_CL_READER_CAPS_MOBILE_SUPPORTED                (0x08) ///< Enhanced Contactless Reader Capabilities: Contactless Mobile Supported
+#define AMEX_ENH_CL_READER_CAPS_TRY_ANOTHER_INTERFACE           (0x04) ///< Enhanced Contactless Reader Capabilities: Try Another Interface after a decline
+#define AMEX_ENH_CL_READER_CAPS_BYTE1_RFU                       (0x03) ///< Enhanced Contactless Reader Capabilities: RFU
+
+// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
+// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+#define AMEX_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED            (0x80) ///< Enhanced Contactless Reader Capabilities: Mobile CVM supported
+#define AMEX_ENH_CL_READER_CAPS_ONLINE_PIN_SUPPORTED            (0x40) ///< Enhanced Contactless Reader Capabilities: Online PIN supported
+#define AMEX_ENH_CL_READER_CAPS_SIGNATURE_SUPPORTED             (0x20) ///< Enhanced Contactless Reader Capabilities: Signature supported
+#define AMEX_ENH_CL_READER_CAPS_OFFLINE_PIN_SUPPORTED           (0x10) ///< Enhanced Contactless Reader Capabilities: Plaintext Offline PIN supported
+#define AMEX_ENH_CL_READER_CAPS_BYTE2_RFU                       (0x0F) ///< Enhanced Contactless Reader Capabilities: RFU
+
+// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
+// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+#define AMEX_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER             (0x80) ///< Enhanced Contactless Reader Capabilities: Reader is offline only
+#define AMEX_ENH_CL_READER_CAPS_CVM_REQUIRED                    (0x40) ///< Enhanced Contactless Reader Capabilities: CVM Required
+#define AMEX_ENH_CL_READER_CAPS_BYTE3_RFU                       (0x3F) ///< Enhanced Contactless Reader Capabilities: RFU
+
+// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
+// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+#define AMEX_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM              (0x80) ///< Enhanced Contactless Reader Capabilities: Terminal exempt from No CVM checks
+#define AMEX_ENH_CL_READER_CAPS_DELAYED_AUTHORISATION           (0x40) ///< Enhanced Contactless Reader Capabilities: Delayed Authorisation Terminal
+#define AMEX_ENH_CL_READER_CAPS_TRANSIT                         (0x20) ///< Enhanced Contactless Reader Capabilities: Transit Terminal
+#define AMEX_ENH_CL_READER_CAPS_BYTE4_RFU                       (0x18) ///< Enhanced Contactless Reader Capabilities: RFU
+#define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_MASK             (0x07) ///< Enhanced Contactless Reader Capabilities mask for C-4 kernel version
+#define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_22_23            (0x01) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.2 - 2.3
+#define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26            (0x02) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.4 - 2.6
+#define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27               (0x03) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.7
 
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {

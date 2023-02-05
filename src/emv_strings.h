@@ -532,6 +532,22 @@ int emv_visa_form_factor_indicator_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Amex Enhanced Contactless Reader Capabilities (field 9F6E)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param enh_cl_reader_caps Enhanced Contactless Reader Capabilities field. Must be 4 bytes.
+ * @param enh_cl_reader_caps_len Length of Enhanced Contactless Reader Capabilities field. Must be 4 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_amex_enh_cl_reader_caps_get_string_list(
+	const uint8_t* enh_cl_reader_caps,
+	size_t enh_cl_reader_caps_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif

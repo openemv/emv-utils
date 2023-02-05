@@ -63,6 +63,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_AMEX_CL_READER_CAPS,
 	EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA,
 	EMV_DECODE_FFI,
+	EMV_DECODE_AMEX_ENH_CL_READER_CAPS,
 	EMV_DECODE_ISO3166_1,
 	EMV_DECODE_ISO4217,
 	EMV_DECODE_ISO639,
@@ -105,6 +106,7 @@ static struct argp_option argp_options[] = {
 	{ "9F6D", EMV_DECODE_AMEX_CL_READER_CAPS, NULL, OPTION_ALIAS },
 	{ "mastercard-third-party-data", EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA, NULL, 0, "Decode Mastercard Third Party Data (field 9F6E)" },
 	{ "visa-ffi", EMV_DECODE_FFI, NULL, 0, "Decode Visa Form Factor Indicator (field 9F6E)" },
+	{ "amex-enh-cl-reader-caps", EMV_DECODE_AMEX_ENH_CL_READER_CAPS, NULL, 0, "Decode Amex Enhanced Contactless Reader Capabilities (field 9F6E)" },
 
 	{ NULL, 0, NULL, 0, "Other:", 4 },
 	{ "country", EMV_DECODE_ISO3166_1, NULL, 0, "Lookup country name by ISO 3166-1 alpha-2, alpha-3 or numeric code" },
@@ -198,6 +200,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_AMEX_CL_READER_CAPS:
 		case EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA:
 		case EMV_DECODE_FFI:
+		case EMV_DECODE_AMEX_ENH_CL_READER_CAPS:
 		case EMV_DECODE_ISO3166_1:
 		case EMV_DECODE_ISO4217:
 		case EMV_DECODE_ISO639:
@@ -565,6 +568,24 @@ int main(int argc, char** argv)
 			r = emv_visa_form_factor_indicator_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse Visa Form Factor Indicator (field 9F6E)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_AMEX_ENH_CL_READER_CAPS: {
+			char str[2048];
+
+			if (data_len != 4) {
+				fprintf(stderr, "Amex Enhanced Contactless Reader Capabilities (field 9F6E) must be exactly 4 bytes\n");
+				break;
+			}
+
+			r = emv_amex_enh_cl_reader_caps_get_string_list(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse Amex Enhanced Contactless Reader Capabilities (field 9F6E)\n");
 				break;
 			}
 			printf("%s", str); // No \n required for string list
