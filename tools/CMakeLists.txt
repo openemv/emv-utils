@@ -103,9 +103,38 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	add_test(NAME emv_decode_test1
 		COMMAND emv-decode --atr 3BDA18FF81B1FE751F030031F573C78A40009000B0
 	)
+	string(CONCAT emv_decode_test1_regex
+		"^ATR: 3BDA18FF81B1FE751F030031F573C78A40009000B0[\r\n]"
+		"  TS  = 0x3B: Direct convention[\r\n]"
+		"  T0  = 0xDA: Y1=TA1,TC1,TD1\\\\; K=10[\r\n]"
+		"  ----[\r\n]"
+		"  TA1 = 0x18: Fi=372\\\\; Di=12\\\\; 31 cycles/ETU @ max 5.0MHz\\\\; max 161290 bit/s[\r\n]"
+		"  TB1 absent: Vpp is not connected[\r\n]"
+		"  TC1 = 0xFF: N=255\\\\; GT=11[\r\n]"
+		"  TD1 = 0x81: Y2=TD2\\\\; Protocol T=1[\r\n]"
+		"  ----[\r\n]"
+		"  TA2 absent: Negotiable mode[\r\n]"
+		"  TB2 absent: Vpp is not connected[\r\n]"
+		"  TC2 absent: WI=10\\\\; WT=115200[\r\n]"
+		"  TD2 = 0xB1: Y3=TA3,TB3,TD3\\\\; Protocol T=1[\r\n]"
+		"  ----[\r\n]"
+		"  TA3 = 0xFE: IFSI=254[\r\n]"
+		"  TB3 = 0x75: CWT=43\\\\; BWT=1474571[\r\n]"
+		"  TD3 = 0x1F: Y4=TA4\\\\; Global \\(T=15\\)[\r\n]"
+		"  ----[\r\n]"
+		"  TA4 = 0x03: Clock stop: Not supported\\\\; Class: A \\(5V\\), B \\(3V\\)[\r\n]"
+		"  ----[\r\n]"
+		"  T1  = 0x00: COMPACT-TLV followed by mandatory status indicator[\r\n]"
+		".*"
+		"  ----[\r\n]"
+		"  LCS = 00: No information given[\r\n]"
+		"  SW  = 9000: \\(Normal\\)[\r\n]"
+		"  ----[\r\n]"
+		"  TCK = 0xB0[\r\n]"
+	)
 	set_tests_properties(emv_decode_test1
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION "^ATR: 3BDA18FF81B1FE751F030031F573C78A40009000B0[\r\n]  TS  = 0x3B: Direct convention.*  TCK = 0xB0[\r\n]"
+			PASS_REGULAR_EXPRESSION ${emv_decode_test1_regex}
 	)
 
 	add_test(NAME emv_decode_test2
@@ -159,121 +188,154 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	add_test(NAME emv_decode_test8
 		COMMAND emv-decode --tlv 701A9F390105571040123456789095D2512201197339300F82025900
 	)
+	string(CONCAT emv_decode_test8_regex
+		"^70 \\| EMV Data Template : \\[26\\][\r\n]"
+		"  9F39 \\| Point-of-Service \\(POS\\) Entry Mode : \\[1\\] 05 \\(Integrated circuit card \\(ICC\\)\\. CVV can be checked\\.\\)[\r\n]"
+		"  57 \\| Track 2 Equivalent Data : \\[16\\] 40 12 34 56 78 90 95 D2 51 22 01 19 73 39 30 0F \\(40123456789095=2512201197339300\\)[\r\n]"
+		"  82 \\| Application Interchange Profile \\(AIP\\) : \\[2\\] 59 00[\r\n]"
+	)
 	set_tests_properties(emv_decode_test8
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION "^70 \\| EMV Data Template : \\[26\\][\r\n]  9F39 \\| Point-of-Service \\(POS\\) Entry Mode : \\[1\\] 05 \\(Integrated circuit card \\(ICC\\)\\. CVV can be checked\\.\\)[\r\n]  57 \\| Track 2 Equivalent Data : \\[16\\] 40 12 34 56 78 90 95 D2 51 22 01 19 73 39 30 0F \\(40123456789095=2512201197339300\\)[\r\n]  82 \\| Application Interchange Profile \\(AIP\\) : \\[2\\] 59 00[\r\n]"
+			PASS_REGULAR_EXPRESSION ${emv_decode_test8_regex}
 	)
 
-	add_test(NAME emv_decode_test9
+	add_test(NAME emv_decode_country_test1
 		COMMAND emv-decode --country 528
 	)
-	set_tests_properties(emv_decode_test9
+	set_tests_properties(emv_decode_country_test1
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^Netherlands"
 	)
 
-	add_test(NAME emv_decode_test10
+	add_test(NAME emv_decode_country_test2
 		COMMAND emv-decode --iso3166-1 GBR
 	)
-	set_tests_properties(emv_decode_test10
+	set_tests_properties(emv_decode_country_test2
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^United Kingdom"
 	)
 
-	add_test(NAME emv_decode_test11
+	add_test(NAME emv_decode_country_test3
 		COMMAND emv-decode --country US
 	)
-	set_tests_properties(emv_decode_test11
+	set_tests_properties(emv_decode_country_test3
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^United States"
 	)
 
-	add_test(NAME emv_decode_test12
+	add_test(NAME emv_decode_currency_test1
 		COMMAND emv-decode --currency 978
 	)
-	set_tests_properties(emv_decode_test12
+	set_tests_properties(emv_decode_currency_test1
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^Euro"
 	)
 
-	add_test(NAME emv_decode_test13
+	add_test(NAME emv_decode_currency_test2
 		COMMAND emv-decode --iso4217 HKD
 	)
-	set_tests_properties(emv_decode_test13
+	set_tests_properties(emv_decode_currency_test2
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^Hong Kong Dollar"
 	)
 
-	add_test(NAME emv_decode_test14
+	add_test(NAME emv_decode_currency_test3
 		COMMAND emv-decode --currency 826
 	)
-	set_tests_properties(emv_decode_test14
+	set_tests_properties(emv_decode_currency_test3
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^Pound Sterling"
 	)
 
-	add_test(NAME emv_decode_test15
+	add_test(NAME emv_decode_language_test1
 		COMMAND emv-decode --language fr
 	)
-	set_tests_properties(emv_decode_test15
+	set_tests_properties(emv_decode_language_test1
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^French"
 	)
 
-	add_test(NAME emv_decode_test16
+	add_test(NAME emv_decode_language_test2
 		COMMAND emv-decode --iso639 zh
 	)
-	set_tests_properties(emv_decode_test16
+	set_tests_properties(emv_decode_language_test2
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^Chinese"
 	)
 
-	add_test(NAME emv_decode_test17
+	add_test(NAME emv_decode_language_test3
 		COMMAND emv-decode --language wln
 	)
-	set_tests_properties(emv_decode_test17
+	set_tests_properties(emv_decode_language_test3
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "^Walloon"
 	)
 
-	add_test(NAME emv_decode_test18
+	add_test(NAME emv_decode_9F3B_test1
 		COMMAND emv-decode --tlv 9F3B06097808260840
 	)
-	set_tests_properties(emv_decode_test18
+	string(CONCAT emv_decode_9F3B_test1_regex
+		"^9F3B \\| Application Reference Currency : \\[6\\] 09 78 08 26 08 40[\r\n]"
+		"  - Euro[\r\n]"
+		"  - Pound Sterling[\r\n]"
+		"  - US Dollar[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F3B_test1
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION "^9F3B \\| Application Reference Currency : \\[6\\] 09 78 08 26 08 40[\r\n]  - Euro[\r\n]  - Pound Sterling[\r\n]  - US Dollar[\r\n]"
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F3B_test1_regex}
 	)
 
-	add_test(NAME emv_decode_test19
+	add_test(NAME emv_decode_9F3B_test2
 		COMMAND emv-decode --tlv 9F3B06097801230840
 	)
-	set_tests_properties(emv_decode_test19
+	string(CONCAT emv_decode_9F3B_test2_regex
+		"^9F3B \\| Application Reference Currency : \\[6\\] 09 78 01 23 08 40[\r\n]"
+		"  - Euro[\r\n]"
+		"  - Unknown[\r\n]"
+		"  - US Dollar[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F3B_test2
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION "^9F3B \\| Application Reference Currency : \\[6\\] 09 78 01 23 08 40[\r\n]  - Euro[\r\n]  - Unknown[\r\n]  - US Dollar[\r\n]"
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F3B_test2_regex}
 	)
 
-	add_test(NAME emv_decode_test20
+	add_test(NAME emv_decode_5F2D_test1
 		COMMAND emv-decode --tlv 5F2D04656E6672
 	)
-	set_tests_properties(emv_decode_test20
+	string(CONCAT emv_decode_5F2D_test1_regex
+		"^5F2D \\| Language Preference : \\[4\\] 65 6E 66 72[\r\n]"
+		"  - English[\r\n]"
+		"  - French[\r\n]"
+	)
+	set_tests_properties(emv_decode_5F2D_test1
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION "^5F2D \\| Language Preference : \\[4\\] 65 6E 66 72[\r\n]  - English[\r\n]  - French[\r\n]"
+			PASS_REGULAR_EXPRESSION ${emv_decode_5F2D_test1_regex}
 	)
 
-	add_test(NAME emv_decode_test21
+	add_test(NAME emv_decode_5F2D_test2
 		COMMAND emv-decode --tlv 5F2D04454E4652
 	)
-	set_tests_properties(emv_decode_test21
+	string(CONCAT emv_decode_5F2D_test2_regex
+		"^5F2D \\| Language Preference : \\[4\\] 45 4E 46 52[\r\n]"
+		"  - English[\r\n]"
+		"  - French[\r\n]"
+	)
+	set_tests_properties(emv_decode_5F2D_test2
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION "^5F2D \\| Language Preference : \\[4\\] 45 4E 46 52[\r\n]  - English[\r\n]  - French[\r\n]"
+			PASS_REGULAR_EXPRESSION ${emv_decode_5F2D_test2_regex}
 	)
 
-	add_test(NAME emv_decode_test22
+	add_test(NAME emv_decode_5F2D_test3
 		COMMAND emv-decode --tlv 5F2D04656EFFFF
 	)
-	set_tests_properties(emv_decode_test22
+	string(CONCAT emv_decode_5F2D_test3_regex
+		"^5F2D \\| Language Preference : \\[4\\] 65 6E FF FF[\r\n]"
+		"  - English[\r\n]"
+		"  - Unknown[\r\n]"
+	)
+	set_tests_properties(emv_decode_5F2D_test3
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION "^5F2D \\| Language Preference : \\[4\\] 65 6E FF FF[\r\n]  - English[\r\n]  - Unknown[\r\n]"
+			PASS_REGULAR_EXPRESSION ${emv_decode_5F2D_test3_regex}
 	)
 
 	add_test(NAME emv_decode_9F6E_test1
