@@ -249,7 +249,7 @@ int emv_tlv_get_info(
 		case EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX:
 			info->tag_name = "Certification Authority Public Key Index";
 			info->tag_desc =
-				"Identifies the certification authority’s public key in "
+				"Identifies the certification authority's public key in "
 				"conjunction with the RID";
 			info->format = EMV_FORMAT_B;
 			return 0;
@@ -481,7 +481,7 @@ int emv_tlv_get_info(
 		case EMV_TAG_9F07_APPLICATION_USAGE_CONTROL:
 			info->tag_name = "Application Usage Control";
 			info->tag_desc =
-				"Indicates issuer’s specified restrictions on the geographic "
+				"Indicates issuer's specified restrictions on the geographic "
 				"usage and services allowed for the application";
 			info->format = EMV_FORMAT_B;
 			return emv_app_usage_control_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
@@ -522,7 +522,7 @@ int emv_tlv_get_info(
 		case EMV_TAG_9F0F_ISSUER_ACTION_CODE_ONLINE:
 			info->tag_name = "Issuer Action Code (IAC) - Online";
 			info->tag_desc =
-				"Specifies the issuer’s conditions that cause a transaction "
+				"Specifies the issuer's conditions that cause a transaction "
 				"to be transmitted online";
 			info->format = EMV_FORMAT_B;
 			return emv_tvr_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
@@ -871,7 +871,7 @@ int emv_tlv_get_info(
 					"A proprietary data element with bits 8, 7, and 4 only "
 					"used to indicate a terminal's capability to support "
 					"Kernel 4 mag-stripe or EMV contactless. This data "
-					"element is OR’d with Terminal Type, Tag '9F35', "
+					"element is OR'd with Terminal Type, Tag '9F35', "
 					"resulting in a modified Tag '9F35', which is passed to "
 					"the card when requested.";
 				info->format = EMV_FORMAT_B;
