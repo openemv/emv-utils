@@ -58,6 +58,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_CVM_RESULTS,
 	EMV_DECODE_TVR,
 	EMV_DECODE_TSI,
+	EMV_DECODE_IAD,
 	EMV_DECODE_TTQ,
 	EMV_DECODE_CTQ,
 	EMV_DECODE_AMEX_CL_READER_CAPS,
@@ -98,6 +99,8 @@ static struct argp_option argp_options[] = {
 	{ "95", EMV_DECODE_TVR, NULL, OPTION_ALIAS },
 	{ "tsi", EMV_DECODE_TSI, NULL, 0, "Decode Transaction Status Information (field 9B)" },
 	{ "9B", EMV_DECODE_TSI, NULL, OPTION_ALIAS },
+	{ "issuer-app-data", EMV_DECODE_IAD, NULL, 0, "Decode Issuer Application Data (field 9F10)" },
+	{ "9F10", EMV_DECODE_IAD, NULL, OPTION_ALIAS },
 	{ "ttq", EMV_DECODE_TTQ, NULL, 0, "Decode Terminal Transaction Qualifiers (field 9F66)" },
 	{ "9F66", EMV_DECODE_TTQ, NULL, OPTION_ALIAS },
 	{ "ctq", EMV_DECODE_CTQ, NULL, 0, "Decode Card Transaction Qualifiers (field 9F6C)" },
@@ -195,6 +198,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_CVM_RESULTS:
 		case EMV_DECODE_TVR:
 		case EMV_DECODE_TSI:
+		case EMV_DECODE_IAD:
 		case EMV_DECODE_TTQ:
 		case EMV_DECODE_CTQ:
 		case EMV_DECODE_AMEX_CL_READER_CAPS:
@@ -478,6 +482,24 @@ int main(int argc, char** argv)
 			r = emv_tsi_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Transaction Status Information (field 9B)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_IAD: {
+			char str[2048];
+
+			if (data_len > 32) {
+				fprintf(stderr, "EMV Issuer Application Data (field 9F10) may be up to 32 bytes\n");
+				break;
+			}
+
+			r = emv_iad_get_string_list(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse EMV Issuer Application Data (field 9F10)\n");
 				break;
 			}
 			printf("%s", str); // No \n required for string list

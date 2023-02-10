@@ -533,7 +533,7 @@ int emv_tlv_get_info(
 				"Contains proprietary application data for transmission to "
 				"the issuer in an online transaction.";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_iad_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX:
 			info->tag_name = "Issuer Code Table Index";
@@ -3025,6 +3025,104 @@ int emv_tsi_get_string_list(
 	}
 	if (tsi[0] & EMV_TSI_BYTE1_RFU || tsi[1] & EMV_TSI_BYTE2_RFU) {
 		emv_str_list_add(&itr, "RFU");
+	}
+
+	return 0;
+}
+
+int emv_iad_get_string_list(
+	const uint8_t* iad,
+	size_t iad_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+	enum emv_iad_format_t iad_format;
+
+	if (!iad || !iad_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (iad_len > 32) {
+		// Issuer Application Data (field 9F10) must be 1 to 32 bytes.
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	iad_format = emv_iad_get_format(iad, iad_len);
+
+	// Stringify issuer application type
+	switch (iad_format) {
+		case EMV_IAD_FORMAT_INVALID:
+			emv_str_list_add(&itr, "Invalid IAD format");
+			return -1;
+
+		case EMV_IAD_FORMAT_CCD:
+			emv_str_list_add(&itr, "Application: CCD-Compliant");
+			break;
+
+		case EMV_IAD_FORMAT_MCHIP4:
+			emv_str_list_add(&itr, "Application: M/Chip 4");
+			break;
+
+		case EMV_IAD_FORMAT_MCHIP_ADVANCE:
+			emv_str_list_add(&itr, "Application: M/Chip Advance");
+			break;
+
+		case EMV_IAD_FORMAT_VSDC_0:
+		case EMV_IAD_FORMAT_VSDC_1:
+		case EMV_IAD_FORMAT_VSDC_2:
+		case EMV_IAD_FORMAT_VSDC_3:
+		case EMV_IAD_FORMAT_VSDC_4:
+			emv_str_list_add(&itr, "Application: Visa Smart Debit/Credit (VSDC)");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Unknown IAD format");
+			return 0;
+	}
+
+	// Stringify IAD format
+	switch (iad_format) {
+		case EMV_IAD_FORMAT_CCD:
+			emv_str_list_add(&itr, "IAD Format: CCD Version 4.1");
+			break;
+
+		case EMV_IAD_FORMAT_MCHIP4:
+		case EMV_IAD_FORMAT_MCHIP_ADVANCE:
+			// No explicit IAD format version for M/Chip
+			break;
+
+		case EMV_IAD_FORMAT_VSDC_0:
+			emv_str_list_add(&itr, "IAD Format: 0");
+			break;
+
+		case EMV_IAD_FORMAT_VSDC_1:
+			emv_str_list_add(&itr, "IAD Format: 1");
+			break;
+
+		case EMV_IAD_FORMAT_VSDC_2:
+			emv_str_list_add(&itr, "IAD Format: 2");
+			break;
+
+		case EMV_IAD_FORMAT_VSDC_3:
+			emv_str_list_add(&itr, "IAD Format: 3");
+			break;
+
+		case EMV_IAD_FORMAT_VSDC_4:
+			emv_str_list_add(&itr, "IAD Format: 4");
+			break;
+
+		default:
+			return -1;
+
 	}
 
 	return 0;

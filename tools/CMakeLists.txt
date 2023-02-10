@@ -407,6 +407,64 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_9F6E_test4_regex}
 	)
 
+	add_test(NAME emv_decode_IAD_test1
+		COMMAND emv-decode --issuer-app-data 0FA526A83100000000000001500000000F240000000000000000000000000000
+	)
+	string(CONCAT emv_decode_IAD_test1_regex
+		"^Application: CCD-Compliant[\r\n]"
+		"IAD Format: CCD Version 4.1[\r\n]"
+	)
+	set_tests_properties(emv_decode_IAD_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_IAD_test1_regex}
+	)
+
+	add_test(NAME emv_decode_IAD_test2
+		COMMAND emv-decode --issuer-app-data 0110A04003223000000000001126980002FF
+	)
+	string(CONCAT emv_decode_IAD_test2_regex
+		"^Application: M/Chip 4[\r\n]"
+	)
+	set_tests_properties(emv_decode_IAD_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_IAD_test2_regex}
+	)
+
+	add_test(NAME emv_decode_IAD_test3
+		COMMAND emv-decode --issuer-app-data 0110A04203A20000000000000000000000FF00000000000000FF
+	)
+	string(CONCAT emv_decode_IAD_test3_regex
+		"^Application: M/Chip Advance[\r\n]"
+	)
+	set_tests_properties(emv_decode_IAD_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_IAD_test3_regex}
+	)
+
+	add_test(NAME emv_decode_IAD_test4
+		COMMAND emv-decode --issuer-app-data 06011203A000000F0300001030800000046920AE952C48
+	)
+	string(CONCAT emv_decode_IAD_test4_regex
+		"^Application: Visa Smart Debit/Credit \\(VSDC\\)[\r\n]"
+		"IAD Format: 1[\r\n]"
+	)
+	set_tests_properties(emv_decode_IAD_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_IAD_test4_regex}
+	)
+
+	add_test(NAME emv_decode_IAD_test5
+		COMMAND emv-decode --issuer-app-data 1F43FE82A0000000000000000003075300000000000000000000000000000000
+	)
+	string(CONCAT emv_decode_IAD_test5_regex
+		"^Application: Visa Smart Debit/Credit \\(VSDC\\)[\r\n]"
+		"IAD Format: 4[\r\n]"
+	)
+	set_tests_properties(emv_decode_IAD_test5
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_IAD_test5_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

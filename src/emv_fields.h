@@ -311,6 +311,56 @@ __BEGIN_DECLS
 // See EMV 4.4 Book 3, Annex C6, Table 47
 #define EMV_TSI_BYTE2_RFU                                       (0xFF) ///< Transaction Status Information: RFU
 
+/// Issuer Application Data (field 9F10) formats
+enum emv_iad_format_t {
+	EMV_IAD_FORMAT_INVALID = -1, ///< Invalid IAD format
+	EMV_IAD_FORMAT_UNKNOWN = 0, ///< Unknown IAD format
+	EMV_IAD_FORMAT_CCD, ///< CCD Version 4.1 IAD Format
+	EMV_IAD_FORMAT_MCHIP4, ///< Mastercard M/Chip 4 IAD Format
+	EMV_IAD_FORMAT_MCHIP_ADVANCE, ///< Mastercard M/Chip Advance IAD Format
+	EMV_IAD_FORMAT_VSDC_0, ///< Visa Smart Debit/Credit (VSDC) IAD Format 0
+	EMV_IAD_FORMAT_VSDC_1, ///< Visa Smart Debit/Credit (VSDC) IAD Format 1
+	EMV_IAD_FORMAT_VSDC_2, ///< Visa Smart Debit/Credit (VSDC) IAD Format 2
+	EMV_IAD_FORMAT_VSDC_3, ///< Visa Smart Debit/Credit (VSDC) IAD Format 3
+	EMV_IAD_FORMAT_VSDC_4, ///< Visa Smart Debit/Credit (VSDC) IAD Format 4
+};
+
+// Issuer Application Data (field 9F10) for Common Core Definitions (CCD) compliant applications
+// See EMV 4.4 Book 3, Annex C9.1, Table CCD 8
+// See EMV 4.4 Book 3, Annex C9.2, Table CCD 9
+#define EMV_IAD_CCD_LEN                                         (32) ///< Length of Issuer Application Data in bytes
+#define EMV_IAD_CCD_BYTE1                                       (0x0F) ///< Issuer Application Data: Byte 1 value
+#define EMV_IAD_CCD_BYTE17                                      (0x0F) ///< Issuer Application Data: Byte 17 value
+#define EMV_IAD_CCD_CCI_FC_MASK                                 (0xF0) ///< Issuer Application Data mask for Common Core IAD Format Code (FC)
+#define EMV_IAD_CCD_CCI_FC_4_1                                  (0xA0) ///< Common Core IAD Format Code (FC): CCD Version 4.1 IAD Format
+#define EMV_IAD_CCD_CCI_CV_MASK                                 (0x0F) ///< Issuer Application Data mask for Common Core Cryptogram Version (CV)
+#define EMV_IAD_CCD_CCI_CV_4_1_TDES                             (0x05) ///< Common Core Cryptogram Version (CV): CCD Version 4.1 Cryptogram Version for TDES
+#define EMV_IAD_CCD_CCI_CV_4_1_AES                              (0x06) ///< Common Core Cryptogram Version (CV): CCD Version 4.1 Cryptogram Version for AES
+
+// Issuer Application Data (field 9F10) for Mastercard M/Chip applications
+// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Appendix B, Issuer Application Data, 9F10
+#define EMV_IAD_MCHIP4_LEN                                      (18) ///< Length of M/Chip 4 Issuer Application Data
+#define EMV_IAD_MCHIPADV_LEN_18                                 (18) ///< Length of M/Chip Advance Issuer Application Data
+#define EMV_IAD_MCHIPADV_LEN_20                                 (20) ///< Length of M/Chip Advance Issuer Application Data
+#define EMV_IAD_MCHIPADV_LEN_26                                 (26) ///< Length of M/Chip Advance Issuer Application Data
+#define EMV_IAD_MCHIPADV_LEN_28                                 (28) ///< Length of M/Chip Advance Issuer Application Data
+
+// Cryptogram Version Number (CVN) for Mastercard M/Chip applications
+#define EMV_IAD_MCHIP_CVN_MASK                                  (0xF0) ///< M/Chip Cryptogram Version Number (CVN) mask for version magic
+#define EMV_IAD_MCHIP_CVN_VERSION_MAGIC                         (0x10) ///< M/Chip Cryptogram Version Number (CVN): Version magic number
+#define EMV_IAD_MCHIP_CVN_RFU                                   (0x08) ///< M/Chip Cryptogram Version Number (CVN): RFU
+#define EMV_IAD_MCHIP_CVN_SESSION_KEY_MASK                      (0x06) ///< M/Chip Cryptogram Version Number (CVN) mask for session key
+
+// Issuer Application Data (field 9F10) for Visa Smart Debit/Credit (VSDC) applications
+// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Appendix M
+#define EMV_IAD_VSDC_0_1_3_MIN_LEN                              (7) ///< Minimum length of Issuer Application Data for VSDC IAD format 0/1/3
+#define EMV_IAD_VSDC_0_1_3_BYTE1                                (0x06) ///< Issuer Application Data: Byte 1 value for VSDC IAD Format 0/1/3
+#define EMV_IAD_VSDC_2_4_LEN                                    (32) ///< Length of Issuer Application Data for VSDC IAD format 2/4
+#define EMV_IAD_VSDC_2_4_BYTE1                                  (0x1F) ///< Issuer Application Data: Byte 1 value for VSDC IAD Format 2/4
+#define EMV_IAD_VSDC_CVN_FORMAT_MASK                            (0xF0) ///< Cryptogram Version Number (CVN) mask for VSDC IAD format
+#define EMV_IAD_VSDC_CVN_FORMAT_SHIFT                           (4) ///< Cryptogram Version Number (CVN) shift for VSDC IAD format
+#define EMV_IAD_VSDC_0_1_3_CVR_LEN                              (3) ///< Length of Card Verification Results (CVR) for VSDC IAD Format 0/1/3
+
 // Terminal Transaction Qualifiers (field 9F66) byte 1
 // See EMV Contactless Book A v2.10, 5.7, Table 5-4
 // See EMV Contactless Book C-3 v2.10, Annex A.2
@@ -520,6 +570,14 @@ int emv_cvmlist_itr_init(
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int emv_cvmlist_itr_next(struct emv_cvmlist_itr_t* itr, struct emv_cv_rule_t* rule);
+
+/**
+ * Determine Issuer Application Data (field 9F10) format
+ * @param iad Issuer Application Data (IAD) field. Must be 1 to 32 bytes.
+ * @param iad_len Length of Issuer Application Data (IAD) field. Must be 1 to 32 bytes.
+ * @return Issuer Application Data (IAD) format. See @ref emv_iad_format_t
+ */
+enum emv_iad_format_t emv_iad_get_format(const uint8_t* iad, size_t iad_len);
 
 __END_DECLS
 

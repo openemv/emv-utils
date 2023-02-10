@@ -205,7 +205,7 @@ __BEGIN_DECLS
 /// EMV tag 9F0F Issuer Action Code (IAC) - Online. Template 70 or 77.
 #define EMV_TAG_9F0F_ISSUER_ACTION_CODE_ONLINE                  (0x9F0F)
 
-/// EMV tag 9F10 Issuer Application Data. Template 77 or 80.
+/// EMV tag 9F10 Issuer Application Data (IAD). Template 77 or 80.
 #define EMV_TAG_9F10_ISSUER_APPLICATION_DATA                    (0x9F10)
 
 /// EMV tag 9F11 Issuer Code Table Index. Template A5.

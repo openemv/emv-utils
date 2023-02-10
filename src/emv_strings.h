@@ -455,6 +455,22 @@ int emv_tsi_get_string_list(
 );
 
 /**
+ * Stringify Issuer Application Data (field 9F10)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param iad Issuer Application Data (IAD) field. Must be 1 to 32 bytes.
+ * @param iad_len Length of Issuer Application Data (IAD) field. Must be 1 to 32 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_iad_get_string_list(
+	const uint8_t* iad,
+	size_t iad_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Terminal Transaction Qualifiers (field 9F66)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param ttq Terminal Transaction Qualifiers (TTQ) field. Must be 4 bytes.
