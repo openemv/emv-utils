@@ -413,6 +413,8 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	string(CONCAT emv_decode_IAD_test1_regex
 		"^Application: CCD-Compliant[\r\n]"
 		"IAD Format: CCD Version 4.1[\r\n]"
+		"Cryptogram Version: TDES[\r\n]"
+		"Derivation Key Index \\(DKI\\): 26[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test1
 		PROPERTIES
@@ -424,6 +426,10 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 	string(CONCAT emv_decode_IAD_test2_regex
 		"^Application: M/Chip 4[\r\n]"
+		"Derivation Key Index \\(DKI\\): 01[\r\n]"
+		"Cryptogram Version Number \\(CVN\\): 10[\r\n]"
+		"Cryptogram: Mastercard Proprietary SKD session key[\r\n]"
+		"Cryptogram: Counters not included in AC data[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test2
 		PROPERTIES
@@ -435,6 +441,10 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 	string(CONCAT emv_decode_IAD_test3_regex
 		"^Application: M/Chip Advance[\r\n]"
+		"Derivation Key Index \\(DKI\\): 01[\r\n]"
+		"Cryptogram Version Number \\(CVN\\): 10[\r\n]"
+		"Cryptogram: Mastercard Proprietary SKD session key[\r\n]"
+		"Cryptogram: Counters not included in AC data[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test3
 		PROPERTIES
@@ -447,6 +457,8 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	string(CONCAT emv_decode_IAD_test4_regex
 		"^Application: Visa Smart Debit/Credit \\(VSDC\\)[\r\n]"
 		"IAD Format: 1[\r\n]"
+		"Derivation Key Index \\(DKI\\): 01[\r\n]"
+		"Cryptogram Version Number \\(CVN\\): 12 \\(CVN18\\)[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test4
 		PROPERTIES
@@ -459,6 +471,8 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	string(CONCAT emv_decode_IAD_test5_regex
 		"^Application: Visa Smart Debit/Credit \\(VSDC\\)[\r\n]"
 		"IAD Format: 4[\r\n]"
+		"Cryptogram Version Number \\(CVN\\): 43 \\(CVN'43'\\)[\r\n]"
+		"Derivation Key Index \\(DKI\\): FE[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test5
 		PROPERTIES

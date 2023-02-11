@@ -350,6 +350,9 @@ enum emv_iad_format_t {
 #define EMV_IAD_MCHIP_CVN_VERSION_MAGIC                         (0x10) ///< M/Chip Cryptogram Version Number (CVN): Version magic number
 #define EMV_IAD_MCHIP_CVN_RFU                                   (0x08) ///< M/Chip Cryptogram Version Number (CVN): RFU
 #define EMV_IAD_MCHIP_CVN_SESSION_KEY_MASK                      (0x06) ///< M/Chip Cryptogram Version Number (CVN) mask for session key
+#define EMV_IAD_MCHIP_CVN_SESSION_KEY_MASTERCARD_SKD            (0x00) ///< M/Chip Cryptogram: Mastercard Proprietary SKD session key
+#define EMV_IAD_MCHIP_CVN_SESSION_KEY_EMV_CSK                   (0x04) ///< M/Chip Cryptogram: EMV CSK session key
+#define EMV_IAD_MCHIP_CVN_COUNTERS_INCLUDED                     (0x01) ///< M/Chip Cryptogram: Counter included in AC data
 
 // Issuer Application Data (field 9F10) for Visa Smart Debit/Credit (VSDC) applications
 // See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Appendix M

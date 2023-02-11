@@ -47,6 +47,10 @@ static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_l
 static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
+static int emv_iad_ccd_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
+static int emv_iad_mchip_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
+static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
+static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static const char* emv_mastercard_device_type_get_string(const char* device_type);
 
 int emv_strings_init(void)
@@ -3030,6 +3034,149 @@ int emv_tsi_get_string_list(
 	return 0;
 }
 
+static int emv_iad_ccd_append_string_list(
+	const uint8_t* iad,
+	size_t iad_len,
+	struct str_itr_t* itr
+)
+{
+	// Issuer Application Data for a CCD-Compliant Application
+	// See EMV 4.4 Book 3, Annex C9
+	if (!iad ||
+		iad_len != EMV_IAD_CCD_LEN ||
+		iad[0] != EMV_IAD_CCD_BYTE1 ||
+		iad[16] != EMV_IAD_CCD_BYTE17
+	) {
+		return -1;
+	}
+
+	// Common Core Identifier, Cryptogram Version
+	// See EMV 4.4 Book 3, Annex C9.1
+	switch (iad[1] & EMV_IAD_CCD_CCI_CV_MASK) {
+		case EMV_IAD_CCD_CCI_CV_4_1_TDES:
+			emv_str_list_add(itr, "Cryptogram Version: TDES");
+			break;
+
+		case EMV_IAD_CCD_CCI_CV_4_1_AES:
+			emv_str_list_add(itr, "Cryptogram Version: AES");
+			break;
+
+		default:
+			emv_str_list_add(itr, "Cryptogram Version: Unknown");
+			return 1;
+	}
+
+	// Derivation Key Index
+	// See EMV 4.4 Book 3, Annex C9.2
+	emv_str_list_add(itr, "Derivation Key Index (DKI): %02X", iad[2]);
+
+	return 0;
+}
+
+static int emv_iad_mchip_append_string_list(
+	const uint8_t* iad,
+	size_t iad_len,
+	struct str_itr_t* itr
+)
+{
+	// Issuer Application Data for M/Chip 4 and M/Chip Advance
+	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Appendix B, Issuer Application Data, 9F10
+	if (!iad ||
+		(
+			iad_len != EMV_IAD_MCHIP4_LEN &&
+			iad_len != EMV_IAD_MCHIPADV_LEN_20 &&
+			iad_len != EMV_IAD_MCHIPADV_LEN_26 &&
+			iad_len != EMV_IAD_MCHIPADV_LEN_28
+		) ||
+		(iad[1] & EMV_IAD_MCHIP_CVN_MASK) != EMV_IAD_MCHIP_CVN_VERSION_MAGIC ||
+		!!(iad[1] & EMV_IAD_MCHIP_CVN_RFU) ||
+		!!(iad[1] & 0x02) // Unused bit of EMV_IAD_MCHIP_CVN_SESSION_KEY_MASK
+	) {
+		return -1;
+	}
+
+	// Derivation Key Index
+	emv_str_list_add(itr, "Derivation Key Index (DKI): %02X", iad[0]);
+
+	// Cryptogram Version Number
+	emv_str_list_add(itr, "Cryptogram Version Number (CVN): %02X", iad[1]);
+	switch (iad[1] & EMV_IAD_MCHIP_CVN_SESSION_KEY_MASK) {
+		case EMV_IAD_MCHIP_CVN_SESSION_KEY_MASTERCARD_SKD:
+			emv_str_list_add(itr, "Cryptogram: Mastercard Proprietary SKD session key");
+			break;
+
+		case EMV_IAD_MCHIP_CVN_SESSION_KEY_EMV_CSK:
+			emv_str_list_add(itr, "Cryptogram: EMV CSK session key");
+			break;
+
+		default:
+			emv_str_list_add(itr, "Cryptogram: Unknown session key");
+			return 1;
+	}
+	if (iad[1] & EMV_IAD_MCHIP_CVN_COUNTERS_INCLUDED) {
+		emv_str_list_add(itr, "Cryptogram: Counter included in AC data");
+	} else {
+		emv_str_list_add(itr, "Cryptogram: Counters not included in AC data");
+	}
+
+	return 0;
+}
+
+static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr)
+{
+	// Issuer Application Data (field 9F10) for Visa Smart Debit/Credit (VSDC)
+	// applications using IAD format 0/1/3
+	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Appendix M
+	if (!iad ||
+		iad_len < EMV_IAD_VSDC_0_1_3_MIN_LEN ||
+		iad[0] != EMV_IAD_VSDC_0_1_3_BYTE1 ||
+		iad[3] != EMV_IAD_VSDC_0_1_3_CVR_LEN ||
+		(
+			(iad[2] & EMV_IAD_VSDC_CVN_FORMAT_MASK) >> EMV_IAD_VSDC_CVN_FORMAT_SHIFT != 0 &&
+			(iad[2] & EMV_IAD_VSDC_CVN_FORMAT_MASK) >> EMV_IAD_VSDC_CVN_FORMAT_SHIFT != 1 &&
+			(iad[2] & EMV_IAD_VSDC_CVN_FORMAT_MASK) >> EMV_IAD_VSDC_CVN_FORMAT_SHIFT != 3
+		)
+	) {
+		return -1;
+	}
+
+	// Derivation Key Index
+	emv_str_list_add(itr, "Derivation Key Index (DKI): %02X", iad[1]);
+
+	// Cryptogram Version Number
+	// VSDC and VCPS documentation uses the CVNxx notation for IAD format 0/1/3
+	emv_str_list_add(itr, "Cryptogram Version Number (CVN): %02X (CVN%02u)", iad[2], iad[2]);
+
+	return 0;
+}
+
+static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr)
+{
+	// Issuer Application Data (field 9F10) for Visa Smart Debit/Credit (VSDC)
+	// applications using IAD format 2/4
+	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Appendix M
+	if (!iad ||
+		iad_len != EMV_IAD_VSDC_2_4_LEN ||
+		iad[0] != EMV_IAD_VSDC_2_4_BYTE1 ||
+		(iad[8] & 0xF0) || // Unused nibble of Issuer Discretionary Data Option ID
+		(
+			(iad[1] & EMV_IAD_VSDC_CVN_FORMAT_MASK) >> EMV_IAD_VSDC_CVN_FORMAT_SHIFT != 2 &&
+			(iad[1] & EMV_IAD_VSDC_CVN_FORMAT_MASK) >> EMV_IAD_VSDC_CVN_FORMAT_SHIFT != 4
+		)
+	) {
+		return -1;
+	}
+
+	// Cryptogram Version Number
+	// VSDC and VCPS documentation uses the CVN'xx' notation for IAD format 2/4
+	emv_str_list_add(itr, "Cryptogram Version Number (CVN): %02X (CVN'%02X')", iad[1], iad[1]);
+
+	// Derivation Key Index
+	emv_str_list_add(itr, "Derivation Key Index (DKI): %02X", iad[2]);
+
+	return 0;
+}
+
 int emv_iad_get_string_list(
 	const uint8_t* iad,
 	size_t iad_len,
@@ -3122,10 +3269,28 @@ int emv_iad_get_string_list(
 
 		default:
 			return -1;
-
 	}
 
-	return 0;
+	switch (iad_format) {
+		case EMV_IAD_FORMAT_CCD:
+			return emv_iad_ccd_append_string_list(iad, iad_len, &itr);
+
+		case EMV_IAD_FORMAT_MCHIP4:
+		case EMV_IAD_FORMAT_MCHIP_ADVANCE:
+			return emv_iad_mchip_append_string_list(iad, iad_len, &itr);
+
+		case EMV_IAD_FORMAT_VSDC_0:
+		case EMV_IAD_FORMAT_VSDC_1:
+		case EMV_IAD_FORMAT_VSDC_3:
+			return emv_iad_vsdc_0_1_3_append_string_list(iad, iad_len, &itr);
+
+		case EMV_IAD_FORMAT_VSDC_2:
+		case EMV_IAD_FORMAT_VSDC_4:
+			return emv_iad_vsdc_2_4_append_string_list(iad, iad_len, &itr);
+
+		default:
+			return -1;
+	}
 }
 
 int emv_ttq_get_string_list(
