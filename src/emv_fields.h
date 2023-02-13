@@ -337,6 +337,52 @@ enum emv_iad_format_t {
 #define EMV_IAD_CCD_CCI_CV_4_1_TDES                             (0x05) ///< Common Core Cryptogram Version (CV): CCD Version 4.1 Cryptogram Version for TDES
 #define EMV_IAD_CCD_CCI_CV_4_1_AES                              (0x06) ///< Common Core Cryptogram Version (CV): CCD Version 4.1 Cryptogram Version for AES
 
+// Card Verification Results (CVR) byte 1 for Common Core Definitions (CCD) compliant applications
+// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+#define EMV_IAD_CCD_CVR_BYTE1_2GAC_MASK                         (0xC0) ///< Card Verification Results (CVR) mask for Application Cryptogram Type Returned in Second GENERATE AC
+#define EMV_IAD_CCD_CVR_BYTE1_2GAC_AAC                          (0x00) ///< Card Verification Results (CVR): Second GENERATE AC returned AAC
+#define EMV_IAD_CCD_CVR_BYTE1_2GAC_TC                           (0x40) ///< Card Verification Results (CVR): Second GENERATE AC returned TC
+#define EMV_IAD_CCD_CVR_BYTE1_2GAC_NOT_REQUESTED                (0x80) ///< Card Verification Results (CVR): Second GENERATE AC Not Requested
+#define EMV_IAD_CCD_CVR_BYTE1_2GAC_RFU                          (0xC0) ///< Card Verification Results (CVR): Second GENERATE AC RFU
+#define EMV_IAD_CCD_CVR_BYTE1_1GAC_MASK                         (0x30) ///< Card Verification Results (CVR) mask for Application Cryptogram Type Returned in First GENERATE AC
+#define EMV_IAD_CCD_CVR_BYTE1_1GAC_AAC                          (0x00) ///< Card Verification Results (CVR): First GENERATE AC returned AAC
+#define EMV_IAD_CCD_CVR_BYTE1_1GAC_TC                           (0x10) ///< Card Verification Results (CVR): First GENERATE AC returned TC
+#define EMV_IAD_CCD_CVR_BYTE1_1GAC_ARQC                         (0x20) ///< Card Verification Results (CVR): First GENERATE AC returned ARQC
+#define EMV_IAD_CCD_CVR_BYTE1_1GAC_RFU                          (0x30) ///< Card Verification Results (CVR): First GENERATE AC RFU
+#define EMV_IAD_CCD_CVR_BYTE1_CDA_PERFORMED                     (0x08) ///< Card Verification Results (CVR): Combined DDA/Application Cryptogram Generation (CDA) Performed
+#define EMV_IAD_CCD_CVR_BYTE1_OFFLINE_DDA_PERFORMED             (0x04) ///< Card Verification Results (CVR): Offline Dynamic Data Authentication (DDA) Performed
+#define EMV_IAD_CCD_CVR_BYTE1_ISSUER_AUTH_NOT_PERFORMED         (0x02) ///< Card Verification Results (CVR): Issuer Authentication Not Performed
+#define EMV_IAD_CCD_CVR_BYTE1_ISSUER_AUTH_FAILED                (0x01) ///< Card Verification Results (CVR): Issuer Authentication Failed
+
+// Card Verification Results (CVR) byte 2 for Common Core Definitions (CCD) compliant applications
+// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+#define EMV_IAD_CCD_CVR_BYTE2_PIN_TRY_COUNTER_MASK              (0xF0) ///< Card Verification Results (CVR) mask for Low Order Nibble of PIN Try Counter
+#define EMV_IAD_CCD_CVR_BYTE2_PIN_TRY_COUNTER_SHIFT             (4) ///< Card Verification Results (CVR) shift for Low Order Nibble of PIN Try Counter
+#define EMV_IAD_CCD_CVR_BYTE2_OFFLINE_PIN_PERFORMED             (0x08) ///< Card Verification Results (CVR): Offline PIN Verification Performed
+#define EMV_IAD_CCD_CVR_BYTE2_OFFLINE_PIN_NOT_SUCCESSFUL        (0x04) ///< Card Verification Results (CVR): Offline PIN Verification Performed and PIN Not Successfully Verified
+#define EMV_IAD_CCD_CVR_BYTE2_PIN_TRY_LIMIT_EXCEEDED            (0x02) ///< Card Verification Results (CVR): PIN Try Limit Exceeded
+#define EMV_IAD_CCD_CVR_BYTE2_LAST_ONLINE_TXN_NOT_COMPLETED     (0x01) ///< Card Verification Results (CVR): Last Online Transaction Not Completed
+
+// Card Verification Results (CVR) byte 3 for Common Core Definitions (CCD) compliant applications
+// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+#define EMV_IAD_CCD_CVR_BYTE3_L_OFFLINE_TXN_CNT_LIMIT_EXCEEDED  (0x80) ///< Card Verification Results (CVR): Lower Offline Transaction Count Limit Exceeded
+#define EMV_IAD_CCD_CVR_BYTE3_U_OFFLINE_TXN_CNT_LIMIT_EXCEEDED  (0x40) ///< Card Verification Results (CVR): Upper Offline Transaction Count Limit Exceeded
+#define EMV_IAD_CCD_CVR_BYTE3_L_OFFLINE_AMOUNT_LIMIT_EXCEEDED   (0x20) ///< Card Verification Results (CVR): Lower Cumulative Offline Amount Limit Exceeded
+#define EMV_IAD_CCD_CVR_BYTE3_U_OFFLINE_AMOUNT_LIMIT_EXCEEDED   (0x20) ///< Card Verification Results (CVR): Upper Cumulative Offline Amount Limit Exceeded
+#define EMV_IAD_CCD_CVR_BYTE3_ISSUER_DISCRETIONARY_BIT1         (0x08) ///< Card Verification Results (CVR): Issuer-discretionary bit 1
+#define EMV_IAD_CCD_CVR_BYTE3_ISSUER_DISCRETIONARY_BIT2         (0x04) ///< Card Verification Results (CVR): Issuer-discretionary bit 2
+#define EMV_IAD_CCD_CVR_BYTE3_ISSUER_DISCRETIONARY_BIT3         (0x02) ///< Card Verification Results (CVR): Issuer-discretionary bit 3
+#define EMV_IAD_CCD_CVR_BYTE3_ISSUER_DISCRETIONARY_BIT4         (0x01) ///< Card Verification Results (CVR): Issuer-discretionary bit 4
+
+// Card Verification Results (CVR) byte 4 for Common Core Definitions (CCD) compliant applications
+// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+#define EMV_IAD_CCD_CVR_BYTE4_SCRIPT_COUNT_MASK                 (0xF0) ///< Card Verification Results (CVR) mask for Number of Successfully Processed Issuer Script Commands Containing Secure Messaging
+#define EMV_IAD_CCD_CVR_BYTE4_SCRIPT_COUNT_SHIFT                (4) ///< Card Verification Results (CVR) shift for Number of Successfully Processed Issuer Script Commands Containing Secure Messaging
+#define EMV_IAD_CCD_CVR_BYTE4_ISSUER_SCRIPT_PROCESSING_FAILED   (0x08) ///< Card Verification Results (CVR): Issuer Script Processing Failed
+#define EMV_IAD_CCD_CVR_BYTE4_ODA_FAILED_ON_PREVIOUS_TXN        (0x04) ///< Card Verification Results (CVR): Offline Data Authentication Failed on Previous Transaction
+#define EMV_IAD_CCD_CVR_BYTE4_GO_ONLINE_ON_NEXT_TXN             (0x02) ///< Card Verification Results (CVR): Go Online on Next Transaction Was Set
+#define EMV_IAD_CCD_CVR_BYTE4_UNABLE_TO_GO_ONLINE               (0x01) ///< Card Verification Results (CVR): Unable to go Online
+
 // Issuer Application Data (field 9F10) for Mastercard M/Chip applications
 // See M/Chip Requirements for Contact and Contactless, 15 March 2022, Appendix B, Issuer Application Data, 9F10
 #define EMV_IAD_MCHIP4_LEN                                      (18) ///< Length of M/Chip 4 Issuer Application Data

@@ -415,6 +415,11 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"IAD Format: CCD Version 4.1[\r\n]"
 		"Cryptogram Version: TDES[\r\n]"
 		"Derivation Key Index \\(DKI\\): 26[\r\n]"
+		"Card Verification Results \\(CVR\\): Second GENERATE AC Not Requested[\r\n]"
+		"Card Verification Results \\(CVR\\): First GENERATE AC returned ARQC[\r\n]"
+		"Card Verification Results \\(CVR\\): Combined DDA/Application Cryptogram Generation \\(CDA\\) Performed[\r\n]"
+		"Card Verification Results \\(CVR\\): PIN Try Counter is 3[\r\n]"
+		"Card Verification Results \\(CVR\\): Last Online Transaction Not Completed[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test1
 		PROPERTIES

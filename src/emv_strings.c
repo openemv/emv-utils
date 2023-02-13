@@ -3040,6 +3040,8 @@ static int emv_iad_ccd_append_string_list(
 	struct str_itr_t* itr
 )
 {
+	const uint8_t* cvr;
+
 	// Issuer Application Data for a CCD-Compliant Application
 	// See EMV 4.4 Book 3, Annex C9
 	if (!iad ||
@@ -3069,6 +3071,129 @@ static int emv_iad_ccd_append_string_list(
 	// Derivation Key Index
 	// See EMV 4.4 Book 3, Annex C9.2
 	emv_str_list_add(itr, "Derivation Key Index (DKI): %02X", iad[2]);
+
+	// Card Verification (CVR) Results byte 1
+	// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+	cvr = iad + 3;
+	switch (cvr[0] & EMV_IAD_CCD_CVR_BYTE1_2GAC_MASK) {
+		case EMV_IAD_CCD_CVR_BYTE1_2GAC_AAC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC returned AAC");
+			break;
+
+		case EMV_IAD_CCD_CVR_BYTE1_2GAC_TC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC returned TC");
+			break;
+
+		case EMV_IAD_CCD_CVR_BYTE1_2GAC_NOT_REQUESTED:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC Not Requested");
+			break;
+
+		case EMV_IAD_CCD_CVR_BYTE1_2GAC_RFU:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC RFU");
+			break;
+	}
+	switch (cvr[0] & EMV_IAD_CCD_CVR_BYTE1_1GAC_MASK) {
+		case EMV_IAD_CCD_CVR_BYTE1_1GAC_AAC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned AAC");
+			break;
+
+		case EMV_IAD_CCD_CVR_BYTE1_1GAC_TC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned TC");
+			break;
+
+		case EMV_IAD_CCD_CVR_BYTE1_1GAC_ARQC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned ARQC");
+			break;
+
+		case EMV_IAD_CCD_CVR_BYTE1_1GAC_RFU:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC RFU");
+			break;
+	}
+	if (cvr[0] & EMV_IAD_CCD_CVR_BYTE1_CDA_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Combined DDA/Application Cryptogram Generation (CDA) Performed");
+	}
+	if (cvr[0] & EMV_IAD_CCD_CVR_BYTE1_OFFLINE_DDA_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline Dynamic Data Authentication (DDA) Performed");
+	}
+	if (cvr[0] & EMV_IAD_CCD_CVR_BYTE1_ISSUER_AUTH_NOT_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication Not Performed");
+	}
+	if (cvr[0] & EMV_IAD_CCD_CVR_BYTE1_ISSUER_AUTH_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication Failed");
+	}
+
+	// Card Verification Results (CVR) byte 2
+	// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+	emv_str_list_add(itr,
+		"Card Verification Results (CVR): PIN Try Counter is %u",
+		(cvr[1] & EMV_IAD_CCD_CVR_BYTE2_PIN_TRY_COUNTER_MASK) >> EMV_IAD_CCD_CVR_BYTE2_PIN_TRY_COUNTER_SHIFT
+	);
+	if (cvr[1] & EMV_IAD_CCD_CVR_BYTE2_OFFLINE_PIN_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline PIN Verification Performed");
+	}
+	if (cvr[1] & EMV_IAD_CCD_CVR_BYTE2_OFFLINE_PIN_NOT_SUCCESSFUL) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline PIN Verification Performed and PIN Not Successfully Verified");
+	}
+	if (cvr[1] & EMV_IAD_CCD_CVR_BYTE2_PIN_TRY_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): PIN Try Limit Exceeded");
+	}
+	if (cvr[1] & EMV_IAD_CCD_CVR_BYTE2_LAST_ONLINE_TXN_NOT_COMPLETED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Last Online Transaction Not Completed");
+	}
+
+	// Card Verification Results (CVR) byte 3
+	// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+	if (cvr[2] & EMV_IAD_CCD_CVR_BYTE3_L_OFFLINE_TXN_CNT_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Lower Offline Transaction Count Limit Exceeded");
+	}
+	if (cvr[2] & EMV_IAD_CCD_CVR_BYTE3_U_OFFLINE_TXN_CNT_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Upper Offline Transaction Count Limit Exceeded");
+	}
+	if (cvr[2] & EMV_IAD_CCD_CVR_BYTE3_L_OFFLINE_AMOUNT_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Lower Cumulative Offline Amount Limit Exceeded");
+	}
+	if (cvr[2] & EMV_IAD_CCD_CVR_BYTE3_U_OFFLINE_AMOUNT_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Upper Cumulative Offline Amount Limit Exceeded");
+	}
+	if (cvr[2] & EMV_IAD_CCD_CVR_BYTE3_ISSUER_DISCRETIONARY_BIT1) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer-discretionary bit 1");
+	}
+	if (cvr[2] & EMV_IAD_CCD_CVR_BYTE3_ISSUER_DISCRETIONARY_BIT2) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer-discretionary bit 2");
+	}
+	if (cvr[2] & EMV_IAD_CCD_CVR_BYTE3_ISSUER_DISCRETIONARY_BIT3) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer-discretionary bit 3");
+	}
+	if (cvr[2] & EMV_IAD_CCD_CVR_BYTE3_ISSUER_DISCRETIONARY_BIT4) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer-discretionary bit 4");
+	}
+
+	// Card Verification Results (CVR) byte 4
+	// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+	if (cvr[3] & EMV_IAD_CCD_CVR_BYTE4_SCRIPT_COUNT_MASK) {
+		emv_str_list_add(itr,
+			"Card Verification Results (CVR): %u Successfully Processed Issuer Script Commands Containing Secure Messaging",
+			(cvr[3] & EMV_IAD_CCD_CVR_BYTE4_SCRIPT_COUNT_MASK) >> EMV_IAD_CCD_CVR_BYTE4_SCRIPT_COUNT_SHIFT
+		);
+	}
+	if (cvr[3] & EMV_IAD_CCD_CVR_BYTE4_ISSUER_SCRIPT_PROCESSING_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Script Processing Failed");
+	}
+	if (cvr[3] & EMV_IAD_CCD_CVR_BYTE4_ODA_FAILED_ON_PREVIOUS_TXN) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline Data Authentication Failed on Previous Transaction");
+	}
+	if (cvr[3] & EMV_IAD_CCD_CVR_BYTE4_GO_ONLINE_ON_NEXT_TXN) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Go Online on Next Transaction Was Set");
+	}
+	if (cvr[3] & EMV_IAD_CCD_CVR_BYTE4_UNABLE_TO_GO_ONLINE) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Unable to go Online");
+	}
+
+	// Card Verification Results (CVR) byte 5
+	// See EMV 4.4 Book 3, Annex C9.3, Table CCD 10
+	if (cvr[4]) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): RFU");
+	}
 
 	return 0;
 }
