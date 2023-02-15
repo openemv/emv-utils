@@ -3204,6 +3204,8 @@ static int emv_iad_mchip_append_string_list(
 	struct str_itr_t* itr
 )
 {
+	const uint8_t* cvr;
+
 	// Issuer Application Data for M/Chip 4 and M/Chip Advance
 	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Appendix B, Issuer Application Data, 9F10
 	if (!iad ||
@@ -3242,6 +3244,187 @@ static int emv_iad_mchip_append_string_list(
 		emv_str_list_add(itr, "Cryptogram: Counter included in AC data");
 	} else {
 		emv_str_list_add(itr, "Cryptogram: Counters not included in AC data");
+	}
+
+	// Card Verification (CVR) Results byte 1
+	cvr = iad + 2;
+	switch (cvr[0] & EMV_IAD_MCHIP_CVR_BYTE1_2GAC_MASK) {
+		case EMV_IAD_MCHIP_CVR_BYTE1_2GAC_AAC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC returned AAC");
+			break;
+
+		case EMV_IAD_MCHIP_CVR_BYTE1_2GAC_TC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC returned TC");
+			break;
+
+		case EMV_IAD_MCHIP_CVR_BYTE1_2GAC_NOT_REQUESTED:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC Not Requested");
+			break;
+
+		case EMV_IAD_MCHIP_CVR_BYTE1_2GAC_RFU:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC RFU");
+			break;
+	}
+	switch (cvr[0] & EMV_IAD_MCHIP_CVR_BYTE1_1GAC_MASK) {
+		case EMV_IAD_MCHIP_CVR_BYTE1_1GAC_AAC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned AAC");
+			break;
+
+		case EMV_IAD_MCHIP_CVR_BYTE1_1GAC_TC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned TC");
+			break;
+
+		case EMV_IAD_MCHIP_CVR_BYTE1_1GAC_ARQC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned ARQC");
+			break;
+
+		case EMV_IAD_MCHIP_CVR_BYTE1_1GAC_RFU:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC RFU");
+			break;
+	}
+	if (cvr[0] & EMV_IAD_MCHIP_CVR_BYTE1_DATE_CHECK_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Date Check Failed");
+	}
+	if (cvr[0] & EMV_IAD_MCHIP_CVR_BYTE1_OFFLINE_PIN_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline PIN Verification Performed");
+	}
+	if (cvr[0] & EMV_IAD_MCHIP_CVR_BYTE1_OFFLINE_ENCRYPTED_PIN_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline Encrypted PIN Verification Performed");
+	}
+	if (cvr[0] & EMV_IAD_MCHIP_CVR_BYTE1_OFFLINE_PIN_SUCCESSFUL) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline PIN Verification Successful");
+	}
+
+	// Card Verification (CVR) Results byte 2
+	if (cvr[1] & EMV_IAD_MCHIP_CVR_BYTE2_DDA) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Dynamic Data Authentication (DDA) Returned");
+	}
+	if (cvr[1] & EMV_IAD_MCHIP_CVR_BYTE2_1GAC_CDA) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Combined DDA/Application Cryptogram Generation (CDA) Returned in First GENERATE AC");
+	}
+	if (cvr[1] & EMV_IAD_MCHIP_CVR_BYTE2_2GAC_CDA) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Combined DDA/Application Cryptogram Generation (CDA) Returned in Second GENERATE AC");
+	}
+	if (cvr[1] & EMV_IAD_MCHIP_CVR_BYTE2_ISSUER_AUTH_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication Performed");
+	}
+	if (cvr[1] & EMV_IAD_MCHIP_CVR_BYTE2_CIAC_SKIPPED_ON_CAT3) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Card Issuer Action Codes (CIAC) Default Skipped on Cardholder Activated Terminal Level 3 (CAT3)");
+	}
+	if (cvr[1] & EMV_IAD_MCHIP_CVR_BYTE2_OFFLINE_CHANGE_PIN_SUCCESSFUL) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline Change PIN Result Successful");
+	}
+	if (cvr[1] & EMV_IAD_MCHIP_CVR_BYTE2_ISSUER_DISCRETIONARY) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Discretionary");
+	}
+
+	// Card Verification (CVR) Results byte 3
+	if (cvr[2] & EMV_IAD_MCHIP_CVR_BYTE3_SCRIPT_COUNTER_MASK) {
+		emv_str_list_add(itr,
+			"Card Verification Results (CVR): Script Counter is %u",
+			(cvr[2] & EMV_IAD_MCHIP_CVR_BYTE3_SCRIPT_COUNTER_MASK) >> EMV_IAD_MCHIP_CVR_BYTE3_SCRIPT_COUNTER_SHIFT
+		);
+	}
+	if (cvr[2] & EMV_IAD_MCHIP_CVR_BYTE3_PIN_TRY_COUNTER_MASK) {
+		emv_str_list_add(itr,
+			"Card Verification Results (CVR): PIN Try Counter is %u",
+			(cvr[2] & EMV_IAD_MCHIP_CVR_BYTE3_PIN_TRY_COUNTER_MASK) >> EMV_IAD_MCHIP_CVR_BYTE3_PIN_TRY_COUNTER_SHIFT
+		);
+	}
+
+	// Card Verification (CVR) Results byte 4
+	if (cvr[3] & EMV_IAD_MCHIP_CVR_BYTE4_LAST_ONLINE_TXN_NOT_COMPLETED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Last Online Transaction Not Completed");
+	}
+	if (cvr[3] & EMV_IAD_MCHIP_CVR_BYTE4_UNABLE_TO_GO_ONLINE) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Unable To Go Online");
+	}
+	if (cvr[3] & EMV_IAD_MCHIP_CVR_BYTE4_OFFLINE_PIN_NOT_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline PIN Verification Not Performed");
+	}
+	if (cvr[3] & EMV_IAD_MCHIP_CVR_BYTE4_OFFLINE_PIN_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline PIN Verification Failed");
+	}
+	if (cvr[3] & EMV_IAD_MCHIP_CVR_BYTE4_PTL_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): PTL Exceeded");
+	}
+	if (cvr[3] & EMV_IAD_MCHIP_CVR_BYTE4_INTERNATIONAL_TXN) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): International Transaction");
+	}
+	if (cvr[3] & EMV_IAD_MCHIP_CVR_BYTE4_DOMESTIC_TXN) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Domestic Transaction");
+	}
+	if (cvr[3] & EMV_IAD_MCHIP_CVR_BYTE4_ERR_OFFLINE_PIN_OK) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Terminal Erroneously Considers Offline PIN OK");
+	}
+
+	// Card Verification (CVR) Results byte 5
+	if (iad_len == EMV_IAD_MCHIP4_LEN) {
+		// Assume M/Chip 4
+		if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_L_CONSECUTIVE_LIMIT_EXCEEDED) {
+			emv_str_list_add(itr, "Card Verification Results (CVR): Lower Consecutive Offline Limit Exceeded");
+		}
+		if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_U_CONSECUTIVE_LIMIT_EXCEEDED) {
+			emv_str_list_add(itr, "Card Verification Results (CVR): Upper Consecutive Offline Limit Exceeded");
+		}
+		if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_L_CUMULATIVE_LIMIT_EXCEEDED) {
+			emv_str_list_add(itr, "Card Verification Results (CVR): Lower Cumulative Offline Limit Exceeded");
+		}
+		if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_U_CUMULATIVE_LIMIT_EXCEEDED) {
+			emv_str_list_add(itr, "Card Verification Results (CVR): Upper Cumulative Offline Limit Exceeded");
+		}
+	} else {
+		// Assume M/Chip Advance
+		if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_L_CONSECUTIVE_LIMIT_EXCEEDED) {
+			emv_str_list_add(itr, "Card Verification Results (CVR): Lower Consecutive Counter 1 Limit Exceeded");
+		}
+		if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_U_CONSECUTIVE_LIMIT_EXCEEDED) {
+			emv_str_list_add(itr, "Card Verification Results (CVR): Upper Consecutive Counter 1 Limit Exceeded");
+		}
+		if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_L_CUMULATIVE_LIMIT_EXCEEDED) {
+			emv_str_list_add(itr, "Card Verification Results (CVR): Lower Cumulative Accumulator Limit Exceeded");
+		}
+		if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_U_CUMULATIVE_LIMIT_EXCEEDED) {
+			emv_str_list_add(itr, "Card Verification Results (CVR): Upper Cumulative Accumulator Limit Exceeded");
+		}
+	}
+	if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_GO_ONLINE_ON_NEXT_TXN) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Go Online On Next Transaction Was Set");
+	}
+	if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_ISSUER_AUTH_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication Failed");
+	}
+	if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_SCRIPT_RECEIVED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Script Received");
+	}
+	if (cvr[4] & EMV_IAD_MCHIP_CVR_BYTE5_SCRIPT_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Script Failed");
+	}
+
+	// Card Verification (CVR) Results byte 6
+	if (cvr[5] & EMV_IAD_MCHIP_CVR_BYTE6_L_CONSECUTIVE_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Lower Consecutive Counter 2 Limit Exceeded");
+	}
+	if (cvr[5] & EMV_IAD_MCHIP_CVR_BYTE6_U_CONSECUTIVE_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Upper Consecutive Counter 2 Limit Exceeded");
+	}
+	if (cvr[5] & EMV_IAD_MCHIP_CVR_BYTE6_L_CUMULATIVE_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Lower Cumulative Accumulator 2 Limit Exceeded");
+	}
+	if (cvr[5] & EMV_IAD_MCHIP_CVR_BYTE6_U_CUMULATIVE_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Upper Cumulative Accumulator 2 Limit Exceeded");
+	}
+	if (cvr[5] & EMV_IAD_MCHIP_CVR_BYTE6_MTA_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): MTA Limit Exceeded");
+	}
+	if (cvr[5] & EMV_IAD_MCHIP_CVR_BYTE6_NUM_OF_DAYS_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Number Of Days Offline Limit Exceeded");
+	}
+	if (cvr[5] & EMV_IAD_MCHIP_CVR_BYTE6_MATCH_ADDITIONAL_CHECK_TABLE) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Match Found In Additional Check Table");
+	}
+	if (cvr[5] & EMV_IAD_MCHIP_CVR_BYTE6_NO_MATCH_ADDITIONAL_CHECK_TABLE) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): No Match Found In Additional Check Table");
 	}
 
 	return 0;

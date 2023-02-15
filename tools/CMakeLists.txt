@@ -435,6 +435,14 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"Cryptogram Version Number \\(CVN\\): 10[\r\n]"
 		"Cryptogram: Mastercard Proprietary SKD session key[\r\n]"
 		"Cryptogram: Counters not included in AC data[\r\n]"
+		"Card Verification Results \\(CVR\\): Second GENERATE AC Not Requested[\r\n]"
+		"Card Verification Results \\(CVR\\): First GENERATE AC returned ARQC[\r\n]"
+		"Card Verification Results \\(CVR\\): Combined DDA/Application Cryptogram Generation \\(CDA\\) Returned in First GENERATE AC[\r\n]"
+		"Card Verification Results \\(CVR\\): PIN Try Counter is 3[\r\n]"
+		"Card Verification Results \\(CVR\\): Offline PIN Verification Not Performed[\r\n]"
+		"Card Verification Results \\(CVR\\): Domestic Transaction[\r\n]"
+		"Card Verification Results \\(CVR\\): Lower Cumulative Offline Limit Exceeded[\r\n]"
+		"Card Verification Results \\(CVR\\): Upper Cumulative Offline Limit Exceeded[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test2
 		PROPERTIES
@@ -450,6 +458,14 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"Cryptogram Version Number \\(CVN\\): 10[\r\n]"
 		"Cryptogram: Mastercard Proprietary SKD session key[\r\n]"
 		"Cryptogram: Counters not included in AC data[\r\n]"
+		"Card Verification Results \\(CVR\\): Second GENERATE AC Not Requested[\r\n]"
+		"Card Verification Results \\(CVR\\): First GENERATE AC returned ARQC[\r\n]"
+		"Card Verification Results \\(CVR\\): Combined DDA/Application Cryptogram Generation \\(CDA\\) Returned in First GENERATE AC[\r\n]"
+		"Card Verification Results \\(CVR\\): Issuer Discretionary[\r\n]"
+		"Card Verification Results \\(CVR\\): PIN Try Counter is 3[\r\n]"
+		"Card Verification Results \\(CVR\\): Last Online Transaction Not Completed[\r\n]"
+		"Card Verification Results \\(CVR\\): Offline PIN Verification Not Performed[\r\n]"
+		"Card Verification Results \\(CVR\\): Domestic Transaction[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test3
 		PROPERTIES

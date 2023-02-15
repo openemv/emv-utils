@@ -400,6 +400,67 @@ enum emv_iad_format_t {
 #define EMV_IAD_MCHIP_CVN_SESSION_KEY_EMV_CSK                   (0x04) ///< M/Chip Cryptogram: EMV CSK session key
 #define EMV_IAD_MCHIP_CVN_COUNTERS_INCLUDED                     (0x01) ///< M/Chip Cryptogram: Counter included in AC data
 
+// Card Verification Results (CVR) byte 1 for Mastercard M/Chip applications
+#define EMV_IAD_MCHIP_CVR_BYTE1_2GAC_MASK                       (0xC0) ///< Card Verification Results (CVR) mask for Application Cryptogram Type Returned in Second GENERATE AC
+#define EMV_IAD_MCHIP_CVR_BYTE1_2GAC_AAC                        (0x00) ///< Card Verification Results (CVR): Second GENERATE AC returned AAC
+#define EMV_IAD_MCHIP_CVR_BYTE1_2GAC_TC                         (0x40) ///< Card Verification Results (CVR): Second GENERATE AC returned TC
+#define EMV_IAD_MCHIP_CVR_BYTE1_2GAC_NOT_REQUESTED              (0x80) ///< Card Verification Results (CVR): Second GENERATE AC Not Requested
+#define EMV_IAD_MCHIP_CVR_BYTE1_2GAC_RFU                        (0xC0) ///< Card Verification Results (CVR): Second GENERATE AC RFU
+#define EMV_IAD_MCHIP_CVR_BYTE1_1GAC_MASK                       (0x30) ///< Card Verification Results (CVR) mask for Application Cryptogram Type Returned in First GENERATE AC
+#define EMV_IAD_MCHIP_CVR_BYTE1_1GAC_AAC                        (0x00) ///< Card Verification Results (CVR): First GENERATE AC returned AAC
+#define EMV_IAD_MCHIP_CVR_BYTE1_1GAC_TC                         (0x10) ///< Card Verification Results (CVR): First GENERATE AC returned TC
+#define EMV_IAD_MCHIP_CVR_BYTE1_1GAC_ARQC                       (0x20) ///< Card Verification Results (CVR): First GENERATE AC returned ARQC
+#define EMV_IAD_MCHIP_CVR_BYTE1_1GAC_RFU                        (0x30) ///< Card Verification Results (CVR): First GENERATE AC RFU
+#define EMV_IAD_MCHIP_CVR_BYTE1_DATE_CHECK_FAILED               (0x08) ///< Card Verification Results (CVR): Date Check Failed
+#define EMV_IAD_MCHIP_CVR_BYTE1_OFFLINE_PIN_PERFORMED           (0x04) ///< Card Verification Results (CVR): Offline PIN Verification Performed
+#define EMV_IAD_MCHIP_CVR_BYTE1_OFFLINE_ENCRYPTED_PIN_PERFORMED (0x02) ///< Card Verification Results (CVR): Offline Encrypted PIN Verification Performed
+#define EMV_IAD_MCHIP_CVR_BYTE1_OFFLINE_PIN_SUCCESSFUL          (0x01) ///< Card Verification Results (CVR): Offline PIN Verification Successful
+
+// Card Verification Results (CVR) byte 2 for Mastercard M/Chip applications
+#define EMV_IAD_MCHIP_CVR_BYTE2_DDA                             (0x80) ///< Card Verification Results (CVR): Dynamic Data Authentication (DDA) Returned
+#define EMV_IAD_MCHIP_CVR_BYTE2_1GAC_CDA                        (0x40) ///< Card Verification Results (CVR): Combined DDA/Application Cryptogram Generation (CDA) Returned in First GENERATE AC
+#define EMV_IAD_MCHIP_CVR_BYTE2_2GAC_CDA                        (0x20) ///< Card Verification Results (CVR): Combined DDA/Application Cryptogram Generation (CDA) Returned in Second GENERATE AC
+#define EMV_IAD_MCHIP_CVR_BYTE2_ISSUER_AUTH_PERFORMED           (0x10) ///< Card Verification Results (CVR): Issuer Authentication Performed
+#define EMV_IAD_MCHIP_CVR_BYTE2_CIAC_SKIPPED_ON_CAT3            (0x08) ///< Card Verification Results (CVR): Card Issuer Action Codes (CIAC) Default Skipped on Cardholder Activated Terminal Level 3 (CAT3)
+#define EMV_IAD_MCHIP_CVR_BYTE2_OFFLINE_CHANGE_PIN_SUCCESSFUL   (0x04) ///< Card Verification Results (CVR): Offline Change PIN Result Successful
+#define EMV_IAD_MCHIP_CVR_BYTE2_ISSUER_DISCRETIONARY            (0x03) ///< Card Verification Results (CVR): Issuer Discretionary
+
+// Card Verification Results (CVR) byte 3 for Mastercard M/Chip applications
+#define EMV_IAD_MCHIP_CVR_BYTE3_SCRIPT_COUNTER_MASK             (0xF0) ///< Card Verification Results (CVR) mask for Right Nibble of Script Counter
+#define EMV_IAD_MCHIP_CVR_BYTE3_SCRIPT_COUNTER_SHIFT            (4) ///< Card Verification Results (CVR) shift for Right Nibble of Script Counter
+#define EMV_IAD_MCHIP_CVR_BYTE3_PIN_TRY_COUNTER_MASK            (0x0F) ///< Card Verification Results (CVR) mask for Right Nibble of PIN Try Counter
+#define EMV_IAD_MCHIP_CVR_BYTE3_PIN_TRY_COUNTER_SHIFT           (0) ///< Card Verification Results (CVR) shift for Right Nibble of PIN Try Counter
+
+// Card Verification Results (CVR) byte 4 for Mastercard M/Chip applications
+#define EMV_IAD_MCHIP_CVR_BYTE4_LAST_ONLINE_TXN_NOT_COMPLETED   (0x80) ///< Card Verification Results (CVR): Last Online Transaction Not Completed
+#define EMV_IAD_MCHIP_CVR_BYTE4_UNABLE_TO_GO_ONLINE             (0x40) ///< Card Verification Results (CVR): Unable To Go Online
+#define EMV_IAD_MCHIP_CVR_BYTE4_OFFLINE_PIN_NOT_PERFORMED       (0x20) ///< Card Verification Results (CVR): Offline PIN Verification Not Performed
+#define EMV_IAD_MCHIP_CVR_BYTE4_OFFLINE_PIN_FAILED              (0x10) ///< Card Verification Results (CVR): Offline PIN Verification Failed
+#define EMV_IAD_MCHIP_CVR_BYTE4_PTL_EXCEEDED                    (0x08) ///< Card Verification Results (CVR): PTL Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE4_INTERNATIONAL_TXN               (0x04) ///< Card Verification Results (CVR): International Transaction
+#define EMV_IAD_MCHIP_CVR_BYTE4_DOMESTIC_TXN                    (0x02) ///< Card Verification Results (CVR): Domestic Transaction
+#define EMV_IAD_MCHIP_CVR_BYTE4_ERR_OFFLINE_PIN_OK              (0x01) ///< Card Verification Results (CVR): Terminal Erroneously Considers Offline PIN OK
+
+// Card Verification Results (CVR) byte 5 for Mastercard M/Chip applications
+#define EMV_IAD_MCHIP_CVR_BYTE5_L_CONSECUTIVE_LIMIT_EXCEEDED    (0x80) ///< Card Verification Results (CVR): Lower Consecutive Offline (M/Chip 4) or Counter 1 (M/Chip Advance) Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE5_U_CONSECUTIVE_LIMIT_EXCEEDED    (0x40) ///< Card Verification Results (CVR): Upper Consecutive Offline (M/Chip 4) or Counter 1 (M/Chip Advance) Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE5_L_CUMULATIVE_LIMIT_EXCEEDED     (0x20) ///< Card Verification Results (CVR): Lower Cumulative Offline (M/Chip 4) or Accumulator (M/Chip Advance) Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE5_U_CUMULATIVE_LIMIT_EXCEEDED     (0x10) ///< Card Verification Results (CVR): Upper Cumulative Offline (M/Chip 4) or Accumulator (M/Chip Advance) Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE5_GO_ONLINE_ON_NEXT_TXN           (0x08) ///< Card Verification Results (CVR): Go Online On Next Transaction Was Set
+#define EMV_IAD_MCHIP_CVR_BYTE5_ISSUER_AUTH_FAILED              (0x04) ///< Card Verification Results (CVR): Issuer Authentication Failed
+#define EMV_IAD_MCHIP_CVR_BYTE5_SCRIPT_RECEIVED                 (0x02) ///< Card Verification Results (CVR): Script Received
+#define EMV_IAD_MCHIP_CVR_BYTE5_SCRIPT_FAILED                   (0x01) ///< Card Verification Results (CVR): Script Failed
+
+// Card Verification Results (CVR) byte 6 for Mastercard M/Chip applications
+#define EMV_IAD_MCHIP_CVR_BYTE6_L_CONSECUTIVE_LIMIT_EXCEEDED    (0x80) ///< Card Verification Results (CVR): Lower Consecutive Counter 2 Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE6_U_CONSECUTIVE_LIMIT_EXCEEDED    (0x40) ///< Card Verification Results (CVR): Upper Consecutive Counter 2 Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE6_L_CUMULATIVE_LIMIT_EXCEEDED     (0x20) ///< Card Verification Results (CVR): Lower Cumulative Accumulator 2 Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE6_U_CUMULATIVE_LIMIT_EXCEEDED     (0x10) ///< Card Verification Results (CVR): Upper Cumulative Accumulator 2 Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE6_MTA_LIMIT_EXCEEDED              (0x08) ///< Card Verification Results (CVR): MTA Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE6_NUM_OF_DAYS_LIMIT_EXCEEDED      (0x04) ///< Card Verification Results (CVR): Number Of Days Offline Limit Exceeded
+#define EMV_IAD_MCHIP_CVR_BYTE6_MATCH_ADDITIONAL_CHECK_TABLE    (0x02) ///< Card Verification Results (CVR): Match Found In Additional Check Table
+#define EMV_IAD_MCHIP_CVR_BYTE6_NO_MATCH_ADDITIONAL_CHECK_TABLE (0x01) ///< Card Verification Results (CVR): No Match Found In Additional Check Table
+
 // Issuer Application Data (field 9F10) for Visa Smart Debit/Credit (VSDC) applications
 // See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Appendix M
 #define EMV_IAD_VSDC_0_1_3_MIN_LEN                              (7) ///< Minimum length of Issuer Application Data for VSDC IAD format 0/1/3
