@@ -480,6 +480,8 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"IAD Format: 1[\r\n]"
 		"Derivation Key Index \\(DKI\\): 01[\r\n]"
 		"Cryptogram Version Number \\(CVN\\): 12 \\(CVN18\\)[\r\n]"
+		"Card Verification Results \\(CVR\\): Second GENERATE AC Not Requested[\r\n]"
+		"Card Verification Results \\(CVR\\): First GENERATE AC returned ARQC[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test4
 		PROPERTIES
@@ -494,6 +496,10 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"IAD Format: 4[\r\n]"
 		"Cryptogram Version Number \\(CVN\\): 43 \\(CVN'43'\\)[\r\n]"
 		"Derivation Key Index \\(DKI\\): FE[\r\n]"
+		"Card Verification Results \\(CVR\\): Verified by the mobile device OS[\r\n]"
+		"Card Verification Results \\(CVR\\): Finger biometric[\r\n]"
+		"Card Verification Results \\(CVR\\): Second GENERATE AC Not Requested[\r\n]"
+		"Card Verification Results \\(CVR\\): GPO returned ARQC[\r\n]"
 	)
 	set_tests_properties(emv_decode_IAD_test5
 		PROPERTIES

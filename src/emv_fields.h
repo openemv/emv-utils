@@ -467,9 +467,86 @@ enum emv_iad_format_t {
 #define EMV_IAD_VSDC_0_1_3_BYTE1                                (0x06) ///< Issuer Application Data: Byte 1 value for VSDC IAD Format 0/1/3
 #define EMV_IAD_VSDC_2_4_LEN                                    (32) ///< Length of Issuer Application Data for VSDC IAD format 2/4
 #define EMV_IAD_VSDC_2_4_BYTE1                                  (0x1F) ///< Issuer Application Data: Byte 1 value for VSDC IAD Format 2/4
+
+// Cryptogram Version Number (CVN) for Visa Smart Debit/Credit (VSDC) applications
 #define EMV_IAD_VSDC_CVN_FORMAT_MASK                            (0xF0) ///< Cryptogram Version Number (CVN) mask for VSDC IAD format
 #define EMV_IAD_VSDC_CVN_FORMAT_SHIFT                           (4) ///< Cryptogram Version Number (CVN) shift for VSDC IAD format
+
+// Card Verification Results (CVR) byte 1 for Visa Smart Debit/Credit (VSDC) IAD Format 0/1/3 applications
 #define EMV_IAD_VSDC_0_1_3_CVR_LEN                              (3) ///< Length of Card Verification Results (CVR) for VSDC IAD Format 0/1/3
+
+// Card Verification Results (CVR) byte 1 for Visa Smart Debit/Credit (VSDC) IAD Format 2/4 applications
+// NOTE: From unverified internet sources
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MASK                  (0xF0) ///< Card Verification Results (CVR) mask CVM Verifying Entity
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_NONE                  (0x00) ///< Card Verification Results (CVR): No CDCVM
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_VMPA                  (0x10) ///< Card Verification Results (CVR): Visa Mobile Payment Application (VMPA)
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MG                    (0x20) ///< Card Verification Results (CVR): MG
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_SE_APP                (0x30) ///< Card Verification Results (CVR): Co-residing SE app
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_TEE_APP               (0x40) ///< Card Verification Results (CVR): TEE app
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MOBILE_APP            (0x50) ///< Card Verification Results (CVR): Mobile Application
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_TERMINAL              (0x60) ///< Card Verification Results (CVR): Terminal
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_CLOUD                 (0x70) ///< Card Verification Results (CVR): Verified in the cloud
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MOBILE_DEVICE_OS      (0x80) ///< Card Verification Results (CVR): Verified by the mobile device OS
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_MASK                    (0x0F) ///< Card Verification Results (CVR) mask CVM Verified Type
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_NONE                    (0x00) ///< Card Verification Results (CVR): No CDCVM
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_PASSCODE                (0x01) ///< Card Verification Results (CVR): Passcode
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_FINGER        (0x02) ///< Card Verification Results (CVR): Finger biometric
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_MOBILE_DEVICE_PATTERN   (0x03) ///< Card Verification Results (CVR): Mobile device pattern
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_FACIAL        (0x04) ///< Card Verification Results (CVR): Facial biometric
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_IRIS          (0x05) ///< Card Verification Results (CVR): Iris biometric
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_VOICE         (0x06) ///< Card Verification Results (CVR): Voice biometric
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_PALM          (0x07) ///< Card Verification Results (CVR): Palm biometric
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_SIGNATURE               (0x0D) ///< Card Verification Results (CVR): Signature
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_ONLINE_PIN              (0x0E) ///< Card Verification Results (CVR): Online PIN
+
+// Card Verification Results (CVR) byte 2 for Visa Smart Debit/Credit (VSDC) IAD Format 0/1/2/3/4 applications
+#define EMV_IAD_VSDC_CVR_BYTE2_2GAC_MASK                        (0xC0) ///< Card Verification Results (CVR) mask for Application Cryptogram Type Returned in Second GENERATE AC
+#define EMV_IAD_VSDC_CVR_BYTE2_2GAC_AAC                         (0x00) ///< Card Verification Results (CVR): Second GENERATE AC returned AAC
+#define EMV_IAD_VSDC_CVR_BYTE2_2GAC_TC                          (0x40) ///< Card Verification Results (CVR): Second GENERATE AC returned TC
+#define EMV_IAD_VSDC_CVR_BYTE2_2GAC_NOT_REQUESTED               (0x80) ///< Card Verification Results (CVR): Second GENERATE AC Not Requested
+#define EMV_IAD_VSDC_CVR_BYTE2_2GAC_RFU                         (0xC0) ///< Card Verification Results (CVR): Second GENERATE AC RFU
+#define EMV_IAD_VSDC_CVR_BYTE2_1GAC_MASK                        (0x30) ///< Card Verification Results (CVR) mask for Application Cryptogram Type Returned in First GENERATE AC (for contact) or GPO (for contactless)
+#define EMV_IAD_VSDC_CVR_BYTE2_1GAC_AAC                         (0x00) ///< Card Verification Results (CVR): First GENERATE AC or GPO returned AAC
+#define EMV_IAD_VSDC_CVR_BYTE2_1GAC_TC                          (0x10) ///< Card Verification Results (CVR): First GENERATE AC or GPO returned TC
+#define EMV_IAD_VSDC_CVR_BYTE2_1GAC_ARQC                        (0x20) ///< Card Verification Results (CVR): First GENERATE AC or GPO returned ARQC
+#define EMV_IAD_VSDC_CVR_BYTE2_1GAC_RFU                         (0x30) ///< Card Verification Results (CVR): First GENERATE AC or GPO RFU
+#define EMV_IAD_VSDC_CVR_BYTE2_ISSUER_AUTH_FAILED               (0x08) ///< Card Verification Results (CVR): Issuer Authentication performed and failed
+#define EMV_IAD_VSDC_CVR_BYTE2_OFFLINE_PIN_PERFORMED            (0x04) ///< Card Verification Results (CVR): Offline PIN verification performed (format 0/1/3)
+#define EMV_IAD_VSDC_CVR_BYTE2_CDCVM_PERFORMED                  (0x04) ///< Card Verification Results (CVR): CDCVM successfully performed (format 2/4)
+#define EMV_IAD_VSDC_CVR_BYTE2_OFFLINE_PIN_FAILED               (0x02) ///< Card Verification Results (CVR): Offline PIN verification failed (format 0/1/3)
+#define EMV_IAD_VSDC_CVR_BYTE2_RFU                              (0x02) ///< Card Verification Results (CVR): RFU (format 2/4)
+#define EMV_IAD_VSDC_CVR_BYTE2_UNABLE_TO_GO_ONLINE              (0x01) ///< Card Verification Results (CVR): Unable to go online
+
+// Card Verification Results (CVR) byte 3 for Visa Smart Debit/Credit (VSDC) IAD Format 0/1/2/3/4 applications
+// NOTE: From unverified internet sources
+#define EMV_IAD_VSDC_CVR_BYTE3_LAST_ONLINE_TXN_NOT_COMPLETED    (0x80) ///< Card Verification Results (CVR): Last online transaction not completed
+#define EMV_IAD_VSDC_CVR_BYTE3_PIN_TRY_LIMIT_EXCEEDED           (0x40) ///< Card Verification Results (CVR): PIN Try Limit exceeded
+#define EMV_IAD_VSDC_CVR_BYTE3_VELOCITY_COUNTERS_EXCEEDED       (0x20) ///< Card Verification Results (CVR): Exceeded velocity checking counters
+#define EMV_IAD_VSDC_CVR_BYTE3_NEW_CARD                         (0x10) ///< Card Verification Results (CVR): New card
+#define EMV_IAD_VSDC_CVR_BYTE3_LAST_ONLINE_ISSUER_AUTH_FAILED   (0x08) ///< Card Verification Results (CVR): Issuer Authentication failure on last online transaction
+#define EMV_IAD_VSDC_CVR_BYTE3_ISSUER_AUTH_NOT_PERFORMED        (0x04) ///< Card Verification Results (CVR): Issuer Authentication not performed after online authorization
+#define EMV_IAD_VSDC_CVR_BYTE3_APPLICATION_BLOCKED              (0x02) ///< Card Verification Results (CVR): Application blocked by card because PIN Try Limit exceeded
+#define EMV_IAD_VSDC_CVR_BYTE3_LAST_OFFLINE_SDA_FAILED          (0x01) ///< Card Verification Results (CVR): Offline static data authentication failed on last transaction
+
+// Card Verification Results (CVR) byte 4 for Visa Smart Debit/Credit (VSDC) IAD Format 0/1/2/3/4 applications
+// NOTE: From unverified internet sources
+#define EMV_IAD_VSDC_CVR_BYTE4_SCRIPT_COUNTER_MASK              (0xF0) ///< Card Verification Results (CVR) mask for Number of Issuer Script Commands
+#define EMV_IAD_VSDC_CVR_BYTE4_SCRIPT_COUNTER_SHIFT             (4) ///< Card Verification Results (CVR) shift for Number of Issuer Script Commands
+#define EMV_IAD_VSDC_CVR_BYTE4_ISSUER_SCRIPT_PROCESSING_FAILED  (0x08) ///< Card Verification Results (CVR): Issuer Script processing failed
+#define EMV_IAD_VSDC_CVR_BYTE4_LAST_OFFLINE_DDA_FAILED          (0x04) ///< Card Verification Results (CVR): Offline dynamic data authentication failed on last transaction
+#define EMV_IAD_VSDC_CVR_BYTE4_OFFLINE_DDA_PERFORMED            (0x02) ///< Card Verification Results (CVR): Offline dynamic data authentication performed
+#define EMV_IAD_VSDC_CVR_BYTE4_PIN_VERIFICATION_NOT_RECEIVED    (0x01) ///< Card Verification Results (CVR): PIN verification command not received for a PIN-Expecting card
+
+// Card Verification Results (CVR) byte 5 for Visa Smart Debit/Credit (VSDC) IAD Format 2/4 applications
+// NOTE: From unverified internet sources
+#define EMV_IAD_VSDC_CVR_BYTE5_CD_NOT_DEBUG_MODE                (0x80) ///< Card Verification Results (CVR): Consumer Device is not in debug mode
+#define EMV_IAD_VSDC_CVR_BYTE5_CD_NOT_ROOTED                    (0x40) ///< Card Verification Results (CVR): Consumer Device is not a rooted device
+#define EMV_IAD_VSDC_CVR_BYTE5_MOBILE_APP_NOT_HOOKED            (0x20) ///< Card Verification Results (CVR): Mobile Application is not hooked
+#define EMV_IAD_VSDC_CVR_BYTE5_MOBILE_APP_INTEGRITY             (0x10) ///< Card Verification Results (CVR): Mobile Application integrity is intact
+#define EMV_IAD_VSDC_CVR_BYTE5_CD_HAS_CONNECTIVITY              (0x08) ///< Card Verification Results (CVR): Consumer Device has data connectivity
+#define EMV_IAD_VSDC_CVR_BYTE5_CD_IS_GENUINE                    (0x04) ///< Card Verification Results (CVR): Consumer Device is genuine
+#define EMV_IAD_VSDC_CVR_BYTE5_CDCVM_PERFORMED                  (0x02) ///< Card Verification Results (CVR): CDCVM successfully performed
+#define EMV_IAD_VSDC_CVR_BYTE5_EMV_SESSION_KEY                  (0x01) ///< Card Verification Results (CVR): Secure Messaging uses EMV Session key-based derivation
 
 // Terminal Transaction Qualifiers (field 9F66) byte 1
 // See EMV Contactless Book A v2.10, 5.7, Table 5-4

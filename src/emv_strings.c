@@ -3432,6 +3432,8 @@ static int emv_iad_mchip_append_string_list(
 
 static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr)
 {
+	const uint8_t* cvr;
+
 	// Issuer Application Data (field 9F10) for Visa Smart Debit/Credit (VSDC)
 	// applications using IAD format 0/1/3
 	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Appendix M
@@ -3455,11 +3457,108 @@ static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_
 	// VSDC and VCPS documentation uses the CVNxx notation for IAD format 0/1/3
 	emv_str_list_add(itr, "Cryptogram Version Number (CVN): %02X (CVN%02u)", iad[2], iad[2]);
 
+	// Card Verification (CVR) Results byte 2
+	cvr = iad + 3;
+	switch (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_2GAC_MASK) {
+		case EMV_IAD_VSDC_CVR_BYTE2_2GAC_AAC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC returned AAC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_2GAC_TC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC returned TC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_2GAC_NOT_REQUESTED:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC Not Requested");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_2GAC_RFU:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC RFU");
+			break;
+	}
+	switch (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_1GAC_MASK) {
+		case EMV_IAD_VSDC_CVR_BYTE2_1GAC_AAC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned AAC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_1GAC_TC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned TC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_1GAC_ARQC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC returned ARQC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_1GAC_RFU:
+			emv_str_list_add(itr, "Card Verification Results (CVR): First GENERATE AC RFU");
+			break;
+	}
+	if (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_ISSUER_AUTH_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication performed and failed");
+	}
+	if (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_OFFLINE_PIN_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline PIN verification performed");
+	}
+	if (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_OFFLINE_PIN_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline PIN verification failed");
+	}
+	if (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_UNABLE_TO_GO_ONLINE) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Unable to go online");
+	}
+
+	// Card Verification (CVR) Results byte 3
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_LAST_ONLINE_TXN_NOT_COMPLETED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Last online transaction not completed");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_PIN_TRY_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): PIN Try Limit exceeded");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_VELOCITY_COUNTERS_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Exceeded velocity checking counters");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_NEW_CARD) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): New card");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_LAST_ONLINE_ISSUER_AUTH_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication failure on last online transaction");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_ISSUER_AUTH_NOT_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication not performed after online authorization");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_APPLICATION_BLOCKED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Application blocked by card because PIN Try Limit exceeded");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_LAST_OFFLINE_SDA_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline static data authentication failed on last transaction");
+	}
+
+	// Card Verification (CVR) Results byte 4
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_SCRIPT_COUNTER_MASK) {
+		emv_str_list_add(itr,
+			"Card Verification Results (CVR): Script Counter is %u",
+			(cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_SCRIPT_COUNTER_MASK) >> EMV_IAD_VSDC_CVR_BYTE4_SCRIPT_COUNTER_SHIFT
+		);
+	}
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_ISSUER_SCRIPT_PROCESSING_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Script processing failed");
+	}
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_LAST_OFFLINE_DDA_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline dynamic data authentication failed on last transaction");
+	}
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_OFFLINE_DDA_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline dynamic data authentication performed");
+	}
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_PIN_VERIFICATION_NOT_RECEIVED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): PIN verification command not received for a PIN-Expecting card");
+	}
+
 	return 0;
 }
 
 static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr)
 {
+	const uint8_t* cvr;
+
 	// Issuer Application Data (field 9F10) for Visa Smart Debit/Credit (VSDC)
 	// applications using IAD format 2/4
 	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Appendix M
@@ -3481,6 +3580,202 @@ static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_le
 
 	// Derivation Key Index
 	emv_str_list_add(itr, "Derivation Key Index (DKI): %02X", iad[2]);
+
+	// Card Verification (CVR) Results byte 1
+	cvr = iad + 3;
+	if (!cvr[0]) {
+		emv_str_list_add(itr, "No CDCVM");
+	}
+	switch (cvr[0] & EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MASK) {
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_VMPA:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Visa Mobile Payment Application (VMPA)");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MG:
+			emv_str_list_add(itr, "Card Verification Results (CVR): MG");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_SE_APP:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Co-residing SE app");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_TEE_APP:
+			emv_str_list_add(itr, "Card Verification Results (CVR): TEE app");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MOBILE_APP:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Mobile Application");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_TERMINAL:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Terminal");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_CLOUD:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Verified in the cloud");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MOBILE_DEVICE_OS:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Verified by the mobile device OS");
+			break;
+	}
+	switch (cvr[0] & EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_MASK) {
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_PASSCODE:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Passcode");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_FINGER:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Finger biometric");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_MOBILE_DEVICE_PATTERN:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Mobile device pattern");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_FACIAL:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Facial biometric");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_IRIS:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Iris biometric");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_VOICE:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Voice biometric");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_PALM:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Palm biometric");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_SIGNATURE:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Signature");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_ONLINE_PIN:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Online PIN");
+			break;
+	}
+
+	// Card Verification (CVR) Results byte 2
+	switch (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_2GAC_MASK) {
+		case EMV_IAD_VSDC_CVR_BYTE2_2GAC_AAC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC returned AAC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_2GAC_TC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC returned TC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_2GAC_NOT_REQUESTED:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC Not Requested");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_2GAC_RFU:
+			emv_str_list_add(itr, "Card Verification Results (CVR): Second GENERATE AC RFU");
+			break;
+	}
+	switch (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_1GAC_MASK) {
+		case EMV_IAD_VSDC_CVR_BYTE2_1GAC_AAC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): GPO returned AAC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_1GAC_TC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): GPO returned TC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_1GAC_ARQC:
+			emv_str_list_add(itr, "Card Verification Results (CVR): GPO returned ARQC");
+			break;
+
+		case EMV_IAD_VSDC_CVR_BYTE2_1GAC_RFU:
+			emv_str_list_add(itr, "Card Verification Results (CVR): GPO RFU");
+			break;
+	}
+	if (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_ISSUER_AUTH_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication performed and failed");
+	}
+	if (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_CDCVM_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): CDCVM successfully performed");
+	}
+	if (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_RFU) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): RFU");
+	}
+	if (cvr[1] & EMV_IAD_VSDC_CVR_BYTE2_UNABLE_TO_GO_ONLINE) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Unable to go online");
+	}
+
+	// Card Verification (CVR) Results byte 3
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_LAST_ONLINE_TXN_NOT_COMPLETED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Last online transaction not completed");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_PIN_TRY_LIMIT_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): PIN Try Limit exceeded");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_VELOCITY_COUNTERS_EXCEEDED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Exceeded velocity checking counters");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_NEW_CARD) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): New card");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_LAST_ONLINE_ISSUER_AUTH_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication failure on last online transaction");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_ISSUER_AUTH_NOT_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Authentication not performed after online authorization");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_APPLICATION_BLOCKED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Application blocked by card because PIN Try Limit exceeded");
+	}
+	if (cvr[2] & EMV_IAD_VSDC_CVR_BYTE3_LAST_OFFLINE_SDA_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline static data authentication failed on last transaction");
+	}
+
+	// Card Verification (CVR) Results byte 4
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_SCRIPT_COUNTER_MASK) {
+		emv_str_list_add(itr,
+			"Card Verification Results (CVR): Script Counter is %u",
+			(cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_SCRIPT_COUNTER_MASK) >> EMV_IAD_VSDC_CVR_BYTE4_SCRIPT_COUNTER_SHIFT
+		);
+	}
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_ISSUER_SCRIPT_PROCESSING_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Issuer Script processing failed");
+	}
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_LAST_OFFLINE_DDA_FAILED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline dynamic data authentication failed on last transaction");
+	}
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_OFFLINE_DDA_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Offline dynamic data authentication performed");
+	}
+	if (cvr[3] & EMV_IAD_VSDC_CVR_BYTE4_PIN_VERIFICATION_NOT_RECEIVED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): PIN verification command not received for a PIN-Expecting card");
+	}
+
+	// Card Verification (CVR) Results byte 5
+	if (cvr[4] & EMV_IAD_VSDC_CVR_BYTE5_CD_NOT_DEBUG_MODE) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Consumer Device is not in debug mode");
+	}
+	if (cvr[4] & EMV_IAD_VSDC_CVR_BYTE5_CD_NOT_ROOTED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Consumer Device is not a rooted device");
+	}
+	if (cvr[4] & EMV_IAD_VSDC_CVR_BYTE5_MOBILE_APP_NOT_HOOKED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Mobile Application is not hooked");
+	}
+	if (cvr[4] & EMV_IAD_VSDC_CVR_BYTE5_MOBILE_APP_INTEGRITY) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Mobile Application integrity is intact");
+	}
+	if (cvr[4] & EMV_IAD_VSDC_CVR_BYTE5_CD_HAS_CONNECTIVITY) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Consumer Device has data connectivity");
+	}
+	if (cvr[4] & EMV_IAD_VSDC_CVR_BYTE5_CD_IS_GENUINE) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Consumer Device is genuine");
+	}
+	if (cvr[4] & EMV_IAD_VSDC_CVR_BYTE5_CDCVM_PERFORMED) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): CDCVM successfully performed");
+	}
+	if (cvr[4] & EMV_IAD_VSDC_CVR_BYTE5_EMV_SESSION_KEY) {
+		emv_str_list_add(itr, "Card Verification Results (CVR): Secure Messaging uses EMV Session key-based derivation");
+	}
 
 	return 0;
 }
