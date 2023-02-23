@@ -35,6 +35,10 @@ if (BUILD_TESTING)
 	)
 	add_test(emv_str_parse_test emv_str_parse_test)
 
+	add_executable(emv_aid_info_test emv_aid_info_test.c)
+	target_link_libraries(emv_aid_info_test PRIVATE emv)
+	add_test(emv_aid_info_test emv_aid_info_test)
+
 	add_executable(emv_cvmlist_test emv_cvmlist_test.c)
 	target_link_libraries(emv_cvmlist_test PRIVATE emv)
 	add_test(emv_cvmlist_test emv_cvmlist_test)

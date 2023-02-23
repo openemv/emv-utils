@@ -2,7 +2,7 @@
  * @file emv_fields.h
  * @brief EMV field definitions and helper functions
  *
- * Copyright (c) 2021, 2022 Leon Lynch
+ * Copyright (c) 2021, 2022, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -684,6 +684,109 @@ enum emv_iad_format_t {
 #define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_22_23            (0x01) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.2 - 2.3
 #define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26            (0x02) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.4 - 2.6
 #define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27               (0x03) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.7
+
+/// EMV card schemes
+enum emv_card_scheme_t {
+	EMV_CARD_SCHEME_UNKNOWN = 0, ///< Unknown card scheme
+	EMV_CARD_SCHEME_VISA, ///< Visa
+	EMV_CARD_SCHEME_MASTERCARD, ///< Mastercard
+	EMV_CARD_SCHEME_AMEX, ///< American Express
+	EMV_CARD_SCHEME_DISCOVER, ///< Discover
+	EMV_CARD_SCHEME_CB, ///< Cartes Bancaires (CB)
+	EMV_CARD_SCHEME_JCB, ///< JCB
+	EMV_CARD_SCHEME_DANKORT, ///< Dankort
+	EMV_CARD_SCHEME_UNIONPAY, ///< UnionPay
+	EMV_CARD_SCHEME_GIMUEMOA, ///< GIM-UEMOA
+	EMV_CARD_SCHEME_DK, ///< Deutsche Kreditwirtschaft (DK)
+	EMV_CARD_SCHEME_VERVE, ///< Verve
+	EMV_CARD_SCHEME_EFTPOS, ///< eftpos (Australia)
+	EMV_CARD_SCHEME_RUPAY, ///< RuPay
+	EMV_CARD_SCHEME_MIR, ///< Mir
+	EMV_CARD_SCHEME_MEEZA, ///< Meeza
+};
+
+/// EMV card products
+enum emv_card_product_t {
+	EMV_CARD_PRODUCT_UNKNOWN = 0, ///< Unknown card product
+
+	// Visa
+	EMV_CARD_PRODUCT_VISA_CREDIT_DEBIT, ///< Visa Credit/Debit
+	EMV_CARD_PRODUCT_VISA_ELECTRON, ///< Visa Electron
+	EMV_CARD_PRODUCT_VISA_VPAY, ///< V Pay
+	EMV_CARD_PRODUCT_VISA_PLUS, ///< Visa Plus
+	EMV_CARD_PRODUCT_VISA_USA_DEBIT, ///< Visa USA Debit
+
+	// Mastercard
+	EMV_CARD_PRODUCT_MASTERCARD_CREDIT_DEBIT, ///< Mastercard Credit/Debit
+	EMV_CARD_PRODUCT_MASTERCARD_MAESTRO, ///< Maestro
+	EMV_CARD_PRODUCT_MASTERCARD_CIRRUS, ///< Mastercard Cirrus
+	EMV_CARD_PRODUCT_MASTERCARD_USA_DEBIT, ///< Mastercard USA Debit
+	EMV_CARD_PRODUCT_MASTERCARD_MAESTRO_UK, ///< Maestro UK
+	EMV_CARD_PRODUCT_MASTERCARD_TEST, ///< Mastercard Test Card
+
+	// American Express
+	EMV_CARD_PRODUCT_AMEX_CREDIT_DEBIT, ///< American Express Credit/Debit
+	EMV_CARD_PRODUCT_AMEX_CHINA_CREDIT_DEBIT, ///< American Express (China Credit/Debit)
+
+	// Discover
+	EMV_CARD_PRODUCT_DISCOVER_CARD, ///< Discover Card
+	EMV_CARD_PRODUCT_DISCOVER_USA_DEBIT, ///< Discover USA Debit
+	EMV_CARD_PRODUCT_DISCOVER_ZIP, ///< Discover ZIP
+
+	// Cartes Bancaires (CB)
+	EMV_CARD_PRODUCT_CB_CREDIT_DEBIT, ///< Cartes Bancaires (CB) Credit/Debit
+	EMV_CARD_PRODUCT_CB_DEBIT, ///< Cartes Bancaires (CB) Debit
+
+	// Dankort
+	EMV_CARD_PRODUCT_DANKORT_VISADANKORT, ///< Visa/Dankort
+	EMV_CARD_PRODUCT_DANKORT_JSPEEDY, ///< Dankort (J/Speedy)
+
+	// UnionPay
+	EMV_CARD_PRODUCT_UNIONPAY_DEBIT, ///< UnionPay Debit
+	EMV_CARD_PRODUCT_UNIONPAY_CREDIT, ///< UnionPay Credit
+	EMV_CARD_PRODUCT_UNIONPAY_QUASI_CREDIT, ///< UnionPay Quasi-credit
+	EMV_CARD_PRODUCT_UNIONPAY_ELECTRONIC_CASH, ///< UnionPay Electronic Cash
+	EMV_CARD_PRODUCT_UNIONPAY_USA_DEBIT, ///< UnionPay USA Debit
+
+	// GIM-UEMOA
+	EMV_CARD_PRODUCT_GIMUEMOA_STANDARD, ///< GIM-UEMOA Standard
+	EMV_CARD_PRODUCT_GIMUEMOA_PREPAID_ONLINE, ///< GIM-UEMOA Prepaye Online
+	EMV_CARD_PRODUCT_GIMUEMOA_CLASSIC, ///< GIM-UEMOA Classic
+	EMV_CARD_PRODUCT_GIMUEMOA_PREPAID_OFFLINE, ///< GIM-UEMOA Prepaye Possibile Offline
+	EMV_CARD_PRODUCT_GIMUEMOA_RETRAIT, ///< GIM-UEMOA Retrait
+	EMV_CARD_PRODUCT_GIMUEMOA_ELECTRONIC_WALLET, ///< GIM-UEMOA Porte Monnaie Electronique
+
+	// Deutsche Kreditwirtschaft
+	EMV_CARD_PRODUCT_DK_GIROCARD, ///< Deutsche Kreditwirtschaft (DK) Girocard
+
+	// eftpos (Australia)
+	EMV_CARD_PRODUCT_EFTPOS_SAVINGS, ///< eftpos (Australia) savings
+	EMV_CARD_PRODUCT_EFTPOS_CHEQUE, ///< eftpos (Australia) cheque
+
+	// Mir
+	EMV_CARD_PRODUCT_MIR_CREDIT, ///< Mir Credit
+	EMV_CARD_PRODUCT_MIR_DEBIT, ///< Mir Debit
+};
+
+/// EMV Application Identifier (AID) information
+struct emv_aid_info_t {
+	enum emv_card_scheme_t scheme; ///< EMV card scheme associated with Application Identifier (AID)
+	enum emv_card_product_t product; ///< EMV card product associated with Application Identifier (AID)
+};
+
+/**
+ * Determine EMV card scheme and card product from Application Identifier (AID)
+ * (field 4F, 84, or 9F06)
+ * @param aid Application Identifier (AID) field. Must be 5 to 16 bytes.
+ * @param aid_len Length of Application Identifier (AID) field. Must be 5 to 16 bytes.
+ * @param info EMV card scheme and card product output. See @ref emv_aid_info_t.
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_aid_get_info(
+	const uint8_t* aid,
+	size_t aid_len,
+	struct emv_aid_info_t* info
+);
 
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {
