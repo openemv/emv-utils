@@ -98,7 +98,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Identifies the application as described in ISO/IEC 7816-4";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_aid_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_50_APPLICATION_LABEL:
 			info->tag_name = "Application Label";
@@ -205,7 +205,7 @@ int emv_tlv_get_info(
 				"Identifies the name of the Dedicated File (DF) as described "
 				"in ISO/IEC 7816-4";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_aid_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_87_APPLICATION_PRIORITY_INDICATOR:
 			info->tag_name = "Application Priority Indicator";
@@ -480,7 +480,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Identifies the application as described in ISO/IEC 7816-4";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_aid_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F07_APPLICATION_USAGE_CONTROL:
 			info->tag_name = "Application Usage Control";
@@ -1928,6 +1928,129 @@ int emv_addl_term_caps_get_string_list(
 		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 1");
 	}
 
+	return 0;
+}
+
+int emv_aid_get_string(
+	const uint8_t* aid,
+	size_t aid_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct emv_aid_info_t info;
+	const char* info_str;
+
+	if (!aid || !aid_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (aid_len < 5 || aid_len > 16) {
+		// Application Identifier (AID) must be 5 to 16 bytes
+		return 1;
+	}
+
+	r = emv_aid_get_info(aid, aid_len, &info);
+	if (r) {
+		return r;
+	}
+
+	switch (info.product) {
+		// Visa
+		case EMV_CARD_PRODUCT_VISA_CREDIT_DEBIT: info_str = "Visa Credit/Debit"; break;
+		case EMV_CARD_PRODUCT_VISA_ELECTRON: info_str = "Visa Electron"; break;
+		case EMV_CARD_PRODUCT_VISA_VPAY: info_str = "V Pay"; break;
+		case EMV_CARD_PRODUCT_VISA_PLUS: info_str = "Visa Plus"; break;
+		case EMV_CARD_PRODUCT_VISA_USA_DEBIT: info_str = "Visa USA Debit"; break;
+
+		// Mastercard
+		case EMV_CARD_PRODUCT_MASTERCARD_CREDIT_DEBIT: info_str = "Mastercard Credit/Debit"; break;
+		case EMV_CARD_PRODUCT_MASTERCARD_MAESTRO: info_str = "Maestro"; break;
+		case EMV_CARD_PRODUCT_MASTERCARD_CIRRUS: info_str = "Mastercard Cirrus"; break;
+		case EMV_CARD_PRODUCT_MASTERCARD_USA_DEBIT: info_str = "Mastercard USA Debit"; break;
+		case EMV_CARD_PRODUCT_MASTERCARD_MAESTRO_UK: info_str = "Maestro UK"; break;
+		case EMV_CARD_PRODUCT_MASTERCARD_TEST: info_str = "Mastercard Test Card"; break;
+
+		// American Express
+		case EMV_CARD_PRODUCT_AMEX_CREDIT_DEBIT: info_str = "American Express Credit/Debit"; break;
+		case EMV_CARD_PRODUCT_AMEX_CHINA_CREDIT_DEBIT: info_str = "American Express (China Credit/Debit)"; break;
+
+		// Discover
+		case EMV_CARD_PRODUCT_DISCOVER_CARD: info_str = "Discover Card"; break;
+		case EMV_CARD_PRODUCT_DISCOVER_USA_DEBIT: info_str = "Discover USA Debit"; break;
+		case EMV_CARD_PRODUCT_DISCOVER_ZIP: info_str = "Discover ZIP"; break;
+
+		// Cartes Bancaires (CB)
+		case EMV_CARD_PRODUCT_CB_CREDIT_DEBIT: info_str = "Cartes Bancaires (CB) Credit/Debit"; break;
+		case EMV_CARD_PRODUCT_CB_DEBIT: info_str = "Cartes Bancaires (CB) Debit"; break;
+
+		// Dankort
+		case EMV_CARD_PRODUCT_DANKORT_VISADANKORT: info_str = "Visa/Dankort"; break;
+		case EMV_CARD_PRODUCT_DANKORT_JSPEEDY: info_str = "Dankort (J/Speedy)"; break;
+
+		// UnionPay
+		case EMV_CARD_PRODUCT_UNIONPAY_DEBIT: info_str = "UnionPay Debit"; break;
+		case EMV_CARD_PRODUCT_UNIONPAY_CREDIT: info_str = "UnionPay Credit"; break;
+		case EMV_CARD_PRODUCT_UNIONPAY_QUASI_CREDIT: info_str = "UnionPay Quasi-credit"; break;
+		case EMV_CARD_PRODUCT_UNIONPAY_ELECTRONIC_CASH: info_str = "UnionPay Electronic Cash"; break;
+		case EMV_CARD_PRODUCT_UNIONPAY_USA_DEBIT: info_str = "UnionPay USA Debit"; break;
+
+		// GIM-UEMOA
+		case EMV_CARD_PRODUCT_GIMUEMOA_STANDARD: info_str = "GIM-UEMOA Standard"; break;
+		case EMV_CARD_PRODUCT_GIMUEMOA_PREPAID_ONLINE: info_str = "GIM-UEMOA Prepaye Online"; break;
+		case EMV_CARD_PRODUCT_GIMUEMOA_CLASSIC: info_str = "GIM-UEMOA Classic"; break;
+		case EMV_CARD_PRODUCT_GIMUEMOA_PREPAID_OFFLINE: info_str = "GIM-UEMOA Prepaye Possibile Offline"; break;
+		case EMV_CARD_PRODUCT_GIMUEMOA_RETRAIT: info_str = "GIM-UEMOA Retrait"; break;
+		case EMV_CARD_PRODUCT_GIMUEMOA_ELECTRONIC_WALLET: info_str = "GIM-UEMOA Porte Monnaie Electronique"; break;
+
+		// Deutsche Kreditwirtschaft
+		case EMV_CARD_PRODUCT_DK_GIROCARD: info_str = "Deutsche Kreditwirtschaft (DK) Girocard"; break;
+
+		// eftpos (Australia)
+		case EMV_CARD_PRODUCT_EFTPOS_SAVINGS: info_str = "eftpos (Australia) savings"; break;
+		case EMV_CARD_PRODUCT_EFTPOS_CHEQUE: info_str = "eftpos (Australia) cheque"; break;
+
+		// Mir
+		case EMV_CARD_PRODUCT_MIR_CREDIT: info_str = "Mir Credit"; break;
+		case EMV_CARD_PRODUCT_MIR_DEBIT: info_str = "Mir Debit"; break;
+
+		default:
+			// Unknown product; use scheme string instead
+			info_str = NULL;
+			break;
+	}
+
+	if (!info_str) {
+		switch (info.scheme) {
+			case EMV_CARD_SCHEME_VISA: info_str = "Visa"; break;
+			case EMV_CARD_SCHEME_MASTERCARD: info_str = "Mastercard"; break;
+			case EMV_CARD_SCHEME_AMEX: info_str = "American Express"; break;
+			case EMV_CARD_SCHEME_DISCOVER: info_str = "Discover"; break;
+			case EMV_CARD_SCHEME_CB: info_str = "Cartes Bancaires (CB)"; break;
+			case EMV_CARD_SCHEME_JCB: info_str = "JCB"; break;
+			case EMV_CARD_SCHEME_DANKORT: info_str = "Dankort"; break;
+			case EMV_CARD_SCHEME_UNIONPAY: info_str = "UnionPay"; break;
+			case EMV_CARD_SCHEME_GIMUEMOA: info_str = "GIM-UEMOA"; break;
+			case EMV_CARD_SCHEME_DK: info_str = "Deutsche Kreditwirtschaft (DK)"; break;
+			case EMV_CARD_SCHEME_VERVE: info_str = "Verve"; break;
+			case EMV_CARD_SCHEME_EFTPOS: info_str = "eftpos (Australia)"; break;
+			case EMV_CARD_SCHEME_RUPAY: info_str = "RuPay"; break;
+			case EMV_CARD_SCHEME_MIR: info_str = "Mir"; break;
+			case EMV_CARD_SCHEME_MEEZA: info_str = "Meeza"; break;
+
+			default:
+				return 1;
+		}
+	}
+
+	strncpy(str, info_str, str_len - 1);
+	str[str_len - 1] = 0;
 	return 0;
 }
 

@@ -296,6 +296,21 @@ int emv_addl_term_caps_get_string_list(
 );
 
 /**
+ * Stringify Application Identifier (field 4F, 84, or 9F06)
+ * @param aid Application Identifier (AID) field. Must be 5 to 16 bytes.
+ * @param aid_len Length of Application Identifier (AID) field. Must be 5 to 16 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_aid_get_string(
+	const uint8_t* aid,
+	size_t aid_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Application Interchange Profile (field 82)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param aip Application Interchange Profile (AIP) field. Must be 2 bytes.
