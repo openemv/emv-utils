@@ -1,0 +1,3 @@
+[submodule "mcc-codes"]
+	path = mcc-codes
+	url = https://github.com/greggles/mcc-codes.git
