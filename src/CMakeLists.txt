@@ -180,10 +180,12 @@ install(
 add_library(emv_strings
 	emv_strings.c
 	isocodes_lookup.cpp
+	mcc_lookup.cpp
 )
 set(emv_strings_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv_strings.h
 	isocodes_lookup.h
+	mcc_lookup.h
 	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
 add_library(emv::emv_strings ALIAS emv_strings)

@@ -55,6 +55,11 @@ if (BUILD_TESTING)
 	target_link_libraries(isocodes_test PRIVATE emv_strings)
 	add_test(isocodes_test isocodes_test)
 
+	add_executable(mcc_test mcc_test.c)
+	target_include_directories(mcc_test PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../src/) # For generated headers
+	target_link_libraries(mcc_test PRIVATE emv_strings)
+	add_test(mcc_test mcc_test)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs
