@@ -69,8 +69,12 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ISO4217,
 	EMV_DECODE_ISO639,
 	EMV_DECODE_VERSION,
+	EMV_DECODE_OVERRIDE_MCC_JSON,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
+
+// Testing parameters
+static char* mcc_json = NULL;
 
 // argp option structure
 static struct argp_option argp_options[] = {
@@ -123,6 +127,9 @@ static struct argp_option argp_options[] = {
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
 
 	{ "version", EMV_DECODE_VERSION, NULL, 0, "Display emv-utils version" },
+
+	// Hidden option for testing
+	{ "mcc-json", EMV_DECODE_OVERRIDE_MCC_JSON, "path", OPTION_HIDDEN, "Override path of mcc-codes JSON file" },
 
 	{ 0 },
 };
@@ -221,6 +228,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			return 0;
 		}
 
+		case EMV_DECODE_OVERRIDE_MCC_JSON: {
+			mcc_json = strdup(arg);
+			return 0;
+		}
+
 		default:
 			return ARGP_ERR_UNKNOWN;
 	}
@@ -300,7 +312,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	r = emv_strings_init();
+	r = emv_strings_init(NULL, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
 		return 2;
@@ -707,6 +719,7 @@ int main(int argc, char** argv)
 		}
 
 		case EMV_DECODE_VERSION:
+		case EMV_DECODE_OVERRIDE_MCC_JSON:
 			// Implemented in argp_parser_helper()
 			break;
 	}
@@ -716,6 +729,9 @@ int main(int argc, char** argv)
 	}
 	if (arg_str) {
 		free(arg_str);
+	}
+	if (mcc_json) {
+		free(mcc_json);
 	}
 
 	return 0;

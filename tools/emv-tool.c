@@ -63,6 +63,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
 	EMV_TOOL_PARAM_DEBUG_LEVEL,
 	EMV_TOOL_VERSION,
+	EMV_TOOL_OVERRIDE_MCC_JSON,
 };
 
 // argp option structure
@@ -78,6 +79,9 @@ static struct argp_option argp_options[] = {
 	{ "debug-level", EMV_TOOL_PARAM_DEBUG_LEVEL, "LEVEL", 0, "Maximum debug level. Allowed values are NONE, ERROR, INFO, CARD, TRACE, ALL. Default is INFO." },
 
 	{ "version", EMV_TOOL_VERSION, NULL, 0, "Display emv-utils version" },
+
+	// Hidden option for testing
+	{ "mcc-json", EMV_TOOL_OVERRIDE_MCC_JSON, "path", OPTION_HIDDEN, "Override path of mcc-codes JSON file" },
 
 	{ 0 },
 };
@@ -114,6 +118,9 @@ static const char* debug_level_str[] = {
 	"ALL",
 };
 static enum emv_debug_level_t debug_level = EMV_DEBUG_INFO;
+
+// Testing parameters
+static char* mcc_json = NULL;
 
 struct emv_txn_t {
 	// Terminal Transport Layer
@@ -250,6 +257,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_TOOL_VERSION: {
 			printf("%s\n", EMV_UTILS_VERSION_STRING);
 			exit(EXIT_SUCCESS);
+			return 0;
+		}
+
+		case EMV_TOOL_OVERRIDE_MCC_JSON: {
+			mcc_json = strdup(arg);
 			return 0;
 		}
 
@@ -394,7 +406,7 @@ int main(int argc, char** argv)
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 	}
 
-	r = emv_strings_init();
+	r = emv_strings_init(NULL, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
 		return 2;
@@ -713,4 +725,8 @@ emv_exit:
 	emv_txn_destroy(&emv_txn);
 pcsc_exit:
 	pcsc_release(&pcsc);
+
+	if (mcc_json) {
+		free(mcc_json);
+	}
 }

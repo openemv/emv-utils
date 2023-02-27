@@ -24,6 +24,8 @@
 #include "emv_tags.h"
 #include "emv_fields.h"
 #include "isocodes_lookup.h"
+#include "mcc_lookup.h"
+#include "mcc_config.h"
 
 #include <string.h>
 #include <stdarg.h>
@@ -53,11 +55,16 @@ static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_
 static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static const char* emv_mastercard_device_type_get_string(const char* device_type);
 
-int emv_strings_init(void)
+int emv_strings_init(const char* isocodes_path, const char* mcc_path)
 {
 	int r;
 
-	r = isocodes_init(NULL);
+	r = isocodes_init(isocodes_path);
+	if (r) {
+		return r;
+	}
+
+	r = mcc_init(mcc_path);
 	if (r) {
 		return r;
 	}

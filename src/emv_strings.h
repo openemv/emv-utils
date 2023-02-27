@@ -122,9 +122,13 @@ struct emv_tlv_info_t {
  * Initialize EMV strings. This will load ISO 3166, ISO 4217,
  * and ISO 639 strings from the iso-codes package.
  *
+ * @param isocodes_path Override directory path where iso-codes JSON files can
+ *                      be found. NULL for default path (recommended).
+ * @param mcc_path Override path of mcc-codes JSON file. NULL for default
+ *                 path (recommended).
  * @return Zero for success. Less than zero for internal error. Greater than zero if iso-codes package not found.
  */
-int emv_strings_init(void);
+int emv_strings_init(const char* isocodes_path, const char* mcc_path);
 
 /**
  * Retrieve EMV TLV information, if available, and convert value to human

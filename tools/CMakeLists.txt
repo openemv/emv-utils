@@ -102,6 +102,7 @@ endif()
 if(TARGET emv-decode AND BUILD_TESTING)
 	add_test(NAME emv_decode_test1
 		COMMAND emv-decode --atr 3BDA18FF81B1FE751F030031F573C78A40009000B0
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_test1_regex
 		"^ATR: 3BDA18FF81B1FE751F030031F573C78A40009000B0[\r\n]"
@@ -139,6 +140,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_test2
 		COMMAND emv-decode --tlv 810400000320
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_test2
 		PROPERTIES
@@ -147,6 +149,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_test3
 		COMMAND emv-decode --tlv 9A03221215
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_test3
 		PROPERTIES
@@ -155,6 +158,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_test4
 		COMMAND emv-decode --tlv 9F2103111542
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_test4
 		PROPERTIES
@@ -163,6 +167,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_test5
 		COMMAND emv-decode --tlv 9C0100
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_test5
 		PROPERTIES
@@ -171,6 +176,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_test6
 		COMMAND emv-decode --tlv 9F390105
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_test6
 		PROPERTIES
@@ -179,6 +185,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_test7
 		COMMAND emv-decode --tlv 571040123456789095D2512201197339300F
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_test7
 		PROPERTIES
@@ -187,6 +194,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_test8
 		COMMAND emv-decode --tlv 701A9F390105571040123456789095D2512201197339300F82025900
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_test8_regex
 		"^70 \\| EMV Data Template : \\[26\\][\r\n]"
@@ -201,6 +209,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_country_test1
 		COMMAND emv-decode --country 528
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_country_test1
 		PROPERTIES
@@ -209,6 +218,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_country_test2
 		COMMAND emv-decode --iso3166-1 GBR
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_country_test2
 		PROPERTIES
@@ -217,6 +227,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_country_test3
 		COMMAND emv-decode --country US
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_country_test3
 		PROPERTIES
@@ -225,6 +236,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_currency_test1
 		COMMAND emv-decode --currency 978
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_currency_test1
 		PROPERTIES
@@ -233,6 +245,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_currency_test2
 		COMMAND emv-decode --iso4217 HKD
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_currency_test2
 		PROPERTIES
@@ -241,6 +254,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_currency_test3
 		COMMAND emv-decode --currency 826
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_currency_test3
 		PROPERTIES
@@ -249,6 +263,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_language_test1
 		COMMAND emv-decode --language fr
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_language_test1
 		PROPERTIES
@@ -257,6 +272,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_language_test2
 		COMMAND emv-decode --iso639 zh
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_language_test2
 		PROPERTIES
@@ -265,6 +281,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_language_test3
 		COMMAND emv-decode --language wln
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	set_tests_properties(emv_decode_language_test3
 		PROPERTIES
@@ -273,6 +290,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_9F3B_test1
 		COMMAND emv-decode --tlv 9F3B06097808260840
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_9F3B_test1_regex
 		"^9F3B \\| Application Reference Currency : \\[6\\] 09 78 08 26 08 40[\r\n]"
@@ -287,6 +305,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_9F3B_test2
 		COMMAND emv-decode --tlv 9F3B06097801230840
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_9F3B_test2_regex
 		"^9F3B \\| Application Reference Currency : \\[6\\] 09 78 01 23 08 40[\r\n]"
@@ -301,6 +320,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_5F2D_test1
 		COMMAND emv-decode --tlv 5F2D04656E6672
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_5F2D_test1_regex
 		"^5F2D \\| Language Preference : \\[4\\] 65 6E 66 72[\r\n]"
@@ -314,6 +334,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_5F2D_test2
 		COMMAND emv-decode --tlv 5F2D04454E4652
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_5F2D_test2_regex
 		"^5F2D \\| Language Preference : \\[4\\] 45 4E 46 52[\r\n]"
@@ -327,6 +348,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_5F2D_test3
 		COMMAND emv-decode --tlv 5F2D04656EFFFF
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_5F2D_test3_regex
 		"^5F2D \\| Language Preference : \\[4\\] 65 6E FF FF[\r\n]"
@@ -340,6 +362,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_9F6E_test1
 		COMMAND emv-decode --tlv 9F6E0E0528000332310001010840000000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_9F6E_test1_regex
 		"^9F6E \\| Third Party Data : \\[14\\] 05 28 00 03 32 31 00 01 01 08 40 00 00 00[\r\n]"
@@ -358,6 +381,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_9F6E_test2
 		COMMAND emv-decode --tlv 9F6E0B0250000330350002000200
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_9F6E_test2_regex
 		"^9F6E \\| Third Party Data : \\[11\\] 02 50 00 03 30 35 00 02 00 02 00[\r\n]"
@@ -374,6 +398,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_9F6E_test3
 		COMMAND emv-decode --tlv 9F6E04238C0000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_9F6E_test3_regex
 		"^9F6E \\| Form Factor Indicator \\(FFI\\) : \\[4\\] 23 8C 00 00[\r\n]"
@@ -389,6 +414,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_9F6E_test4
 		COMMAND emv-decode --tlv 9F6E049CD04003
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_9F6E_test4_regex
 		"^9F6E \\| Enhanced Contactless Reader Capabilities : \\[4\\] 9C D0 40 03[\r\n]"
@@ -409,6 +435,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_IAD_test1
 		COMMAND emv-decode --issuer-app-data 0FA526A83100000000000001500000000F240000000000000000000000000000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_IAD_test1_regex
 		"^Application: CCD-Compliant[\r\n]"
@@ -428,6 +455,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_IAD_test2
 		COMMAND emv-decode --issuer-app-data 0110A04003223000000000001126980002FF
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_IAD_test2_regex
 		"^Application: M/Chip 4[\r\n]"
@@ -451,6 +479,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_IAD_test3
 		COMMAND emv-decode --issuer-app-data 0110A04203A20000000000000000000000FF00000000000000FF
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_IAD_test3_regex
 		"^Application: M/Chip Advance[\r\n]"
@@ -474,6 +503,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_IAD_test4
 		COMMAND emv-decode --issuer-app-data 06011203A000000F0300001030800000046920AE952C48
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_IAD_test4_regex
 		"^Application: Visa Smart Debit/Credit \\(VSDC\\)[\r\n]"
@@ -490,6 +520,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	add_test(NAME emv_decode_IAD_test5
 		COMMAND emv-decode --issuer-app-data 1F43FE82A0000000000000000003075300000000000000000000000000000000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_IAD_test5_regex
 		"^Application: Visa Smart Debit/Credit \\(VSDC\\)[\r\n]"
