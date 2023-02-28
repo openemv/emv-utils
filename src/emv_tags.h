@@ -214,6 +214,9 @@ __BEGIN_DECLS
 /// EMV tag 9F12 Application Preferred Name. Template 61 or A5.
 #define EMV_TAG_9F12_APPLICATION_PREFERRED_NAME                 (0x9F12)
 
+/// EMV tag 9F15 Merchant Category Code (MCC)
+#define EMV_TAG_9F15_MCC                                        (0x9F15)
+
 /// EMV tag 9F16 Merchant Identifier
 /// @remark Also used as the Card Acceptor Identification by ISO 8583. See EMV 4.4 Book 4, Annex C, Table 40
 #define EMV_TAG_9F16_MERCHANT_IDENTIFIER                        (0x9F16)

@@ -241,6 +241,21 @@ int emv_transaction_type_get_string(
 );
 
 /**
+ * Stringify Merchant Category Code (field 9F15)
+ * @param mcc Merchant Category Code (MCC) field. Must be 2 bytes.
+ * @param mcc_len Length of Merchant Category Code (MCC) field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_mcc_get_string(
+	const uint8_t* mcc,
+	size_t mcc_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Terminal Type (field 9F35)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param term_type Terminal type field

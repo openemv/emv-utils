@@ -51,6 +51,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_TLV,
 	EMV_DECODE_DOL,
 	EMV_DECODE_TAG_LIST,
+	EMV_DECODE_MCC,
 	EMV_DECODE_TERM_TYPE,
 	EMV_DECODE_TERM_CAPS,
 	EMV_DECODE_ADDL_TERM_CAPS,
@@ -89,6 +90,8 @@ static struct argp_option argp_options[] = {
 	{ "tag-list", EMV_DECODE_TAG_LIST, NULL, 0, "Decode EMV Tag List" },
 
 	{ NULL, 0, NULL, 0, "Individual EMV fields:", 3 },
+	{ "mcc", EMV_DECODE_MCC, NULL, 0, "Decode Merchant Category Code (field 9F15)" },
+	{ "9F15", EMV_DECODE_MCC, NULL, OPTION_ALIAS },
 	{ "term-type", EMV_DECODE_TERM_TYPE, NULL, 0, "Decode Terminal Type (field 9F35)" },
 	{ "9F35", EMV_DECODE_TERM_TYPE, NULL, OPTION_ALIAS },
 	{ "term-caps", EMV_DECODE_TERM_CAPS, NULL, 0, "Decode Terminal Capabilities (field 9F33)" },
@@ -198,6 +201,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_TLV:
 		case EMV_DECODE_DOL:
 		case EMV_DECODE_TAG_LIST:
+		case EMV_DECODE_MCC:
 		case EMV_DECODE_TERM_TYPE:
 		case EMV_DECODE_TERM_CAPS:
 		case EMV_DECODE_ADDL_TERM_CAPS:
@@ -377,6 +381,29 @@ int main(int argc, char** argv)
 
 		case EMV_DECODE_TAG_LIST: {
 			print_emv_tag_list(data, data_len, "  ", 0);
+			break;
+		}
+
+		case EMV_DECODE_MCC: {
+			char str[1024];
+
+			if (data_len != 2) {
+				fprintf(stderr, "Merchant Category Code (MCC) must be 4-digit numeric code\n");
+				break;
+			}
+
+			r = emv_mcc_get_string(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse Merchant Category Code (MCC)\n");
+				break;
+			}
+
+			if (!str[0]) {
+				fprintf(stderr, "Unknown\n");
+				break;
+			}
+			printf("%s\n", str);
+
 			break;
 		}
 
