@@ -24,6 +24,8 @@
 #include "emv_tags.h"
 #include "emv_fields.h"
 #include "isocodes_lookup.h"
+#include "mcc_lookup.h"
+#include "mcc_config.h"
 
 #include <string.h>
 #include <stdarg.h>
@@ -53,11 +55,16 @@ static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_
 static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static const char* emv_mastercard_device_type_get_string(const char* device_type);
 
-int emv_strings_init(void)
+int emv_strings_init(const char* isocodes_path, const char* mcc_path)
 {
 	int r;
 
-	r = isocodes_init(NULL);
+	r = isocodes_init(isocodes_path);
+	if (r) {
+		return r;
+	}
+
+	r = mcc_init(mcc_path);
 	if (r) {
 		return r;
 	}
@@ -553,6 +560,14 @@ int emv_tlv_get_info(
 				"Preferred mnemonic associated with the AID";
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 16, value_str, value_str_len);
+
+		case EMV_TAG_9F15_MCC:
+			info->tag_name = "Merchant Category Code (MCC)";
+			info->tag_desc = "Classifies the type of business being done by "
+				"the merchant, represented according to ISO 8583:1993 for "
+				"Card Acceptor Business Code.";
+			info->format = EMV_FORMAT_N;
+			return emv_mcc_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F16_MERCHANT_IDENTIFIER:
 			info->tag_name = "Merchant Identifier";
@@ -1492,6 +1507,50 @@ int emv_transaction_type_get_string(
 		default:
 			return 1;
 	}
+}
+
+int emv_mcc_get_string(
+	const uint8_t* mcc,
+	size_t mcc_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	uint32_t mcc_numeric;
+	const char* mcc_str;
+
+	if (!mcc || !mcc_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (mcc_len != 2) {
+		// Merchant Category Code (MCC) field must be 2 bytes
+		return 1;
+	}
+
+	r = emv_format_n_to_uint(mcc, mcc_len, &mcc_numeric);
+	if (r) {
+		return r;
+	}
+
+	mcc_str = mcc_lookup(mcc_numeric);
+	if (!mcc_str) {
+		// Unknown Merchant Category Code (MCC); ignore
+		str[0] = 0;
+		return 0;
+	}
+
+	// Copy Merchant Category Code (MCC) string
+	strncpy(str, mcc_str, str_len - 1);
+	str[str_len - 1] = 0;
+
+	return 0;
 }
 
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len)

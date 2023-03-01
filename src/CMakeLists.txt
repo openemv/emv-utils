@@ -24,6 +24,32 @@ endif()
 
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
+# Find and use mcc-codes submodule
+set(MCC_JSON_SOURCE_FILE mcc_codes.json)
+set(MCC_JSON_SOURCE_PATH ${PROJECT_SOURCE_DIR}/mcc-codes/${MCC_JSON_SOURCE_FILE})
+if(EXISTS ${MCC_JSON_SOURCE_PATH})
+	# Copy mcc-codes to build directory
+	set(MCC_JSON_BINARY_DIR ${PROJECT_BINARY_DIR}/mcc-codes)
+	file(COPY ${MCC_JSON_SOURCE_PATH} DESTINATION ${MCC_JSON_BINARY_DIR})
+
+	# Install mcc-codes to runtime component
+	set(EMV_UTILS_INSTALL_MCC_CODES_DIR ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME} CACHE STRING "Installation location for emv-utils mcc-codes files")
+	message(STATUS "Using mcc-codes install location \"${EMV_UTILS_INSTALL_MCC_CODES_DIR}\"")
+	install(FILES
+		${MCC_JSON_SOURCE_PATH}
+		DESTINATION ${EMV_UTILS_INSTALL_MCC_CODES_DIR}
+		COMPONENT emv_runtime
+	)
+
+	# Default mcc-codes paths to be used by libraries and applications
+	# The build path is also set for the parent scope to facilitate testing
+	set(MCC_JSON_BUILD_PATH ${MCC_JSON_BINARY_DIR}/${MCC_JSON_SOURCE_FILE})
+	set(MCC_JSON_BUILD_PATH ${MCC_JSON_BUILD_PATH} PARENT_SCOPE)
+	set(MCC_JSON_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${EMV_UTILS_INSTALL_MCC_CODES_DIR}/${MCC_JSON_SOURCE_FILE})
+else()
+	message(FATAL_ERROR "mcc-codes/mcc_codes.json not found")
+endif()
+
 # ISO 7816 library
 add_library(iso7816
 	iso7816.c
@@ -156,10 +182,12 @@ install(
 add_library(emv_strings
 	emv_strings.c
 	isocodes_lookup.cpp
+	mcc_lookup.cpp
 )
 set(emv_strings_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv_strings.h
 	isocodes_lookup.h
+	mcc_lookup.h
 	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
 add_library(emv::emv_strings ALIAS emv_strings)
@@ -174,9 +202,10 @@ set_target_properties(emv_strings
 		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
 )
 configure_file(isocodes_config.h.in isocodes_config.h)
+configure_file(mcc_config.h.in mcc_config.h)
 target_include_directories(emv_strings
 	PRIVATE
-		"${CMAKE_CURRENT_BINARY_DIR}" # For generated isocodes_config.h
+		"${CMAKE_CURRENT_BINARY_DIR}" # For generated headers
 	INTERFACE
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 		$<INSTALL_INTERFACE:include/emv>

@@ -122,9 +122,13 @@ struct emv_tlv_info_t {
  * Initialize EMV strings. This will load ISO 3166, ISO 4217,
  * and ISO 639 strings from the iso-codes package.
  *
+ * @param isocodes_path Override directory path where iso-codes JSON files can
+ *                      be found. NULL for default path (recommended).
+ * @param mcc_path Override path of mcc-codes JSON file. NULL for default
+ *                 path (recommended).
  * @return Zero for success. Less than zero for internal error. Greater than zero if iso-codes package not found.
  */
-int emv_strings_init(void);
+int emv_strings_init(const char* isocodes_path, const char* mcc_path);
 
 /**
  * Retrieve EMV TLV information, if available, and convert value to human
@@ -232,6 +236,21 @@ int emv_time_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
  */
 int emv_transaction_type_get_string(
 	uint8_t txn_type,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Merchant Category Code (field 9F15)
+ * @param mcc Merchant Category Code (MCC) field. Must be 2 bytes.
+ * @param mcc_len Length of Merchant Category Code (MCC) field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_mcc_get_string(
+	const uint8_t* mcc,
+	size_t mcc_len,
 	char* str,
 	size_t str_len
 );
