@@ -60,6 +60,10 @@ if (BUILD_TESTING)
 	target_link_libraries(mcc_test PRIVATE emv_strings)
 	add_test(mcc_test mcc_test)
 
+	add_executable(iso8859_test iso8859_test.c)
+	target_link_libraries(iso8859_test PRIVATE iso8859)
+	add_test(iso8859_test iso8859_test)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

@@ -7,6 +7,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+find_package(Boost REQUIRED COMPONENTS locale)
 find_package(IsoCodes REQUIRED)
 
 # Newer versions of json-c have a CMake config file while older versions, like
@@ -114,6 +115,42 @@ install(
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/iso8825"
+		COMPONENT emv_development
+	RUNTIME
+		COMPONENT emv_runtime
+	LIBRARY
+		COMPONENT emv_runtime
+		NAMELINK_COMPONENT emv_development
+	ARCHIVE
+		COMPONENT emv_development
+)
+
+# ISO 8859 library
+add_library(iso8859
+	iso8859.cpp
+)
+set(iso8859_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
+	iso8859.h
+	PARENT_SCOPE # Doxygen generator requires a list of headers
+)
+add_library(emv::iso8859 ALIAS iso8859)
+set_target_properties(iso8859
+	PROPERTIES
+		PUBLIC_HEADER "${iso8859_HEADERS}"
+		VERSION ${CMAKE_PROJECT_VERSION}
+		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
+)
+target_include_directories(iso8859 INTERFACE
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+	$<INSTALL_INTERFACE:include/iso8859>
+)
+target_link_libraries(iso8859 PUBLIC Boost::locale)
+install(
+	TARGETS
+		iso8859
+	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	PUBLIC_HEADER
+		DESTINATION "include/iso8859"
 		COMPONENT emv_development
 	RUNTIME
 		COMPONENT emv_runtime

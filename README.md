@@ -21,6 +21,7 @@ Dependencies
 * C11 and C++11 compilers such as GCC or Clang
 * [CMake](https://cmake.org/)
 * [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+* [Boost.Locale](https://github.com/boostorg/locale)
 * [iso-codes](https://salsa.debian.org/iso-codes-team/iso-codes)
 * [json-c](https://github.com/json-c/json-c)
 * `emv-decode` and `emv-tool` will be built by default and require `argp`

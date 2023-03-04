@@ -137,6 +137,13 @@ configure_file(pkgconfig/libiso8825.pc.in
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8825.pc"
 	@ONLY
 )
+# Generate pkgconfig for iso8859 library
+set(EMV_UTILS_PKGCONFIG_LIB_NAME iso8859)
+# NOTE: src subdirectory may provide ISO8859_PKGCONFIG_REQ_PRIV and ISO8859_PKGCONFIG_LIBS_PRIV
+configure_file(pkgconfig/libiso8859.pc.in
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8859.pc"
+	@ONLY
+)
 # Generate pkgconfig for emv library
 set(EMV_UTILS_PKGCONFIG_LIB_NAME emv)
 # NOTE: src subdirectory may provide EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV
@@ -154,6 +161,7 @@ configure_file(pkgconfig/libemv_strings.pc.in
 install(FILES
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso7816.pc"
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8825.pc"
+	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libiso8859.pc"
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv.pc"
 	"${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/libemv_strings.pc"
 	DESTINATION "${EMV_UTILS_INSTALL_PKGCONFIG_DIR}"
@@ -191,6 +199,7 @@ if(Doxygen_FOUND)
 		doxygen_add_docs(docs
 			${iso7816_HEADERS}
 			${iso8825_HEADERS}
+			${iso8859_HEADERS}
 			${emv_HEADERS}
 			${emv_strings_HEADERS}
 			ALL # Build by default
@@ -207,6 +216,7 @@ if(Doxygen_FOUND)
 		doxygen_add_docs(docs
 			${iso7816_HEADERS}
 			${iso8825_HEADERS}
+			${iso8859_HEADERS}
 			${emv_HEADERS}
 			${emv_strings_HEADERS}
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
@@ -226,7 +236,7 @@ set(CPACK_VERBATIM_VARIABLES ON)
 
 # Configure generic component packaging attributes
 set(CPACK_COMPONENT_EMV_RUNTIME_DISPLAY_NAME "EMV libraries and tools")
-set(CPACK_COMPONENT_EMV_RUNTIME_DESCRIPTION "EMV runtime libraries (iso7816, iso8825, emv) and command line tools (emv-decode, emv-tool)")
+set(CPACK_COMPONENT_EMV_RUNTIME_DESCRIPTION "EMV runtime libraries (iso7816, iso8825, iso8859, emv) and command line tools (emv-decode, emv-tool)")
 set(CPACK_COMPONENT_EMV_DEVELOPMENT_DISPLAY_NAME "EMV development files")
 set(CPACK_COMPONENT_EMV_DEVELOPMENT_DESCRIPTION "Development files (headers, pkgconfig files, CMake config files, etc) for EMV libraries")
 set(CPACK_COMPONENT_EMV_DOCS_DISPLAY_NAME "Documentation for EMV libraries")
