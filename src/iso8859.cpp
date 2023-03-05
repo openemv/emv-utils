@@ -30,10 +30,10 @@
 bool iso8859_is_supported(unsigned int codepage)
 {
 	if (codepage < 1 ||
-		codepage > 16 ||
+		codepage > 15 ||
 		codepage == 12
 	) {
-		// ISO 8859 code pages 1 to 16 are supported
+		// ISO 8859 code pages 1 to 15 are supported
 		// ISO 8859-12 for Devanagari was officially abandoned in 1997
 		return false;
 	}

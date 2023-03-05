@@ -43,7 +43,7 @@ static const char* utf8_verify[] = {
 	u8" ”¢£¤„¦§Ø©Ŗ«¬­®Æ°±²³“µ¶·ø¹ŗ»¼½¾æĄĮĀĆÄÅĘĒČÉŹĖĢĶĪĻŠŃŅÓŌÕÖ×ŲŁŚŪÜŻŽßąįāćäåęēčéźėģķīļšńņóōõö÷ųłśūüżž’",
 	u8" Ḃḃ£ĊċḊ§Ẁ©ẂḋỲ­®ŸḞḟĠġṀṁ¶ṖẁṗẃṠỳẄẅṡÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏŴÑÒÓÔÕÖṪØÙÚÛÜÝŶßàáâãäåæçèéêëìíîïŵñòóôõöṫøùúûüýŷÿ",
 	u8" ¡¢£€¥Š§š©ª«¬­®¯°±²³Žµ¶·ž¹º»ŒœŸ¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ",
-	u8" ĄąŁ€„Š§š©Ș«Ź­źŻ°±ČłŽ”¶·žčș»ŒœŸżÀÁÂĂÄĆÆÇÈÉÊËÌÍÎÏĐŃÒÓÔŐÖŚŰÙÚÛÜĘȚßàáâăäćæçèéêëìíîïđńòóôőöśűùúûüęțÿ",
+	//u8" ĄąŁ€„Š§š©Ș«Ź­źŻ°±ČłŽ”¶·žčș»ŒœŸżÀÁÂĂÄĆÆÇÈÉÊËÌÍÎÏĐŃÒÓÔŐÖŚŰÙÚÛÜĘȚßàáâăäćæçèéêëìíîïđńòóôőöśűùúûüęțÿ",
 };
 
 int main(void)
@@ -60,7 +60,7 @@ int main(void)
 	}
 
 	// Test ISO 8859 conversion of the common character set
-	for (unsigned int codepage = 1; codepage <= 16; ++codepage) {
+	for (unsigned int codepage = 1; codepage <= 15; ++codepage) {
 		if (!iso8859_is_supported(codepage)) {
 				if (codepage == 12) {
 				// ISO 8859-12 for Devanagari was officially abandoned in 1997
@@ -91,7 +91,7 @@ int main(void)
 	}
 
 	// Test ISO 8859 conversion of the higher non-control characters
-	for (unsigned int codepage = 1; codepage <= 16; ++codepage) {
+	for (unsigned int codepage = 1; codepage <= 15; ++codepage) {
 		if (!iso8859_is_supported(codepage)) {
 				if (codepage == 12) {
 				// ISO 8859-12 for Devanagari was officially abandoned in 1997

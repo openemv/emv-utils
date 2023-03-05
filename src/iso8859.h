@@ -31,14 +31,14 @@ __BEGIN_DECLS
 
 /**
  * Determine whether ISO/IEC 8859 code page is supported by this implementation
- * @param codepage Code page number. Must be from 1 to 16.
+ * @param codepage Code page number. Must be from 1 to 15.
  * @return Boolean indicating whether code page is supported
  */
 bool iso8859_is_supported(unsigned int codepage);
 
 /**
  * Convert from ISO/IEC 8859 to UTF-8 using the specified code page.
- * @param codepage Code page number. Must be from 1 to 16.
+ * @param codepage Code page number. Must be from 1 to 15.
  * @param iso8859 Buffer containing ISO/IEC 8859 encoded string
  * @param iso8859_len Length of ISO/IEC 8859 buffer in bytes
  * @param utf8 UTF-8 buffer output
