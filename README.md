@@ -172,7 +172,6 @@ Roadmap
 -------
 * Document `emv-tool` usage
 * Implement high level EMV processing API
-* Implement ISO 8859 decoding and UTF-8 conversion
 * Implement country, currency, language and MCC searching
 * Implement context-specific EMV string decoding, such as ISO 8859 code pages
   for UTF-8 conversion and kernel-specific contactless fields

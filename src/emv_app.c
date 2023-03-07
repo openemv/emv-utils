@@ -23,6 +23,7 @@
 #include "emv_tags.h"
 #include "emv_fields.h"
 #include "iso8825_ber.h"
+#include "iso8859.h"
 
 #include <stdbool.h>
 #include <stdlib.h> // for malloc() and free()
@@ -166,7 +167,9 @@ static int emv_aid_get_string(const uint8_t* aid, size_t aid_len, char* str, siz
 
 static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_list_t* pse_tlv_list)
 {
+	int r;
 	struct emv_tlv_t* issuer_code_table_index;
+	unsigned int issuer_code_table = 0;
 	struct emv_tlv_t* tlv;
 
 	/* Find Application Preferred Name and associated Issuer Code Table Index
@@ -178,15 +181,46 @@ static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_li
 	} else {
 		issuer_code_table_index = emv_tlv_list_find(&app->tlv_list, EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX);
 	}
-	if (issuer_code_table_index) {
+	if (issuer_code_table_index && issuer_code_table_index->length == 1) {
+		// Assume Additional Terminal Capabilities (field 9F40) was correctly
+		// configured to indicate the supported code tables
+		if (iso8859_is_supported(issuer_code_table_index->value[0])) {
+			// Issuer Code Table Index is valid and supported
+			issuer_code_table = issuer_code_table_index->value[0];
+		}
+	}
+	if (issuer_code_table) {
 		// Use Application Preferred Name as display name
 		tlv = emv_tlv_list_find(&app->tlv_list, EMV_TAG_9F12_APPLICATION_PREFERRED_NAME);
 		if (tlv) {
-			// TODO: convert ISO 8859 to UTF-8
-			// HACK: just copy it as-is for now
-			memcpy(app->display_name, tlv->value, tlv->length);
-			app->display_name[tlv->length] = 0;
-			return 0;
+			// Application Preferred Name is limited to non-control characters
+			// defined in the ISO/IEC 8859 part designated in the Issuer Code
+			// Table
+			// See EMV 4.4 Book 1, 4.3
+			// See EMV 4.4 Book 1, Annex B
+			char app_preferred_name[16 + 1]; // Ensure enough space for NULL termination
+
+			// Copy only non-control characters
+			r = emv_format_ans_to_non_control_str(
+				tlv->value,
+				tlv->length,
+				app_preferred_name,
+				sizeof(app_preferred_name)
+			);
+			if (r == 0) {
+				// Convert ISO 8859 to UTF-8
+				r = iso8859_to_utf8(
+					issuer_code_table,
+					(const uint8_t*)app_preferred_name,
+					strlen(app_preferred_name),
+					app->display_name,
+					sizeof(app->display_name)
+				);
+				if (r == 0) {
+					// Success
+					return 0;
+				}
+			}
 		}
 	}
 
@@ -194,9 +228,16 @@ static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_li
 	tlv = emv_tlv_list_find(&app->tlv_list, EMV_TAG_50_APPLICATION_LABEL);
 	if (tlv) {
 		// Application Label is limited to a-z, A-Z, 0-9 and the space
-		// character from ISO 8859, so just copy it as-is for now
-		memcpy(app->display_name, tlv->value, tlv->length);
-		app->display_name[tlv->length] = 0;
+		// See EMV 4.4 Book 1, 4.3
+		// See EMV 4.4 Book 1, Annex B
+
+		// Copy only a-z, A-Z, 0-9 and the space character
+		r = emv_format_ans_to_alnum_space_str(
+			tlv->value,
+			tlv->length,
+			app->display_name,
+			sizeof(app->display_name)
+		);
 		return 0;
 	}
 

@@ -241,6 +241,80 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 	return 0;
 }
 
+int emv_format_ans_to_non_control_str(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+)
+{
+	if (!buf || !buf_len || !str || !str_len) {
+		return -1;
+	}
+
+	while (buf_len) {
+		if (str_len == 1) {
+			// Ensure enough space for NULL termination
+			break;
+		}
+
+		// Only copy non-control characters
+		if ((*buf >= 0x20 && *buf <= 0x7E) || *buf >= 0xA0) {
+			*str = *buf;
+
+			// Advance output
+			++str;
+			--str_len;
+		}
+
+		++buf;
+		--buf_len;
+	}
+
+	*str = 0; // NULL terminate
+
+	return 0;
+}
+
+int emv_format_ans_to_alnum_space_str(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+)
+{
+	if (!buf || !buf_len || !str || !str_len) {
+		return -1;
+	}
+
+	while (buf_len) {
+		if (str_len == 1) {
+			// Ensure enough space for NULL termination
+			break;
+		}
+
+		// Only 0-9, A-Z, a-z, and space
+		if (
+			(*buf >= 0x30 && *buf <= 0x39) ||
+			(*buf >= 0x41 && *buf <= 0x5A) ||
+			(*buf >= 0x61 && *buf <= 0x7A)
+		) {
+			*str = *buf;
+
+			// Advance output
+			++str;
+			--str_len;
+		}
+
+		++buf;
+		--buf_len;
+	}
+
+	*str = 0; // NULL terminate
+
+	return 0;
+}
+
 const uint8_t* emv_uint_to_format_n(uint32_t value, uint8_t* buf, size_t buf_len)
 {
 	size_t i;
