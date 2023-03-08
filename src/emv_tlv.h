@@ -145,6 +145,45 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list);
 
 /**
+ * Convert EMV format "ans" to string and omit control characters
+ * @note This function is typically needed for Application Preferred Name (field 9F12)
+ * @remark See EMV 4.4 Book 1, 4.3
+ * @remark See ISO/IEC 8859
+ *
+ * @param buf Buffer to convert
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error.
+ */
+int emv_format_ans_to_non_control_str(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Convert EMV format "ans" to string containing only alphanumeric or space
+ * characters
+ * @note This function is typically needed for Application Label (field 50)
+ * @remark See EMV 4.4 Book 1, 4.3
+ * @remark See EMV 4.4 Book 4, Annex B
+ *
+ * @param buf Buffer to convert
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error.
+ */
+int emv_format_ans_to_alnum_space_str(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Convert unsigned integer (32-bit) to EMV format "n".
  * @remark See EMV 4.3 Book 1, 4.3
  *

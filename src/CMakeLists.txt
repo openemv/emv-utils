@@ -7,6 +7,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+find_package(Boost REQUIRED COMPONENTS locale)
 find_package(IsoCodes REQUIRED)
 
 # Newer versions of json-c have a CMake config file while older versions, like
@@ -124,6 +125,42 @@ install(
 		COMPONENT emv_development
 )
 
+# ISO 8859 library
+add_library(iso8859
+	iso8859.cpp
+)
+set(iso8859_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
+	iso8859.h
+	PARENT_SCOPE # Doxygen generator requires a list of headers
+)
+add_library(emv::iso8859 ALIAS iso8859)
+set_target_properties(iso8859
+	PROPERTIES
+		PUBLIC_HEADER "${iso8859_HEADERS}"
+		VERSION ${CMAKE_PROJECT_VERSION}
+		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
+)
+target_include_directories(iso8859 INTERFACE
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+	$<INSTALL_INTERFACE:include/iso8859>
+)
+target_link_libraries(iso8859 PUBLIC Boost::locale)
+install(
+	TARGETS
+		iso8859
+	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	PUBLIC_HEADER
+		DESTINATION "include/iso8859"
+		COMPONENT emv_development
+	RUNTIME
+		COMPONENT emv_runtime
+	LIBRARY
+		COMPONENT emv_runtime
+		NAMELINK_COMPONENT emv_development
+	ARCHIVE
+		COMPONENT emv_development
+)
+
 # EMV library
 add_library(emv
 	emv_fields.c
@@ -147,11 +184,12 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 )
 add_library(emv::emv ALIAS emv)
 target_compile_definitions(emv PUBLIC EMV_DEBUG_ENABLED) # Enabled all debugging
-target_link_libraries(emv PUBLIC iso8825)
+target_link_libraries(emv PUBLIC iso8825 PRIVATE iso8859)
 # The EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV variables are set
 # for the parent scope to facilitate the generation of pkgconfig files.
-set(EMV_PKGCONFIG_REQ_PRIV "libiso8825" PARENT_SCOPE)
-set(EMV_PKGCONFIG_LIBS_PRIV "-liso8825" PARENT_SCOPE)
+# NOTE: It is not necessary to set EMV_PKGCONFIG_LIBS_PRIV for dependencies
+# that are mentioned in EMV_PKGCONFIG_REQ_PRIV
+set(EMV_PKGCONFIG_REQ_PRIV "libiso8825 libiso8859" PARENT_SCOPE)
 set_target_properties(emv
 	PROPERTIES
 		PUBLIC_HEADER "${emv_HEADERS}"

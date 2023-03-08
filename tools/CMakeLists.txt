@@ -54,7 +54,7 @@ if(BUILD_EMV_DECODE)
 		PROPERTIES
 			COMPILE_DEFINITIONS EMV_UTILS_VERSION_STRING="${EMV_UTILS_VERSION_STRING}"
 	)
-	target_link_libraries(emv-decode PRIVATE emv_strings emv iso7816)
+	target_link_libraries(emv-decode PRIVATE emv_strings emv iso7816 iso8859)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-decode PRIVATE libargp::argp)
 	endif()

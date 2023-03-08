@@ -23,6 +23,7 @@
 #include "print_helpers.h"
 #include "emv_strings.h"
 #include "isocodes_lookup.h"
+#include "iso8859.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -69,6 +70,22 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ISO3166_1,
 	EMV_DECODE_ISO4217,
 	EMV_DECODE_ISO639,
+	EMV_DECODE_ISO8859_X,
+	EMV_DECODE_ISO8859_1,
+	EMV_DECODE_ISO8859_2,
+	EMV_DECODE_ISO8859_3,
+	EMV_DECODE_ISO8859_4,
+	EMV_DECODE_ISO8859_5,
+	EMV_DECODE_ISO8859_6,
+	EMV_DECODE_ISO8859_7,
+	EMV_DECODE_ISO8859_8,
+	EMV_DECODE_ISO8859_9,
+	EMV_DECODE_ISO8859_10,
+	EMV_DECODE_ISO8859_11,
+	EMV_DECODE_ISO8859_12,
+	EMV_DECODE_ISO8859_13,
+	EMV_DECODE_ISO8859_14,
+	EMV_DECODE_ISO8859_15,
 	EMV_DECODE_VERSION,
 	EMV_DECODE_OVERRIDE_MCC_JSON,
 };
@@ -125,6 +142,23 @@ static struct argp_option argp_options[] = {
 	{ "iso4217", EMV_DECODE_ISO4217, NULL, OPTION_ALIAS },
 	{ "language", EMV_DECODE_ISO639, NULL, 0, "Lookup language name by ISO 639 alpha-2 or alpha-3 code" },
 	{ "iso639", EMV_DECODE_ISO639, NULL, OPTION_ALIAS },
+
+	{ "iso8859-x", EMV_DECODE_ISO8859_X, NULL, 0, "Decode INPUT as ISO8859 using the code page specified by 'x' and print as UTF-8" },
+	{ "iso8859-1", EMV_DECODE_ISO8859_1, NULL, OPTION_HIDDEN },
+	{ "iso8859-2", EMV_DECODE_ISO8859_2, NULL, OPTION_HIDDEN },
+	{ "iso8859-3", EMV_DECODE_ISO8859_3, NULL, OPTION_HIDDEN },
+	{ "iso8859-4", EMV_DECODE_ISO8859_4, NULL, OPTION_HIDDEN },
+	{ "iso8859-5", EMV_DECODE_ISO8859_5, NULL, OPTION_HIDDEN },
+	{ "iso8859-6", EMV_DECODE_ISO8859_6, NULL, OPTION_HIDDEN },
+	{ "iso8859-7", EMV_DECODE_ISO8859_7, NULL, OPTION_HIDDEN },
+	{ "iso8859-8", EMV_DECODE_ISO8859_8, NULL, OPTION_HIDDEN },
+	{ "iso8859-9", EMV_DECODE_ISO8859_9, NULL, OPTION_HIDDEN },
+	{ "iso8859-10", EMV_DECODE_ISO8859_10, NULL, OPTION_HIDDEN },
+	{ "iso8859-11", EMV_DECODE_ISO8859_11, NULL, OPTION_HIDDEN },
+	// ISO8859-12 for Devanagari was officially abandoned in 1997
+	{ "iso8859-13", EMV_DECODE_ISO8859_13, NULL, OPTION_HIDDEN },
+	{ "iso8859-14", EMV_DECODE_ISO8859_14, NULL, OPTION_HIDDEN },
+	{ "iso8859-15", EMV_DECODE_ISO8859_15, NULL, OPTION_HIDDEN },
 
 	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
 	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
@@ -219,12 +253,33 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_ISO3166_1:
 		case EMV_DECODE_ISO4217:
 		case EMV_DECODE_ISO639:
+		case EMV_DECODE_ISO8859_1:
+		case EMV_DECODE_ISO8859_2:
+		case EMV_DECODE_ISO8859_3:
+		case EMV_DECODE_ISO8859_4:
+		case EMV_DECODE_ISO8859_5:
+		case EMV_DECODE_ISO8859_6:
+		case EMV_DECODE_ISO8859_7:
+		case EMV_DECODE_ISO8859_8:
+		case EMV_DECODE_ISO8859_9:
+		case EMV_DECODE_ISO8859_10:
+		case EMV_DECODE_ISO8859_11:
+		case EMV_DECODE_ISO8859_12:
+		case EMV_DECODE_ISO8859_13:
+		case EMV_DECODE_ISO8859_14:
+		case EMV_DECODE_ISO8859_15:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
 			}
 
 			emv_decode_mode = key;
 			return 0;
+
+		case EMV_DECODE_ISO8859_X: {
+			printf("Use --iso8859-x where 'x' is the code page number, for example  --iso8859-5\n");
+			exit(EXIT_SUCCESS);
+			return 1;
+		}
 
 		case EMV_DECODE_VERSION: {
 			printf("%s\n", EMV_UTILS_VERSION_STRING);
@@ -745,6 +800,42 @@ int main(int argc, char** argv)
 			break;
 		}
 
+		case EMV_DECODE_ISO8859_1:
+		case EMV_DECODE_ISO8859_2:
+		case EMV_DECODE_ISO8859_3:
+		case EMV_DECODE_ISO8859_4:
+		case EMV_DECODE_ISO8859_5:
+		case EMV_DECODE_ISO8859_6:
+		case EMV_DECODE_ISO8859_7:
+		case EMV_DECODE_ISO8859_8:
+		case EMV_DECODE_ISO8859_9:
+		case EMV_DECODE_ISO8859_10:
+		case EMV_DECODE_ISO8859_11:
+		case EMV_DECODE_ISO8859_12:
+		case EMV_DECODE_ISO8859_13:
+		case EMV_DECODE_ISO8859_14:
+		case EMV_DECODE_ISO8859_15: {
+			char utf8[2048];
+			unsigned int codepage;
+
+			codepage = emv_decode_mode - EMV_DECODE_ISO8859_1 + 1;
+			if (!iso8859_is_supported(codepage)) {
+				fprintf(stderr, "ISO8859-%u not supported\n", codepage);
+				break;
+			}
+
+			memset(utf8, 0, sizeof(utf8));
+			r = iso8859_to_utf8(codepage, data, data_len, utf8, sizeof(utf8));
+			if (r && utf8[0]) { // Ignore empty strings
+				fprintf(stderr, "iso8859_to_utf8() failed; r=%d\n", r);
+				break;
+			}
+			printf("%s\n", utf8);
+
+			break;
+		}
+
+		case EMV_DECODE_ISO8859_X:
 		case EMV_DECODE_VERSION:
 		case EMV_DECODE_OVERRIDE_MCC_JSON:
 			// Implemented in argp_parser_helper()
