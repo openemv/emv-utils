@@ -994,6 +994,7 @@ int emv_tlv_get_info(
  * @param max_format_len Maximum number of format digits
  * @param value_str Value string buffer output. NULL to ignore.
  * @param value_str_len Length of value string buffer in bytes. Zero to ignore.
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
  */
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len)
 {

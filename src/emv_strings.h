@@ -139,7 +139,7 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  * @param info EMV TLV information output. See @ref emv_tlv_info_t
  * @param value_str Value string buffer output. NULL to ignore.
  * @param value_str_len Length of value string buffer in bytes. Zero to ignore.
- * @return Zero for success. Less than zero for error.
+ * @return Zero for success. Non-zero for error.
  */
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,

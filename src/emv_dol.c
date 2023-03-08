@@ -45,7 +45,7 @@ int emv_dol_decode(const void* ptr, size_t len, struct emv_dol_entry_t* entry)
 		return -2;
 	}
 
-	// NOTE: According to EMV Book 3, 5.4, a Data Object List (DOL) entry
+	// NOTE: According to EMV 4.3 Book 3, 5.4, a Data Object List (DOL) entry
 	// consists of a BER encoded tag, followed by a one-byte length.
 
 	// Decode tag octets
