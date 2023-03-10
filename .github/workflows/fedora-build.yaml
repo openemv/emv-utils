@@ -51,7 +51,7 @@ jobs:
       run: cmake --build build
 
     - name: Test
-      run: cmake --build build --target test
+      run: ctest --test-dir build --output-on-failure
 
   build-fedora-release:
     strategy:
@@ -94,7 +94,7 @@ jobs:
       run: cmake --build build
 
     - name: Test
-      run: cmake --build build --target test
+      run: ctest --test-dir build --output-on-failure
 
     - name: Package
       run: cmake --build build --target package

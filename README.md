@@ -66,11 +66,10 @@ cmake --build build --target test
 ```
 
 Alternatively, [ctest](https://cmake.org/cmake/help/latest/manual/ctest.1.html)
-can be used directly from within the build directory (`build` in the above
-[Build](#build) steps) which also allows actions such as `MemCheck` to be
+can be used directly which also allows actions such as `MemCheck` to be
 performed or the number of jobs to be set, for example:
 ```
-ctest -T MemCheck -j 10
+ctest --test-dir build -T MemCheck -j 10
 ```
 
 Documentation
