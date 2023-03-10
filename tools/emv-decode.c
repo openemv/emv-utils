@@ -34,7 +34,7 @@
 
 // Helper functions
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
-static int parse_hex(const char* hex, void* bin, size_t bin_len);
+static int parse_hex(const char* hex, void* buf, size_t* buf_len);
 static void* load_from_file(FILE* file, size_t* len);
 
 // Input data
@@ -208,16 +208,20 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				}
 			} else {
 				// Read INPUT as hex data
-				if (arg_len % 2 != 0) {
-					argp_error(state, "INPUT must have even number of digits");
+				if (arg_len < 2) {
+					argp_error(state, "INPUT must consist of at least 1 byte (thus 2 hex digits)");
 				}
 
-				data_len = arg_len / 2;
+				// Ensure that the buffer has enough space for odd length hex strings
+				data_len = (arg_len + 1) / 2;
 				data = malloc(data_len);
 
-				r = parse_hex(arg, data, data_len);
-				if (r) {
-					argp_error(state, "INPUT must must consist of hex digits");
+				r = parse_hex(arg, data, &data_len);
+				if (r < 0) {
+					argp_error(state, "INPUT must consist of hex digits");
+				}
+				if (r > 0) {
+					argp_error(state, "INPUT must have even number of hex digits");
 				}
 			}
 
@@ -298,27 +302,45 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 }
 
 // Hex parser helper function
-static int parse_hex(const char* hex, void* bin, size_t bin_len)
+static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 {
-	size_t hex_len = bin_len * 2;
+	size_t max_buf_len;
 
-	for (size_t i = 0; i < hex_len; ++i) {
-		if (!isxdigit(hex[i])) {
-			return -1;
-		}
+	if (!buf_len) {
+		return -1;
 	}
+	max_buf_len = *buf_len;
+	*buf_len = 0;
 
-	while (*hex && bin_len--) {
-		uint8_t* ptr = bin;
-
+	while (*hex && max_buf_len--) {
+		uint8_t* ptr = buf;
 		char str[3];
-		strncpy(str, hex, 2);
+		unsigned int str_idx = 0;
+
+		// Find next two valid hex digits
+		while (*hex && str_idx < 2) {
+			// Skip spaces
+			if (isspace(*hex)) {
+				++hex;
+				continue;
+			}
+			// Only allow hex digits
+			if (!isxdigit(*hex)) {
+				return -2;
+			}
+
+			str[str_idx++] = *hex;
+			++hex;
+		}
+		if (str_idx != 2) {
+			// Uneven number of hex digits
+			return 1;
+		}
 		str[2] = 0;
 
 		*ptr = strtoul(str, NULL, 16);
-
-		hex += 2;
-		++bin;
+		++buf;
+		++*buf_len;
 	}
 
 	return 0;
