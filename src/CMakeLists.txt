@@ -7,6 +7,18 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+# Check for time.h and clock_gettime()
+include(CheckIncludeFile)
+check_include_file(time.h HAVE_TIME_H)
+if(NOT HAVE_TIME_H)
+	message(FATAL_ERROR "Failed to find time.h")
+endif()
+include(CheckSymbolExists)
+check_symbol_exists(clock_gettime time.h HAVE_clock_gettime)
+if(NOT HAVE_clock_gettime)
+	message(FATAL_ERROR "Failed to find clock_gettime")
+endif()
+
 find_package(Boost REQUIRED COMPONENTS locale)
 find_package(IsoCodes REQUIRED)
 
