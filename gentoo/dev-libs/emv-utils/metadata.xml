@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "http://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="person">
+		<email>lynch.leon@gmail.com</email>
+		<name>Leon Lynch</name>
+	</maintainer>
+	<upstream>
+		<remote-id type="github">openemv/emv-utils</remote-id>
+	</upstream>
+
+	<use>
+		<flag name="pcsc-lite">Enable smartcard support with sys-apps/pcsc-lite</flag>
+	</use>
+</pkgmetadata>
