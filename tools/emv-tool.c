@@ -2,7 +2,7 @@
  * @file emv-tool.c
  * @brief Simple EMV processing tool
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2023 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
