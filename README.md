@@ -15,6 +15,25 @@ If you wish to use these libraries for a project that is not compatible with
 the terms of the LGPL v2.1 license, please contact the author for alternative
 licensing options.
 
+Installation
+------------
+
+* For Ubuntu 20.04 LTS (Focal) or Ubuntu 22.04 LTS (Jammy), install the
+  appropriate [release package](https://github.com/openemv/emv-utils/releases)
+* For Fedora 36 or Fedora 37, install the appropriate
+  [release package](https://github.com/openemv/emv-utils/releases)
+* For Gentoo, use  the
+  [OpenEMV overlay](https://github.com/openemv/openemv-overlay), set the
+  keywords and useflags as needed, and install using
+  `emerge --verbose --ask emv-utils`
+* For MacOS with [Homebrew](https://brew.sh/), use the
+  [OpenEMV tap](https://github.com/openemv/homebrew-tap) and install using
+  `brew install openemv/tap/emv-utils`
+* For Windows, use [MSYS2](https://www.msys2.org/) and follow the build
+  instructions below
+* For other platforms, architectures or configurations, follow the build
+  instructions below
+
 Dependencies
 ------------
 
