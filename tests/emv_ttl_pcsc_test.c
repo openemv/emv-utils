@@ -26,7 +26,7 @@
 #include <string.h>
 
 // For debug output
-#include "../tools/print_helpers.h"
+#include "print_helpers.h"
 
 struct apdu_t {
 	size_t c_apdu_len;

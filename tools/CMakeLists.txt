@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2022 Leon Lynch
+# Copyright (c) 2022-2023 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -47,14 +47,21 @@ endif()
 
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
+# Print helpers object library
+add_library(print_helpers OBJECT EXCLUDE_FROM_ALL print_helpers.c)
+target_include_directories(print_helpers INTERFACE
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
+target_link_libraries(print_helpers PRIVATE iso7816 emv emv_strings)
+
 # EMV decode command line tool
 if(BUILD_EMV_DECODE)
-	add_executable(emv-decode emv-decode.c print_helpers.c)
+	add_executable(emv-decode emv-decode.c)
 	set_source_files_properties(emv-decode.c
 		PROPERTIES
 			COMPILE_DEFINITIONS EMV_UTILS_VERSION_STRING="${EMV_UTILS_VERSION_STRING}"
 	)
-	target_link_libraries(emv-decode PRIVATE emv_strings emv iso7816 iso8859)
+	target_link_libraries(emv-decode PRIVATE print_helpers iso7816 emv emv_strings iso8859)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-decode PRIVATE libargp::argp)
 	endif()
@@ -77,12 +84,12 @@ if(BUILD_EMV_TOOL)
 		)
 	endif()
 
-	add_executable(emv-tool emv-tool.c print_helpers.c ../src/pcsc.c)
+	add_executable(emv-tool emv-tool.c ../src/pcsc.c)
 	set_source_files_properties(emv-tool.c
 		PROPERTIES
 			COMPILE_DEFINITIONS EMV_UTILS_VERSION_STRING="${EMV_UTILS_VERSION_STRING}"
 	)
-	target_link_libraries(emv-tool PRIVATE emv_strings emv iso7816)
+	target_link_libraries(emv-tool PRIVATE print_helpers iso7816 emv emv_strings)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-tool PRIVATE libargp::argp)
 	endif()

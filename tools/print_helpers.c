@@ -30,8 +30,8 @@
 #include "emv_tlv.h"
 #include "emv_dol.h"
 #include "emv_app.h"
-#include "emv_strings.h"
 #include "emv_debug.h"
+#include "emv_strings.h"
 
 #include <stdlib.h>
 #include <stdio.h>

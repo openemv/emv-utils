@@ -25,7 +25,7 @@
 #include <string.h>
 
 // For debug output
-#include "../tools/print_helpers.h"
+#include "print_helpers.h"
 
 int main(void)
 {
