@@ -1,6 +1,6 @@
 /**
- * @file mcc_config.h
- * @brief Definitions related to the configuration of mcc-codes
+ * @file emv.c
+ * @brief High level EMV library interface
  *
  * Copyright (c) 2023 Leon Lynch
  *
@@ -19,10 +19,10 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-#ifndef MCC_CONFIG_H
-#define MCC_CONFIG_H
+#include "emv.h"
+#include "emv_utils_config.h"
 
-#define MCC_JSON_BUILD_PATH "@MCC_JSON_BUILD_PATH@"
-#define MCC_JSON_INSTALL_PATH "@MCC_JSON_INSTALL_PATH@"
-
-#endif
+const char* emv_lib_version_string(void)
+{
+	return EMV_UTILS_VERSION_STRING;
+}

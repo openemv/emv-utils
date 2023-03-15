@@ -1,8 +1,8 @@
 /**
- * @file isocodes_config.h
- * @brief Definitions related to the configuration of the iso-codes package
+ * @file emv_utils_config.h
+ * @brief Definitions related to emv-utils build configuration
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,10 +19,18 @@
  * <https://www.gnu.org/licenses/>.
  */
 
-#ifndef ISOCODES_CONFIG_H
-#define ISOCODES_CONFIG_H
+#ifndef EMV_UTILS_CONFIG_H
+#define EMV_UTILS_CONFIG_H
 
-#define ISOCODES_PREFIX "@IsoCodes_PREFIX@"
+#cmakedefine EMV_UTILS_VERSION_STRING "@EMV_UTILS_VERSION_STRING@"
+#cmakedefine HAVE_TIME_H
+#cmakedefine HAVE_CLOCK_GETTIME
+
+// For iso-codes
 #define ISOCODES_JSON_PATH "@IsoCodes_JSON_PATH@"
+
+// For mcc-codes
+#cmakedefine MCC_JSON_BUILD_PATH "@MCC_JSON_BUILD_PATH@"
+#cmakedefine MCC_JSON_INSTALL_PATH "@MCC_JSON_INSTALL_PATH@"
 
 #endif

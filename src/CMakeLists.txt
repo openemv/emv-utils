@@ -14,8 +14,8 @@ if(NOT HAVE_TIME_H)
 	message(FATAL_ERROR "Failed to find time.h")
 endif()
 include(CheckSymbolExists)
-check_symbol_exists(clock_gettime time.h HAVE_clock_gettime)
-if(NOT HAVE_clock_gettime)
+check_symbol_exists(clock_gettime time.h HAVE_CLOCK_GETTIME)
+if(NOT HAVE_CLOCK_GETTIME)
 	message(FATAL_ERROR "Failed to find clock_gettime")
 endif()
 
@@ -62,6 +62,10 @@ if(EXISTS ${MCC_JSON_SOURCE_PATH})
 else()
 	message(FATAL_ERROR "mcc-codes/mcc_codes.json not found")
 endif()
+
+# Generate emv-utils build configuration for internal use only
+# This file should NOT be installed or used by an installed header
+configure_file(emv_utils_config.h.in emv_utils_config.h)
 
 # ISO 7816 library
 add_library(iso7816
@@ -175,6 +179,7 @@ install(
 
 # EMV library
 add_library(emv
+	emv.c
 	emv_fields.c
 	emv_tlv.c
 	emv_dol.c
@@ -184,6 +189,7 @@ add_library(emv
 	emv_tal.c
 )
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
+	emv.h
 	emv_tags.h
 	emv_fields.h
 	emv_tlv.h
@@ -208,9 +214,12 @@ set_target_properties(emv
 		VERSION ${CMAKE_PROJECT_VERSION}
 		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
 )
-target_include_directories(emv INTERFACE
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-	$<INSTALL_INTERFACE:include/emv>
+target_include_directories(emv
+	PRIVATE
+		"${CMAKE_CURRENT_BINARY_DIR}" # For generated headers
+	INTERFACE
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+		$<INSTALL_INTERFACE:include/emv>
 )
 install(
 	TARGETS
@@ -251,8 +260,6 @@ set_target_properties(emv_strings
 		VERSION ${CMAKE_PROJECT_VERSION}
 		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
 )
-configure_file(isocodes_config.h.in isocodes_config.h)
-configure_file(mcc_config.h.in mcc_config.h)
 target_include_directories(emv_strings
 	PRIVATE
 		"${CMAKE_CURRENT_BINARY_DIR}" # For generated headers

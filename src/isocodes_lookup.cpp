@@ -20,7 +20,7 @@
  */
 
 #include "isocodes_lookup.h"
-#include "isocodes_config.h"
+#include "emv_utils_config.h"
 
 #include <string>
 #include <vector>

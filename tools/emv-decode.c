@@ -19,6 +19,7 @@
  * <https://www.gnu.org/licenses/>.
  */
 
+#include "emv.h"
 #include "iso7816.h"
 #include "print_helpers.h"
 #include "emv_strings.h"
@@ -286,7 +287,14 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		}
 
 		case EMV_DECODE_VERSION: {
-			printf("%s\n", EMV_UTILS_VERSION_STRING);
+			const char* version;
+
+			version = emv_lib_version_string();
+			if (version) {
+				printf("%s\n", version);
+			} else {
+				printf("Unknown\n");
+			}
 			exit(EXIT_SUCCESS);
 			return 0;
 		}

@@ -20,7 +20,7 @@
  */
 
 #include "mcc_lookup.h"
-#include "mcc_config.h"
+#include "emv_utils_config.h"
 
 #include <string>
 #include <map>

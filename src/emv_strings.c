@@ -25,7 +25,6 @@
 #include "emv_fields.h"
 #include "isocodes_lookup.h"
 #include "mcc_lookup.h"
-#include "mcc_config.h"
 
 #include <string.h>
 #include <stdarg.h>
