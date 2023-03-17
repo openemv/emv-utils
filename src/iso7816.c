@@ -2,7 +2,7 @@
  * @file iso7816.c
  * @brief ISO/IEC 7816 definitions and helper functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -149,11 +149,14 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 				return r;
 			}
 
-			// If only T=0 is indicated, TCK is absent; otherwise it is mandatory
+			// Update protocol from latest TDi interface byte
 			protocol = *atr_info->TD[i] & ISO7816_ATR_Tx_OTHER_MASK; // T value according to ISO 7816-3:2006, 8.2.3
-			if (protocol != ISO7816_PROTOCOL_T0 &&
-				protocol != ISO7816_PROTOCOL_T15
-			) {
+
+			// If only T=0 is indicated, TCK is absent
+			// If T=0 and T=15 are present, TCK is mandatory
+			// For all other cases TCK is also mandatory
+			// See ISO 7816-3:2006, 8.2.5
+			if (protocol != ISO7816_PROTOCOL_T0) {
 				tck_mandatory = true;
 			}
 		} else {
@@ -405,12 +408,12 @@ static int iso7816_atr_parse_TC1(uint8_t TC1, struct iso7816_atr_info_t* atr_inf
 	return 0;
 }
 
-static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TD1, struct iso7816_atr_info_t* atr_info)
+static int iso7816_atr_parse_TDi(unsigned int i, uint8_t TDi, struct iso7816_atr_info_t* atr_info)
 {
-	unsigned int T = (TD1 & ISO7816_ATR_Tx_OTHER_MASK);
+	unsigned int T = (TDi & ISO7816_ATR_Tx_OTHER_MASK);
 
 	if (i == 1) {
-		// TD1 only allows T=0 and T=1 as the preferred card protocl
+		// TD1 only allows T=0 or T=1 as the preferred card protocol
 		if (T != ISO7816_PROTOCOL_T0 &&
 			T != ISO7816_PROTOCOL_T1
 		) {
