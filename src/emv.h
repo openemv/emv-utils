@@ -23,6 +23,7 @@
 #define EMV_H
 
 #include <sys/cdefs.h>
+#include <stddef.h>
 
 __BEGIN_DECLS
 
@@ -31,6 +32,20 @@ __BEGIN_DECLS
  * @return Pointer to null-terminated string. Do not free.
  */
 const char* emv_lib_version_string(void);
+
+/**
+ * Parse the ISO 7816 Answer To Reset (ATR) message and determine whether the
+ * card is suitable for EMV processing
+ * @remark See EMV Level 1 Contact Interface Specification v1.0, 8.3
+ *
+ * @param atr ATR data
+ * @param atr_len Length of ATR data
+ *
+ * @return Zero for success
+ * @return Less than zero for internal error
+ * @return Greater than zero for parse error or card is not accepted
+ */
+int emv_atr_parse(const void* atr, size_t atr_len);
 
 __END_DECLS
 

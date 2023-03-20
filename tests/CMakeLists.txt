@@ -8,6 +8,10 @@
 cmake_minimum_required(VERSION 3.16)
 
 if (BUILD_TESTING)
+	add_executable(emv_atr_parse_test emv_atr_parse_test.c)
+	target_link_libraries(emv_atr_parse_test PRIVATE print_helpers emv)
+	add_test(emv_atr_parse_test emv_atr_parse_test)
+
 	add_executable(emv_ttl_tpdu_test emv_ttl_tpdu_test.c)
 	target_link_libraries(emv_ttl_tpdu_test PRIVATE print_helpers emv)
 	add_test(emv_ttl_tpdu_test emv_ttl_tpdu_test)

@@ -501,6 +501,13 @@ int main(int argc, char** argv)
 
 	print_atr(&atr_info);
 
+	r = emv_atr_parse(atr, atr_len);
+	if (r) {
+		// See EMV 4.4 Book 4, 11.2, Standard Messages
+		printf("Card error\n");
+		goto pcsc_exit;
+	}
+
 	// Prepare for EMV transaction
 	memset(&emv_txn, 0, sizeof(emv_txn));
 	emv_txn.ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
