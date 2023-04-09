@@ -8,6 +8,17 @@
 cmake_minimum_required(VERSION 3.16)
 
 if (BUILD_TESTING)
+	add_executable(emv_debug_test emv_debug_test.c)
+	target_link_libraries(emv_debug_test PRIVATE print_helpers emv)
+	add_test(emv_debug_test emv_debug_test)
+	string(CONCAT emv_debug_test_regex
+		"\\[APP\\] asdf=1337[\r\n]"
+	)
+	set_tests_properties(emv_debug_test
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_debug_test_regex}
+	)
+
 	add_executable(emv_atr_parse_test emv_atr_parse_test.c)
 	target_link_libraries(emv_atr_parse_test PRIVATE print_helpers emv)
 	add_test(emv_atr_parse_test emv_atr_parse_test)

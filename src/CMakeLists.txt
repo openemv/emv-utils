@@ -7,6 +7,38 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+# Check whether C99 length modifier 'z' is supported
+include(CheckCSourceRuns)
+check_c_source_runs("
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#if defined(__clang__)
+	__attribute__((format(printf, 1, 4)))
+#elif defined(__GNUC__)
+	__attribute__((format(gnu_printf, 1, 4)))
+#endif
+static int test_formatting(const char* fmt, char* s, size_t s_len, ...)
+{
+	int r;
+	va_list ap;
+	va_start(ap, s_len);
+	r = vsnprintf(s, s_len, fmt, ap);
+	va_end(ap);
+	return r;
+}
+int main(void)
+{
+	char s[16] = { 0 };
+	size_t x = 1337;
+	return test_formatting(\"s=%zu\", s, sizeof(s), x) != 6 || strcmp(s, \"s=1337\") != 0;
+}"
+C99_length_modifier_z_is_supported
+)
+if(NOT C99_length_modifier_z_is_supported)
+	message(FATAL_ERROR "C99 length modifier 'z' not supported")
+endif()
+
 # Check for time.h and clock_gettime()
 include(CheckIncludeFile)
 check_include_file(time.h HAVE_TIME_H)

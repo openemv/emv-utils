@@ -108,7 +108,17 @@ void emv_debug_internal(
 	const void* buf,
 	size_t buf_len,
 	...
-) __attribute__((format(printf, 4, 7)));
+)
+#if defined(__clang__)
+	// Check for Clang first because it also defines __GNUC__
+	__attribute__((format(printf, 4, 7)));
+#elif defined(__GNUC__)
+	// Use gnu_printf for GCC and MSYS2's MinGW
+	__attribute__((format(gnu_printf, 4, 7)));
+#else
+	// Otherwise no format string checks
+	;
+#endif
 
 #ifdef EMV_DEBUG_ENABLED
 

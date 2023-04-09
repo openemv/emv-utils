@@ -31,6 +31,17 @@
 #include <stdio.h> // for vsnprintf() and snprintf()
 #include <ctype.h>
 
+#if defined(__clang__)
+	// Check for Clang first because it also defines __GNUC__
+	#define ATTRIBUTE_FORMAT_PRINTF(str_idx, va_idx) __attribute__((format(printf, str_idx, va_idx)))
+#elif defined(__GNUC__)
+	// Use gnu_printf for GCC and MSYS2's MinGW
+	#define ATTRIBUTE_FORMAT_PRINTF(str_idx, va_idx) __attribute__((format(gnu_printf, str_idx, va_idx)))
+#else
+	// Otherwise no format string checks
+	#define ATTRIBUTE_FORMAT_PRINTF(str_idx, va_idx)
+#endif
+
 struct str_itr_t {
 	char* ptr;
 	size_t len;
@@ -40,7 +51,7 @@ struct str_itr_t {
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len);
 static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
-static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) ATTRIBUTE_FORMAT_PRINTF(2, 3);
 static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
@@ -1559,7 +1570,7 @@ static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len)
 	itr->len = len;
 }
 
-__attribute__((format(printf, 2, 3)))
+ATTRIBUTE_FORMAT_PRINTF(2, 3)
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...)
 {
 	int r;
