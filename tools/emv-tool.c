@@ -502,9 +502,12 @@ int main(int argc, char** argv)
 	print_atr(&atr_info);
 
 	r = emv_atr_parse(atr, atr_len);
-	if (r) {
-		// See EMV 4.4 Book 4, 11.2, Standard Messages
-		printf("Card error\n");
+	if (r < 0) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto pcsc_exit;
+	}
+	if (r > 0) {
+		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 		goto pcsc_exit;
 	}
 

@@ -32,6 +32,25 @@ const char* emv_lib_version_string(void)
 	return EMV_UTILS_VERSION_STRING;
 }
 
+const char* emv_error_get_string(enum emv_error_t error)
+{
+	switch (error) {
+		case EMV_ERROR_INTERNAL: return "Internal error";
+		case EMV_ERROR_INVALID_PARAMETER: return "Invalid function parameter";
+	}
+
+	return "Unknown error";
+}
+
+const char* emv_outcome_get_string(enum emv_outcome_t outcome)
+{
+	switch (outcome) {
+		case EMV_OUTCOME_CARD_ERROR: return "Card error";
+	}
+
+	return "Invalid outcome";
+}
+
 int emv_atr_parse(const void* atr, size_t atr_len)
 {
 	int r;
@@ -39,11 +58,24 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 	unsigned int TD1_protocol = 0; // Default is T=0
 	unsigned int TD2_protocol = 0; // Default is T=0
 
+	if (!atr || !atr_len) {
+		emv_debug_trace_msg("atr=%p, atr_len=%zu", atr, atr_len);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
 	r = iso7816_atr_parse(atr, atr_len, &atr_info);
 	if (r) {
 		emv_debug_trace_msg("iso7816_atr_parse() failed; r=%d", r);
-		emv_debug_error("Failed to parse ATR");
-		return r;
+
+		if (r < 0) {
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		if (r > 0) {
+			emv_debug_error("Failed to parse ATR");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
 	}
 
 	// The intention of this function is to validate the ATR in accordance with
@@ -69,20 +101,20 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			(*atr_info.TA[1] < 0x11 || *atr_info.TA[1] > 0x13) // TA1 must be in the range 0x11 to 0x13
 		) {
 			emv_debug_error("TA2 indicates specific mode but TA1 is invalid");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 
 		if (!atr_info.TA[2]) { // TA2 is absent
 			// Max frequency must be at least 5 MHz
 			if ((*atr_info.TA[1] & ISO7816_ATR_TA1_FI_MASK) == 0) {
 				emv_debug_error("TA2 indicates negotiable mode but TA1 is invalid");
-				return 1;
+				return EMV_OUTCOME_CARD_ERROR;
 			}
 
 			// Baud rate adjustment factor must be at least 4
 			if ((*atr_info.TA[1] & ISO7816_ATR_TA1_DI_MASK) < 3) {
 				emv_debug_error("TA2 indicates negotiable mode but TA1 is invalid");
-				return 1;
+				return EMV_OUTCOME_CARD_ERROR;
 			}
 		}
 	}
@@ -97,7 +129,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 		// TC1 must be either 0x00 or 0xFF
 		if (*atr_info.TC[1] != 0x00 && *atr_info.TC[1] != 0xFF) {
 			emv_debug_error("TC1 is invalid");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 	}
 
@@ -107,7 +139,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 		// TD1 protocol type must be T=0 or T=1
 		if ((*atr_info.TD[1] & ISO7816_ATR_Tx_OTHER_MASK) > ISO7816_PROTOCOL_T1) {
 			emv_debug_error("TD1 protocol is invalid");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 		TD1_protocol = *atr_info.TD[1] & ISO7816_ATR_Tx_OTHER_MASK;
 	}
@@ -121,13 +153,13 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 		TA2_protocol = *atr_info.TA[2] & ISO7816_ATR_TA2_PROTOCOL_MASK;
 		if (TA2_protocol != TD1_protocol) {
 			emv_debug_error("TA2 protocol differs from TD1 protocol");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 
 		// TA2 must indicate specific mode, not implicit mode
 		if (*atr_info.TA[2] & ISO7816_ATR_TA2_IMPLICIT) {
 			emv_debug_error("TA2 implicit mode is invalid");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 	}
 
@@ -141,13 +173,13 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 		// TC2 is specific to T=0
 		if (TD1_protocol != ISO7816_PROTOCOL_T0) {
 			emv_debug_error("TC2 is not allowed when protocol is not T=0");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 
 		// TC2 for T=0 must be 0x0A
 		if (*atr_info.TC[2] != 0x0A) {
 			emv_debug_error("TC2 for T=0 is invalid");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 	}
 
@@ -159,7 +191,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			(*atr_info.TD[2] & ISO7816_ATR_Tx_OTHER_MASK) != ISO7816_PROTOCOL_T15
 		) {
 			emv_debug_error("TD2 protocol is invalid");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 
 		// TD2 protocol type must be T=1 if TD1 protocol type was T=1
@@ -167,7 +199,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			(*atr_info.TD[2] & ISO7816_ATR_Tx_OTHER_MASK) != ISO7816_PROTOCOL_T1
 		) {
 			emv_debug_error("TD2 protocol is invalid");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 
 		TD2_protocol = *atr_info.TD[2] & ISO7816_ATR_Tx_OTHER_MASK;
@@ -177,7 +209,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 		// See EMV Level 1 Contact Interface v1.0, 8.3.3.10
 		if (TD1_protocol == ISO7816_PROTOCOL_T1) {
 			emv_debug_error("TD2 for T=1 is absent");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 	}
 
@@ -190,7 +222,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			// iso7816_atr_parse() already rejects 0xFF
 			if (*atr_info.TA[3] < 0x10) {
 				emv_debug_error("TA3 for T=1 is invalid");
-				return 1;
+				return EMV_OUTCOME_CARD_ERROR;
 			}
 		}
 
@@ -200,13 +232,13 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			// TB3 for T=1 BWI must be 4 or less
 			if (((*atr_info.TB[3] & ISO7816_ATR_TBi_BWI_MASK) >> ISO7816_ATR_TBi_BWI_SHIFT) > 4) {
 				emv_debug_error("TB3 for T=1 has invalid BWI");
-				return 1;
+				return EMV_OUTCOME_CARD_ERROR;
 			}
 
 			// TB3 for T=1 CWI must be 5 or less
 			if ((*atr_info.TB[3] & ISO7816_ATR_TBi_CWI_MASK) > 5) {
 				emv_debug_error("TB3 for T=1 has invalid CWI");
-				return 1;
+				return EMV_OUTCOME_CARD_ERROR;
 			}
 
 			// For T=1, reject 2^CWI < (N + 1)
@@ -218,12 +250,12 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			unsigned int pow_2_CWI = 1 << CWI;
 			if (pow_2_CWI < (N + 1)) {
 				emv_debug_error("2^CWI < (N + 1) for T=1 is not allowed");
-				return 1;
+				return EMV_OUTCOME_CARD_ERROR;
 			}
 
 		} else { // TB3 is absent
 			emv_debug_error("TB3 for T=1 is absent");
-			return 1;
+			return EMV_OUTCOME_CARD_ERROR;
 		}
 
 		// TC3 - Interface Character
@@ -232,7 +264,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			// TC for T=1 must be 0x00
 			if (*atr_info.TC[3] != 0x00) {
 				emv_debug_error("TC3 for T=1 is invalid");
-				return 1;
+				return EMV_OUTCOME_CARD_ERROR;
 			}
 		}
 	}

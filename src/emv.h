@@ -28,10 +28,46 @@
 __BEGIN_DECLS
 
 /**
+ * EMV errors
+ * These are typically for internal errors and errors caused by invalid use of
+ * the API functions in this header, and must have values less than zero.
+ */
+enum emv_error_t {
+	EMV_ERROR_INTERNAL = -1, ///< Internal error
+	EMV_ERROR_INVALID_PARAMETER = -2, ///< Invalid function parameter
+};
+
+/**
+ * EMV processing outcomes
+ * These indicate the EMV processing outcome, if any, and must have values
+ * greater than zero.
+ */
+enum emv_outcome_t {
+	EMV_OUTCOME_CARD_ERROR = 1, ///< Malfunction of the card or non-conformance to Answer To Reset (ATR)
+};
+
+/**
  * Retrieve EMV library version string
  * @return Pointer to null-terminated string. Do not free.
  */
 const char* emv_lib_version_string(void);
+
+/**
+ * Retrieve string associated with error value
+ * @param error Error value. Must be less than zero.
+ * @return Pointer to null-terminated string. Do not free.
+ */
+const char* emv_error_get_string(enum emv_error_t error);
+
+/**
+ * Retrieve string associated with outcome value
+ * @remark See EMV 4.4 Book 4, 11.2
+ * @remark See EMV Contactless Book A v2.10, 9.4
+ *
+ * @param outcome Outcome value. Must be greater than zero.
+ * @return Pointer to null-terminated string. Do not free.
+ */
+const char* emv_outcome_get_string(enum emv_outcome_t outcome);
 
 /**
  * Parse the ISO 7816 Answer To Reset (ATR) message and determine whether the
@@ -42,8 +78,8 @@ const char* emv_lib_version_string(void);
  * @param atr_len Length of ATR data
  *
  * @return Zero for success
- * @return Less than zero for internal error
- * @return Greater than zero for parse error or card is not accepted
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_atr_parse(const void* atr, size_t atr_len);
 
