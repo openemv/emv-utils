@@ -77,6 +77,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			return EMV_OUTCOME_CARD_ERROR;
 		}
 	}
+	emv_debug_atr_info(&atr_info);
 
 	// The intention of this function is to validate the ATR in accordance with
 	// EMV Level 1 Contact Interface Specification v1.0, 8.3. Some of the

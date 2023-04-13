@@ -21,7 +21,6 @@
 
 #include "emv.h"
 #include "pcsc.h"
-#include "iso7816.h"
 #include "print_helpers.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
@@ -386,7 +385,6 @@ int main(int argc, char** argv)
 	size_t reader_idx;
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
-	struct iso7816_atr_info_t atr_info;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -492,14 +490,7 @@ int main(int argc, char** argv)
 		printf("Failed to retrieve ATR\n");
 		goto pcsc_exit;
 	}
-
-	r = iso7816_atr_parse(atr, atr_len, &atr_info);
-	if (r) {
-		printf("Failed to parse ATR\n");
-		goto pcsc_exit;
-	}
-
-	print_atr(&atr_info);
+	emv_debug_trace_data("ATR", atr, atr_len);
 
 	r = emv_atr_parse(atr, atr_len);
 	if (r < 0) {

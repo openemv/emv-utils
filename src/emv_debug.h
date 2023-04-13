@@ -49,9 +49,10 @@ enum emv_debug_level_t {
 
 /// Debug event content type
 enum emv_debug_type_t {
-	EMV_DEBUG_TYPE_MSG,                         ///< Debug event contains only a string message and no data
+	EMV_DEBUG_TYPE_MSG = 1,                     ///< Debug event contains only a string message and no data
 	EMV_DEBUG_TYPE_DATA,                        ///< Debug event contains binary data
 	EMV_DEBUG_TYPE_TLV,                         ///< Debug event contains ISO 8825-1 BER encoded data
+	EMV_DEBUG_TYPE_ATR,                         ///< Debug event contains ISO 7816 Answer To Reset (ATR) data
 	EMV_DEBUG_TYPE_CAPDU,                       ///< Debug event contains ISO 7816 C-APDU (command APDU) data
 	EMV_DEBUG_TYPE_RAPDU,                       ///< Debug event contains ISO 7816 R-APDU (response APDU) data
 	EMV_DEBUG_TYPE_CTPDU,                       ///< Debug event contains ISO 7816 C-TPDU (request TPDU) data
@@ -161,6 +162,18 @@ void emv_debug_internal(
 #define emv_debug_info_tlv(fmt, buf, buf_len, ...) do {} while (0)
 #endif // EMV_DEBUG_ENABLED
 
+#if defined(EMV_DEBUG_ENABLED) && !defined(EMV_DEBUG_CARD_DISABLED)
+
+/**
+ * Emit debug event with decoded ISO 7816 ATR
+ * @param atr_info Pointer to parsed ATR info (@ref iso7816_atr_info_t)
+ */
+#define emv_debug_atr_info(atr_info) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_CARD, EMV_DEBUG_TYPE_ATR, "ATR", atr_info, sizeof(*atr_info)); } while (0)
+
+#else // EMV_DEBUG_ENABLED && !EMV_DEBUG_CARD_DISABLED
+#define emv_debug_atr_info(atr_info) do {} while (0)
+#endif // EMV_DEBUG_ENABLED && !EMV_DEBUG_CARD_DISABLED
+
 #if defined(EMV_DEBUG_ENABLED) && !defined(EMV_DEBUG_CARD_DISABLED) && !defined(EMV_DEBUG_APDU_DISABLED)
 
 /**
@@ -220,8 +233,18 @@ void emv_debug_internal(
  */
 #define emv_debug_trace_msg(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_TRACE, EMV_DEBUG_TYPE_MSG, "%s[%u]: "fmt, NULL, 0, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
 
+/**
+ * Emit debug trace data
+ * @param fmt Format string (printf-style)
+ * @param buf Debug event data
+ * @param buf_len Length of debug event data in bytes
+ * @param ... Variable arguments for @c fmt
+ */
+#define emv_debug_trace_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_TRACE, EMV_DEBUG_TYPE_DATA, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
+
 #else // EMV_DEBUG_ENABLED && !EMV_DEBUG_TRACE_DISABLED
 #define emv_debug_trace_msg(...) do {} while (0)
+#define emv_debug_trace_data(...) do {} while (0)
 #endif // EMV_DEBUG_ENABLED && !EMV_DEBUG_TRACE_DISABLED
 
 __END_DECLS

@@ -510,15 +510,20 @@ static void print_emv_debug_internal(
 		printf("%s\n", str);
 		return;
 	} else {
-		printf("%s: ", str);
-		print_buf(NULL, buf, buf_len);
-
 		switch (debug_type) {
 			case EMV_DEBUG_TYPE_TLV:
+				printf("%s: ", str);
+				print_buf(NULL, buf, buf_len);
 				print_emv_buf(buf, buf_len, "  ", 1);
 				return;
 
+			case EMV_DEBUG_TYPE_ATR:
+				print_atr(buf);
+				return;
+
 			default:
+				printf("%s: ", str);
+				print_buf(NULL, buf, buf_len);
 				return;
 		}
 	}
