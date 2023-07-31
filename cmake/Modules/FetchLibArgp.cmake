@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2022 Leon Lynch
+# Copyright (c) 2022, 2023 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -24,7 +24,7 @@ message(CHECK_START "Downloading libargp...")
 FetchContent_Declare(
 	libargp
 	GIT_REPOSITORY https://github.com/leonlynch/libargp.git
-	GIT_TAG 8c794480952124413390d608b89b4af2bee33163
+	GIT_TAG 987d87b98e4cd03abb1107b77ef5d43ad0552e13
 )
 FetchContent_MakeAvailable(libargp)
 message(CHECK_PASS "done")
