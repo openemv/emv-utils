@@ -172,7 +172,7 @@ install(FILES
 )
 
 # Install bash-completion files
-find_package(bash-completion) # Optional for providing bash-completion files
+find_package(bash-completion CONFIG) # Optional for providing bash-completion files
 if(BASH_COMPLETION_FOUND)
 	set(EMV_UTILS_INSTALL_BASH_COMPLETION_DIR ${CMAKE_INSTALL_DATADIR}/bash-completion/completions CACHE STRING "Installation location for emv-utils bash-completion files")
 	message(STATUS "Using bash-completion install location \"${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}\"")
