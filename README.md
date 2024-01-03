@@ -130,6 +130,20 @@ cmake --build build &&
 cmake --build build --target package
 ```
 
+ISO/IEC 8859 support
+--------------------
+
+This project contains multiple ISO 8859 implementations that can be selected
+at build time using the CMake `ISO8859_IMPL` option. It allows these values:
+* `boost` (default): Uses [Boost.Locale](https://github.com/boostorg/locale),
+  is supported on most platforms, is forgiving of unassigned code points, but
+  requires C++.
+* `iconv`: Uses [iconv](https://www.gnu.org/software/libiconv/), is not
+  supported on some platforms, is less forgiving of unassigned code points, but
+  doesn't require C++.
+* `simple`: Only supports ISO 8859-1, has no dependencies and doesn't require
+  C++.
+
 MacOS / Windows
 ---------------
 
@@ -198,6 +212,6 @@ Roadmap
 License
 -------
 
-Copyright (c) 2021, 2022, 2023 [Leon Lynch](https://github.com/leonlynch).
+Copyright 2021-2024 [Leon Lynch](https://github.com/leonlynch).
 
 This project is licensed under the terms of the LGPL v2.1 license. See LICENSE file.

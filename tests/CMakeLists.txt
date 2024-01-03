@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2021-2023 Leon Lynch
+# Copyright (c) 2021-2024 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -62,6 +62,9 @@ if (BUILD_TESTING)
 	add_test(mcc_test mcc_test)
 
 	add_executable(iso8859_test iso8859_test.c)
+	if(ISO8859_IMPL STREQUAL "simple")
+		target_compile_definitions(iso8859_test PRIVATE ISO8859_SIMPLE)
+	endif()
 	target_link_libraries(iso8859_test PRIVATE iso8859)
 	add_test(iso8859_test iso8859_test)
 

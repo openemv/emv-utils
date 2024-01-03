@@ -1,8 +1,8 @@
 /**
- * @file iso8859.c
- * @brief ISO/IEC 8859 implementation
+ * @file iso8859_simple.c
+ * @brief Simple ISO/IEC 8859-1 implementation
  *
- * Copyright (c) 2023 Leon Lynch
+ * Copyright (c) 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,20 +21,10 @@
 
 #include "iso8859.h"
 
-#include <boost/locale.hpp>
-
-#include <sstream>
-#include <string>
-#include <cstring>
-
 bool iso8859_is_supported(unsigned int codepage)
 {
-	if (codepage < 1 ||
-		codepage > 15 ||
-		codepage == 12
-	) {
-		// ISO 8859 code pages 1 to 15 are supported
-		// ISO 8859-12 for Devanagari was officially abandoned in 1997
+	if (codepage != 1) {
+		// Only ISO 8859 code pages 1 is supported
 		return false;
 	}
 
@@ -49,6 +39,8 @@ int iso8859_to_utf8(
 	size_t utf8_len
 )
 {
+	size_t utf8_idx;
+
 	if (!iso8859 || !iso8859_len || !utf8 || !utf8_len) {
 		return -1;
 	}
@@ -58,23 +50,37 @@ int iso8859_to_utf8(
 		return 1;
 	}
 
-	try {
-		std::string iso8859_str(reinterpret_cast<const char*>(iso8859), iso8859_len);
-		std::stringstream charset_stream;
-		charset_stream << "ISO-8859-" << codepage;
-		std::string utf8_str = boost::locale::conv::to_utf<char>(iso8859_str, charset_stream.str());
-		if (utf8_str.empty()) {
+	// Repack ISO 8859-1 as UTF-8
+	utf8_idx = 0;
+	for (size_t i = 0; i < iso8859_len; ++i) {
+		if (!iso8859[i]) {
+			// Null termination
+			break;
+		}
+
+		// Ensure that at least 2 output bytes are available
+		if (utf8_len - utf8_idx < 2) {
+			// Unsufficient space left in output buffer
+			break;
+		}
+
+		if (iso8859[i] < 0x20 || (iso8859[i] > 0x7E && iso8859[i] < 0xA0)) {
+			// Reject non-printable characters
 			return 2;
 		}
 
-		std::strncpy(utf8, utf8_str.c_str(), utf8_len - 1);
-		utf8[utf8_len - 1] = 0;
-
-	} catch (const boost::locale::conv::invalid_charset_error &) {
-		return -2;
-	} catch (...) {
-		return 3;
+		if (iso8859[i] < 0x80) {
+			// Copy common character set verbatim to UTF-8
+			utf8[utf8_idx++] = iso8859[i];
+		} else {
+			// Encode higher non-control characters
+			utf8[utf8_idx++] = 0xC0 | (iso8859[i] >> 6);
+			utf8[utf8_idx++] = 0x80 | (iso8859[i] & 0x3F);
+		}
 	}
+
+	// Terminate UTF-8 string
+	utf8[utf8_idx] = 0;
 
 	return 0;
 }

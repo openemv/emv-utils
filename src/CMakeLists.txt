@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2022, 2023 Leon Lynch
+# Copyright (c) 2022-2024 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -51,7 +51,6 @@ if(NOT HAVE_CLOCK_GETTIME)
 	message(FATAL_ERROR "Failed to find clock_gettime")
 endif()
 
-find_package(Boost REQUIRED COMPONENTS locale)
 find_package(IsoCodes REQUIRED)
 
 # Newer versions of json-c have a CMake config file while older versions, like
@@ -174,14 +173,14 @@ install(
 )
 
 # ISO 8859 library
-add_library(iso8859
-	iso8859.cpp
-)
+set(ISO8859_IMPL "boost" CACHE STRING "ISO 8859 implementation to use")
+set_property(CACHE ISO8859_IMPL PROPERTY STRINGS boost iconv simple)
+add_library(iso8859)
+add_library(emv::iso8859 ALIAS iso8859)
 set(iso8859_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	iso8859.h
 	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
-add_library(emv::iso8859 ALIAS iso8859)
 set_target_properties(iso8859
 	PROPERTIES
 		PUBLIC_HEADER "${iso8859_HEADERS}"
@@ -192,7 +191,22 @@ target_include_directories(iso8859 INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 	$<INSTALL_INTERFACE:include/iso8859>
 )
-target_link_libraries(iso8859 PUBLIC Boost::locale)
+if(ISO8859_IMPL STREQUAL "boost")
+	find_package(Boost REQUIRED COMPONENTS locale)
+	message(STATUS "Using Boost.Locale for iso8859 implementation")
+	target_sources(iso8859 PRIVATE iso8859_boost.cpp)
+	target_link_libraries(iso8859 PRIVATE Boost::locale)
+endif()
+if(ISO8859_IMPL STREQUAL "iconv")
+	find_package(Iconv REQUIRED)
+	message(STATUS "Using iconv for iso8859 implementation")
+	target_sources(iso8859 PRIVATE iso8859_iconv.c)
+	target_link_libraries(iso8859 PRIVATE Iconv::Iconv)
+endif()
+if(ISO8859_IMPL STREQUAL "simple")
+	message(STATUS "Using simple iso8859 implementation")
+	target_sources(iso8859 PRIVATE iso8859_simple.c)
+endif()
 install(
 	TARGETS
 		iso8859
