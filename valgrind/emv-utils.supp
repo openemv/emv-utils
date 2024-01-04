@@ -1,0 +1,47 @@
+{
+   boost::locale backend singletons
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:_ZN3icu27locale_set_default_internalEPKcR10UErrorCode
+   fun:getDefault
+   fun:_ZN3icu6Locale10getDefaultEv
+   fun:_ZN3icu6Locale4initEPKca
+   fun:_ZN3icu6LocaleC1Ev
+   fun:cdata
+   fun:icu_localization_backend
+   fun:_ZN5boost6locale8impl_icu27create_localization_backendEv
+}
+
+{
+   iconv_open() allocations not cleaned up by iconv_close()
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   ...
+   fun:dlerror_run
+   fun:__libc_dlopen_mode
+   fun:__gconv_find_shlib
+   fun:find_module.constprop.0
+   fun:__gconv_lookup_cache
+   fun:__gconv_find_transform
+   fun:__gconv_open
+   fun:iconv_open
+}
+
+{
+   iconv_open() allocations not cleaned up by iconv_close()
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:dlerror_run
+   fun:__libc_dlopen_mode
+   fun:__gconv_find_shlib
+   fun:find_module.constprop.0
+   fun:__gconv_lookup_cache
+   fun:__gconv_find_transform
+   fun:__gconv_open
+   fun:iconv_open
+}

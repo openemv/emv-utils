@@ -74,7 +74,7 @@ if(EMV_UTILS_IS_TOP_LEVEL)
 	# Configure Valgrind before including CTest module
 	find_program(VALGRIND_COMMAND valgrind)
 	set(MEMORYCHECK_TYPE Valgrind)
-	set(VALGRIND_COMMAND_OPTIONS "--leak-check=full --show-reachable=yes --track-origins=yes --num-callers=100 --show-error-list=yes")
+	set(VALGRIND_COMMAND_OPTIONS "--leak-check=full --show-reachable=yes --track-origins=yes --num-callers=100 --show-error-list=yes --suppressions=${CMAKE_CURRENT_SOURCE_DIR}/valgrind/emv-utils.supp")
 
 	# Only top-level project should include CTest module
 	include(CTest)
