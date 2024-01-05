@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2022 Leon Lynch
+# Copyright (c) 2022-2024 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -15,9 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 36", fedora_version: 36, deps: "none", build_emv_tool: NO }
-          - { name: "Fedora 36", fedora_version: 36, deps: "pcsclite", build_emv_tool: YES }
+          - { name: "Fedora 37", fedora_version: 37, deps: "none", build_emv_tool: NO }
           - { name: "Fedora 37", fedora_version: 37, deps: "pcsclite", build_emv_tool: YES }
+          - { name: "Fedora 38", fedora_version: 38, deps: "pcsclite", build_emv_tool: YES }
+          - { name: "Fedora 39", fedora_version: 39, deps: "pcsclite", build_emv_tool: YES }
 
     name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
     runs-on: ubuntu-latest
@@ -32,7 +33,7 @@ jobs:
       run: sudo dnf -y install pcsc-lite-devel
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: recursive
 
@@ -58,8 +59,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 36", fedora_version: 36 }
           - { name: "Fedora 37", fedora_version: 37 }
+          - { name: "Fedora 38", fedora_version: 38 }
+          - { name: "Fedora 39", fedora_version: 39 }
 
     name: ${{ matrix.name }} release
     runs-on: ubuntu-latest
@@ -71,7 +73,7 @@ jobs:
         sudo dnf -y install git gh cmake gcc g++ boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion doxygen rpm-build
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: recursive
@@ -100,7 +102,7 @@ jobs:
       run: cmake --build build --target package
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: emv-utils-${{ env.GIT_DESCRIBE }}-fedora${{ matrix.fedora_version }}
         path: build/emv-utils-*.rpm
