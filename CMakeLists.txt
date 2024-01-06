@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2021, 2022, 2023 Leon Lynch
+# Copyright (c) 2021-2024 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -96,30 +96,35 @@ install(FILES
 
 # Generate and install basic CMake config files
 include(CMakePackageConfigHelpers) # Provides CMake config generator macros
+# NOTE: src subdirectory provides EMV_UTILS_PACKAGE_DEPENDENCIES
+foreach(pkg IN LISTS EMV_UTILS_PACKAGE_DEPENDENCIES)
+	# Build dependency string for use in CMake config file
+	string(APPEND EMV_UTILS_CONFIG_PACKAGE_DEPENDENCIES "find_dependency(${pkg})\n")
+endforeach()
 set(EMV_UTILS_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME} CACHE STRING "Installation location for emv-utils CMake config files")
 message(STATUS "Using CMake config install location \"${EMV_UTILS_INSTALL_CMAKEDIR}\"")
-configure_package_config_file(cmake/emvUtilsConfig.cmake.in
-	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsConfig.cmake"
+configure_package_config_file(cmake/emv-utils-config.cmake.in
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emv-utils-config.cmake"
 	INSTALL_DESTINATION "${EMV_UTILS_INSTALL_CMAKEDIR}"
 )
 write_basic_package_version_file(
-	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsConfigVersion.cmake"
-	COMPATIBILITY AnyNewerVersion
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emv-utils-config-version.cmake"
+	COMPATIBILITY SameMinorVersion
 )
 install(FILES
-	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsConfig.cmake"
-	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsConfigVersion.cmake"
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emv-utils-config.cmake"
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake/emv-utils-config-version.cmake"
 	DESTINATION "${EMV_UTILS_INSTALL_CMAKEDIR}"
 	COMPONENT emv_development
 )
 install(EXPORT emvUtilsTargets
-	FILE emvUtilsTargets.cmake
+	FILE emv-utils-config-targets.cmake
 	DESTINATION "${EMV_UTILS_INSTALL_CMAKEDIR}"
 	NAMESPACE emv::
 	COMPONENT emv_development
 )
 export(EXPORT emvUtilsTargets
-	FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/emvUtilsTargets.cmake"
+	FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/emv-utils-config-targets.cmake"
 	NAMESPACE emv::
 )
 

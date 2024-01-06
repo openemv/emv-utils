@@ -65,6 +65,10 @@ else()
 	# Try custom Findjson-c.cmake module
 	find_package(json-c REQUIRED)
 endif()
+# The EMV_UTILS_PACKAGE_DEPENDENCIES variable is set for the parent scope to
+# facilitate the generation of CMake package configuration files.
+list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "json-c")
+set(EMV_UTILS_PACKAGE_DEPENDENCIES ${EMV_UTILS_PACKAGE_DEPENDENCIES} PARENT_SCOPE)
 
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
@@ -196,12 +200,26 @@ if(ISO8859_IMPL STREQUAL "boost")
 	message(STATUS "Using Boost.Locale for iso8859 implementation")
 	target_sources(iso8859 PRIVATE iso8859_boost.cpp)
 	target_link_libraries(iso8859 PRIVATE Boost::locale)
+
+	# The EMV_UTILS_PACKAGE_DEPENDENCIES variable is set for the parent scope to
+	# facilitate the generation of CMake package configuration files.
+	list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "Boost COMPONENTS locale")
+	set(EMV_UTILS_PACKAGE_DEPENDENCIES ${EMV_UTILS_PACKAGE_DEPENDENCIES} PARENT_SCOPE)
 endif()
 if(ISO8859_IMPL STREQUAL "iconv")
 	find_package(Iconv REQUIRED)
+
 	message(STATUS "Using iconv for iso8859 implementation")
 	target_sources(iso8859 PRIVATE iso8859_iconv.c)
-	target_link_libraries(iso8859 PRIVATE Iconv::Iconv)
+	if(Iconv_LIBRARIES)
+		target_link_libraries(iso8859 PRIVATE Iconv::Iconv)
+
+		# The EMV_UTILS_PACKAGE_DEPENDENCIES variable is set for the parent
+		# scope to facilitate the generation of CMake package configuration
+		# files.
+		list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "Iconv")
+		set(EMV_UTILS_PACKAGE_DEPENDENCIES ${EMV_UTILS_PACKAGE_DEPENDENCIES} PARENT_SCOPE)
+	endif()
 endif()
 if(ISO8859_IMPL STREQUAL "simple")
 	message(STATUS "Using simple iso8859 implementation")

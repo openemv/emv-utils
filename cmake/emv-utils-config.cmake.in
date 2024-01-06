@@ -1,0 +1,18 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
+if(NOT "CXX" IN_LIST languages)
+	# Various components of emv-utils, like isocodes_lookup and mcc_lookup,
+	# require CXX
+	message(FATAL_ERROR "emv-utils requires CXX")
+endif()
+@EMV_UTILS_CONFIG_PACKAGE_DEPENDENCIES@
+
+check_required_components(emv-utils)
+
+include("${CMAKE_CURRENT_LIST_DIR}/emv-utils-config-targets.cmake")
+
+include(FindPackageHandleStandardArgs)
+set(emv-utils_CONFIG ${CMAKE_CURRENT_LIST_FILE})
+find_package_handle_standard_args(emv-utils CONFIG_MODE)
