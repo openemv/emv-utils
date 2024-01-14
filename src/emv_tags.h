@@ -5,7 +5,7 @@
  * @remark See EMV 4.4 Book 3, Annex A
  * @remark See ISO 7816-4:2005, 5.2.4
  *
- * Copyright (c) 2021, 2022, 2023 Leon Lynch
+ * Copyright (c) 2021-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -195,6 +195,9 @@ __BEGIN_DECLS
 
 /// EMV tag 9F09 Application Version Number - terminal
 #define EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL        (0x9F09)
+
+/// EMV tag 9F0A Application Selection Registered Proprietary Data (ASRPD)
+#define EMV_TAG_9F0A_ASRPD                                      (0x9F0A)
 
 /// EMV tag 9F0D Issuer Action Code (IAC) - Default. Template 70 or 77.
 #define EMV_TAG_9F0D_ISSUER_ACTION_CODE_DEFAULT                 (0x9F0D)

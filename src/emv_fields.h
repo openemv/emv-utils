@@ -2,7 +2,7 @@
  * @file emv_fields.h
  * @brief EMV field definitions and helper functions
  *
- * Copyright (c) 2021, 2022, 2023 Leon Lynch
+ * Copyright (c) 2021-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -151,6 +151,12 @@ __BEGIN_DECLS
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_3                  (0x04) ///< Terminal Data Output Capability: Code table 3
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_2                  (0x02) ///< Terminal Data Output Capability: Code table 2
 #define EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_1                  (0x01) ///< Terminal Data Output Capability: Code table 1
+
+// Application Selection Registered Proprietary Data (field 9F0A)
+// See EMV 4.4 Book 1, 12.5
+// See https://www.emvco.com/registered-ids/
+#define EMV_ASRPD_ECSG                                          (0x0001) ///< European Cards Stakeholders Group
+#define EMV_ASRPD_TCEA                                          (0x0002) ///< Technical Cooperation ep2 Association
 
 // Application Interchange Profile (field 82) byte 1
 // See EMV 4.4 Book 3, Annex C1, Table 41

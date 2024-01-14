@@ -523,6 +523,18 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_9F0A_ASRPD:
+			info->tag_name = "Application Selection Registered Proprietary Data (ASRPD)";
+			info->tag_desc =
+				"Proprietary data allowing for proprietary processing during "
+				"application selection. Proprietary data is identified using "
+				"Proprietary Data Identifiers that are managed by EMVCo and "
+				"their usage by the Application Selection processing is "
+				"according to their intended usage, as agreed by EMVCo during "
+				"registration.";
+			info->format = EMV_FORMAT_B;
+			return emv_asrpd_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_9F0D_ISSUER_ACTION_CODE_DEFAULT:
 			info->tag_name = "Issuer Action Code (IAC) - Default";
 			info->tag_desc =
@@ -2121,6 +2133,74 @@ int emv_aid_get_string(
 
 	strncpy(str, info_str, str_len - 1);
 	str[str_len - 1] = 0;
+	return 0;
+}
+
+int emv_asrpd_get_string_list(
+	const uint8_t* asrpd,
+	size_t asrpd_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+
+	if (!asrpd || !asrpd_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (asrpd_len < 3) {
+		// Application Selection Registered Proprietary Data (ASRPD) must
+		// contain at least one ID and a length
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Application Selection Registered Proprietary Data (ASRPD)
+	// See EMV 4.4 Book 1, 12.5
+	// See https://www.emvco.com/registered-ids/
+	while (asrpd_len) {
+		uint16_t asrpd_id;
+		size_t asrpd_entry_len;
+
+		if (asrpd_len < 3) {
+			// Incomplete ASRPD entry
+			return 2;
+		}
+
+		asrpd_id = (asrpd[0] << 8) + asrpd[1];
+		switch (asrpd_id) {
+			case EMV_ASRPD_ECSG:
+				emv_str_list_add(&itr, "European Cards Stakeholders Group");
+				break;
+
+			case EMV_ASRPD_TCEA:
+				emv_str_list_add(&itr, "Technical Cooperation ep2 Association");
+				break;
+
+			default:
+				emv_str_list_add(&itr, "Unknown ASRPD identifier");
+		}
+
+		// Validate entry length
+		asrpd_entry_len = 2 + 1 + asrpd[2];
+		if (asrpd_entry_len > asrpd_len) {
+			// Invalid ASRPD length
+			return 3;
+		}
+
+		// Advance
+		asrpd += asrpd_entry_len;
+		asrpd_len -= asrpd_entry_len;
+	}
+
 	return 0;
 }
 

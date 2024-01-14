@@ -330,6 +330,22 @@ int emv_aid_get_string(
 );
 
 /**
+ * Stringify Application Selection Registered Proprietary Data (field 9F0A)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param asrpd Application Selection Registered Proprietary Data (ASRPD) field.
+ * @param asrpd_len Length of Application Selection Registered Proprietary Data (ASRPD) field.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_asrpd_get_string_list(
+	const uint8_t* asrpd,
+	size_t asrpd_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Application Interchange Profile (field 82)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param aip Application Interchange Profile (AIP) field. Must be 2 bytes.
