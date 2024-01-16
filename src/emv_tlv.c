@@ -2,7 +2,7 @@
  * @file emv_tlv.c
  * @brief EMV TLV structures and helper functions
  *
- * Copyright (c) 2021, 2022, 2023 Leon Lynch
+ * Copyright (c) 2021-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -224,7 +224,10 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
 		if (iso8825_ber_is_constructed(&tlv)) {
 			// Recurse into constructed/template field but omit it from the list
-			emv_tlv_parse(tlv.value, tlv.length, list);
+			r = emv_tlv_parse(tlv.value, tlv.length, list);
+			if (r) {
+				return r;
+			}
 		} else {
 			r = emv_tlv_list_push(list, tlv.tag, tlv.length, tlv.value, 0);
 			if (r) {

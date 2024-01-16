@@ -2,7 +2,7 @@
  * @file emv_app.c
  * @brief EMV application abstraction and helper functions
  *
- * Copyright (c) 2021, 2022, 2023 Leon Lynch
+ * Copyright (c) 2021-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -64,6 +64,10 @@ struct emv_app_t* emv_app_create_from_pse(
 
 	// Use ADF Name field for AID
 	app->aid = emv_tlv_list_find(&app->tlv_list, EMV_TAG_4F_APPLICATION_DF_NAME);
+	if (!app->aid) {
+		// Invalid FCI
+		goto error;
+	}
 
 	r = emv_app_extract_display_name(app, pse_tlv_list);
 	if (r) {
@@ -118,6 +122,10 @@ struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len)
 
 	// Use DF Name field for AID
 	app->aid = emv_tlv_list_find(&app->tlv_list, EMV_TAG_84_DF_NAME);
+	if (!app->aid) {
+		// Invalid FCI
+		goto error;
+	}
 
 	r = emv_app_extract_display_name(app, NULL);
 	if (r) {
@@ -171,6 +179,10 @@ static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_li
 	struct emv_tlv_t* issuer_code_table_index;
 	unsigned int issuer_code_table = 0;
 	struct emv_tlv_t* tlv;
+
+	if (!app) {
+		return -1;
+	}
 
 	/* Find Application Preferred Name and associated Issuer Code Table Index
 	 * Both are optional fields but Issuer Code Table Index is required to
@@ -262,6 +274,10 @@ static int emv_app_extract_priority_indicator(struct emv_app_t* app)
 {
 	struct emv_tlv_t* tlv;
 
+	if (!app) {
+		return -1;
+	}
+
 	app->priority = 0;
 	app->confirmation_required = false;
 
@@ -295,7 +311,10 @@ int emv_app_free(struct emv_app_t* app)
 	return 0;
 }
 
-bool emv_app_is_supported(struct emv_app_t* app, struct emv_tlv_list_t* supported_aids)
+bool emv_app_is_supported(
+	const struct emv_app_t* app,
+	const struct emv_tlv_list_t* supported_aids
+)
 {
 	struct emv_tlv_t* tlv;
 
@@ -382,6 +401,9 @@ int emv_app_list_push(struct emv_app_list_t* list, struct emv_app_t* app)
 	if (!emv_app_list_is_valid(list)) {
 		return -1;
 	}
+	if (!app) {
+		return -2;
+	}
 
 	if (list->back) {
 		list->back->next = app;
@@ -390,6 +412,7 @@ int emv_app_list_push(struct emv_app_list_t* list, struct emv_app_t* app)
 		list->front = app;
 		list->back = app;
 	}
+	app->next = NULL;
 
 	return 0;
 }
@@ -413,32 +436,4 @@ struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list)
 	}
 
 	return app;
-}
-
-int emv_app_list_filter_supported(struct emv_app_list_t* list, struct emv_tlv_list_t* supported_aids)
-{
-	int r;
-	struct emv_app_list_t supported_list = EMV_APP_LIST_INIT;
-	struct emv_app_t* app;
-
-	if (!emv_app_list_is_valid(list)) {
-		return -1;
-	}
-
-	while ((app = emv_app_list_pop(list))) {
-		if (emv_app_is_supported(app, supported_aids)) {
-			r = emv_app_list_push(&supported_list, app);
-			if (r) {
-				emv_app_list_clear(&supported_list);
-				return -1;
-			}
-		} else {
-			emv_app_free(app);
-			app = NULL;
-		}
-	}
-
-	*list = supported_list;
-
-	return 0;
 }

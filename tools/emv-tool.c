@@ -526,7 +526,7 @@ int main(int argc, char** argv)
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
 
 	printf("\nSELECT Payment System Environment (PSE)\n");
-	r = emv_tal_read_pse(&emv_txn.ttl, &app_list);
+	r = emv_tal_read_pse(&emv_txn.ttl, &emv_txn.supported_aids, &app_list);
 	if (r < 0) {
 		printf("Failed to read PSE; terminate session\n");
 		goto emv_exit;
@@ -534,15 +534,6 @@ int main(int argc, char** argv)
 	if (r > 0) {
 		printf("Failed to read PSE; continue session\n");
 	}
-	if (r == 0) {
-		printf("Application list provided by PSE:\n");
-		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
-			print_emv_app(app);
-		}
-	}
-
-	// Filter for supported applications
-	emv_app_list_filter_supported(&app_list, &emv_txn.supported_aids);
 
 	// If PSE failed or no apps found by PSE
 	// See EMV 4.3 Book 1, 12.3.2, step 5

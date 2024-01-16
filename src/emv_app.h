@@ -2,7 +2,7 @@
  * @file emv_app.h
  * @brief EMV application abstraction and helper functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -38,7 +38,7 @@ struct emv_app_t {
 	 * Application Identifier (AID) field, as provided by:
 	 * - Application Dedicated File (ADF) Name (field 4F)
 	 * - Dedicated File (DF) Name (field 84)
-	 * in order of priority, if found in @c tlv_list
+	 * if found in @c tlv_list
 	 */
 	const struct emv_tlv_t* aid;
 
@@ -56,14 +56,14 @@ struct emv_app_t {
 	 * Application priority ordering, as provided by Application Priority
 	 * Indicator (field 87), bits 1 to 4. Valid range is 1 to 15, with 1 being
 	 * the highest priority. Zero if not available.
-	 * See EMV 4.3 Book 1, 12.4 for usage
+	 * See EMV 4.4 Book 1, 12.4 for usage
 	 */
 	uint8_t priority;
 
 	/**
 	 * Boolean indicating whether application requires cardholder confirmation
 	 * for selection, even if it is the only application.
-	 * See EMV 4.3 Book 1, 12.4 for usage
+	 * See EMV 4.4 Book 1, 12.4 for usage
 	 */
 	bool confirmation_required;
 
@@ -95,7 +95,7 @@ struct emv_app_list_t {
  * @param pse_dir_entry PSE directory entry (content of Application Template, field 61)
  * @param pse_dir_entry_len Length of PSE directory entry in bytes
  * @return New EMV application object. NULL for error.
- *         Use @ref emv_tlv_free() to free memory.
+ *         Use @ref emv_app_free() to free memory.
  */
 struct emv_app_t* emv_app_create_from_pse(
 	struct emv_tlv_list_t* pse_tlv_list,
@@ -111,7 +111,7 @@ struct emv_app_t* emv_app_create_from_pse(
  * @param fci FCI data provided by application selection
  * @param fci_len Length of FCI data in bytes
  * @return New EMV application object. NULL for error.
- *         Use @ref emv_tlv_free() to free memory.
+ *         Use @ref emv_app_free() to free memory.
  */
 struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len);
 
@@ -129,13 +129,17 @@ int emv_app_free(struct emv_app_t* app);
  * @param supported_aids Supported AID (field 9F06) list including ASI flags
  * @return Boolean indicating whether EMV application is supported
  */
-bool emv_app_is_supported(struct emv_app_t* app, struct emv_tlv_list_t* supported_aids);
+bool emv_app_is_supported(
+	const struct emv_app_t* app,
+	const struct emv_tlv_list_t* supported_aids
+);
 
 /// Static initialiser for @ref emv_app_list_t
 #define EMV_APP_LIST_INIT { NULL, NULL }
 
 /**
  * Determine whether EMV application list is empty
+ * @param list EMV application list
  * @return Boolean indicating whether EMV application list is empty
  */
 bool emv_app_list_is_empty(const struct emv_app_list_t* list);
@@ -162,14 +166,6 @@ int emv_app_list_push(struct emv_app_list_t* list, struct emv_app_t* app);
  * @return EMV application. Use @ref emv_tlv_free() to free memory.
  */
 struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list);
-
-/**
- * Filter EMV application list according to supported AIDs
- * @param list EMV application list
- * @param supported_aids Supported AID (field 9F06) list including ASI flags
- * @return Zero for success. Less than zero for error.
- */
-int emv_app_list_filter_supported(struct emv_app_list_t* list, struct emv_tlv_list_t* supported_aids);
 
 __END_DECLS
 
