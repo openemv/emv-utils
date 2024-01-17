@@ -283,7 +283,7 @@ static int emv_tal_parse_aef_record(
 
 int emv_tal_find_supported_apps(
 	struct emv_ttl_t* ttl,
-	struct emv_tlv_list_t* supported_aids,
+	const struct emv_tlv_list_t* supported_aids,
 	struct emv_app_list_t* app_list
 )
 {
@@ -293,7 +293,7 @@ int emv_tal_find_supported_apps(
 
 	if (!ttl || !supported_aids || !app_list) {
 		// Invalid parameters; terminate session
-		return -1;
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
 	}
 
 	aid = supported_aids->front;
@@ -307,35 +307,48 @@ int emv_tal_find_supported_apps(
 
 		if (exact_match) {
 			// SELECT application
-			// See EMV 4.3 Book 1, 12.3.3, step 1
+			// See EMV 4.4 Book 1, 12.3.3, step 1
+			emv_debug_info_data("SELECT application", aid->value, aid->length);
 			r = emv_ttl_select_by_df_name(ttl, aid->value, aid->length, fci, &fci_len, &sw1sw2);
 			if (r) {
+				emv_debug_trace_msg("emv_ttl_select_by_df_name() failed; r=%d", r);
+
 				// TTL failure; terminate session
 				// (bad card or reader)
-				return -2;
+				emv_debug_error("TTL failure");
+				return EMV_TAL_ERROR_TTL_FAILURE;
 			}
 
 			if (sw1sw2 == 0x6A81) {
 				// Card blocked or SELECT not supported; terminate session
-				// See EMV 4.3 Book 1, 12.3.3, step 2
-				return -3;
+				// See EMV 4.4 Book 1, 12.3.3, step 2
+				emv_debug_error("Card blocked or SELECT not supported");
+				return EMV_TAL_ERROR_CARD_BLOCKED;
 			}
 
 		} else {
 			// SELECT next application for partial AID match
-			// See EMV 4.3 Book 1, 12.3.3, step 7
+			// See EMV 4.4 Book 1, 12.3.3, step 7
+			emv_debug_info_data("SELECT next application", aid->value, aid->length);
 			r = emv_ttl_select_by_df_name_next(ttl, aid->value, aid->length, fci, &fci_len, &sw1sw2);
 			if (r) {
+				emv_debug_trace_msg("emv_ttl_select_by_df_name_next() failed; r=%d", r);
+
 				// TTL failure; terminate session
 				// (bad card or reader)
-				return -2;
+				emv_debug_error("TTL failure");
+				return EMV_TAL_ERROR_TTL_FAILURE;
 			}
-
 		}
 
 		if (sw1sw2 != 0x9000 && sw1sw2 != 0x6283) {
-			// Unexpected error; ignore app and continue to next supported AID
-			// See EMV 4.3 Book 1, 12.3.3, step 3
+			// Unexpected SELECT status; ignore app and continue to next supported AID
+			// See EMV 4.4 Book 1, 12.3.3, step 3
+			if (sw1sw2 == 0x6A82) {
+				emv_debug_info("Application not found");
+			} else {
+				emv_debug_error("Unexpected SELECT status 0x%04X", sw1sw2);
+			}
 			aid = aid->next;
 			exact_match = true;
 			continue;
@@ -344,11 +357,13 @@ int emv_tal_find_supported_apps(
 		emv_debug_info_tlv("FCI", fci, fci_len);
 
 		// Extract FCI data
-		// See EMV 4.3 Book 1, 12.3.3, step 3
+		// See EMV 4.4 Book 1, 12.3.3, step 3
 		app = emv_app_create_from_fci(fci, fci_len);
 		if (!app) {
+			emv_debug_trace_msg("emv_app_create_from_fci() failed; app=%p", app);
+
 			// Unexpected error; ignore app and continue to next supported AID
-			// See EMV 4.3 Book 1, 12.3.3, step 3
+			// See EMV 4.4 Book 1, 12.3.3, step 3
 			aid = aid->next;
 			exact_match = true;
 			continue;
@@ -361,53 +376,58 @@ int emv_tal_find_supported_apps(
 
 		if (aid->length == app->aid->length) {
 			// Exact match; check whether valid or blocked
-			// See EMV 4.3 Book 1, 12.3.3, step 4
+			// See EMV 4.4 Book 1, 12.3.3, step 4
 
 			if (sw1sw2 == 0x9000) {
 				// Valid app; add app and continue to next supported AID
-				// See EMV 4.3 Book 1, 12.3.3, step 4
+				// See EMV 4.4 Book 1, 12.3.3, step 4
+				emv_debug_info("Application is supported: exact match");
 				emv_app_list_push(app_list, app);
 			} else {
 				// Blocked app; ignore app and continue to next supported AID
-				// See EMV 4.3 Book 1, 12.3.3, step 4
+				// See EMV 4.4 Book 1, 12.3.3, step 4
+				emv_debug_info("Application is blocked");
 				emv_app_free(app);
 				app = NULL;
 			}
 
-			// See EMV 4.3 Book 1, 12.3.3, step 5
+			// See EMV 4.4 Book 1, 12.3.3, step 5
 			aid = aid->next;
 			exact_match = true;
 			continue;
 
 		} else {
 			// Partial match; check Application Selection Indicator (ASI)
-			// See EMV 4.3 Book 1, 12.3.3, step 6
+			// See EMV 4.4 Book 1, 12.3.3, step 6
 
 			if (aid->flags == EMV_ASI_PARTIAL_MATCH) {
 				// Partial match allowed; check whether valid or blocked
 
 				if (sw1sw2 == 0x9000) {
 					// Valid app; add app and continue to next partial AID
-					// See EMV 4.3 Book 1, 12.3.3, step 6
+					// See EMV 4.4 Book 1, 12.3.3, step 6
+					emv_debug_info("Application is supported: partial match");
 					emv_app_list_push(app_list, app);
 				} else {
 					// Blocked app; ignore app and continue to next partial AID
-					// See EMV 4.3 Book 1, 12.3.3, step 6
+					// See EMV 4.4 Book 1, 12.3.3, step 6
+					emv_debug_info("Application is blocked");
 					emv_app_free(app);
 					app = NULL;
 				}
 
-				// See EMV 4.3 Book 1, 12.3.3, step 7
+				// See EMV 4.4 Book 1, 12.3.3, step 7
 				exact_match = false;
 				continue;
 
 			} else {
 				// Partial match not allowed; ignore app and continue to next supported AID
-				// See EMV 4.3 Book 1, 12.3.3, step 6
+				// See EMV 4.4 Book 1, 12.3.3, step 6
+				emv_debug_info("Application is not supported: partial match not allowed");
 				emv_app_free(app);
 				app = NULL;
 
-				// See EMV 4.3 Book 1, 12.3.3, step 5
+				// See EMV 4.4 Book 1, 12.3.3, step 5
 				aid = aid->next;
 				exact_match = true;
 				continue;

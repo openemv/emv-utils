@@ -85,8 +85,8 @@ int emv_tal_read_pse(
 );
 
 /**
- * Find supported applications and build application list
- * @remark See EMV 4.3 Book 1, 12.3.3
+ * Find supported applications and build candidate application list
+ * @remark See EMV 4.4 Book 1, 12.3.3
  *
  * @param ttl EMV Terminal Transport Layer context
  * @param supported_aids Supported AID (field 9F06) list including ASI flags
@@ -94,11 +94,11 @@ int emv_tal_read_pse(
  *
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
- *         card session.
+ *         card session. See @ref emv_tal_error_t
  */
 int emv_tal_find_supported_apps(
 	struct emv_ttl_t* ttl,
-	struct emv_tlv_list_t* supported_aids,
+	const struct emv_tlv_list_t* supported_aids,
 	struct emv_app_list_t* app_list
 );
 
