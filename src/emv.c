@@ -2,7 +2,7 @@
  * @file emv.c
  * @brief High level EMV library interface
  *
- * Copyright (c) 2023 Leon Lynch
+ * Copyright (c) 2023-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,6 +21,8 @@
 
 #include "emv.h"
 #include "emv_utils_config.h"
+#include "emv_tal.h"
+#include "emv_app.h"
 
 #include "iso7816.h"
 
@@ -44,8 +46,11 @@ const char* emv_error_get_string(enum emv_error_t error)
 
 const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 {
+	// See EMV 4.4 Book 4, 11.2, table 8
 	switch (outcome) {
-		case EMV_OUTCOME_CARD_ERROR: return "Card error";
+		case EMV_OUTCOME_CARD_ERROR: return "Card error"; // Message 06
+		case EMV_OUTCOME_CARD_BLOCKED: return "Card blocked"; // Not in EMV specification
+		case EMV_OUTCOME_NOT_ACCEPTED: return "Not accepted"; // Message 0C
 	}
 
 	return "Invalid outcome";
@@ -273,6 +278,62 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 	// TCK - Check Character
 	// See EMV Level 1 Contact Interface v1.0, 8.3.4
 	// Validated by iso7816_atr_parse()
+
+	return 0;
+}
+
+int emv_build_candidate_list(
+	struct emv_ttl_t* ttl,
+	const struct emv_tlv_list_t* supported_aids,
+	struct emv_app_list_t* app_list
+)
+{
+	int r;
+
+	if (!ttl || !supported_aids || !app_list) {
+		emv_debug_trace_msg("ttl=%p, supported_aids=%p, app_list=%p", ttl, supported_aids, app_list);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("SELECT Payment System Environment (PSE)");
+	r = emv_tal_read_pse(ttl, supported_aids, app_list);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
+		emv_debug_error("Failed to read PSE; terminate session");
+		if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
+			return EMV_OUTCOME_CARD_BLOCKED;
+		} else {
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+	if (r > 0) {
+		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
+		emv_debug_info("Failed to process PSE; continue session");
+	}
+
+	// If PSE failed or no apps found by PSE, use list of AIDs method
+	// See EMV 4.4 Book 1, 12.3.2, step 5
+	if (emv_app_list_is_empty(app_list)) {
+		emv_debug_info("Discover list of AIDs");
+		r = emv_tal_find_supported_apps(ttl, supported_aids, app_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tal_find_supported_apps() failed; r=%d", r);
+			emv_debug_error("Failed to find supported AIDs; terminate session");
+			if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
+				return EMV_OUTCOME_CARD_BLOCKED;
+			} else {
+				return EMV_OUTCOME_CARD_ERROR;
+			}
+		}
+	}
+
+	// If there are no mutually supported applications, terminate session
+	// See EMV 4.4 Book 1, 12.4, step 1
+	if (emv_app_list_is_empty(app_list)) {
+		emv_debug_info("Candidate list empty");
+		return EMV_OUTCOME_NOT_ACCEPTED;
+	}
 
 	return 0;
 }

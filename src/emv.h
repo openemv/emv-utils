@@ -2,7 +2,7 @@
  * @file emv.h
  * @brief High level EMV library interface
  *
- * Copyright (c) 2023 Leon Lynch
+ * Copyright (c) 2023-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,6 +27,11 @@
 
 __BEGIN_DECLS
 
+// Forward declarations
+struct emv_ttl_t;
+struct emv_tlv_list_t;
+struct emv_app_list_t;
+
 /**
  * EMV errors
  * These are typically for internal errors and errors caused by invalid use of
@@ -44,6 +49,8 @@ enum emv_error_t {
  */
 enum emv_outcome_t {
 	EMV_OUTCOME_CARD_ERROR = 1, ///< Malfunction of the card or non-conformance to Answer To Reset (ATR)
+	EMV_OUTCOME_CARD_BLOCKED = 2, ///< Card blocked
+	EMV_OUTCOME_NOT_ACCEPTED = 3, ///< Card not accepted or no supported applications
 };
 
 /**
@@ -82,6 +89,25 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome);
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_atr_parse(const void* atr, size_t atr_len);
+
+/**
+ * Build candidate application list using Payment System Environment (PSE) or
+ * discovery of supported AIDs
+ * @remark See EMV 4.4 Book 1, 12.3
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param supported_aids Supported AID (field 9F06) list including ASI flags
+ * @param app_list Candidate application list output
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_build_candidate_list(
+	struct emv_ttl_t* ttl,
+	const struct emv_tlv_list_t* supported_aids,
+	struct emv_app_list_t* app_list
+);
 
 __END_DECLS
 

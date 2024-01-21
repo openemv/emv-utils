@@ -44,6 +44,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_cvmlist_test PRIVATE emv)
 	add_test(emv_cvmlist_test emv_cvmlist_test)
 
+	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c emv_cardreader_emul.c)
+	target_link_libraries(emv_build_candidate_list_test PRIVATE print_helpers emv)
+	add_test(emv_build_candidate_list_test emv_build_candidate_list_test)
+
 	add_executable(isocodes_test isocodes_test.c)
 	find_package(Intl)
 	if(Intl_FOUND)

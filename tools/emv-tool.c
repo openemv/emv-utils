@@ -2,7 +2,7 @@
  * @file emv-tool.c
  * @brief Simple EMV processing tool
  *
- * Copyright (c) 2021, 2023 Leon Lynch
+ * Copyright (c) 2021, 2023-2024 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,7 +26,7 @@
 #include "emv_fields.h"
 #include "emv_strings.h"
 #include "emv_tlv.h"
-#include "emv_tal.h"
+#include "emv_app.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
 #include "emv_debug.h"
@@ -41,7 +41,7 @@
 // HACK: remove
 #include "emv_dol.h"
 #include "emv_ttl.h"
-#include "emv_app.h"
+#include "emv_tal.h"
 #include "iso7816_strings.h"
 
 // Forward declarations
@@ -525,25 +525,15 @@ int main(int argc, char** argv)
 	// Candidate applications for selection
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
 
-	printf("\nSELECT Payment System Environment (PSE)\n");
-	r = emv_tal_read_pse(&emv_txn.ttl, &emv_txn.supported_aids, &app_list);
+	printf("\nBuild candidate list\n");
+	r = emv_build_candidate_list(&emv_txn.ttl, &emv_txn.supported_aids, &app_list);
 	if (r < 0) {
-		printf("Failed to read PSE; terminate session\n");
+		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
 	}
 	if (r > 0) {
-		printf("Failed to read PSE; continue session\n");
-	}
-
-	// If PSE failed or no apps found by PSE
-	// See EMV 4.3 Book 1, 12.3.2, step 5
-	if (r > 0 || emv_app_list_is_empty(&app_list)) {
-		printf("\nFind supported AIDs\n");
-		r = emv_tal_find_supported_apps(&emv_txn.ttl, &emv_txn.supported_aids, &app_list);
-		if (r) {
-			printf("Failed to find supported AIDs; terminate session\n");
-			goto emv_exit;
-		}
+		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+		goto emv_exit;
 	}
 
 	if (emv_app_list_is_empty(&app_list)) {
@@ -722,6 +712,7 @@ int main(int argc, char** argv)
 	printf("\nCard deactivated\n");
 
 emv_exit:
+	emv_app_list_clear(&app_list);
 	emv_txn_destroy(&emv_txn);
 pcsc_exit:
 	pcsc_release(&pcsc);
