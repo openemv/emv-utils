@@ -8,6 +8,8 @@
 cmake_minimum_required(VERSION 3.16)
 
 if (BUILD_TESTING)
+	add_library(emv_cardreader_emul OBJECT EXCLUDE_FROM_ALL emv_cardreader_emul.c)
+
 	add_executable(emv_debug_test emv_debug_test.c)
 	target_link_libraries(emv_debug_test PRIVATE print_helpers emv)
 	add_test(emv_debug_test emv_debug_test)
@@ -25,11 +27,11 @@ if (BUILD_TESTING)
 	add_test(emv_atr_parse_test emv_atr_parse_test)
 
 	add_executable(emv_ttl_tpdu_test emv_ttl_tpdu_test.c)
-	target_link_libraries(emv_ttl_tpdu_test PRIVATE print_helpers emv)
+	target_link_libraries(emv_ttl_tpdu_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_ttl_tpdu_test emv_ttl_tpdu_test)
 
 	add_executable(emv_ttl_pcsc_test emv_ttl_pcsc_test.c)
-	target_link_libraries(emv_ttl_pcsc_test PRIVATE print_helpers emv)
+	target_link_libraries(emv_ttl_pcsc_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_ttl_pcsc_test emv_ttl_pcsc_test)
 
 	add_executable(emv_str_parse_test emv_str_parse_test.c)
@@ -44,8 +46,8 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_cvmlist_test PRIVATE emv)
 	add_test(emv_cvmlist_test emv_cvmlist_test)
 
-	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c emv_cardreader_emul.c)
-	target_link_libraries(emv_build_candidate_list_test PRIVATE print_helpers emv)
+	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c)
+	target_link_libraries(emv_build_candidate_list_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_build_candidate_list_test emv_build_candidate_list_test)
 
 	add_executable(isocodes_test isocodes_test.c)
