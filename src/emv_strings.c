@@ -222,6 +222,15 @@ int emv_tlv_get_info(
 				"Identifies the name of the Dedicated File (DF) as described "
 				"in ISO/IEC 7816-4";
 			info->format = EMV_FORMAT_B;
+			if ((tlv->length == strlen(EMV_PSE) && strncmp((const char*)tlv->value, EMV_PSE, strlen(EMV_PSE))) ||
+				(tlv->length == strlen(EMV_PPSE) && strncmp((const char*)tlv->value, EMV_PPSE, strlen(EMV_PPSE)))
+			) {
+				if (value_str_len > tlv->length) {
+					memcpy(value_str, tlv->value, tlv->length);
+					value_str[tlv->length] = 0;
+				}
+				return 0;
+			}
 			return emv_aid_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_87_APPLICATION_PRIORITY_INDICATOR:

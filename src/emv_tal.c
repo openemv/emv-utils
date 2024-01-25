@@ -50,7 +50,6 @@ int emv_tal_read_pse(
 )
 {
 	int r;
-	const uint8_t PSE[] = "1PAY.SYS.DDF01";
 	uint8_t fci[EMV_RAPDU_DATA_MAX];
 	size_t fci_len = sizeof(fci);
 	uint16_t sw1sw2;
@@ -66,8 +65,8 @@ int emv_tal_read_pse(
 	// SELECT Payment System Environment (PSE) Directory Definition File (DDF)
 	// See EMV 4.4 Book 1, 12.2.2
 	// See EMV 4.4 Book 1, 12.3.2
-	emv_debug_info("SELECT %s", PSE);
-	r = emv_ttl_select_by_df_name(ttl, PSE, sizeof(PSE) - 1, fci, &fci_len, &sw1sw2);
+	emv_debug_info("SELECT %s", EMV_PSE);
+	r = emv_ttl_select_by_df_name(ttl, EMV_PSE, strlen(EMV_PSE), fci, &fci_len, &sw1sw2);
 	if (r) {
 		emv_debug_trace_msg("emv_ttl_select_by_df_name() failed; r=%d", r);
 

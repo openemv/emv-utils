@@ -28,6 +28,10 @@
 
 __BEGIN_DECLS
 
+// Payment System Environment strings
+#define EMV_PSE                                                 "1PAY.SYS.DDF01" ///< Payment System Environment (PSE)
+#define EMV_PPSE                                                "2PAY.SYS.DDF01" ///< Proximity Payment System Environment (PPSE)
+
 // Application Priority Indicator
 // See EMV 4.4 Book 1, 12.2.3, table 13
 #define EMV_APP_PRIORITY_INDICATOR_MASK                         (0x0F)
