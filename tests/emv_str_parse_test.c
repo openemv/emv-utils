@@ -2,7 +2,7 @@
  * @file emv_str_parse_test.c
  * @brief Unit tests for string to EMV format conversion functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -33,6 +33,8 @@ int main(void)
 	uint8_t buf2[2];
 	uint8_t buf3[3];
 	uint8_t buf4[4];
+	uint8_t iso8859[95];
+	char utf8[96]; // 95 characters plus null
 
 	printf("\nTesting parsing of \"123456\" as format \"cn\" into 2-byte buffer...\n");
 	memset(buf2, 0x00, sizeof(buf2));
@@ -238,5 +240,30 @@ int main(void)
 		print_buf("buf3", buf3, sizeof(buf3));
 		return 1;
 	}
+	printf("Success\n");
+
+	printf("\nTesting parsing of format 'ans' to UTF-8...\n");
+	// Populate ISO 8859 input string using the common character set
+	for (size_t i = 0; i < 95; ++i) {
+		iso8859[i] = 0x20 + i; // Common character set starts at 0x20
+	}
+	memset(utf8, 0xFF, sizeof(utf8));
+	r = emv_format_ans_ccs_get_string(iso8859, sizeof(iso8859), utf8, sizeof(utf8));
+	if (r) {
+		fprintf(stderr, "emv_format_ans_ccs_get_string() failed; r=%d\n", r);
+		return 1;
+	}
+	if (utf8[sizeof(utf8) - 1] != 0) {
+		fprintf(stderr, "emv_format_ans_ccs_get_string() failed; output buffer not NULL terminated\n");
+		return 1;
+	}
+	// UTF-8 output must be identical to ISO-8859 common character set
+	if (memcmp(utf8, iso8859, sizeof(utf8) - 1) != 0) {
+		fprintf(stderr, "emv_format_ans_ccs_get_string() failed; incorrect output buffer\n");
+		print_buf("iso8859", iso8859, sizeof(iso8859));
+		print_buf("utf8   ", utf8, sizeof(utf8));
+		return 1;
+	}
+
 	printf("Success\n");
 }

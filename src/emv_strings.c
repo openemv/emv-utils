@@ -2,7 +2,7 @@
  * @file emv_strings.c
  * @brief EMV string helper functions
  *
- * Copyright (c) 2021, 2022, 2023 Leon Lynch
+ * Copyright (c) 2021-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -1071,18 +1071,43 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 
 	switch (format) {
 		case EMV_FORMAT_A:
-		case EMV_FORMAT_AN:
-		case EMV_FORMAT_ANS:
-			// TODO: validate format 'a' characters
-			// TODO: validate format 'an' characters
-			// TODO: validate format 'ans' characters in accordance with ISO/IEC 8859 common character, EMV 4.3 Book 4, Annex B
-			// TODO: validate EMV_TAG_50_APPLICATION_LABEL in accordance with EMV 4.3 Book 3, 4.3
-			// TODO: convert EMV_TAG_9F12_APPLICATION_PREFERRED_NAME from the appropriate ISO/IEC 8859 code page to UTF-8
+			r = emv_format_a_get_string(tlv->value, tlv->length, value_str, value_str_len);
+			if (r) {
+				// Ignore parse error
+				value_str[0] = 0;
+				return 0;
+			}
 
-			// For now assume that the field bytes are valid ASCII and are
-			// only the allowed characters specified in EMV 4.3 Book 3, 4.3
-			memcpy(value_str, tlv->value, tlv->length);
-			value_str[tlv->length] = 0; // NULL terminate
+			return 0;
+
+		case EMV_FORMAT_AN:
+			r = emv_format_an_get_string(tlv->value, tlv->length, value_str, value_str_len);
+			if (r) {
+				// Ignore parse error
+				value_str[0] = 0;
+				return 0;
+			}
+
+			return 0;
+
+		case EMV_FORMAT_ANS:
+			if (tlv->tag == EMV_TAG_50_APPLICATION_LABEL) {
+				r = emv_format_ans_only_space_get_string(tlv->value, tlv->length, value_str, value_str_len);
+			}
+			else if (tlv->tag == EMV_TAG_9F12_APPLICATION_PREFERRED_NAME) {
+				// TODO: Convert EMV_TAG_9F12_APPLICATION_PREFERRED_NAME from the appropriate ISO/IEC 8859 code page to UTF-8
+				memcpy(value_str, tlv->value, tlv->length);
+				value_str[tlv->length] = 0; // NULL terminate
+				return 0;
+			} else {
+				r = emv_format_ans_ccs_get_string(tlv->value, tlv->length, value_str, value_str_len);
+			}
+			if (r) {
+				// Ignore parse error
+				value_str[0] = 0;
+				return 0;
+			}
+
 			return 0;
 
 		case EMV_FORMAT_CN: {
@@ -1111,6 +1136,155 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 			// Unknown format
 			return -6;
 	}
+}
+
+int emv_format_a_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	if (!buf || !buf_len || !str || !str_len) {
+		return -1;
+	}
+
+	// Minimum string length
+	if (str_len < buf_len + 1) {
+		return -2;
+	}
+
+	while (buf_len) {
+		// Validate format "a"
+		if (
+			(*buf >= 0x41 && *buf <= 0x5A) || // A-Z
+			(*buf >= 0x61 && *buf <= 0x7A)    // a-z
+		) {
+			*str = *buf;
+
+			// Advance output
+			++str;
+			--str_len;
+		} else {
+			// Invalid digit
+			return 1;
+		}
+
+		++buf;
+		--buf_len;
+	}
+
+	*str = 0; // NULL terminate
+
+	return 0;
+}
+
+int emv_format_an_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	if (!buf || !buf_len || !str || !str_len) {
+		return -1;
+	}
+
+	// Minimum string length
+	if (str_len < buf_len + 1) {
+		return -2;
+	}
+
+	while (buf_len) {
+		// Validate format "an"
+		if (
+			(*buf >= 0x30 && *buf <= 0x39) || // 0-9
+			(*buf >= 0x41 && *buf <= 0x5A) || // A-Z
+			(*buf >= 0x61 && *buf <= 0x7A)    // a-z
+		) {
+			*str = *buf;
+
+			// Advance output
+			++str;
+			--str_len;
+		} else {
+			// Invalid digit
+			return 1;
+		}
+
+		++buf;
+		--buf_len;
+	}
+
+	*str = 0; // NULL terminate
+
+	return 0;
+}
+
+int emv_format_ans_only_space_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	if (!buf || !buf_len || !str || !str_len) {
+		return -1;
+	}
+
+	// Minimum string length
+	if (str_len < buf_len + 1) {
+		return -2;
+	}
+
+	while (buf_len) {
+		// Validate format "ans" with special characters limited to space
+		// character, which is effectively format "an" plus space character
+		if (
+			(*buf >= 0x30 && *buf <= 0x39) || // 0-9
+			(*buf >= 0x41 && *buf <= 0x5A) || // A-Z
+			(*buf >= 0x61 && *buf <= 0x7A) || // a-z
+			(*buf == 0x20)                    // Space
+		) {
+			*str = *buf;
+
+			// Advance output
+			++str;
+			--str_len;
+		} else {
+			// Invalid digit
+			return 1;
+		}
+
+		++buf;
+		--buf_len;
+	}
+
+	*str = 0; // NULL terminate
+
+	return 0;
+}
+
+int emv_format_ans_ccs_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
+{
+	if (!buf || !buf_len || !str || !str_len) {
+		return -1;
+	}
+
+	// Minimum string length
+	if (str_len < buf_len + 1) {
+		return -2;
+	}
+
+	while (buf_len) {
+		// Validate format "ans" (ISO/IEC 8859 common character set)
+		// See EMV 4.4 Book 4, Annex B
+		if (*buf >= 0x20 && *buf <= 0x7F) {
+			// ISO/IEC 8859 common character set is identical to the first
+			// Unicode block and each character is encoded as a single byte
+			// UTF-8 character
+			*str = *buf;
+
+			// Advance output
+			++str;
+			--str_len;
+		} else {
+			// Invalid digit
+			return 1;
+		}
+
+		++buf;
+		--buf_len;
+	}
+
+	*str = 0; // NULL terminate
+
+	return 0;
 }
 
 int emv_format_cn_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)

@@ -296,11 +296,12 @@ int emv_format_ans_to_alnum_space_str(
 			break;
 		}
 
-		// Only 0-9, A-Z, a-z, and space
+		// Only copy alphanumeric and space characters
 		if (
-			(*buf >= 0x30 && *buf <= 0x39) ||
-			(*buf >= 0x41 && *buf <= 0x5A) ||
-			(*buf >= 0x61 && *buf <= 0x7A)
+			(*buf >= 0x30 && *buf <= 0x39) || // 0-9
+			(*buf >= 0x41 && *buf <= 0x5A) || // A-Z
+			(*buf >= 0x61 && *buf <= 0x7A) || // a-z
+			*buf == 0x20                      // Space
 		) {
 			*str = *buf;
 
@@ -311,6 +312,49 @@ int emv_format_ans_to_alnum_space_str(
 
 		++buf;
 		--buf_len;
+	}
+
+	*str = 0; // NULL terminate
+
+	return 0;
+}
+
+int emv_format_b_to_str(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+)
+{
+	if (!buf || !buf_len || !str || !str_len) {
+		return -1;
+	}
+
+	for (size_t i = 0; i < buf_len * 2; ++i) {
+		uint8_t digit;
+
+		if (str_len == 1) {
+			// Ensure enough space for NULL termination
+			break;
+		}
+
+		if ((i & 0x01) == 0) {
+			// Most significant nibble
+			digit = buf[i >> 1] >> 4;
+		} else {
+			// Least significant nibble
+			digit = buf[i >> 1] & 0x0F;
+		}
+
+		// Convert to ASCII digit
+		if (digit < 0xA) {
+			*str = '0' + digit;
+		} else {
+			*str = 'A' + (digit - 0xA);
+		}
+
+		++str;
+		--str_len;
 	}
 
 	*str = 0; // NULL terminate

@@ -31,7 +31,6 @@
 #include <assert.h>
 
 // Helper functions
-static int emv_aid_get_string(const uint8_t* aid, size_t aid_len, char* str, size_t str_len);
 static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_list_t* pse_tlv_list);
 static int emv_app_extract_priority_indicator(struct emv_app_t* app);
 static inline bool emv_app_list_is_valid(const struct emv_app_list_t* list);
@@ -144,35 +143,6 @@ error:
 	return NULL;
 }
 
-static int emv_aid_get_string(const uint8_t* aid, size_t aid_len, char* str, size_t str_len)
-{
-	if (str_len < aid_len * 2 + 1) {
-		return -1;
-	}
-
-	for (size_t i = 0; i < str_len && i < aid_len * 2; ++i) {
-		uint8_t nibble;
-
-		if ((i & 0x01) == 0) {
-			// Most significant nibble
-			nibble = aid[i >> 1] >> 4;
-		} else {
-			// Least significant nibble
-			nibble = aid[i >> 1] & 0x0F;
-		}
-
-		// Convert to ASCII digit
-		if (nibble < 0xA) {
-			str[i] = '0' + nibble;
-		} else {
-			str[i] = 'A' + (nibble - 0xA);
-		}
-	}
-	str[aid_len * 2] = 0; // NULL terminate
-
-	return 0;
-}
-
 static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_list_t* pse_tlv_list)
 {
 	int r;
@@ -259,7 +229,7 @@ static int emv_app_extract_display_name(struct emv_app_t* app, struct emv_tlv_li
 
 	// Use Application Identifier (AID) as display name
 	if (app->aid) {
-		return emv_aid_get_string(
+		return emv_format_b_to_str(
 			app->aid->value,
 			app->aid->length,
 			app->display_name,

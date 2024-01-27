@@ -2,7 +2,7 @@
  * @file emv_strings.h
  * @brief EMV string helper functions
  *
- * Copyright (c) 2021, 2022, 2023 Leon Lynch
+ * Copyright (c) 2021-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -33,7 +33,7 @@ __BEGIN_DECLS
 
 /**
  * EMV data element formats
- * @remark See EMV 4.3 Book 1, 4.3
+ * @remark See EMV 4.4 Book 1, 4.3
  */
 enum emv_format_t {
 	/**
@@ -96,7 +96,7 @@ enum emv_format_t {
 
 	/**
 	 * Data Object List (DOL).
-	 * Encoded according to EMV Book 3, 5.4
+	 * Encoded according to EMV 4.4 Book 3, 5.4
 	 */
 	EMV_FORMAT_DOL,
 
@@ -108,8 +108,8 @@ enum emv_format_t {
 
 /**
  * EMV TLV information as human readable strings
- * @remark See EMV 4.3 Book 1, Annex B
- * @remark See EMV 4.3 Book 3, Annex A
+ * @remark See EMV 4.4 Book 1, Annex B
+ * @remark See EMV 4.4 Book 3, Annex A
  * @remark See ISO 7816-4:2005, 5.2.4
  */
 struct emv_tlv_info_t {
@@ -132,7 +132,7 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
 
 /**
  * Retrieve EMV TLV information, if available, and convert value to human
- * readable string(s), if possible.
+ * readable UTF-8 string(s), if possible.
  * @note @c value_str output will be empty if human readable string is not available
  *
  * @param tlv Decoded EMV TLV structure
@@ -149,7 +149,59 @@ int emv_tlv_get_info(
 );
 
 /**
- * Stringify EMV format "cn" (trailing 'F's will be omitted)
+ * Stringify EMV format "a".
+ * See @ref EMV_FORMAT_A
+ *
+ * @param buf Buffer containing EMV format "a" data
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_format_a_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
+ * Stringify EMV format "an".
+ * See @ref EMV_FORMAT_AN
+ *
+ * @param buf Buffer containing EMV format "an" data
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_format_an_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
+ * Stringify EMV format "ans", with special characters limited to space
+ * character, to UTF-8.
+ * See @ref EMV_FORMAT_ANS regarding @ref EMV_TAG_50_APPLICATION_LABEL
+ * @remark See ISO/IEC 8859
+ *
+ * @param buf Buffer containing EMV format "ans" data
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_format_ans_only_space_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
+ * Stringify EMV format "ans" (using ISO/IEC 8859 common character set) to
+ * UTF-8.
+ * See @ref EMV_FORMAT_ANS
+ * @remark See ISO/IEC 8859
+ *
+ * @param buf Buffer containing EMV format "ans" data
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_format_ans_ccs_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
+
+/**
+ * Stringify EMV format "cn" (trailing 'F's will be omitted).
  * See @ref EMV_FORMAT_CN
  *
  * @param buf Buffer containing EMV format "cn" data
@@ -161,7 +213,7 @@ int emv_tlv_get_info(
 int emv_format_cn_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 
 /**
- * Stringify EMV format "n" (leading zeros will be omitted)
+ * Stringify EMV format "n" (leading zeros will be omitted).
  * See @ref EMV_FORMAT_N
  *
  * @param buf Buffer containing EMV format "n" data

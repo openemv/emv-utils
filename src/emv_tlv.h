@@ -2,7 +2,7 @@
  * @file emv_tlv.h
  * @brief EMV TLV structures and helper functions
  *
- * Copyright (c) 2021, 2023 Leon Lynch
+ * Copyright (c) 2021, 2023-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -145,7 +145,7 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list);
 
 /**
- * Convert EMV format "ans" to string and omit control characters
+ * Convert EMV format "ans" to ISO/IEC 8859 string and omit control characters
  * @note This function is typically needed for Application Preferred Name (field 9F12)
  * @remark See EMV 4.4 Book 1, 4.3
  * @remark See ISO/IEC 8859
@@ -164,8 +164,8 @@ int emv_format_ans_to_non_control_str(
 );
 
 /**
- * Convert EMV format "ans" to string containing only alphanumeric or space
- * characters
+ * Convert EMV format "ans" to ISO/IEC 8859 string containing only alphanumeric
+ * or space characters
  * @note This function is typically needed for Application Label (field 50)
  * @remark See EMV 4.4 Book 1, 4.3
  * @remark See EMV 4.4 Book 4, Annex B
@@ -177,6 +177,24 @@ int emv_format_ans_to_non_control_str(
  * @return Zero for success. Less than zero for internal error.
  */
 int emv_format_ans_to_alnum_space_str(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Convert EMV format "b" to ASCII-HEX string containing only hexadecimal
+ * characters representing the binary data
+ * @note This function is typically needed for Application Identifier (field 4F or 9F06)
+ *
+ * @param buf Buffer to convert
+ * @param buf_len Length of buffer in bytes
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error.
+ */
+int emv_format_b_to_str(
 	const uint8_t* buf,
 	size_t buf_len,
 	char* str,
