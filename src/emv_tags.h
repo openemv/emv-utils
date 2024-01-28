@@ -112,6 +112,9 @@ __BEGIN_DECLS
 /// EMV tag 92 Issuer Public Key Remainder. Template 70 or 77.
 #define EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER                  (0x92)
 
+/// EMV tag 93 Signed Static Application Data. Template 70 or 77.
+#define EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA               (0x93)
+
 /// EMV tag 94 Application File Locator (AFL). Template 77 or 80.
 #define EMV_TAG_94_APPLICATION_FILE_LOCATOR                     (0x94)
 
@@ -151,6 +154,9 @@ __BEGIN_DECLS
 /// EMV tag 5F2D Language Preference. Template A5.
 #define EMV_TAG_5F2D_LANGUAGE_PREFERENCE                        (0x5F2D)
 
+/// EMV tag 5F30 Service Code. Template 70 or 77.
+#define EMV_TAG_5F30_SERVICE_CODE                               (0x5F30)
+
 /// EMV tag 5F34 Application Primary Account Number (PAN) Sequence Number. Template 70 or 77.
 #define EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER            (0x5F34)
 
@@ -184,6 +190,9 @@ __BEGIN_DECLS
 /// EMV tag 9F04 Amount, Other (Binary)
 #define EMV_TAG_9F04_AMOUNT_OTHER_BINARY                        (0x9F04)
 
+/// EMV tag 9F05 Application Discretionary Data. Template 70 or 77.
+#define EMV_TAG_9F05_APPLICATION_DISCRETIONARY_DATA             (0x9F05)
+
 /// EMV tag 9F06 Application Identifier (AID) - terminal
 #define EMV_TAG_9F06_AID                                        (0x9F06)
 
@@ -198,6 +207,12 @@ __BEGIN_DECLS
 
 /// EMV tag 9F0A Application Selection Registered Proprietary Data (ASRPD)
 #define EMV_TAG_9F0A_ASRPD                                      (0x9F0A)
+
+/// EMV tag 9F0B Cardholder Name Extended. Template 70 or 77.
+#define EMV_TAG_9F0B_CARDHOLDER_NAME_EXTENDED                   (0x9F0B)
+
+/// EMV tag 9F0C Issuer Identification Number Extended (IINE). Template BF0C or 73.
+#define EMV_TAG_9F0C_IINE                                       (0x9F0C)
 
 /// EMV tag 9F0D Issuer Action Code (IAC) - Default. Template 70 or 77.
 #define EMV_TAG_9F0D_ISSUER_ACTION_CODE_DEFAULT                 (0x9F0D)
@@ -240,8 +255,17 @@ __BEGIN_DECLS
 /// EMV tag 9F1F Track 1 Discretionary Data. Template 70 or 77.
 #define EMV_TAG_9F1F_TRACK1_DISCRETIONARY_DATA                  (0x9F1F)
 
+/// EMV tag 9F19 Token Requestor ID. Template 70 or 77.
+#define EMV_TAG_9F19_TOKEN_REQUESTOR_ID                         (0x9F19)
+
+/// EMV tag 9F20 Track 2 Discretionary Data. Template 70 or 77.
+#define EMV_TAG_9F20_TRACK2_DISCRETIONARY_DATA                  (0x9F20)
+
 /// EMV tag 9F21 Transaction Time
 #define EMV_TAG_9F21_TRANSACTION_TIME                           (0x9F21)
+
+/// EMV tag 9F25 Last 4 Digits of PAN. Template 70 or 77.
+#define EMV_TAG_9F25_LAST_4_DIGITS_OF_PAN                       (0x9F25)
 
 /// EMV tag 9F26 Application Cryptogram. Template 77 or 80.
 #define EMV_TAG_9F26_APPLICATION_CRYPTOGRAM                     (0x9F26)
@@ -272,6 +296,9 @@ __BEGIN_DECLS
 
 /// EMV tag 9F39 Point-of-Service (POS) Entry Mode
 #define EMV_TAG_9F39_POS_ENTRY_MODE                             (0x9F39)
+
+/// EMV tag 9F3A Amount, Reference Currency
+#define EMV_TAG_9F3A_AMOUNT_REFERENCE_CURRENCY                  (0x9F3A)
 
 /// EMV tag 9F3B Application Reference Currency. Template 70 or 77.
 #define EMV_TAG_9F3B_APPLICATION_REFERENCE_CURRENCY             (0x9F3B)

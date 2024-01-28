@@ -298,6 +298,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA:
+			info->tag_name = "Signed Static Application Data";
+			info->tag_desc =
+				"Digital signature on critical application "
+				"parameters for SDA";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_94_APPLICATION_FILE_LOCATOR:
 			info->tag_name = "Application File Locator (AFL)";
 			info->tag_desc =
@@ -406,6 +414,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_AN;
 			return emv_language_preference_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
+		case EMV_TAG_5F30_SERVICE_CODE:
+			info->tag_name = "Service Code";
+			info->tag_desc =
+				"Service code as defined in ISO/IEC 7813 for "
+				"track 1 and track 2";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 3, value_str, value_str_len);
+
 		case EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER:
 			info->tag_name = "Application Primary Account Number (PAN) Sequence Number";
 			info->tag_desc =
@@ -501,6 +517,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return emv_amount_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
+		case EMV_TAG_9F05_APPLICATION_DISCRETIONARY_DATA:
+			info->tag_name = "Application Discretionary Data";
+			info->tag_desc =
+				"Issuer or payment system specified data "
+				"relating to the application";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F06_AID:
 			info->tag_name = "Application Identifier (AID) - terminal";
 			info->tag_desc =
@@ -543,6 +567,30 @@ int emv_tlv_get_info(
 				"registration.";
 			info->format = EMV_FORMAT_B;
 			return emv_asrpd_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F0B_CARDHOLDER_NAME_EXTENDED:
+			info->tag_name = "Cardholder Name Extended";
+			info->tag_desc =
+				"Indicates the whole cardholder name when "
+				"greater than 26 characters using the same "
+				"coding convention as in ISO/IEC 7813";
+			info->format = EMV_FORMAT_ANS;
+		return emv_tlv_value_get_string(tlv, info->format, 45, value_str, value_str_len);
+
+		case EMV_TAG_9F0C_IINE:
+			info->tag_name = "Issuer Identification Number Extended (IINE)";
+			info->tag_desc =
+				"The number that identifies the major industry "
+				"and the card issuer and that forms the first "
+				"part of the Primary Account "
+				"Number (PAN).\n"
+				"While the first 6 digits of the IINE (tag '9F0C') "
+				"and IIN (tag '42') are the same and there is no "
+				"need to have both data objects on the card, "
+				"cards may have both the IIN and IINE data "
+				"objects present.";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
 
 		case EMV_TAG_9F0D_ISSUER_ACTION_CODE_DEFAULT:
 			info->tag_name = "Issuer Action Code (IAC) - Default";
@@ -646,12 +694,37 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
 
+		case EMV_TAG_9F19_TOKEN_REQUESTOR_ID:
+			info->tag_name = "Token Requestor ID";
+			info->tag_desc =
+				"Uniquely identifies the pairing of the Token "
+				"Requestor with the Token Domain, as defined "
+				"in the EMV Payment Tokenisation "
+				"Framework";
+			info->format = EMV_FORMAT_N;
+			return 0;
+
+		case EMV_TAG_9F20_TRACK2_DISCRETIONARY_DATA:
+			info->tag_name = "Track 2 Discretionary Data";
+			info->tag_desc =
+				"Discretionary part of track 2 according to ISO/IEC 7813";
+			info->format = EMV_FORMAT_CN;
+			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
+
 		case EMV_TAG_9F21_TRANSACTION_TIME:
 			info->tag_name = "Transaction Time";
 			info->tag_desc =
 				"Local time that the transaction was authorised";
 			info->format = EMV_FORMAT_N;
 			return emv_time_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F25_LAST_4_DIGITS_OF_PAN:
+			info->tag_name = "Last 4 Digits of PAN";
+			info->tag_desc =
+				"The last four digits of the PAN, as defined in "
+				"the EMV Payment Tokenisation Framework";
+			info->format = EMV_FORMAT_N;
+		return emv_tlv_value_get_string(tlv, info->format, 4, value_str, value_str_len);
 
 		case EMV_TAG_9F26_APPLICATION_CRYPTOGRAM:
 			info->tag_name = "Application Cryptogram";
@@ -745,6 +818,13 @@ int emv_tlv_get_info(
 				return 0;
 			}
 			return emv_pos_entry_mode_get_string(tlv->value[0], value_str, value_str_len);
+
+		case EMV_TAG_9F3A_AMOUNT_REFERENCE_CURRENCY:
+			info->tag_name = "Amount, Reference Currency";
+			info->tag_desc =
+				"Authorised amount expressed in the reference currency";
+			info->format = EMV_FORMAT_B;
+			return emv_amount_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F3B_APPLICATION_REFERENCE_CURRENCY:
 			info->tag_name = "Application Reference Currency";

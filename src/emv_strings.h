@@ -606,7 +606,6 @@ int emv_ctq_get_string_list(
 
 /**
  * Stringify Amex Contactless Reader Capabilities (field 9F6D)
- * @note Strings in output buffer are delimited using "\n", including the last string
  * @param cl_reader_caps Contactless Reader Capabilities field
  * @param str String buffer output
  * @param str_len Length of string buffer in bytes
