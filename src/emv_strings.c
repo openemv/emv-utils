@@ -1073,9 +1073,9 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 		case EMV_FORMAT_A:
 			r = emv_format_a_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			if (r) {
-				// Ignore parse error
+				// Empty string on error
 				value_str[0] = 0;
-				return 0;
+				return r;
 			}
 
 			return 0;
@@ -1083,9 +1083,9 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 		case EMV_FORMAT_AN:
 			r = emv_format_an_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			if (r) {
-				// Ignore parse error
+				// Empty string on error
 				value_str[0] = 0;
-				return 0;
+				return r;
 			}
 
 			return 0;
@@ -1103,9 +1103,9 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 				r = emv_format_ans_ccs_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			}
 			if (r) {
-				// Ignore parse error
+				// Empty string on error
 				value_str[0] = 0;
-				return 0;
+				return r;
 			}
 
 			return 0;
@@ -1113,9 +1113,9 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 		case EMV_FORMAT_CN: {
 			r = emv_format_cn_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			if (r) {
-				// Ignore parse error
+				// Empty string on error
 				value_str[0] = 0;
-				return 0;
+				return r;
 			}
 
 			return 0;
@@ -1124,9 +1124,9 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 		case EMV_FORMAT_N: {
 			r = emv_format_n_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			if (r) {
-				// Ignore parse error
+				// Empty string on error
 				value_str[0] = 0;
-				return 0;
+				return r;
 			}
 
 			return 0;
@@ -1382,6 +1382,7 @@ static int emv_uint_to_str(uint32_t value, char* str, size_t str_len)
 
 		if (str_len == 0) {
 			// No space left to NULL terminate
+			str[0] = 0;
 			return -3;
 		}
 
