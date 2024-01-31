@@ -679,6 +679,15 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_AN;
 			return emv_tlv_value_get_string(tlv, info->format, 8, value_str, value_str_len);
 
+		case EMV_TAG_9F1D_TERMINAL_RISK_MANAGEMENT_DATA:
+			info->tag_name = "Terminal Risk Management Data";
+			info->tag_desc =
+				"Application-specific value used by the contactless card or "
+				"payment device for risk management purposes. All RFU bits "
+				"must be set to zero.";
+			info->format = EMV_FORMAT_B;
+			return emv_terminal_risk_management_data_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_9F1E_IFD_SERIAL_NUMBER:
 			info->tag_name = "Interface Device (IFD) Serial Number";
 			info->tag_desc =
@@ -4431,6 +4440,135 @@ int emv_iad_get_string_list(
 		default:
 			return -1;
 	}
+}
+
+int emv_terminal_risk_management_data_get_string_list(
+	const uint8_t* trmd,
+	size_t trmd_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!trmd || !trmd_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (trmd_len != 8) {
+		// Terminal Risk Management Data (field 9F1D) must be 8 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Terminal Risk Management Data (field 9F1D) byte 1
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.161
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+	if (trmd[0] & EMV_TRMD_BYTE1_RESTART_SUPPORTED) {
+		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// this bit and it avoids confusion if no string is provided when this
+		// bit is unset
+		emv_str_list_add(&itr, "Restart supported");
+	}
+	if (trmd[0] & EMV_TRMD_BYTE1_ENCIPHERED_PIN_ONLINE_CONTACTLESS) {
+		emv_str_list_add(&itr, "Enciphered PIN verified online (Contactless)");
+	}
+	if (trmd[0] & EMV_TRMD_BYTE1_SIGNATURE_CONTACTLESS) {
+		emv_str_list_add(&itr, "Signature (paper) (Contactless)");
+	}
+	if (trmd[0] & EMV_TRMD_BYTE1_ENCIPHERED_PIN_OFFLINE_CONTACTLESS) {
+		emv_str_list_add(&itr, "Enciphered PIN verification performed by ICC (Contactless)");
+	}
+	if (trmd[0] & EMV_TRMD_BYTE1_NO_CVM_CONTACTLESS) {
+		emv_str_list_add(&itr, "No CVM required (Contactless)");
+	}
+	if (trmd[0] & EMV_TRMD_BYTE1_CDCVM_CONTACTLESS) {
+		emv_str_list_add(&itr, "CDCVM (Contactless)");
+	}
+	if (trmd[0] & EMV_TRMD_BYTE1_PLAINTEXT_PIN_OFFLINE_CONTACTLESS) {
+		emv_str_list_add(&itr, "Plaintext PIN verification performed by ICC (Contactless)");
+	}
+	if (trmd[0] & EMV_TRMD_BYTE1_PRESENT_AND_HOLD_SUPPORTED) {
+		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// this bit and it avoids confusion if no string is provided when this
+		// bit is unset
+		emv_str_list_add(&itr, "Present and Hold supported");
+	}
+
+	// Terminal Risk Management Data (field 9F1D) byte 2
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.161
+	// See EMV Contactless Book C-8 v1.1, Annex A.1.129
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+	if (trmd[1] & EMV_TRMD_BYTE2_CVM_LIMIT_EXCEEDED) {
+		emv_str_list_add(&itr, "CVM Limit exceeded");
+	}
+	if (trmd[1] & EMV_TRMD_BYTE2_ENCIPHERED_PIN_ONLINE_CONTACT) {
+		emv_str_list_add(&itr, "Enciphered PIN verified online (Contact)");
+	}
+	if (trmd[1] & EMV_TRMD_BYTE2_SIGNATURE_CONTACT) {
+		emv_str_list_add(&itr, "Signature (paper) (Contact)");
+	}
+	if (trmd[1] & EMV_TRMD_BYTE2_ENCIPHERED_PIN_OFFLINE_CONTACT) {
+		emv_str_list_add(&itr, "Enciphered PIN verification performed by ICC (Contact)");
+	}
+	if (trmd[1] & EMV_TRMD_BYTE2_NO_CVM_CONTACT) {
+		emv_str_list_add(&itr, "No CVM required (Contact)");
+	}
+	if (trmd[1] & EMV_TRMD_BYTE2_CDCVM_CONTACT) {
+		emv_str_list_add(&itr, "CDCVM (Contact)");
+	}
+	if (trmd[1] & EMV_TRMD_BYTE2_PLAINTEXT_PIN_OFFLINE_CONTACT) {
+		emv_str_list_add(&itr, "Plaintext PIN verification performed by ICC (Contact)");
+	}
+
+	// Terminal Risk Management Data (field 9F1D) byte 3
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.161
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+	if (trmd[2] & EMV_TRMD_BYTE3_MAGSTRIPE_MODE_CONTACTLESS_NOT_SUPPORTED) {
+		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// this bit and it avoids confusion if no string is provided when this
+		// bit is unset
+		emv_str_list_add(&itr, "Mag-stripe mode contactless transactions not supported");
+	}
+	if (trmd[2] & EMV_TRMD_BYTE3_EMV_MODE_CONTACTLESS_NOT_SUPPORTED) {
+		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// this bit and it avoids confusion if no string is provided when this
+		// bit is unset
+		emv_str_list_add(&itr, "EMV mode contactless transactions not supported");
+	}
+	if (trmd[2] & EMV_TRMD_BYTE3_CDCVM_WITHOUT_CDA_SUPPORTED) {
+		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// this bit and it avoids confusion if no string is provided when this
+		// bit is unset
+		emv_str_list_add(&itr, "CDCVM without CDA supported");
+	}
+
+	// Terminal Risk Management Data (field 9F1D) byte 4
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.161
+	// See EMV Contactless Book C-8 v1.1, Annex A.1.129
+	if (trmd[3] & EMV_TRMD_BYTE4_CDCVM_BYPASS_REQUESTED) {
+		emv_str_list_add(&itr, "CDCVM bypass requested");
+	}
+	if (trmd[3] & EMV_TRMD_BYTE4_SCA_EXEMPT) {
+		emv_str_list_add(&itr, "SCA exempt");
+	}
+
+	// Terminal Risk Management Data (field 9F1D) RFU bits
+	if ((trmd[1] & EMV_TRMD_BYTE2_RFU) ||
+		(trmd[2] & EMV_TRMD_BYTE3_RFU) ||
+		(trmd[3] & EMV_TRMD_BYTE4_RFU) ||
+		trmd[4] || trmd[5] || trmd[6] || trmd[7]
+	) {
+		emv_str_list_add(&itr, "RFU");
+	}
+
+	return 0;
 }
 
 int emv_ttq_get_string_list(

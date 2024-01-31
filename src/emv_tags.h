@@ -249,6 +249,12 @@ __BEGIN_DECLS
 /// @remark Also used as the Card Acceptor Terminal Identification by ISO 8583. See EMV 4.4 Book 4, Annex C, Table 40
 #define EMV_TAG_9F1C_TERMINAL_IDENTIFICATION                    (0x9F1C)
 
+/// EMV tag 9F1D Terminal Risk Management Data
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.161
+/// @remark See EMV Contactless Book C-8 v1.1, Annex A.1.129
+/// @remark See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+#define EMV_TAG_9F1D_TERMINAL_RISK_MANAGEMENT_DATA              (0x9F1D)
+
 /// EMV tag 9F1E Interface Device (IFD) Serial Number
 #define EMV_TAG_9F1E_IFD_SERIAL_NUMBER                          (0x9F1E)
 

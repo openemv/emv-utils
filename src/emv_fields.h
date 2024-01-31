@@ -558,6 +558,46 @@ enum emv_iad_format_t {
 #define EMV_IAD_VSDC_CVR_BYTE5_CDCVM_PERFORMED                  (0x02) ///< Card Verification Results (CVR): CDCVM successfully performed
 #define EMV_IAD_VSDC_CVR_BYTE5_EMV_SESSION_KEY                  (0x01) ///< Card Verification Results (CVR): Secure Messaging uses EMV Session key-based derivation
 
+// Terminal Risk Management Data (field 9F1D) byte 1
+// See EMV Contactless Book C-2 v2.11, Annex A.1.161
+// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+#define EMV_TRMD_BYTE1_RESTART_SUPPORTED                        (0x80) ///< Terminal Risk Management Data: Restart supported
+#define EMV_TRMD_BYTE1_ENCIPHERED_PIN_ONLINE_CONTACTLESS        (0x40) ///< Terminal Risk Management Data: Enciphered PIN verified online (Contactless)
+#define EMV_TRMD_BYTE1_SIGNATURE_CONTACTLESS                    (0x20) ///< Terminal Risk Management Data: Signature (paper) (Contactless)
+#define EMV_TRMD_BYTE1_ENCIPHERED_PIN_OFFLINE_CONTACTLESS       (0x10) ///< Terminal Risk Management Data: Enciphered PIN verification performed by ICC (Contactless)
+#define EMV_TRMD_BYTE1_NO_CVM_CONTACTLESS                       (0x08) ///< Terminal Risk Management Data: No CVM required (Contactless)
+#define EMV_TRMD_BYTE1_CDCVM_CONTACTLESS                        (0x04) ///< Terminal Risk Management Data: CDCVM (Contactless)
+#define EMV_TRMD_BYTE1_PLAINTEXT_PIN_OFFLINE_CONTACTLESS        (0x02) ///< Terminal Risk Management Data: Plaintext PIN verification performed by ICC (Contactless)
+#define EMV_TRMD_BYTE1_PRESENT_AND_HOLD_SUPPORTED               (0x01) ///< Terminal Risk Management Data: Present and Hold supported
+
+// Terminal Risk Management Data (field 9F1D) byte 2
+// See EMV Contactless Book C-2 v2.11, Annex A.1.161
+// See EMV Contactless Book C-8 v1.1, Annex A.1.129
+// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+#define EMV_TRMD_BYTE2_CVM_LIMIT_EXCEEDED                       (0x80) ///< Terminal Risk Management Data: CVM Limit exceeded
+#define EMV_TRMD_BYTE2_ENCIPHERED_PIN_ONLINE_CONTACT            (0x40) ///< Terminal Risk Management Data: Enciphered PIN verified online (Contact)
+#define EMV_TRMD_BYTE2_SIGNATURE_CONTACT                        (0x20) ///< Terminal Risk Management Data: Signature (paper) (Contact)
+#define EMV_TRMD_BYTE2_ENCIPHERED_PIN_OFFLINE_CONTACT           (0x10) ///< Terminal Risk Management Data: Enciphered PIN verification performed by ICC (Contact)
+#define EMV_TRMD_BYTE2_NO_CVM_CONTACT                           (0x08) ///< Terminal Risk Management Data: No CVM required (Contact)
+#define EMV_TRMD_BYTE2_CDCVM_CONTACT                            (0x04) ///< Terminal Risk Management Data: CDCVM (Contact)
+#define EMV_TRMD_BYTE2_PLAINTEXT_PIN_OFFLINE_CONTACT            (0x02) ///< Terminal Risk Management Data: Plaintext PIN verification performed by ICC (Contact)
+#define EMV_TRMD_BYTE2_RFU                                      (0x01) ///< Terminal Risk Management Data: RFU
+
+// Terminal Risk Management Data (field 9F1D) byte 3
+// See EMV Contactless Book C-2 v2.11, Annex A.1.161
+// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+#define EMV_TRMD_BYTE3_MAGSTRIPE_MODE_CONTACTLESS_NOT_SUPPORTED (0x80) ///< Terminal Risk Management Data: Mag-stripe mode contactless transactions not supported
+#define EMV_TRMD_BYTE3_EMV_MODE_CONTACTLESS_NOT_SUPPORTED       (0x40) ///< Terminal Risk Management Data: EMV mode contactless transactions not supported
+#define EMV_TRMD_BYTE3_CDCVM_WITHOUT_CDA_SUPPORTED              (0x20) ///< Terminal Risk Management Data: CDCVM without CDA supported
+#define EMV_TRMD_BYTE3_RFU                                      (0x1F) ///< Terminal Risk Management Data: RFU
+
+// Terminal Risk Management Data (field 9F1D) byte 4
+// See EMV Contactless Book C-2 v2.11, Annex A.1.161
+// See EMV Contactless Book C-8 v1.1, Annex A.1.129
+#define EMV_TRMD_BYTE4_CDCVM_BYPASS_REQUESTED                   (0x80) ///< Terminal Risk Management Data: CDCVM bypass requested
+#define EMV_TRMD_BYTE4_SCA_EXEMPT                               (0x40) ///< Terminal Risk Management Data: SCA exempt
+#define EMV_TRMD_BYTE4_RFU                                      (0x3F) ///< Terminal Risk Management Data: RFU
+
 // Terminal Transaction Qualifiers (field 9F66) byte 1
 // See EMV Contactless Book A v2.10, 5.7, Table 5-4
 // See EMV Contactless Book C-3 v2.10, Annex A.2

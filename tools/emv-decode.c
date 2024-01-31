@@ -68,6 +68,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA,
 	EMV_DECODE_FFI,
 	EMV_DECODE_AMEX_ENH_CL_READER_CAPS,
+	EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA,
 	EMV_DECODE_ISO3166_1,
 	EMV_DECODE_ISO4217,
 	EMV_DECODE_ISO639,
@@ -135,6 +136,8 @@ static struct argp_option argp_options[] = {
 	{ "mastercard-third-party-data", EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA, NULL, 0, "Decode Mastercard Third Party Data (field 9F6E)" },
 	{ "visa-ffi", EMV_DECODE_FFI, NULL, 0, "Decode Visa Form Factor Indicator (field 9F6E)" },
 	{ "amex-enh-cl-reader-caps", EMV_DECODE_AMEX_ENH_CL_READER_CAPS, NULL, 0, "Decode Amex Enhanced Contactless Reader Capabilities (field 9F6E)" },
+	{ "terminal-risk-management-data", EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA, NULL, 0, "Decode Terminal Risk Management Data (field 9F1D)" },
+	{ "9F1D", EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA, NULL, OPTION_ALIAS },
 
 	{ NULL, 0, NULL, 0, "Other:", 4 },
 	{ "country", EMV_DECODE_ISO3166_1, NULL, 0, "Lookup country name by ISO 3166-1 alpha-2, alpha-3 or numeric code" },
@@ -255,6 +258,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA:
 		case EMV_DECODE_FFI:
 		case EMV_DECODE_AMEX_ENH_CL_READER_CAPS:
+		case EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA:
 		case EMV_DECODE_ISO3166_1:
 		case EMV_DECODE_ISO4217:
 		case EMV_DECODE_ISO639:
@@ -732,6 +736,24 @@ int main(int argc, char** argv)
 			r = emv_amex_enh_cl_reader_caps_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse Amex Enhanced Contactless Reader Capabilities (field 9F6E)\n");
+				break;
+			}
+			printf("%s", str); // No \n required for string list
+
+			break;
+		}
+
+		case EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA: {
+			char str[2048];
+
+			if (data_len != 8) {
+				fprintf(stderr, "Terminal Risk Management Data (field 9F1D) must be exactly 8 bytes\n");
+				break;
+			}
+
+			r = emv_terminal_risk_management_data_get_string_list(data, data_len, str, sizeof(str));
+			if (r) {
+				fprintf(stderr, "Failed to parse Terminal Risk Management Data (field 9F1D)\n");
 				break;
 			}
 			printf("%s", str); // No \n required for string list

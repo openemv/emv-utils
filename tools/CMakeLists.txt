@@ -541,6 +541,47 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_IAD_test5_regex}
 	)
 
+	add_test(NAME emv_decode_9F1D_test1
+		COMMAND emv-decode --terminal-risk-management-data 6C7A800000000000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F1D_test1_regex
+		"^Enciphered PIN verified online \\(Contactless\\)[\r\n]"
+		"Signature \\(paper\\) \\(Contactless\\)[\r\n]"
+		"No CVM required \\(Contactless\\)[\r\n]"
+		"CDCVM \\(Contactless\\)[\r\n]"
+		"Enciphered PIN verified online \\(Contact\\)[\r\n]"
+		"Signature \\(paper\\) \\(Contact\\)[\r\n]"
+		"Enciphered PIN verification performed by ICC \\(Contact\\)[\r\n]"
+		"No CVM required \\(Contact\\)[\r\n]"
+		"Plaintext PIN verification performed by ICC \\(Contact\\)[\r\n]"
+		"Mag-stripe mode contactless transactions not supported[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F1D_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F1D_test1_regex}
+	)
+
+	add_test(NAME emv_decode_9F1D_test2
+		COMMAND emv-decode --9F1D 4C7A800000000000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F1D_test2_regex
+		"^Enciphered PIN verified online \\(Contactless\\)[\r\n]"
+		"No CVM required \\(Contactless\\)[\r\n]"
+		"CDCVM \\(Contactless\\)[\r\n]"
+		"Enciphered PIN verified online \\(Contact\\)[\r\n]"
+		"Signature \\(paper\\) \\(Contact\\)[\r\n]"
+		"Enciphered PIN verification performed by ICC \\(Contact\\)[\r\n]"
+		"No CVM required \\(Contact\\)[\r\n]"
+		"Plaintext PIN verification performed by ICC \\(Contact\\)[\r\n]"
+		"Mag-stripe mode contactless transactions not supported[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F1D_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F1D_test2_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs
