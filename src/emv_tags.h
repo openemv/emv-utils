@@ -178,6 +178,9 @@ __BEGIN_DECLS
 /// EMV tag 5F56 Issuer Country Code (alpha3 format). Template BF0C or 73.
 #define EMV_TAG_5F56_ISSUER_COUNTRY_CODE_ALPHA3                 (0x5F56)
 
+/// EMV tag 5F57 Account Type
+#define EMV_TAG_5F57_ACCOUNT_TYPE                               (0x5F57)
+
 /// EMV tag 9F01 Acquirer Identifier
 #define EMV_TAG_9F01_ACQUIRER_IDENTIFIER                        (0x9F01)
 

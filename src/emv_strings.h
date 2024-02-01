@@ -493,6 +493,19 @@ int emv_language_preference_get_string_list(
 );
 
 /**
+ * Stringify Account Type (field 5F57)
+ * @param account_type Account Type field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_account_type_get_string(
+	uint8_t account_type,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Cardholder Verification Method (CVM) List (field 8E)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param cvmlist Cardholder Verification Method (CVM) List field

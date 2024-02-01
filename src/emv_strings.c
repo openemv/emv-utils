@@ -487,6 +487,20 @@ int emv_tlv_get_info(
 			}
 			return 0;
 
+		case EMV_TAG_5F57_ACCOUNT_TYPE:
+			info->tag_name = "Account Type";
+			info->tag_desc =
+				"Indicates the type of account selected on the "
+				"terminal, coded as specified in Annex G";
+			info->format = EMV_FORMAT_N;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
+			return emv_account_type_get_string(tlv->value[0], value_str, value_str_len);
+
 		case EMV_TAG_9F01_ACQUIRER_IDENTIFIER:
 			info->tag_name = "Acquirer Identifier";
 			info->tag_desc =
@@ -3002,6 +3016,45 @@ int emv_language_preference_get_string_list(
 	}
 
 	return 0;
+}
+
+int emv_account_type_get_string(
+	uint8_t account_type,
+	char* str,
+	size_t str_len
+)
+{
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	// Account Type (field 5F57)
+	// See EMV 4.4 Book 3, Annex G, Table 56
+	switch (account_type) {
+		case EMV_ACCOUNT_TYPE_DEFAULT:
+			strncpy(str, "Default", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_ACCOUNT_TYPE_SAVINGS:
+			strncpy(str, "Savings", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_ACCOUNT_TYPE_CHEQUE_OR_DEBIT:
+			strncpy(str, "Cheque/Debit", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		case EMV_ACCOUNT_TYPE_CREDIT:
+			strncpy(str, "Credit", str_len);
+			str[str_len - 1] = 0;
+			return 0;
+
+		default:
+			return 1;
+	}
 }
 
 static const char* emv_cvm_code_get_string(uint8_t cvm_code)

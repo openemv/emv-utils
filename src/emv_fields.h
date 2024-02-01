@@ -205,6 +205,13 @@ __BEGIN_DECLS
 #define EMV_AUC_INTERNATIONAL_CASHBACK                          (0x40) ///< Application Usage Control: International cashback allowed
 #define EMV_AUC_RFU                                             (0x3F) ///< Application Usage Control: RFU
 
+// Account Type (field 5F57)
+// See EMV 4.4 Book 3, Annex G, Table 56
+#define EMV_ACCOUNT_TYPE_DEFAULT                                (0x00) ///< Account Type: Default
+#define EMV_ACCOUNT_TYPE_SAVINGS                                (0x10) ///< Account Type: Savings
+#define EMV_ACCOUNT_TYPE_CHEQUE_OR_DEBIT                        (0x20) ///< Account Type: Cheque/Debit
+#define EMV_ACCOUNT_TYPE_CREDIT                                 (0x30) ///< Account Type: Credit
+
 // Cardholder Verification (CV) Rule byte 1, CVM Codes
 // See EMV 4.4 Book 3, Annex C3, Table 43
 #define EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL                  (0x40) ///< Apply succeeding CV Rule if this CVM is unsuccessful
