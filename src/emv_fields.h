@@ -45,6 +45,7 @@ __BEGIN_DECLS
 // Transaction Type (field 9C)
 // See ISO 8583:1987, 4.3.8
 // See ISO 8583:1993, A.9
+// See ISO 8583:2021, D.21
 #define EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES                 (0x00) ///< Transaction Type: Goods and services
 #define EMV_TRANSACTION_TYPE_CASH                               (0x01) ///< Transaction Type: Cash
 #define EMV_TRANSACTION_TYPE_CASHBACK                           (0x09) ///< Transaction Type: Cashback
@@ -95,11 +96,11 @@ __BEGIN_DECLS
 // Point-of-Service (POS) Entry Mode (field 9F39)
 // See ISO 8583:1987, 4.3.14
 // See ISO 8583:1993, A.8
-// See ISO 8583:2003
+// See ISO 8583:2021 J.2.2.1
 #define EMV_POS_ENTRY_MODE_UNKNOWN                              (0x00) ///< POS Entry Mode: Unknown
 #define EMV_POS_ENTRY_MODE_MANUAL                               (0x01) ///< POS Entry Mode: Manual PAN entry
 #define EMV_POS_ENTRY_MODE_MAG                                  (0x02) ///< POS Entry Mode: Magnetic stripe
-#define EMV_POS_ENTRY_MODE_BARCODE                              (0x03) ///< POS Entry Mode: Barcode
+#define EMV_POS_ENTRY_MODE_OPTICAL_CODE                         (0x03) ///< POS Entry Mode: Optical Code
 #define EMV_POS_ENTRY_MODE_OCR                                  (0x04) ///< POS Entry Mode: OCR
 #define EMV_POS_ENTRY_MODE_ICC_WITH_CVV                         (0x05) ///< POS Entry Mode: Integrated circuit card (ICC). CVV can be checked.
 #define EMV_POS_ENTRY_MODE_CONTACTLESS_EMV                      (0x07) ///< POS Entry Mode: Auto entry via contactless EMV

@@ -1788,6 +1788,10 @@ int emv_transaction_type_get_string(
 		return 0;
 	}
 
+	// Transaction Type (field 9C)
+	// See ISO 8583:1987, 4.3.8
+	// See ISO 8583:1993, A.9
+	// See ISO 8583:2021, D.21
 	switch (txn_type) {
 		case EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES:
 			strncpy(str, "Goods and services", str_len);
@@ -2092,6 +2096,10 @@ int emv_pos_entry_mode_get_string(
 		return 0;
 	}
 
+	// Point-of-Service (POS) Entry Mode (field 9F39)
+	// See ISO 8583:1987, 4.3.14
+	// See ISO 8583:1993, A.8
+	// See ISO 8583:2021, J.2.2.1
 	switch (pos_entry_mode) {
 		case EMV_POS_ENTRY_MODE_UNKNOWN:
 			strncpy(str, "Unknown", str_len);
@@ -2108,8 +2116,8 @@ int emv_pos_entry_mode_get_string(
 			str[str_len - 1] = 0;
 			return 0;
 
-		case EMV_POS_ENTRY_MODE_BARCODE:
-			strncpy(str, "Barcode", str_len);
+		case EMV_POS_ENTRY_MODE_OPTICAL_CODE:
+			strncpy(str, "Optical Code", str_len);
 			str[str_len - 1] = 0;
 			return 0;
 
