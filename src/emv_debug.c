@@ -2,7 +2,7 @@
  * @file emv_debug.c
  * @brief EMV debug implementation
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,13 +20,16 @@
  */
 
 #include "emv_debug.h"
+#include "emv_utils_config.h"
 
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
 
 // TODO: replace with HAL interface in future
+#ifdef HAVE_TIME_H
 #include <time.h>
+#endif
 
 static unsigned int debug_sources_mask = EMV_DEBUG_SOURCE_NONE;
 static enum emv_debug_level_t debug_level = EMV_DEBUG_NONE;
@@ -82,7 +85,13 @@ void emv_debug_internal(
 	}
 
 	// TODO: replace with HAL interface in future
+#if defined(HAVE_TIMESPEC_GET)
+	timespec_get(&t, TIME_UTC);
+#elif defined(HAVE_CLOCK_GETTIME)
 	clock_gettime(CLOCK_MONOTONIC, &t);
+#else
+#error "No platform function for current time"
+#endif
 
 	// Pack timespec fields into 32-bit timestamp with microsecond granularity
 	timestamp = (uint32_t)(((t.tv_sec * 1000000) + (t.tv_nsec / 1000)));
