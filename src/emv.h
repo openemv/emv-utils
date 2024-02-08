@@ -92,7 +92,8 @@ int emv_atr_parse(const void* atr, size_t atr_len);
 
 /**
  * Build candidate application list using Payment System Environment (PSE) or
- * discovery of supported AIDs
+ * discovery of supported AIDs, and then sort according to Application Priority
+ * Indicator
  * @remark See EMV 4.4 Book 1, 12.3
  *
  * @param ttl EMV Terminal Transport Layer context

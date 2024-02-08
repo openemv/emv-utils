@@ -335,5 +335,14 @@ int emv_build_candidate_list(
 		return EMV_OUTCOME_NOT_ACCEPTED;
 	}
 
+	// Sort application list according to priority
+	// See EMV 4.4 Book 1, 12.4, step 4
+	r = emv_app_list_sort_priority(app_list);
+	if (r) {
+		emv_debug_trace_msg("emv_app_list_sort_priority() failed; r=%d", r);
+		emv_debug_error("Failed to sort application list; terminate session");
+		return EMV_ERROR_INTERNAL;
+	}
+
 	return 0;
 }

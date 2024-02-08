@@ -407,3 +407,103 @@ struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list)
 
 	return app;
 }
+
+static int emv_app_list_insert(
+	struct emv_app_list_t* list,
+	struct emv_app_t* pos,
+	struct emv_app_t* app
+)
+{
+	if (!emv_app_list_is_valid(list)) {
+		return -1;
+	}
+	if (!pos) {
+		return -2;
+	}
+	if (!app) {
+		return -3;
+	}
+
+	if (list->back == pos) {
+		// Insert at back of list
+		return emv_app_list_push(list, app);
+	} else if (pos->next) {
+		// Insert in middle of list
+		app->next = pos->next;
+		pos->next = app;
+	} else {
+		// Invalid list or position
+		return -4;
+	}
+
+	return 0;
+}
+
+static int emv_app_list_push_front(
+	struct emv_app_list_t* list,
+	struct emv_app_t* app
+)
+{
+	if (!emv_app_list_is_valid(list)) {
+		return -1;
+	}
+	if (!app) {
+		return -2;
+	}
+
+	if (list->front) {
+		app->next = list->front;
+		list->front = app;
+	} else {
+		list->front = app;
+		list->back = app;
+	}
+
+	return 0;
+}
+
+int emv_app_list_sort_priority(struct emv_app_list_t* list)
+{
+	int r;
+	struct emv_app_t* app;
+	struct emv_app_list_t sorted_list = EMV_APP_LIST_INIT;
+
+	if (!emv_app_list_is_valid(list)) {
+		return -1;
+	}
+
+	// Given that the app list should be very short, an insertion sort is a
+	// reasonable approach
+	while ((app = emv_app_list_pop(list))) {
+		struct emv_app_t* pos = NULL;
+
+		// Value of 1 is the highest priority
+		// See EMV 4.4 Book 1, 12.2.3, table 13
+		// However, the EMV specification does not state how an application
+		// without a priority indicator should be prioritised relative to an
+		// application with a priority indicator, and therefore this
+		// implementation chooses to favour applications with a priority
+		// indicator over those without.
+		for (struct emv_app_t* cur = sorted_list.front; cur != NULL; cur = cur->next) {
+			if (!cur->priority) {
+				break;
+			}
+			if (app->priority && app->priority < cur->priority) {
+				break;
+			}
+			pos = cur;
+		}
+		if (pos) {
+			r = emv_app_list_insert(&sorted_list, pos, app);
+		} else {
+			r = emv_app_list_push_front(&sorted_list, app);
+		}
+		if (r) {
+			emv_app_list_clear(&sorted_list);
+			return -2;
+		}
+	}
+
+	*list = sorted_list;
+	return 0;
+}

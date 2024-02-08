@@ -167,6 +167,13 @@ int emv_app_list_push(struct emv_app_list_t* list, struct emv_app_t* app);
  */
 struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list);
 
+/**
+ * Sort EMV application list according to the priority field
+ * @param list EMV application list
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_app_list_sort_priority(struct emv_app_list_t* list);
+
 __END_DECLS
 
 #endif
