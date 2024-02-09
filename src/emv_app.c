@@ -507,3 +507,25 @@ int emv_app_list_sort_priority(struct emv_app_list_t* list)
 	*list = sorted_list;
 	return 0;
 }
+
+bool emv_app_list_selection_is_required(const struct emv_app_list_t* list)
+{
+	size_t app_count = 0;
+
+	if (!emv_app_list_is_valid(list)) {
+		return false;
+	}
+
+	for (const struct emv_app_t* app = list->front; app != NULL; app = app->next) {
+		if (app->confirmation_required) {
+			return true;
+		}
+		++app_count;
+
+		if (app_count > 1) {
+			return true;
+		}
+	}
+
+	return false;
+}

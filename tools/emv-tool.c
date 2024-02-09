@@ -549,6 +549,10 @@ int main(int argc, char** argv)
 		print_emv_app(app);
 	}
 
+	if (emv_app_list_selection_is_required(&app_list)) {
+		printf("Cardholder selection is required\n");
+	}
+
 	// HACK: test application selection
 	{
 		char str[1024];

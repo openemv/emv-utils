@@ -278,6 +278,22 @@ static const struct xpdu_t test_sorted_app_priority[] = {
 	{ 0 }
 };
 
+static const struct xpdu_t test_app_cardholder_confirmation[] = {
+	{
+		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 1PAY.SYS.DDF01
+		36, (uint8_t[]){ 0x6F, 0x20, 0x84, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x0E, 0x88, 0x01, 0x01, 0x5F, 0x2D, 0x04, 0x6E, 0x6C, 0x65, 0x6E, 0x9F, 0x11, 0x01, 0x01, 0x90, 0x00 }, // FCI
+	},
+	{
+		5, (uint8_t[]){ 0x00, 0xB2, 0x01, 0x0C, 0x00 }, // READ RECORD 1,1
+		45, (uint8_t[]){ 0x70, 0x29, 0x61, 0x27, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x50, 0x0B, 0x56, 0x49, 0x53, 0x41, 0x20, 0x43, 0x52, 0x45, 0x44, 0x49, 0x54, 0x87, 0x01, 0x81, 0x9F, 0x12, 0x0B, 0x56, 0x49, 0x53, 0x41, 0x20, 0x43, 0x52, 0x45, 0x44, 0x49, 0x54, 0x90, 0x00 }, // AEF
+	},
+	{
+		5, (uint8_t[]){ 0x00, 0xB2, 0x02, 0x0C, 0x00 }, // READ RECORD 1,2
+		2, (uint8_t[]){ 0x6A, 0x83 }, // Record not found
+	},
+	{ 0 }
+};
+
 int main(void)
 {
 	int r;
@@ -335,6 +351,11 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
+	if (emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly required\n");
+		r = 1;
+		goto exit;
+	}
 	printf("Success\n");
 
 	printf("\nTesting PSE not found and AID card blocked or SELECT not supported...\n");
@@ -361,6 +382,11 @@ int main(void)
 		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 			print_emv_app(app);
 		}
+		r = 1;
+		goto exit;
+	}
+	if (emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly required\n");
 		r = 1;
 		goto exit;
 	}
@@ -393,6 +419,11 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
+	if (emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly required\n");
+		r = 1;
+		goto exit;
+	}
 	printf("Success\n");
 
 	printf("\nTesting PSE blocked and no supported applications...\n");
@@ -419,6 +450,11 @@ int main(void)
 		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 			print_emv_app(app);
 		}
+		r = 1;
+		goto exit;
+	}
+	if (emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly required\n");
 		r = 1;
 		goto exit;
 	}
@@ -451,6 +487,11 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
+	if (emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly required\n");
+		r = 1;
+		goto exit;
+	}
 	printf("Success\n");
 
 	printf("\nTesting PSE app not supported...\n");
@@ -477,6 +518,11 @@ int main(void)
 		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 			print_emv_app(app);
 		}
+		r = 1;
+		goto exit;
+	}
+	if (emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly required\n");
 		r = 1;
 		goto exit;
 	}
@@ -509,6 +555,11 @@ int main(void)
 	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 		print_emv_app(app);
 	}
+	if (emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly required\n");
+		r = 1;
+		goto exit;
+	}
 	printf("Success\n");
 
 	printf("\nTesting PSE multiple apps supported...\n");
@@ -538,6 +589,11 @@ int main(void)
 	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 		print_emv_app(app);
 	}
+	if (!emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly NOT required\n");
+		r = 1;
+		goto exit;
+	}
 	printf("Success\n");
 
 	printf("\nTesting PSE not found and multiple AIDs supported...\n");
@@ -566,6 +622,11 @@ int main(void)
 	}
 	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 		print_emv_app(app);
+	}
+	if (!emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly NOT required\n");
+		r = 1;
+		goto exit;
 	}
 	printf("Success\n");
 
@@ -606,6 +667,50 @@ int main(void)
 			r = 1;
 			goto exit;
 		}
+	}
+	if (!emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly NOT required\n");
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
+	printf("\nTesting cardholder confirmation required for single app...\n");
+	emul_ctx.xpdu_list = test_app_cardholder_confirmation;
+	emul_ctx.xpdu_current = NULL;
+	emv_app_list_clear(&app_list);
+	r = emv_build_candidate_list(
+		&ttl,
+		&supported_aids,
+		&app_list
+	);
+	if (r) {
+		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	if (emul_ctx.xpdu_current->c_xpdu_len != 0) {
+		fprintf(stderr, "Incomplete card interaction\n");
+		r = 1;
+		goto exit;
+	}
+	if (emv_app_list_is_empty(&app_list)) {
+		fprintf(stderr, "Candidate list unexpectedly empty\n");
+		r = 1;
+		goto exit;
+	}
+	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+		print_emv_app(app);
+	}
+	if (app_list.front != app_list.back) {
+		fprintf(stderr, "Candidate list unexpectedly contains more than one app\n");
+		r = 1;
+		goto exit;
+	}
+	if (!emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly NOT required\n");
+		r = 1;
+		goto exit;
 	}
 	printf("Success\n");
 

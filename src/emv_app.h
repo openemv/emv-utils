@@ -174,6 +174,18 @@ struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list);
  */
 int emv_app_list_sort_priority(struct emv_app_list_t* list);
 
+/**
+ * Determine whether cardholder application selection is required
+ * @note This function should only be used once during transaction processing
+ * for the initial candidate application list. If it is determined that
+ * cardholder application selection is required, it continues to be required
+ * even after the application that required it has been removed from the
+ * candidate application list.
+ * @param list EMV application list
+ * @return Boolean indicating whether cardholder application selection is required
+ */
+bool emv_app_list_selection_is_required(const struct emv_app_list_t* list);
+
 __END_DECLS
 
 #endif
