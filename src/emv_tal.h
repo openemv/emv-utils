@@ -24,12 +24,14 @@
 
 #include <sys/cdefs.h>
 #include <stddef.h>
+#include <stdint.h>
 
 __BEGIN_DECLS
 
 // Forward declarations
 struct emv_ttl_t;
 struct emv_app_list_t;
+struct emv_app_t;
 struct emv_tlv_list_t;
 struct emv_tlv_t;
 
@@ -59,6 +61,10 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_PSE_SFI_NOT_FOUND, ///< Failed to find Short File Identifier (SFI) for Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_AEF_PARSE_FAILED, ///< Failed to parse Application Elementary File (AEF) of Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_AEF_INVALID, ///< Invalid Payment System Environment (PSE) Application Elementary File (AEF) record
+	EMV_TAL_RESULT_APP_NOT_FOUND, ///< Selected application not found
+	EMV_TAL_RESULT_APP_BLOCKED, ///< Selected application is blocked
+	EMV_TAL_RESULT_APP_SELECTION_FAILED, ///< Application selection failed
+	EMV_TAL_RESULT_APP_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for selected application
 };
 
 /**
@@ -100,6 +106,30 @@ int emv_tal_find_supported_apps(
 	struct emv_ttl_t* ttl,
 	const struct emv_tlv_list_t* supported_aids,
 	struct emv_app_list_t* app_list
+);
+
+/**
+ * SELECT application and validate File Control Information (FCI)
+ * @remark See EMV 4.4 Book 1, 12.4
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param aid Application Identifier (AID) field. Must be 5 to 16 bytes.
+ * @param aid_len Length of Application Identifier (AID) field. Must be 5 to 16 bytes.
+ * @param selected_app Selected EMV application output. Use @ref emv_app_free() to free memory.
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ * @return Greater than zero indicates that selection or validation of the
+ *         application failed and that the terminal may continue the card
+ *         session. Typically the candidate application list should be
+ *         consulted next for remaining application options.
+ */
+int emv_tal_select_app(
+	struct emv_ttl_t* ttl,
+	const uint8_t* aid,
+	size_t aid_len,
+	struct emv_app_t** selected_app
 );
 
 /**

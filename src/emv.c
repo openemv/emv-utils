@@ -29,6 +29,10 @@
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
 
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
 const char* emv_lib_version_string(void)
 {
 	return EMV_UTILS_VERSION_STRING;
@@ -51,6 +55,7 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 		case EMV_OUTCOME_CARD_ERROR: return "Card error"; // Message 06
 		case EMV_OUTCOME_CARD_BLOCKED: return "Card blocked"; // Not in EMV specification
 		case EMV_OUTCOME_NOT_ACCEPTED: return "Not accepted"; // Message 0C
+		case EMV_OUTCOME_TRY_AGAIN: return "Try again"; // Message 13
 	}
 
 	return "Invalid outcome";
@@ -345,4 +350,84 @@ int emv_build_candidate_list(
 	}
 
 	return 0;
+}
+
+int emv_select_application(
+	struct emv_ttl_t* ttl,
+	struct emv_app_list_t* app_list,
+	unsigned int index,
+	struct emv_app_t** selected_app
+)
+{
+	int r;
+	struct emv_app_t* current_app = NULL;
+	uint8_t current_aid[16];
+	size_t current_aid_len;
+
+	if (!ttl || !app_list || !selected_app) {
+		emv_debug_trace_msg("ttl=%p, app_list=%p, index=%u, selected_app=%p", ttl, app_list, index, selected_app);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	*selected_app = NULL;
+
+	current_app = emv_app_list_remove_index(app_list, index);
+	if (!current_app) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	if (current_app->aid->length > sizeof(current_aid)) {
+		goto try_again;
+	}
+	current_aid_len = current_app->aid->length;
+	memcpy(current_aid, current_app->aid->value, current_app->aid->length);
+	emv_app_free(current_app);
+	current_app = NULL;
+
+	r = emv_tal_select_app(
+		ttl,
+		current_aid,
+		current_aid_len,
+		selected_app
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_select_app() failed; r=%d", r);
+		if (r < 0) {
+			emv_debug_error("Error during application selection; terminate session");
+			if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
+				r = EMV_OUTCOME_CARD_BLOCKED;
+			} else {
+				r = EMV_OUTCOME_CARD_ERROR;
+			}
+			goto exit;
+		}
+		if (r > 0) {
+			emv_debug_info("Failed to select application; continue session");
+			goto try_again;
+		}
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+try_again:
+	// If no applications remain, terminate session
+	// Otherwise, try again
+	// See EMV 4.4 Book 1, 12.4
+	// See EMV 4.4 Book 4, 11.3
+	if (emv_app_list_is_empty(app_list)) {
+		emv_debug_info("Candidate list empty");
+		r = EMV_OUTCOME_NOT_ACCEPTED;
+	} else {
+		r = EMV_OUTCOME_TRY_AGAIN;
+	}
+
+exit:
+	if (current_app) {
+		emv_app_free(current_app);
+		current_app = NULL;
+	}
+
+	return r;
 }

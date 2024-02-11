@@ -140,6 +140,9 @@ struct emv_txn_t {
 
 	// Cardholder application selection required?
 	bool application_selection_required;
+
+	// Selected application
+	struct emv_app_t* selected_app;
 };
 static struct emv_txn_t emv_txn;
 
@@ -378,6 +381,7 @@ static void emv_txn_destroy(struct emv_txn_t* emv_txn)
 	emv_tlv_list_clear(&emv_txn->supported_aids);
 	emv_tlv_list_clear(&emv_txn->terminal);
 	emv_tlv_list_clear(&emv_txn->icc);
+	emv_app_free(emv_txn->selected_app);
 }
 
 int main(int argc, char** argv)
@@ -391,7 +395,6 @@ int main(int argc, char** argv)
 	size_t reader_idx;
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
-	bool first_application_selection_prompt = true;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -554,17 +557,7 @@ int main(int argc, char** argv)
 	}
 
 	do {
-		struct emv_app_t* current_app;
-
-		// All application selection failures return to the start of the loop
-		// If no applications remain, terminate session
-		// See EMV 4.4 Book 1, 12.4
-		// See EMV 4.4 Book 4, 11.3
-		if (emv_app_list_is_empty(&app_list)) {
-			emv_debug_info("Candidate list empty");
-			printf("OUTCOME: %s\n", emv_outcome_get_string(EMV_OUTCOME_NOT_ACCEPTED));
-			goto emv_exit;
-		}
+		unsigned int index;
 
 		if (emv_txn.application_selection_required) {
 			unsigned int app_count = 0;
@@ -572,13 +565,7 @@ int main(int argc, char** argv)
 			char s[4]; // two digits, newline and null
 			unsigned int input = 0;
 
-			if (first_application_selection_prompt) {
-				printf("\nSelect application:\n");
-				first_application_selection_prompt = false;
-			} else {
-				// See EMV 4.4 Book 4, 11.3
-				printf("\nTry again:\n");
-			}
+			printf("\nSelect application:\n");
 			for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 				++app_count;
 				printf("%u - %s\n", app_count, app->display_name);
@@ -598,68 +585,47 @@ int main(int argc, char** argv)
 				continue;
 			}
 
-			current_app = emv_app_list_remove_index(&app_list, input - 1);
+			index = input - 1;
 
 		} else {
 			// Use first application
-			current_app = emv_app_list_pop(&app_list);
+			printf("\nSelect first application:\n");
+			index = 0;
 		}
 
-		// HACK: test application selection
-		{
-			char str[1024];
-
-			uint8_t current_aid[16];
-			size_t current_aid_len = current_app->aid->length;
-			memcpy(current_aid, current_app->aid->value, current_app->aid->length);
-			emv_app_free(current_app);
-			current_app = NULL;
-
-			// Select application
-			print_buf("\nSELECT application", current_aid, current_aid_len);
-			uint8_t fci[EMV_RAPDU_DATA_MAX];
-			size_t fci_len = sizeof(fci);
-			uint16_t sw1sw2;
-			r = emv_ttl_select_by_df_name(&emv_txn.ttl, current_aid, current_aid_len, fci, &fci_len, &sw1sw2);
-			if (r) {
-				fprintf(stderr, "emv_ttl_select_by_df_name() failed; r=%d\n", r);
-				continue;
-			}
-			print_buf("FCI", fci, fci_len);
-			print_emv_buf(fci, fci_len, "  ", 0);
-			printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
-
-			if (sw1sw2 != 0x9000) {
-				continue;
-			}
-
-			// Create EMV application object
-			struct emv_app_t* app;
-			app = emv_app_create_from_fci(fci, fci_len);
-			if (r) {
-				fprintf(stderr, "emv_app_populate_from_fci() failed; r=%d\n", r);
-				continue;
-			}
-			printf("\n");
-			print_emv_app(app);
-			print_emv_tlv_list(&app->tlv_list);
-
-			// TODO: EMV 4.4 Book 1, 12.4, ensure that 84 matches SELECT command
-
-			// Capture ICC data
-			emv_txn.icc = app->tlv_list;
-			app->tlv_list = EMV_TLV_LIST_INIT;
-			emv_app_free(app);
-
-			// Application selection was successful
-			// TODO: EMV 4.4 Book 1, 12.4, create 9F06 from 84
-			break;
+		r = emv_select_application(&emv_txn.ttl, &app_list, index, &emv_txn.selected_app);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
 		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			if (r == EMV_OUTCOME_TRY_AGAIN) {
+				// Return to cardholder application selection/confirmation
+				// See EMV 4.4 Book 4, 11.3
+				continue;
+			}
+			goto emv_exit;
+		}
+		if (!emv_txn.selected_app) {
+			fprintf(stderr, "selected_app unexpectedly NULL\n");
+			goto emv_exit;
+		}
+
+		// Application selection was successful
+		break;
+
 	} while (true);
 
 	// Application selection has been successful and the application list
 	// is no longer needed.
 	emv_app_list_clear(&app_list);
+
+	// Move ICC data out of EMV application object
+	emv_txn.icc = emv_txn.selected_app->tlv_list;
+	emv_txn.selected_app->tlv_list = EMV_TLV_LIST_INIT;
+
+	// TODO: EMV 4.4 Book 1, 12.4, create 9F06 from 84
 
 	// HACK: test GPO and Read Application Data
 	{

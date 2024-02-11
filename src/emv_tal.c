@@ -437,6 +437,94 @@ int emv_tal_find_supported_apps(
 	return 0;
 }
 
+int emv_tal_select_app(
+	struct emv_ttl_t* ttl,
+	const uint8_t* aid,
+	size_t aid_len,
+	struct emv_app_t** selected_app
+)
+{
+	int r;
+	uint8_t fci[EMV_RAPDU_DATA_MAX];
+	size_t fci_len = sizeof(fci);
+	uint16_t sw1sw2;
+	struct emv_app_t* app;
+
+	if (!ttl || !aid || aid_len < 5 || aid_len > 16 || !selected_app) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	*selected_app = NULL;
+
+	// SELECT application
+	// See EMV 4.4 Book 1, 12.4
+	emv_debug_info_data("SELECT application", aid, aid_len);
+	r = emv_ttl_select_by_df_name(ttl, aid, aid_len, fci, &fci_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_select_by_df_name() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+
+	if (sw1sw2 != 0x9000) {
+		switch (sw1sw2) {
+			case 0x6A81:
+				// Card blocked or SELECT not supported; terminate session
+				emv_debug_error("Card blocked or SELECT not supported");
+				return EMV_TAL_ERROR_CARD_BLOCKED;
+
+			case 0x6A82:
+				// Application not found; ignore app and continue
+				emv_debug_info("Application not found");
+				return EMV_TAL_RESULT_APP_NOT_FOUND;
+
+			case 0x6283:
+				// Application blocked; ignore app and continue
+				emv_debug_info("Application is blocked");
+				return EMV_TAL_RESULT_APP_BLOCKED;
+
+			default:
+				// Unknown error; ignore app and continue
+				// See EMV Book 1, 12.4, regarding status other than 9000
+				emv_debug_error("SW1SW2=0x%04hX\n", sw1sw2);
+				return EMV_TAL_RESULT_APP_SELECTION_FAILED;
+		}
+	}
+
+	emv_debug_info_tlv("FCI", fci, fci_len);
+
+	// Parse FCI to confirm that selected application is valid
+	app = emv_app_create_from_fci(fci, fci_len);
+	if (!app) {
+		emv_debug_trace_msg("emv_app_create_from_fci() failed; app=%p", app);
+
+		// Failed to parse FCI; ignore app and continue
+		// See EMV Book 1, 12.4, regarding format errors
+		emv_debug_error("Failed to parse application FCI");
+		return EMV_TAL_RESULT_APP_FCI_PARSE_FAILED;
+	}
+
+	// Ensure that the AID used by the SELECT command exactly matches the
+	// DF Name (field 84) provided by the FCI
+	// See EMV 4.4 Book 1, 12.4
+	// NOTE: emv_app_create_from_fci() sets AID to DF Name (field 84)
+	if (app->aid->length != aid_len ||
+		memcmp(app->aid->value, aid, aid_len)
+	) {
+		emv_debug_error("DF Name mismatch");
+		emv_app_free(app);
+		return EMV_TAL_RESULT_APP_SELECTION_FAILED;
+	}
+
+	// Output
+	*selected_app = app;
+
+	return 0;
+}
+
 int emv_tal_parse_gpo_response(
 	const void* buf,
 	size_t len,

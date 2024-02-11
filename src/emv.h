@@ -31,6 +31,7 @@ __BEGIN_DECLS
 struct emv_ttl_t;
 struct emv_tlv_list_t;
 struct emv_app_list_t;
+struct emv_app_t;
 
 /**
  * EMV errors
@@ -51,6 +52,7 @@ enum emv_outcome_t {
 	EMV_OUTCOME_CARD_ERROR = 1, ///< Malfunction of the card or non-conformance to Answer To Reset (ATR)
 	EMV_OUTCOME_CARD_BLOCKED = 2, ///< Card blocked
 	EMV_OUTCOME_NOT_ACCEPTED = 3, ///< Card not accepted or no supported applications
+	EMV_OUTCOME_TRY_AGAIN = 4, ///< Try again by selecting a different application
 };
 
 /**
@@ -108,6 +110,32 @@ int emv_build_candidate_list(
 	struct emv_ttl_t* ttl,
 	const struct emv_tlv_list_t* supported_aids,
 	struct emv_app_list_t* app_list
+);
+
+/**
+ * Select EMV application by index from the candidate application list. The
+ * candidate application list will be updated by removing the selected
+ * application regardless of processing outcome. If application selection fails
+ * this function will return either @ref EMV_OUTCOME_NOT_ACCEPTED or
+ * @ref EMV_OUTCOME_TRY_AGAIN, depending on whether the candidate application
+ * list is empty or not.
+ * @remark See EMV 4.4 Book 1, 12.4
+ * @remark See EMV 4.4 Book 4, 11.3
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param app_list Candidate application list
+ * @param index Index (starting from zero) of EMV application to select
+ * @param selected_app Selected EMV application output. Use @ref emv_app_free() to free memory.
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_select_application(
+	struct emv_ttl_t* ttl,
+	struct emv_app_list_t* app_list,
+	unsigned int index,
+	struct emv_app_t** selected_app
 );
 
 __END_DECLS
