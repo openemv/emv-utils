@@ -408,6 +408,41 @@ struct emv_app_t* emv_app_list_pop(struct emv_app_list_t* list)
 	return app;
 }
 
+struct emv_app_t* emv_app_list_remove_index(
+	struct emv_app_list_t* list,
+	unsigned int index
+)
+{
+	struct emv_app_t* prev = NULL;
+
+	if (!emv_app_list_is_valid(list)) {
+		return NULL;
+	}
+
+	for (struct emv_app_t* app = list->front; app != NULL; app = app->next) {
+		if (index == 0) {
+			if (!prev) {
+				// Remove app from front of list
+				return emv_app_list_pop(list);
+			}
+
+			prev->next = app->next;
+			if (!app->next) {
+				// App at back of list
+				list->back = prev;
+			}
+			app->next = NULL;
+			return app;
+		}
+
+		// Advance and remember previous app
+		--index;
+		prev = app;
+	}
+
+	return NULL;
+}
+
 static int emv_app_list_insert(
 	struct emv_app_list_t* list,
 	struct emv_app_t* pos,

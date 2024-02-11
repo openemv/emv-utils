@@ -137,6 +137,9 @@ struct emv_txn_t {
 
 	// ICC data
 	struct emv_tlv_list_t icc;
+
+	// Cardholder application selection required?
+	bool application_selection_required;
 };
 static struct emv_txn_t emv_txn;
 
@@ -388,6 +391,7 @@ int main(int argc, char** argv)
 	size_t reader_idx;
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
+	bool first_application_selection_prompt = true;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -539,71 +543,127 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
-	if (emv_app_list_is_empty(&app_list)) {
-		printf("No supported applications\n");
-		goto emv_exit;
-	}
-
 	printf("Candidate applications:\n");
 	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 		print_emv_app(app);
 	}
 
-	if (emv_app_list_selection_is_required(&app_list)) {
+	emv_txn.application_selection_required = emv_app_list_selection_is_required(&app_list);
+	if (emv_txn.application_selection_required) {
 		printf("Cardholder selection is required\n");
 	}
 
-	// HACK: test application selection
+	do {
+		struct emv_app_t* current_app;
+
+		// All application selection failures return to the start of the loop
+		// If no applications remain, terminate session
+		// See EMV 4.4 Book 1, 12.4
+		// See EMV 4.4 Book 4, 11.3
+		if (emv_app_list_is_empty(&app_list)) {
+			emv_debug_info("Candidate list empty");
+			printf("OUTCOME: %s\n", emv_outcome_get_string(EMV_OUTCOME_NOT_ACCEPTED));
+			goto emv_exit;
+		}
+
+		if (emv_txn.application_selection_required) {
+			unsigned int app_count = 0;
+			int r;
+			char s[4]; // two digits, newline and null
+			unsigned int input = 0;
+
+			if (first_application_selection_prompt) {
+				printf("\nSelect application:\n");
+				first_application_selection_prompt = false;
+			} else {
+				// See EMV 4.4 Book 4, 11.3
+				printf("\nTry again:\n");
+			}
+			for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+				++app_count;
+				printf("%u - %s\n", app_count, app->display_name);
+			}
+			printf("Enter number: ");
+			if (!fgets(s, sizeof(s), stdin)) {
+				printf("Invalid input. Try again.\n");
+				continue;
+			}
+			r = sscanf(s, "%u", &input);
+			if (r != 1) {
+				printf("Invalid input. Try again.\n");
+				continue;
+			}
+			if (!input || input > app_count) {
+				printf("Invalid input. Try again.\n");
+				continue;
+			}
+
+			current_app = emv_app_list_remove_index(&app_list, input - 1);
+
+		} else {
+			// Use first application
+			current_app = emv_app_list_pop(&app_list);
+		}
+
+		// HACK: test application selection
+		{
+			char str[1024];
+
+			uint8_t current_aid[16];
+			size_t current_aid_len = current_app->aid->length;
+			memcpy(current_aid, current_app->aid->value, current_app->aid->length);
+			emv_app_free(current_app);
+			current_app = NULL;
+
+			// Select application
+			print_buf("\nSELECT application", current_aid, current_aid_len);
+			uint8_t fci[EMV_RAPDU_DATA_MAX];
+			size_t fci_len = sizeof(fci);
+			uint16_t sw1sw2;
+			r = emv_ttl_select_by_df_name(&emv_txn.ttl, current_aid, current_aid_len, fci, &fci_len, &sw1sw2);
+			if (r) {
+				fprintf(stderr, "emv_ttl_select_by_df_name() failed; r=%d\n", r);
+				continue;
+			}
+			print_buf("FCI", fci, fci_len);
+			print_emv_buf(fci, fci_len, "  ", 0);
+			printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
+
+			if (sw1sw2 != 0x9000) {
+				continue;
+			}
+
+			// Create EMV application object
+			struct emv_app_t* app;
+			app = emv_app_create_from_fci(fci, fci_len);
+			if (r) {
+				fprintf(stderr, "emv_app_populate_from_fci() failed; r=%d\n", r);
+				continue;
+			}
+			printf("\n");
+			print_emv_app(app);
+			print_emv_tlv_list(&app->tlv_list);
+
+			// TODO: EMV 4.4 Book 1, 12.4, ensure that 84 matches SELECT command
+
+			// Capture ICC data
+			emv_txn.icc = app->tlv_list;
+			app->tlv_list = EMV_TLV_LIST_INIT;
+			emv_app_free(app);
+
+			// Application selection was successful
+			// TODO: EMV 4.4 Book 1, 12.4, create 9F06 from 84
+			break;
+		}
+	} while (true);
+
+	// Application selection has been successful and the application list
+	// is no longer needed.
+	emv_app_list_clear(&app_list);
+
+	// HACK: test GPO and Read Application Data
 	{
 		char str[1024];
-
-		// Use first application
-		struct emv_app_t* current_app = emv_app_list_pop(&app_list);
-		if (!current_app) {
-			printf("No supported applications\n");
-			goto emv_exit;
-		}
-		emv_app_list_clear(&app_list);
-
-		uint8_t current_aid[16];
-		size_t current_aid_len = current_app->aid->length;
-		memcpy(current_aid, current_app->aid->value, current_app->aid->length);
-		emv_app_free(current_app);
-		current_app = NULL;
-
-		// Select application
-		print_buf("\nSELECT application", current_aid, current_aid_len);
-		uint8_t fci[EMV_RAPDU_DATA_MAX];
-		size_t fci_len = sizeof(fci);
-		uint16_t sw1sw2;
-		r = emv_ttl_select_by_df_name(&emv_txn.ttl, current_aid, current_aid_len, fci, &fci_len, &sw1sw2);
-		if (r) {
-			printf("Failed to select application; r=%d\n", r);
-			goto emv_exit;
-		}
-		print_buf("FCI", fci, fci_len);
-		print_emv_buf(fci, fci_len, "  ", 0);
-		printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
-
-		if (sw1sw2 != 0x9000) {
-			goto emv_exit;
-		}
-
-		// Create EMV application object
-		struct emv_app_t* app;
-		app = emv_app_create_from_fci(fci, fci_len);
-		if (r) {
-			printf("emv_app_populate_from_fci() failed; r=%d\n", r);
-			goto emv_exit;
-		}
-		printf("\n");
-		print_emv_app(app);
-		print_emv_tlv_list(&app->tlv_list);
-
-		// Capture ICC data
-		emv_txn.icc = app->tlv_list;
-		app->tlv_list = EMV_TLV_LIST_INIT;
-		emv_app_free(app);
 
 		// Process PDOL
 		struct emv_tlv_t* pdol;
@@ -660,6 +720,7 @@ int main(int argc, char** argv)
 		printf("\nGET PROCESSING OPTIONS\n");
 		uint8_t gpo_response[EMV_RAPDU_DATA_MAX];
 		size_t gpo_response_len = sizeof(gpo_response);
+		uint16_t sw1sw2;
 		r = emv_ttl_get_processing_options(&emv_txn.ttl, gpo_data, gpo_data_len, gpo_response, &gpo_response_len, &sw1sw2);
 		if (r) {
 			printf("Failed to get processign options; r=%d\n", r);
