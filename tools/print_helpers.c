@@ -2,7 +2,7 @@
  * @file print_helpers.c
  * @brief Helper functions for command line output
  *
- * Copyright (c) 2021, 2022 Leon Lynch
+ * Copyright (c) 2021-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -53,8 +53,12 @@ void print_buf(const char* buf_name, const void* buf, size_t length)
 	if (buf_name) {
 		printf("%s: ", buf_name);
 	}
-	for (size_t i = 0; i < length; i++) {
-		printf("%02X", ptr[i]);
+	if (buf) {
+		for (size_t i = 0; i < length; i++) {
+			printf("%02X", ptr[i]);
+		}
+	} else {
+		printf("(null)");
 	}
 	printf("\n");
 }
@@ -512,8 +516,7 @@ static void print_emv_debug_internal(
 	} else {
 		switch (debug_type) {
 			case EMV_DEBUG_TYPE_TLV:
-				printf("%s: ", str);
-				print_buf(NULL, buf, buf_len);
+				print_buf(str, buf, buf_len);
 				print_emv_buf(buf, buf_len, "  ", 1);
 				return;
 
@@ -522,8 +525,7 @@ static void print_emv_debug_internal(
 				return;
 
 			default:
-				printf("%s: ", str);
-				print_buf(NULL, buf, buf_len);
+				print_buf(str, buf, buf_len);
 				return;
 		}
 	}
