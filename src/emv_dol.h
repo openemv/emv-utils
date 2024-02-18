@@ -1,9 +1,9 @@
 /**
  * @file emv_dol.h
- * @brief EMV Data Object List processing functions
- * @remark See EMV 4.3 Book 3, 5.4
+ * @brief EMV Data Object List (DOL) processing functions
+ * @remark See EMV 4.4 Book 3, 5.4
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,31 +34,31 @@ struct emv_tlv_list_t;
 
 /// EMV Data Object List (DOL) entry
 struct emv_dol_entry_t {
-	unsigned int tag;
-	unsigned int length;
+	unsigned int tag; ///< EMV tag
+	unsigned int length; ///< Expected length
 };
 
 /// EMV Data Object List (DOL) iterator
 struct emv_dol_itr_t {
-	const void* ptr;
-	size_t len;
+	const void* ptr; ///< Encoded EMV Data Object List (DOL)
+	size_t len; ///< Length of encoded EMV Data Object List (DOL) in bytes
 };
 
 /**
  * Decode EMV Data Object List (DOL) entry
- * @remark See EMV 4.3 Book 3, 5.4
+ * @remark See EMV 4.4 Book 3, 5.4
  *
- * @param ptr Encoded EMV Data Object List (DOL) data
- * @param len Length of encoded EMV Data Object List (DOL) data in bytes
+ * @param ptr Encoded EMV Data Object List (DOL) entry
+ * @param len Length of encoded EMV Data Object List (DOL) entry in bytes
  * @param entry Decoded Data Object List (DOL) entry output
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int emv_dol_decode(const void* ptr, size_t len, struct emv_dol_entry_t* entry);
 
 /**
- * Initialize Data Object List (DOL) iterator
- * @param ptr DOL encoded data
- * @param len Length of DOL encoded data in bytes
+ * Initialise Data Object List (DOL) iterator
+ * @param ptr Encoded EMV Data Object List (DOL)
+ * @param len Length of encoded EMV Data Object List (DOL) in bytes
  * @param itr DOL iterator output
  * @return Zero for success. Less than zero for error.
  */
@@ -67,27 +67,27 @@ int emv_dol_itr_init(const void* ptr, size_t len, struct emv_dol_itr_t* itr);
 /**
  * Decode next Data Object List (DOL) entry and advance iterator
  * @param itr DOL iterator
- * @param entry Decoded Data Object List entry output
+ * @param entry Decoded Data Object List (DOL) entry output
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int emv_dol_itr_next(struct emv_dol_itr_t* itr, struct emv_dol_entry_t* entry);
 
 /**
- * Compute command data length required by Data Object List (DOL)
- * @param ptr Encoded EMV Data Object List (DOL) data
- * @param len Length of encoded EMV Data Object List (DOL) data in bytes
+ * Compute concatenated data length required by Data Object List (DOL)
+ * @param ptr Encoded EMV Data Object List (DOL)
+ * @param len Length of encoded EMV Data Object List (DOL) in bytes
  * @return Length of command data. Less than zero for error.
  */
 int emv_dol_compute_data_length(const void* ptr, size_t len);
 
 /**
- * Build command data according to Data Object List (DOL)
- * @param ptr Encoded EMV Data Object List (DOL) data
- * @param len Length of encoded EMV Data Object List (DOL) data in bytes
+ * Build concatenated data according to Data Object List (DOL)
+ * @param ptr Encoded EMV Data Object List (DOL)
+ * @param len Length of encoded EMV Data Object List (DOL) in bytes
  * @param source1 EMV TLV list used as primary source. Required.
  * @param source2 EMV TLV list used as secondary source. NULL to ignore.
- * @param data Output data
- * @param data_len Length of output data in bytes
+ * @param data Concatenated data output
+ * @param data_len Length of concatenated data output in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero if output data length too small.
  */
 int emv_dol_build_data(

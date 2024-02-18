@@ -145,6 +145,17 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list);
 
 /**
+ * Determine whether a specific EMV tag with source 'Terminal' should be
+ * encoded as format 'n'
+ * @note This function is typically needed for Data Object List (DOL) processing
+ * @remark See EMV 4.4 Book 3, Annex A1
+ *
+ * @param tag EMV tag with source 'Terminal'
+ * @return Boolean indicating EMV tag should be encoded as format 'n'
+ */
+bool emv_tlv_is_terminal_format_n(unsigned int tag);
+
+/**
  * Convert EMV format "ans" to ISO/IEC 8859 string and omit control characters
  * @note This function is typically needed for Application Preferred Name (field 9F12)
  * @remark See EMV 4.4 Book 1, 4.3

@@ -2,7 +2,7 @@
  * @file emv_dol.c
  * @brief EMV Data Object List processing functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -45,7 +45,7 @@ int emv_dol_decode(const void* ptr, size_t len, struct emv_dol_entry_t* entry)
 		return -2;
 	}
 
-	// NOTE: According to EMV 4.3 Book 3, 5.4, a Data Object List (DOL) entry
+	// NOTE: According to EMV 4.4 Book 3, 5.4, a Data Object List (DOL) entry
 	// consists of a BER encoded tag, followed by a one-byte length.
 
 	// Decode tag octets
@@ -117,6 +117,9 @@ int emv_dol_compute_data_length(const void* ptr, size_t len)
 	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
 		total += entry.length;
 	}
+	if (r != 0) {
+		return -3;
+	}
 
 	return total;
 }
@@ -159,7 +162,7 @@ int emv_dol_build_data(
 		}
 		if (!tlv) {
 			// If TLV is not found, zero data output
-			// See EMV 4.3 Book 3, 5.4, step 2b
+			// See EMV 4.4 Book 3, 5.4, step 2b
 			memset(data_ptr, 0, entry.length);
 			data_ptr += entry.length;
 			*data_len -= entry.length;
@@ -168,17 +171,48 @@ int emv_dol_build_data(
 
 		if (tlv->length == entry.length) {
 			// TLV is found and length matches DOL entry
-			memcpy(data_ptr, tlv->value, tlv->length);
-			data_ptr += tlv->length;
-			*data_len -= tlv->length;
+			memcpy(data_ptr, tlv->value, entry.length);
+			data_ptr += entry.length;
+			*data_len -= entry.length;
 			continue;
 		}
 
-		if (tlv->length != entry.length) {
-			// TODO: EMV 4.3 Book 3, 5.4, step 2c
-			// TODO: EMV 4.3 Book 3, 5.4, step 2d
-			return -3;
+		if (tlv->length > entry.length) {
+			// TLV is found and length is more than DOL entry, requiring truncation
+			// See EMV 4.4 Book 3, 5.4, step 2c
+			// TODO: Update for non-PDOL use, non-terminal fields and format CN
+			unsigned int offset = 0;
+			if (emv_tlv_is_terminal_format_n(tlv->tag)) {
+				offset = tlv->length - entry.length;
+			}
+			memcpy(data_ptr, tlv->value + offset, entry.length);
+			data_ptr += entry.length;
+			*data_len -= entry.length;
+			continue;
 		}
+
+		if (tlv->length < entry.length) {
+			// TLV is found and length is less than DOL entry, requiring padding
+			// See EMV 4.4 Book 3, 5.4, step 2d
+			// TODO: Update for non-PDOL use, non-terminal fields and format CN
+			unsigned int pad_len = entry.length - tlv->length;
+			if (emv_tlv_is_terminal_format_n(tlv->tag)) {
+				memset(data_ptr, 0, pad_len);
+				memcpy(data_ptr + pad_len, tlv->value, tlv->length);
+			} else {
+				memcpy(data_ptr, tlv->value, tlv->length);
+				memset(data_ptr + tlv->length, 0, pad_len);
+			}
+			data_ptr += entry.length;
+			*data_len -= entry.length;
+			continue;
+		}
+
+		// This should never happen
+		return -3;
+	}
+	if (r != 0) {
+		return -4;
 	}
 
 	*data_len = data_ptr - data;

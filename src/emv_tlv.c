@@ -21,6 +21,7 @@
 
 #include "emv_tlv.h"
 #include "iso8825_ber.h"
+#include "emv_tags.h"
 
 #include <stdbool.h>
 #include <stdlib.h> // for malloc() and free()
@@ -242,6 +243,34 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 	}
 
 	return 0;
+}
+
+bool emv_tlv_is_terminal_format_n(unsigned int tag)
+{
+	// EMV tags with source 'Terminal' and format 'n'
+	// See EMV 4.4 Book 3, Annex A1
+	switch (tag) {
+		case EMV_TAG_9A_TRANSACTION_DATE:
+		case EMV_TAG_9C_TRANSACTION_TYPE:
+		case EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE:
+		case EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT:
+		case EMV_TAG_5F57_ACCOUNT_TYPE:
+		case EMV_TAG_9F01_ACQUIRER_IDENTIFIER:
+		case EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC:
+		case EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC:
+		case EMV_TAG_9F15_MCC:
+		case EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE:
+		case EMV_TAG_9F21_TRANSACTION_TIME:
+		case EMV_TAG_9F35_TERMINAL_TYPE:
+		case EMV_TAG_9F39_POS_ENTRY_MODE:
+		case EMV_TAG_9F3C_TRANSACTION_REFERENCE_CURRENCY:
+		case EMV_TAG_9F3D_TRANSACTION_REFERENCE_CURRENCY_EXPONENT:
+		case EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER:
+			return true;
+
+		default:
+			return false;
+	}
 }
 
 int emv_format_ans_to_non_control_str(
