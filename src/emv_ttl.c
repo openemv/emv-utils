@@ -2,7 +2,7 @@
  * @file emv_ttl.c
  * @brief EMV Terminal Transport Layer (TTL)
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -628,8 +628,8 @@ int emv_ttl_read_record(
 
 int emv_ttl_get_processing_options(
 	struct emv_ttl_t* ctx,
-	const void* pdol_data,
-	size_t pdol_data_len,
+	const void* data,
+	size_t data_len,
 	void* response,
 	size_t* response_len,
 	uint16_t* sw1sw2
@@ -648,25 +648,41 @@ int emv_ttl_get_processing_options(
 		return -2;
 	}
 
-	if (!pdol_data || !pdol_data_len) {
+	if (data) {
+		const uint8_t* cmd_data = data;
+
+		// For GET PROCESSING OPTIONS, if data is provided, ensure that it is
+		// at least two bytes and doesn't exceed the C-APDU maximum data length
+		if (data_len < 2 || data_len > EMV_CAPDU_DATA_MAX) {
+			return -3;
+		}
+
+		// For GET PROCESSING OPTIONS, ensure that data starts with
+		// Command Template (field 83)
+		// See EMV 4.4 Book 3, 6.5.8.3
+		// See EMV 4.4 Book 3, 10.1
+		if (cmd_data[0] != EMV_TAG_83_COMMAND_TEMPLATE) {
+			return -4;
+		}
+	} else {
 		// Use empty Command Template (field 83)
-		// See EMV 4.3 Book 3, 6.5.8.3
-		// See EMV 4.3 Book 3, 10.1
+		// See EMV 4.4 Book 3, 6.5.8.3
+		// See EMV 4.4 Book 3, 10.1
 		empty_cmd_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
 		empty_cmd_data[1] = 0x00;
 
-		pdol_data = empty_cmd_data;
-		pdol_data_len = sizeof(empty_cmd_data);
+		data = empty_cmd_data;
+		data_len = sizeof(empty_cmd_data);
 	}
 
 	// Build GET PROCESSING OPTIONS command
-	c_apdu.CLA = 0x80; // See EMV 4.3 Book 3, 6.3.2
-	c_apdu.INS = 0xA8; // See EMV 4.3 Book 3, 6.5.8.2, table 17
-	c_apdu.P1  = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
-	c_apdu.P2  = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
-	c_apdu.Lc  = pdol_data_len;
-	memcpy(c_apdu.data, pdol_data, c_apdu.Lc);
-	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.3 Book 3, 6.5.8.2, table 17
+	c_apdu.CLA = 0x80; // See EMV 4.4 Book 3, 6.3.2
+	c_apdu.INS = 0xA8; // See EMV 4.4 Book 3, 6.5.8.2, table 18
+	c_apdu.P1  = 0x00; // See EMV 4.4 Book 3, 6.5.8.2, table 18
+	c_apdu.P2  = 0x00; // See EMV 4.4 Book 3, 6.5.8.2, table 18
+	c_apdu.Lc  = data_len;
+	memcpy(c_apdu.data, data, c_apdu.Lc);
+	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.4 Book 3, 6.5.8.2, table 18
 
 	r = emv_ttl_trx(
 		ctx,
@@ -680,10 +696,10 @@ int emv_ttl_get_processing_options(
 		return r;
 	}
 	if (r_apdu_len < 2) {
-		return -4;
+		return -5;
 	}
 	if (r_apdu_len - 2 > *response_len) {
-		return -5;
+		return -6;
 	}
 
 	// Copy response from R-APDU
