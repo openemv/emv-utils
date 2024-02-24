@@ -203,8 +203,17 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 		return -2;
 	}
 
-	list->back->next = other->front;
-	list->back = other->back;
+	if (list->back) {
+		// If list not empty, attach list back to other front
+		list->back->next = other->front;
+	} else {
+		// If list empty, attach list front to other front
+		list->front = other->front;
+	}
+	if (other->back) {
+		// If other not empty, other back becomes list back
+		list->back = other->back;
+	}
 	other->front = NULL;
 	other->back = NULL;
 

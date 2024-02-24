@@ -42,7 +42,6 @@
 #include "emv_dol.h"
 #include "emv_ttl.h"
 #include "emv_tal.h"
-#include "iso7816_strings.h"
 
 // Forward declarations
 struct emv_txn_t;
@@ -629,12 +628,11 @@ int main(int argc, char** argv)
 
 	// HACK: test GPO and Read Application Data
 	{
-		char str[1024];
-
 		// Process PDOL
 		struct emv_tlv_t* pdol;
-		uint8_t gpo_data[EMV_RAPDU_DATA_MAX];
-		size_t gpo_data_len = sizeof(gpo_data);
+		uint8_t gpo_data_buf[EMV_RAPDU_DATA_MAX];
+		uint8_t* gpo_data;
+		size_t gpo_data_len;
 		pdol = emv_tlv_list_find(&emv_txn.icc, EMV_TAG_9F38_PDOL);
 		if (pdol) {
 			int dol_data_len;
@@ -646,6 +644,8 @@ int main(int argc, char** argv)
 				goto emv_exit;
 			}
 
+			gpo_data = gpo_data_buf;
+			gpo_data_len = sizeof(gpo_data_buf);
 			gpo_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
 			// TODO: proper BER length encoding
 			if (dol_data_len < 0x80) {
@@ -672,43 +672,23 @@ int main(int argc, char** argv)
 			gpo_data_len += gpo_data_offset;
 
 		} else {
-			// Use empty Command Template (field 83)
-			// See EMV 4.3 Book 3, 6.5.8.3
-			// See EMV 4.3 Book 3, 10.1
-			gpo_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
-			gpo_data[1] = 0;
-			gpo_data_len = 2;
+			gpo_data = NULL;
+			gpo_data_len = 0;
 		}
 
 		print_buf("\nGPO data", gpo_data, gpo_data_len);
 
 		// Initiate application processing
 		printf("\nGET PROCESSING OPTIONS\n");
-		uint8_t gpo_response[EMV_RAPDU_DATA_MAX];
-		size_t gpo_response_len = sizeof(gpo_response);
-		uint16_t sw1sw2;
-		r = emv_ttl_get_processing_options(&emv_txn.ttl, gpo_data, gpo_data_len, gpo_response, &gpo_response_len, &sw1sw2);
-		if (r) {
-			printf("Failed to get processign options; r=%d\n", r);
-			goto emv_exit;
-		}
-		print_buf("GPO response", gpo_response, gpo_response_len);
-		print_emv_buf(gpo_response, gpo_response_len, "  ", 0);
-		printf("SW1SW2 = %04hX (%s)\n", sw1sw2, iso7816_sw1sw2_get_string(sw1sw2 >> 8, sw1sw2 & 0xff, str, sizeof(str)));
-
-		if (sw1sw2 != 0x9000) {
-			goto emv_exit;
-		}
-
-		// Extract AIP and AFL
-		printf("\nProcessing options:\n");
 		struct emv_tlv_t* aip = NULL;
 		struct emv_tlv_t* afl = NULL;
-		r = emv_tal_parse_gpo_response(gpo_response, gpo_response_len, &emv_txn.icc, &aip, &afl);
+		r = emv_tal_get_processing_options(&emv_txn.ttl, gpo_data, gpo_data_len, &emv_txn.icc, &aip, &afl);
 		if (r) {
-			printf("emv_tal_parse_gpo_response() failed; r=%d\n", r);
+			printf("emv_tal_get_processing_options() failed; r=%d\n", r);
 			goto emv_exit;
 		}
+
+		printf("\nProcessing options:\n");
 		print_emv_tlv(aip, "  ", 1);
 		print_emv_tlv(afl, "  ", 1);
 
@@ -724,6 +704,7 @@ int main(int argc, char** argv)
 			for (uint8_t record_number = afl_entry.first_record; record_number <= afl_entry.last_record; ++record_number) {
 				uint8_t record[EMV_RAPDU_DATA_MAX];
 				size_t record_len = sizeof(record);
+				uint16_t sw1sw2;
 
 				printf("\nReading application data from SFI %u, record %u\n", afl_entry.sfi, record_number);
 

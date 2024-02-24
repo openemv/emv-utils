@@ -45,6 +45,9 @@ enum emv_tal_error_t {
 	EMV_TAL_ERROR_INVALID_PARAMETER = -2, ///< Invalid function parameter
 	EMV_TAL_ERROR_TTL_FAILURE = -3, ///< Terminal Transport Layer (TTL) failure
 	EMV_TAL_ERROR_CARD_BLOCKED = -4, ///< Card blocked
+	EMV_TAL_ERROR_GPO_FAILED = -5, ///< GET PROCESSING OPTIONS failed
+	EMV_TAL_ERROR_GPO_PARSE_FAILED = -6, ///< Failed to parse GET PROCESSING OPTIONS response
+	EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND = -7, ///< Failed to find mandatory field in GET PROCESSING OPTIONS response
 };
 
 /**
@@ -65,6 +68,7 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_APP_BLOCKED, ///< Selected application is blocked
 	EMV_TAL_RESULT_APP_SELECTION_FAILED, ///< Application selection failed
 	EMV_TAL_RESULT_APP_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for selected application
+	EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED, ///< Conditions of use not satisfied for selected application
 };
 
 /**
@@ -133,19 +137,31 @@ int emv_tal_select_app(
 );
 
 /**
- * Parse GET PROCESSING OPTIONS response
- * @param buf Buffer containing GET PROCESSING OPTIONS response data
- * @param len Length of buffer in bytes
+ * Perform GET PROCESSING OPTIONS and parse response
+ * @remark See EMV 4.4 Book 3, 10.1
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param data Command Template (field 83) according to Processing Options Data Object List (PDOL). NULL if no PDOL.
+ * @param data_len Length of Command Template (field 83) in bytes. Zero if no PDOL.
  * @param list List to which decoded EMV TLV fields will be appended
  * @param aip Pointer to Application Interchange Profile (AIP) field on
  *            @c list for convenience. Do not free. NULL to ignore.
  * @param afl Pointer to Application File Locator (AFL) field on @c list
  *            for convenience. Do not free. NULL to ignore.
- * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ * @return Greater than zero indicates that the terminal may continue the card
+ *         session with a different application. Typically this occurs when the
+ *         conditions of use are not satisfied for the current application and
+ *         this function indicates this condition using a return value of
+ *         @ref EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED
  */
-int emv_tal_parse_gpo_response(
-	const void* buf,
-	size_t len,
+int emv_tal_get_processing_options(
+	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len,
 	struct emv_tlv_list_t* list,
 	struct emv_tlv_t** aip,
 	struct emv_tlv_t** afl

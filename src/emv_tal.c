@@ -525,44 +525,103 @@ int emv_tal_select_app(
 	return 0;
 }
 
-int emv_tal_parse_gpo_response(
-	const void* buf,
-	size_t len,
+int emv_tal_get_processing_options(
+	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len,
 	struct emv_tlv_list_t* list,
 	struct emv_tlv_t** aip,
 	struct emv_tlv_t** afl
 )
 {
 	int r;
+	uint8_t gpo_response[EMV_RAPDU_DATA_MAX];
+	size_t gpo_response_len = sizeof(gpo_response);
+	uint16_t sw1sw2;
 	struct iso8825_tlv_t gpo_tlv;
 	struct emv_tlv_list_t gpo_list = EMV_TLV_LIST_INIT;
 	struct emv_tlv_t* tlv;
 
-	if (!buf || !len || !list) {
-		return -1;
+	if (!ttl || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (data && (data_len < 2 || data_len > 255)) { // See EMV_CAPDU_DATA_MAX
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (!data && data_len) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (aip) {
+		*aip = NULL;
+	}
+	if (afl) {
+		*afl = NULL;
 	}
 
+	// GET PROCESSING OPTIONS
+	// See EMV 4.4 Book 3, 10.1
+	emv_debug_info_data("GET PROCESSING OPTIONS", data, data_len);
+	r = emv_ttl_get_processing_options(ttl, data, data_len, gpo_response, &gpo_response_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_get_processing_options() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+
+	if (sw1sw2 != 0x9000) {
+		switch (sw1sw2) {
+			case 0x6985:
+				// Conditions of use not satisfied; ignore app and continue
+				// See EMV 4.4 Book 3, 10.1
+				emv_debug_info("Conditions of use not satisfied");
+				return EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED;
+
+			default:
+				// Unknown error; terminate session
+				// According to EMV 4.4 Book 3, 10.1 the card should provide
+				// no status other than 9000 or 6985
+				emv_debug_error("SW1SW2=0x%04hX", sw1sw2);
+				return EMV_TAL_ERROR_GPO_FAILED;
+		}
+	}
+
+	emv_debug_info_tlv("GPO response", gpo_response, gpo_response_len);
+
 	// Determine GPO response format
-	r = iso8825_ber_decode(buf, len, &gpo_tlv);
+	r = iso8825_ber_decode(gpo_response, gpo_response_len, &gpo_tlv);
 	if (r <= 0) {
-		// Parse error
-		return 1;
+		emv_debug_trace_msg("iso8825_ber_decode() failed; r=%d", r);
+
+		// Parse error; terminate session
+		// See EMV 4.4 Book 3, 6.5.8.4
+		emv_debug_error("Failed to parse GPO response");
+		return EMV_TAL_ERROR_GPO_PARSE_FAILED;
 	}
 
 	if (gpo_tlv.tag == EMV_TAG_80_RESPONSE_MESSAGE_TEMPLATE_FORMAT_1) {
 		// GPO response format 1
-		// See EMV 4.3 Book 3, 6.5.8.4
+		// See EMV 4.4 Book 3, 6.5.8.4
 
 		// Validate length
-		// See EMV 4.3 Book 3, 10.2
+		// See EMV 4.4 Book 3, 10.2
 		// AIP is 2 bytes
 		// AFL is multiples of 4 bytes
 		if (gpo_tlv.length < 6 || // AIP and at least one AFL entry
 			((gpo_tlv.length - 2) & 0x3) != 0 // AFL is multiple of 4 bytes
 		) {
-			// Parse error
-			return 2;
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.8.4
+			emv_debug_error("Invalid GPO response format 1 length of %u", gpo_tlv.length);
+			return EMV_TAL_ERROR_GPO_PARSE_FAILED;
 		}
+		emv_debug_info_data("AIP", gpo_tlv.value, 2);
+		emv_debug_info_data("AFL", gpo_tlv.value + 2, gpo_tlv.length - 2);
 
 		// Create Application Interchange Profile (field 82)
 		r = emv_tlv_list_push(
@@ -573,9 +632,12 @@ int emv_tal_parse_gpo_response(
 			0
 		);
 		if (r) {
-			// Internal error
-			emv_tlv_list_clear(&gpo_list);
-			return -2;
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
 		}
 
 		// Create Application File Locator (field 94)
@@ -587,47 +649,79 @@ int emv_tal_parse_gpo_response(
 			0
 		);
 		if (r) {
-			// Internal error
-			emv_tlv_list_clear(&gpo_list);
-			return -3;
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
 		}
 	}
 
 	if (gpo_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// GPO response format 2
-		// See EMV 4.3 Book 3, 6.5.8.4
+		// See EMV 4.4 Book 3, 6.5.8.4
 
 		r = emv_tlv_parse(gpo_tlv.value, gpo_tlv.length, &gpo_list);
-		if (r < 0) {
-			// Internal error
-			emv_tlv_list_clear(&gpo_list);
-			return -4;
-		}
-		if (r > 0) {
-			// Parse error
-			emv_tlv_list_clear(&gpo_list);
-			return 3;
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+			if (r < 0) {
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_TAL_ERROR_INTERNAL;
+				goto exit;
+			}
+			if (r > 0) {
+				// Parse error; terminate session
+				// See EMV 4.4 Book 3, 6.5.8.4
+				emv_debug_error("Failed to parse GPO response format 2");
+				r = EMV_TAL_ERROR_GPO_PARSE_FAILED;
+				goto exit;
+			}
 		}
 	}
 
 	// Populate AIP pointer
 	tlv = emv_tlv_list_find(&gpo_list, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
-	if (tlv && aip) {
+	if (!tlv) {
+		// Mandatory field missing; terminate session
+		// See EMV 4.4 Book 3, 6.5.8.4
+		emv_debug_error("AIP not found in GPO response");
+		r = EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND;
+		goto exit;
+	}
+	if (aip) {
 		*aip = tlv;
 	}
 
 	// Populate AFL pointer
 	tlv = emv_tlv_list_find(&gpo_list, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
-	if (tlv && afl) {
+	if (!tlv) {
+		// Mandatory field missing; terminate session
+		// See EMV 4.4 Book 3, 6.5.8.4
+		emv_debug_error("AFL not found in GPO response");
+		r = EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND;
+		goto exit;
+	}
+	if (afl) {
 		*afl = tlv;
 	}
 
 	r = emv_tlv_list_append(list, &gpo_list);
 	if (r) {
-		// Internal error
-		emv_tlv_list_clear(&gpo_list);
-		return -5;
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_TAL_ERROR_INTERNAL;
+		goto exit;
 	}
 
-	return 0;
+	// Successful GPO processing
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&gpo_list);
+	return r;
 }
