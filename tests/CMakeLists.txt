@@ -58,6 +58,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_select_application_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_select_application_test emv_select_application_test)
 
+	add_executable(emv_initiate_application_processing_test emv_initiate_application_processing_test.c)
+	target_link_libraries(emv_initiate_application_processing_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_initiate_application_processing_test emv_initiate_application_processing_test)
+
 	add_executable(isocodes_test isocodes_test.c)
 	find_package(Intl)
 	if(Intl_FOUND)

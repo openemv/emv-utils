@@ -53,6 +53,7 @@ enum emv_outcome_t {
 	EMV_OUTCOME_CARD_BLOCKED = 2, ///< Card blocked
 	EMV_OUTCOME_NOT_ACCEPTED = 3, ///< Card not accepted or no supported applications
 	EMV_OUTCOME_TRY_AGAIN = 4, ///< Try again by selecting a different application
+	EMV_OUTCOME_GPO_NOT_ACCEPTED = 5, ///< Processing conditions not accepted
 };
 
 /**
@@ -136,6 +137,33 @@ int emv_select_application(
 	struct emv_app_list_t* app_list,
 	unsigned int index,
 	struct emv_app_t** selected_app
+);
+
+/**
+ * Initiate EMV application processing by assessing the Processing Options
+ * Data Object List (PDOL) and performing GET PROCESSING OPTIONS.
+ * @note Upon success, this function will also move the selected application's
+ *       TLV data to the ICC data output and append the output of
+ *       GET PROCESSING OPTIONS.
+ * @remark See EMV 4.4 Book 3, 10.1
+ * @remark See EMV 4.4 Book 4, 6.3.1
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param selected_app Selected EMV application
+ * @param source1 EMV TLV list used as primary source. Required.
+ * @param source2 EMV TLV list used as secondary source. NULL to ignore.
+ * @param icc ICC data output
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_initiate_application_processing(
+	struct emv_ttl_t* ttl,
+	struct emv_app_t* selected_app,
+	const struct emv_tlv_list_t* source1,
+	const struct emv_tlv_list_t* source2,
+	struct emv_tlv_list_t* icc
 );
 
 __END_DECLS

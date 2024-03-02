@@ -23,6 +23,8 @@
 #include "emv_utils_config.h"
 #include "emv_tal.h"
 #include "emv_app.h"
+#include "emv_dol.h"
+#include "emv_tags.h"
 
 #include "iso7816.h"
 
@@ -56,6 +58,7 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 		case EMV_OUTCOME_CARD_BLOCKED: return "Card blocked"; // Not in EMV specification
 		case EMV_OUTCOME_NOT_ACCEPTED: return "Not accepted"; // Message 0C
 		case EMV_OUTCOME_TRY_AGAIN: return "Try again"; // Message 13
+		case EMV_OUTCOME_GPO_NOT_ACCEPTED: return "Not accepted"; // Message 0C
 	}
 
 	return "Invalid outcome";
@@ -429,5 +432,144 @@ exit:
 		current_app = NULL;
 	}
 
+	return r;
+}
+
+int emv_initiate_application_processing(
+	struct emv_ttl_t* ttl,
+	struct emv_app_t* selected_app,
+	const struct emv_tlv_list_t* source1,
+	const struct emv_tlv_list_t* source2,
+	struct emv_tlv_list_t* icc
+)
+{
+	int r;
+	const struct emv_tlv_t* pdol;
+	uint8_t gpo_data_buf[255]; // See EMV_CAPDU_DATA_MAX
+	uint8_t* gpo_data;
+	size_t gpo_data_len;
+	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
+
+	if (!ttl || !selected_app || !source1) {
+		emv_debug_trace_msg("ttl=%p, selected_app=%p, source1=%p, source2=%p", ttl, selected_app, source1, source2);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Process PDOL, if available
+	// See EMV 4.4 Book 3, 10.1
+	pdol = emv_tlv_list_find(&selected_app->tlv_list, EMV_TAG_9F38_PDOL);
+	if (pdol) {
+		int dol_data_len;
+		size_t gpo_data_offset;
+
+		emv_debug_info_data("PDOL found", pdol->value, pdol->length);
+		dol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
+		if (dol_data_len < 0) {
+			emv_debug_trace_msg("emv_dol_compute_data_length() failed; dol_data_len=%d", dol_data_len);
+			emv_debug_error("Failed to compute PDOL data length");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+		if (dol_data_len > sizeof(gpo_data_buf) - 3) {
+			emv_debug_error("Invalid PDOL data length of %u", dol_data_len);
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+
+		gpo_data = gpo_data_buf;
+		gpo_data_len = sizeof(gpo_data_buf);
+		gpo_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
+		gpo_data_offset = 1;
+		if (dol_data_len < 0x80) {
+			// Short length form
+			gpo_data[1] = dol_data_len;
+			gpo_data_offset += 1;
+		} else {
+			// Long length form
+			gpo_data[1] = 0x81;
+			gpo_data[2] = dol_data_len;
+			gpo_data_offset += 2;
+		}
+		gpo_data_len -= gpo_data_offset;
+
+		r = emv_dol_build_data(
+			pdol->value,
+			pdol->length,
+			(struct emv_tlv_list_t*)source1,
+			(struct emv_tlv_list_t*)source2,
+			gpo_data + gpo_data_offset,
+			&gpo_data_len
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
+			emv_debug_error("Failed to build PDOL data");
+
+			// This is considered an internal error because the PDOL has
+			// already been sucessfully parsed and the PDOL data length is
+			// already known not to exceed the GPO data buffer.
+			return EMV_ERROR_INTERNAL;
+		}
+
+		gpo_data_len += gpo_data_offset;
+
+	} else {
+		// PDOL not available. emv_ttl_get_processing_options() will build
+		// empty Command Template (field 83) if no GPO data is provided
+		gpo_data = NULL;
+		gpo_data_len = 0;
+	}
+
+	r = emv_tal_get_processing_options(ttl, gpo_data, gpo_data_len, &gpo_output, NULL, NULL);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_get_processing_options() failed; r=%d", r);
+		if (r < 0) {
+			emv_debug_error("Error during application processing; terminate session");
+
+			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+				r = EMV_ERROR_INTERNAL;
+			} else {
+				// All other GPO errors are card errors
+				r = EMV_OUTCOME_CARD_ERROR;
+			}
+			goto error;
+		}
+		if (r > 0) {
+			emv_debug_info("Failed to initiate application processing");
+
+			if (r == EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED) {
+				// Conditions of use not satisfied; ignore app and continue
+				// See EMV 4.4 Book 3, 10.1
+				// See EMV 4.4 Book 4, 6.3.1
+				r = EMV_OUTCOME_GPO_NOT_ACCEPTED;
+			} else {
+				// All other GPO outcomes are card errors
+				r = EMV_OUTCOME_CARD_ERROR;
+			}
+			goto error;
+		}
+	}
+
+	// Move application data to ICC data list
+	*icc = selected_app->tlv_list;
+	selected_app->tlv_list = EMV_TLV_LIST_INIT;
+
+	// Append GPO output to ICC data list
+	r = emv_tlv_list_append(icc, &gpo_output);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
+		goto error;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+error:
+	emv_tlv_list_clear(icc);
+	emv_tlv_list_clear(&gpo_output);
+exit:
 	return r;
 }

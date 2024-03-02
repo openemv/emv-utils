@@ -39,9 +39,7 @@
 #include <argp.h>
 
 // HACK: remove
-#include "emv_dol.h"
 #include "emv_ttl.h"
-#include "emv_tal.h"
 
 // Forward declarations
 struct emv_txn_t;
@@ -611,7 +609,30 @@ int main(int argc, char** argv)
 			goto emv_exit;
 		}
 
-		// Application selection was successful
+		printf("\nInitiate application processing:\n");
+		r = emv_initiate_application_processing(
+			&emv_txn.ttl,
+			emv_txn.selected_app,
+			&emv_txn.params,
+			&emv_txn.terminal,
+			&emv_txn.icc
+		);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
+				// Return to cardholder application selection/confirmation
+				// See EMV 4.4 Book 4, 6.3.1
+				emv_app_free(emv_txn.selected_app);
+				continue;
+			}
+			goto emv_exit;
+		}
+
+		// Application processing successfully initiated
 		break;
 
 	} while (true);
@@ -620,75 +641,13 @@ int main(int argc, char** argv)
 	// is no longer needed.
 	emv_app_list_clear(&app_list);
 
-	// Move ICC data out of EMV application object
-	emv_txn.icc = emv_txn.selected_app->tlv_list;
-	emv_txn.selected_app->tlv_list = EMV_TLV_LIST_INIT;
-
 	// TODO: EMV 4.4 Book 1, 12.4, create 9F06 from 84
 
 	// HACK: test GPO and Read Application Data
 	{
-		// Process PDOL
-		struct emv_tlv_t* pdol;
-		uint8_t gpo_data_buf[EMV_RAPDU_DATA_MAX];
-		uint8_t* gpo_data;
-		size_t gpo_data_len;
-		pdol = emv_tlv_list_find(&emv_txn.icc, EMV_TAG_9F38_PDOL);
-		if (pdol) {
-			int dol_data_len;
-			size_t gpo_data_offset;
-
-			dol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
-			if (dol_data_len < 0) {
-				printf("emv_dol_compute_data_length() failed; r=%d\n", r);
-				goto emv_exit;
-			}
-
-			gpo_data = gpo_data_buf;
-			gpo_data_len = sizeof(gpo_data_buf);
-			gpo_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
-			// TODO: proper BER length encoding
-			if (dol_data_len < 0x80) {
-				gpo_data[1] = dol_data_len;
-				gpo_data_offset = 2;
-			} else {
-				printf("PDOL data length greater than 127 bytes not implemented\n");
-				goto emv_exit;
-			}
-			gpo_data_len -= gpo_data_offset;
-
-			r = emv_dol_build_data(
-				pdol->value,
-				pdol->length,
-				&emv_txn.params,
-				&emv_txn.terminal,
-				gpo_data + gpo_data_offset,
-				&gpo_data_len
-			);
-			if (r) {
-				printf("emv_dol_build_data() failed; r=%d\n", r);
-				goto emv_exit;
-			}
-			gpo_data_len += gpo_data_offset;
-
-		} else {
-			gpo_data = NULL;
-			gpo_data_len = 0;
-		}
-
-		print_buf("\nGPO data", gpo_data, gpo_data_len);
-
-		// Initiate application processing
-		printf("\nGET PROCESSING OPTIONS\n");
-		struct emv_tlv_t* aip = NULL;
-		struct emv_tlv_t* afl = NULL;
-		r = emv_tal_get_processing_options(&emv_txn.ttl, gpo_data, gpo_data_len, &emv_txn.icc, &aip, &afl);
-		if (r) {
-			printf("emv_tal_get_processing_options() failed; r=%d\n", r);
-			goto emv_exit;
-		}
-
 		printf("\nProcessing options:\n");
+		struct emv_tlv_t* aip = emv_tlv_list_find(&emv_txn.icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+		struct emv_tlv_t* afl = emv_tlv_list_find(&emv_txn.icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 		print_emv_tlv(aip, "  ", 1);
 		print_emv_tlv(afl, "  ", 1);
 
