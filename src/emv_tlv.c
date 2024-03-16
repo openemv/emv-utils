@@ -193,6 +193,23 @@ struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int ta
 	return NULL;
 }
 
+bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list)
+{
+	if (!emv_tlv_list_is_valid(list)) {
+		return NULL;
+	}
+
+	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		for (const struct emv_tlv_t* tlv2 = tlv->next; tlv2 != NULL; tlv2 = tlv2->next) {
+			if (tlv->tag == tlv2->tag) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other)
 {
 	if (!emv_tlv_list_is_valid(list)) {

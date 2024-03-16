@@ -595,11 +595,11 @@ int emv_ttl_read_record(
 	}
 
 	// Build READ RECORD command
-	c_apdu.CLA = 0x00; // See EMV 4.3 Book 3, 6.3.2
-	c_apdu.INS = 0xB2; // See EMV 4.3 Book 1, 11.2.2, table 38
-	c_apdu.P1  = record_number; // See EMV 4.3 Book 1, 11.2.2, table 38
-	c_apdu.P2  = (sfi << 3) | 0x04; // See EMV 4.3 Book 1, 11.2.2, table 39
-	c_apdu.Le  = 0x00; // See EMV 4.3 Book 1, 11.2.2, table 38
+	c_apdu.CLA = 0x00; // See EMV 4.4 Book 3, 6.3.2
+	c_apdu.INS = 0xB2; // See EMV 4.4 Book 1, 11.2.2, table 3
+	c_apdu.P1  = record_number; // See EMV 4.4 Book 1, 11.2.2, table 3
+	c_apdu.P2  = (sfi << 3) | 0x04; // See EMV 4.4 Book 1, 11.2.2, table 4
+	c_apdu.Le  = 0x00; // See EMV 4.4 Book 1, 11.2.2, table 3
 
 	r = emv_ttl_trx(
 		ctx,

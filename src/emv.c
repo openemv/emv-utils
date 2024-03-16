@@ -573,3 +573,103 @@ error:
 exit:
 	return r;
 }
+
+int emv_read_application_data(
+	struct emv_ttl_t* ttl,
+	struct emv_tlv_list_t* icc
+)
+{
+	int r;
+	const struct emv_tlv_t* afl;
+	struct emv_tlv_list_t record_data = EMV_TLV_LIST_INIT;
+	bool found_5F24 = false;
+	bool found_5A = false;
+	bool found_8C = false;
+	bool found_8D = false;
+
+	if (!ttl || !icc) {
+		emv_debug_trace_msg("ttl=%p, icc=%p", ttl, icc);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Process Application File Locator (AFL)
+	// See EMV 4.4 Book 3, 10.2
+	afl = emv_tlv_list_find(icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	if (!afl) {
+		// AFL not found; terminate session
+		// See EMV 4.4 Book 3, 6.5.8.4
+		emv_debug_error("AFL not found");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+	r = emv_tal_read_afl_records(ttl, afl->value, afl->length, &record_data);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_read_afl_records() failed; r=%d", r);
+		if (r < 0) {
+			emv_debug_error("Error reading application data");
+			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+				r = EMV_ERROR_INTERNAL;
+			} else {
+				r = EMV_OUTCOME_CARD_ERROR;
+			}
+			goto exit;
+		}
+		if (r != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
+			emv_debug_error("Failed to read application data");
+			r = EMV_OUTCOME_CARD_ERROR;
+			goto exit;
+		}
+		// Continue regardless of offline data authentication failure
+		// See EMV 4.4 Book 3, 10.3 (page 98)
+	}
+
+	if (emv_tlv_list_has_duplicate(&record_data)) {
+		// Redundant primitive data objects are not permitted
+		// See EMV 4.4 Book 3, 10.2
+		emv_debug_error("Application data contains redundant fields");
+		r = EMV_OUTCOME_CARD_ERROR;
+		goto exit;
+	}
+
+	for (const struct emv_tlv_t* tlv = record_data.front; tlv != NULL; tlv = tlv->next) {
+		// Mandatory data objects
+		// See EMV 4.4 Book 3, 7.2
+		if (tlv->tag == EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE) {
+			found_5F24 = true;
+		}
+		if (tlv->tag == EMV_TAG_5A_APPLICATION_PAN) {
+			found_5A = true;
+		}
+		if (tlv->tag == EMV_TAG_8C_CDOL1) {
+			found_8C = true;
+		}
+		if (tlv->tag == EMV_TAG_8D_CDOL2) {
+			found_8D = true;
+		}
+	}
+	if (!found_5F24 || !found_5A || !found_8C || !found_8D) {
+		// Mandatory field not found; terminate session
+		// See EMV 4.4 Book 3, 10.2
+		emv_debug_error("Mandatory field not found");
+		r = EMV_OUTCOME_CARD_ERROR;
+		goto exit;
+	}
+
+	r = emv_tlv_list_append(icc, &record_data);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_TAL_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&record_data);
+	return r;
+}

@@ -42,6 +42,11 @@ static int emv_tal_parse_aef_record(
 	const struct emv_tlv_list_t* supported_aids,
 	struct emv_app_list_t* app_list
 );
+static int emv_tal_read_sfi_records(
+	struct emv_ttl_t* ttl,
+	const struct emv_afl_entry_t* afl_entry,
+	struct emv_tlv_list_t* list
+);
 
 int emv_tal_read_pse(
 	struct emv_ttl_t* ttl,
@@ -724,4 +729,207 @@ int emv_tal_get_processing_options(
 exit:
 	emv_tlv_list_clear(&gpo_list);
 	return r;
+}
+
+static int emv_tal_read_sfi_records(
+	struct emv_ttl_t* ttl,
+	const struct emv_afl_entry_t* afl_entry,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+	bool oda_record_invalid = false;
+
+	if (!ttl || !afl_entry || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	for (uint8_t record_number = afl_entry->first_record; record_number <= afl_entry->last_record; ++record_number) {
+		uint8_t record[EMV_RAPDU_DATA_MAX];
+		size_t record_len = sizeof(record);
+		uint16_t sw1sw2;
+		struct iso8825_tlv_t record_template;
+
+		// READ RECORD
+		// See EMV 4.4 Book 3, 10.2
+		emv_debug_info("READ RECORD from SFI %u, record %u", afl_entry->sfi, record_number);
+		r = emv_ttl_read_record(ttl, afl_entry->sfi, record_number, record, &record_len, &sw1sw2);
+		if (r) {
+			emv_debug_trace_msg("emv_ttl_read_record() failed; r=%d", r);
+			// TTL failure; terminate session
+			// (bad card or reader)
+			emv_debug_error("TTL failure");
+			return EMV_TAL_ERROR_TTL_FAILURE;
+		}
+
+		if (sw1sw2 != 0x9000) {
+			// Failed to READ RECORD; terminate session
+			// See EMV 4.4 Book 3, 10.2
+			emv_debug_error("Failed to READ RECORD");
+			return EMV_TAL_ERROR_READ_RECORD_FAILED;
+		}
+
+		// The records for SFIs 1 - 10 must be encoded as field 70 and the
+		// records for SFIs beyond that range are outside of EMV except for the
+		// card Transaction Log
+		// See EMV 4.4 Book 3, 5.3.2.2
+		// See EMV 4.4 Book 3, 6.5.11.4
+
+		// The records read for offline data authentication must be encoded as
+		// field 70. If not, then offline data authentication will be
+		// considered to have been performed but failed
+		// See EMV 4.4 Book 3, 10.3 (page 98)
+
+		// Therefore, any record that is not encoded as field 70 should not be
+		// parsed for EMV fields and invalidates offline data authentication.
+		if (record[0] != EMV_TAG_70_DATA_TEMPLATE) {
+			if (afl_entry->sfi >= 1 && afl_entry->sfi <= 10) {
+				// Invalid record for SFIs 1 - 10
+				// EMV 4.4 Book 3, 6.5.11.4
+				emv_debug_error("Invalid record for SFI %u", afl_entry->sfi);
+				return EMV_TAL_ERROR_READ_RECORD_INVALID;
+			}
+
+			// Although offline data authentication is no longer possible,
+			// reading of records may continue
+			// See EMV 4.4 Book 3, 10.3 (page 98)
+			emv_debug_error("Offline data authentication not possible due to invalid record");
+			oda_record_invalid = true;
+			continue;
+		}
+
+		if (afl_entry->sfi >= 1 && afl_entry->sfi <= 10) {
+			// Record should contain a single record template for SFIs 1 - 10
+			// See EMV 4.4 Book 3, 6.5.11.4
+			r = iso8825_ber_decode(record, record_len, &record_template);
+			if (r <= 0) {
+				emv_debug_trace_msg("iso8825_ber_decode() failed; r=%d", r);
+
+				// Failed to parse application data record template
+				// See EMV 4.4 Book 3, 6.5.11.4
+				emv_debug_error("Failed to parse record template");
+				return EMV_TAL_ERROR_READ_RECORD_INVALID;
+			}
+			if (record_template.tag != EMV_TAG_70_DATA_TEMPLATE) {
+				// Invalid record template for SFIs 1 - 10
+				// See EMV 4.4 Book 3, 6.5.11.4
+				emv_debug_error("Invalid record template tag 0x%02X", record_template.tag);
+				return EMV_TAL_ERROR_READ_RECORD_INVALID;
+			}
+			if (record_template.length + 3 < record_len) { // 3 bytes for ID and 2-byte length
+				// Record should contain a single record template without
+				// additional data after it
+				// See EMV 4.4 Book 3, 6.5.11.4
+				emv_debug_error("Invalid record template length %u", record_template.length);
+				return EMV_TAL_ERROR_READ_RECORD_INVALID;
+			}
+
+			if (!oda_record_invalid) {
+				emv_debug_info("Record template content used for offline data authentication");
+				// TODO: Compute offline data authentication here for SFIs 1 - 10
+			}
+		} else {
+			if (!oda_record_invalid) {
+				emv_debug_info("Record used verbatim for offline data authentication");
+				// TODO: Compute offline data authentication here for SFIs 11 - 30
+			}
+		}
+
+		// Parse application data knowing that the record starts with 70 and
+		// that it contains a single record template for SFIs 1 - 10. The EMV
+		// specification does not indicate whether SFIs beyond 1 - 10 may
+		// contain multiple record templates or additional data after the
+		// record template(s), and only states that the record template tag and
+		// length should not be excluded during offline data authentication
+		// processing. This implementation therefore assumes that any record
+		// that has passed the preceding validations is suitable for parsing.
+		r = emv_tlv_parse(record, record_len, list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+			if (r < 0) {
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				return EMV_TAL_ERROR_INTERNAL;
+			}
+			if (r > 0) {
+				// Parse error; terminate session
+				emv_debug_error("Failed to parse application data record");
+				return EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED;
+			}
+		}
+	}
+
+	// Successfully read records although offline data authentication may have
+	// failed
+	if (oda_record_invalid) {
+		return EMV_TAL_RESULT_ODA_RECORD_INVALID;
+	} else {
+		return 0;
+	}
+}
+
+int emv_tal_read_afl_records(
+	struct emv_ttl_t* ttl,
+	const uint8_t* afl,
+	size_t afl_len,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+	struct emv_afl_itr_t afl_itr;
+	struct emv_afl_entry_t afl_entry;
+	bool oda_record_invalid = false;
+
+	if (!ttl || !afl || !afl_len || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	r = emv_afl_itr_init(afl, afl_len, &afl_itr);
+	if (r) {
+		emv_debug_trace_msg("emv_afl_itr_init() failed; r=%d", r);
+		if (r < 0) {
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_TAL_ERROR_INTERNAL;
+		}
+		if (r > 0) {
+			// Invalid AFL; terminate session
+			// See EMV 4.4 Book 3, 10.2
+			emv_debug_error("Invalid AFL");
+			return EMV_TAL_ERROR_AFL_INVALID;
+		}
+	}
+
+	while ((r = emv_afl_itr_next(&afl_itr, &afl_entry)) > 0) {
+		r = emv_tal_read_sfi_records(ttl, &afl_entry, list);
+		if (r) {
+			emv_debug_trace_msg("emv_tal_read_sfi_records() failed; r=%d", r);
+			if (r == EMV_TAL_RESULT_ODA_RECORD_INVALID) {
+				// Continue regardless of offline data authentication failure
+				// See EMV 4.4 Book 3, 10.3 (page 98)
+				oda_record_invalid = true;
+			} else {
+				// Return error value as-is
+				return r;
+			}
+		}
+	}
+	if (r < 0) {
+		emv_debug_trace_msg("emv_afl_itr_next() failed; r=%d", r);
+
+		// AFL parse error; terminate session
+		// See EMV 4.4 Book 3, 10.2
+		emv_debug_error("AFL parse error");
+		return EMV_TAL_ERROR_AFL_INVALID;
+	}
+
+	// Successfully read records although offline data authentication may have
+	// failed
+	if (oda_record_invalid) {
+		return EMV_TAL_RESULT_ODA_RECORD_INVALID;
+	} else {
+		return 0;
+	}
 }

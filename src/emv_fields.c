@@ -2,7 +2,7 @@
  * @file emv_fields.c
  * @brief EMV field helper functions
  *
- * Copyright (c) 2021, 2022, 2023 Leon Lynch
+ * Copyright (c) 2021-2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -332,6 +332,7 @@ int emv_afl_itr_init(const void* afl, size_t afl_len, struct emv_afl_itr_t* itr)
 
 	if ((afl_len & 0x3) != 0) {
 		// Application File Locator (field 94) must be multiples of 4 bytes
+		// See EMV 4.4 Book 3, 10.2
 		return 1;
 	}
 
@@ -372,17 +373,23 @@ int emv_afl_itr_next(struct emv_afl_itr_t* itr, struct emv_afl_entry_t* entry)
 		// Remaining bits of AFL byte 1 must be zero
 		return -3;
 	}
+	if ((afl[0] & EMV_AFL_SFI_MASK) == 0 || (afl[0] & EMV_AFL_SFI_MASK) == EMV_AFL_SFI_MASK) {
+		// SFI must not be 0 or 31
+		// See EMV 4.4 Book 3, 7.5
+		return -4;
+	}
 	if (afl[1] == 0) {
 		// AFL byte 2 must never be zero
-		return -4;
+		return -5;
 	}
 	if (afl[2] < afl[1]) {
 		// AFL byte 3 must be greater than or equal to AFL byte 2
-		return -5;
+		// See EMV 4.4 Book 3, 7.5
+		return -6;
 	}
 	if (afl[3] > afl[2] - afl[1] + 1) {
 		// AFL byte 4 must not exceed the number of records indicated by AFL byte 2 and byte 3
-		return -6;
+		return -7;
 	}
 
 	// Decode AFL entry

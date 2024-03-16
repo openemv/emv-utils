@@ -119,6 +119,13 @@ struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list);
 struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int tag);
 
 /**
+ * Determine whether EMV TLV list contains duplicate fields
+ * @param list EMV TLV list
+ * @return Boolean indicating whether EMV TLV list contains duplicate fields
+ */
+bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list);
+
+/**
  * Append one EMV TLV list to another
  * @param list EMV TLV list to which to append
  * @param other EMV TLV list that will be appended to the list provided in @c list.

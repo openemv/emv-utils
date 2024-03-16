@@ -34,6 +34,7 @@ struct emv_app_list_t;
 struct emv_app_t;
 struct emv_tlv_list_t;
 struct emv_tlv_t;
+struct emv_afl_entry_t;
 
 /**
  * EMV Terminal Application Layer (TAL) errors.
@@ -48,6 +49,10 @@ enum emv_tal_error_t {
 	EMV_TAL_ERROR_GPO_FAILED = -5, ///< GET PROCESSING OPTIONS failed
 	EMV_TAL_ERROR_GPO_PARSE_FAILED = -6, ///< Failed to parse GET PROCESSING OPTIONS response
 	EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND = -7, ///< Failed to find mandatory field in GET PROCESSING OPTIONS response
+	EMV_TAL_ERROR_AFL_INVALID = -8, ///< Application File Locator (AFL) is invalid
+	EMV_TAL_ERROR_READ_RECORD_FAILED = -9, ///< READ RECORD failed
+	EMV_TAL_ERROR_READ_RECORD_INVALID = -10, ///< READ RECORD provided invalid record
+	EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED = -11, ///< Faild to parse READ RECORD response
 };
 
 /**
@@ -69,6 +74,7 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_APP_SELECTION_FAILED, ///< Application selection failed
 	EMV_TAL_RESULT_APP_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for selected application
 	EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED, ///< Conditions of use not satisfied for selected application
+	EMV_TAL_RESULT_ODA_RECORD_INVALID, ///< Offline data authentication not possible due to an invalid record
 };
 
 /**
@@ -165,6 +171,32 @@ int emv_tal_get_processing_options(
 	struct emv_tlv_list_t* list,
 	struct emv_tlv_t** aip,
 	struct emv_tlv_t** afl
+);
+
+/**
+ * Perform READ RECORD(s) for Application File Locator (AFL) and process
+ * responses
+ * @remark See EMV 4.4 Book 3, 10.2
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param afl Application File Locator (AFL) field. Must be multiples of 4 bytes.
+ * @param afl_len Length of Application File Locator (AFL) field. Must be multiples of 4 bytes.
+ * @param list List to which decoded EMV TLV fields will be appended
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ * @return Greater than zero indicates that the terminal may continue the card
+ *         card session but that some failure occurred. Typically this occurs
+ *         when a record required for offline data authentication is invalid
+ *         and this function indicates this using a return value of
+ *         @ref EMV_TAL_RESULT_ODA_RECORD_INVALID
+ */
+int emv_tal_read_afl_records(
+	struct emv_ttl_t* ttl,
+	const uint8_t* afl,
+	size_t afl_len,
+	struct emv_tlv_list_t* list
 );
 
 __END_DECLS

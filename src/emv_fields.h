@@ -861,7 +861,7 @@ struct emv_afl_entry_t {
 };
 
 /**
- * Initialize Application File Locator (AFL) iterator
+ * Initialise Application File Locator (AFL) iterator
  * @param afl Application File Locator (AFL) field. Must be multiples of 4 bytes.
  * @param afl_len Length of Application File Locator (AFL) field. Must be multiples of 4 bytes.
  * @param itr Application File Locator (AFL) iterator output

@@ -141,7 +141,7 @@ int emv_ttl_select_by_df_name_next(
 
 /**
  * READ RECORD (0xB2) from current file
- * @remark See EMV 4.3 Book 1, 11.2
+ * @remark See EMV 4.4 Book 1, 11.2
  * @remark See ISO 7816-4:2005, 7.3.3
  *
  * @param ctx EMV Terminal Transport Layer context
