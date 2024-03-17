@@ -678,7 +678,7 @@ static void iso7816_compute_wt(struct iso7816_atr_info_t* atr_info)
 	// WT = WI x 960 x D ETU
 	// Which is the same conclusion that EMV comes to below...
 
-	// From EMV Book 1, version 4.3 (Nov 2011), section 9.2.2.1:
+	// From EMV Contact Interface Specification v1.0, 9.2.2.1:
 	// WWT = 960 x D x WI ETUs (D and WI are returned in TA1 and TC2, respectively)
 
 	// And finally, after all that thinking...
@@ -701,7 +701,7 @@ static void iso7816_compute_wt(struct iso7816_atr_info_t* atr_info)
 	// BWT = 11etu + (2^BWI x 960 x 372 x D / F)
 	// Which is the same conclusion that EMV comes to below...
 
-	// From EMV Book 1, version 4.3 (Nov 2011), section 9.2.4.2.2:
+	// From EMV Contact Interface Specification v1.0, 9.2.4.2.2:
 	// BWT = (((2^BWI x 960 x 372 x D / F) + 11)etu; where D is Di and F is Fi
 
 	// And finally, after all that thinking...

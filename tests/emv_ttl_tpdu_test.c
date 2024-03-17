@@ -31,7 +31,7 @@
 #include "print_helpers.h"
 
 // TPDU exchanges for case 1 normal processing
-// See EMV 4.3 Book 1, Annex A1
+// See EMV Contact Interface Specification v1.0, Annex A1
 static const struct xpdu_t test_tpdu_case_1_normal[] = {
 	{
 		5, (uint8_t[]){ 0x12, 0x34, 0x56, 0x78, 0x00 },
@@ -42,7 +42,7 @@ static const struct xpdu_t test_tpdu_case_1_normal[] = {
 static const uint8_t test_tpdu_case_1_normal_data[] = { 0x90, 0x00 };
 
 // TPDU exchanges for case 1 error processing
-// See EMV 4.3 Book 1, Annex A1
+// See EMV Contact Interface Specification v1.0, Annex A1
 static const struct xpdu_t test_tpdu_case_1_error[] = {
 	{
 		5, (uint8_t[]){ 0x12, 0x34, 0x56, 0x78, 0x00 },
@@ -53,7 +53,7 @@ static const struct xpdu_t test_tpdu_case_1_error[] = {
 static const uint8_t test_tpdu_case_1_error_data[] = { 0x6A, 0x81 };
 
 // TPDU exchanges for case 2 normal processing
-// See EMV 4.3 Book 1, Annex A2
+// See EMV Contact Interface Specification v1.0, Annex A2
 static const struct xpdu_t test_tpdu_case_2_normal[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xB2, 0x01, 0x0C, 0x00 }, // READ RECORD 1,1
@@ -70,7 +70,7 @@ static const uint8_t test_tpdu_case_2_normal_data[] = {
 };
 
 // TPDU exchanges for case 2 error processing (early)
-// See EMV 4.3 Book 1, Annex A2
+// See EMV Contact Interface Specification v1.0, Annex A2
 static const struct xpdu_t test_tpdu_case_2_error_early[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xB2, 0x01, 0x0C, 0x00 }, // READ RECORD 1,1
@@ -81,7 +81,7 @@ static const struct xpdu_t test_tpdu_case_2_error_early[] = {
 static const uint8_t test_tpdu_case_2_error_early_data[] = { 0x6A, 0x81 };
 
 // TPDU exchanges for case 2 error processing (late)
-// See EMV 4.3 Book 1, Annex A2
+// See EMV Contact Interface Specification v1.0, Annex A2
 static const struct xpdu_t test_tpdu_case_2_error_late[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xB2, 0x01, 0x0C, 0x00 }, // READ RECORD 1,1
@@ -96,7 +96,7 @@ static const struct xpdu_t test_tpdu_case_2_error_late[] = {
 static const uint8_t test_tpdu_case_2_error_late_data[] = { 0x65, 0x81 };
 
 // TPDU exchanges for case 3 normal processing
-// See EMV 4.3 Book 1, Annex A3
+// See EMV Contact Interface Specification v1.0, Annex A3
 static const struct xpdu_t test_tpdu_case_3_normal[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0x82, 0x00, 0x00, 0x04 }, // EXTERNAL AUTHENTICATE
@@ -111,7 +111,7 @@ static const struct xpdu_t test_tpdu_case_3_normal[] = {
 static const uint8_t test_tpdu_case_3_normal_data[] = { 0x90, 0x00 };
 
 // TPDU exchanges for case 3 error processing (early)
-// See EMV 4.3 Book 1, Annex A3
+// See EMV Contact Interface Specification v1.0, Annex A3
 static const struct xpdu_t test_tpdu_case_3_error_early[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0x82, 0x00, 0x00, 0x04 }, // EXTERNAL AUTHENTICATE
@@ -121,7 +121,7 @@ static const struct xpdu_t test_tpdu_case_3_error_early[] = {
 static const uint8_t test_tpdu_case_3_error_early_data[] = { 0x6A, 0x81 };
 
 // TPDU exchanges for case 3 error processing (late)
-// See EMV 4.3 Book 1, Annex A3
+// See EMV Contact Interface Specification v1.0, Annex A3
 static const struct xpdu_t test_tpdu_case_3_error_late[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0x82, 0x00, 0x00, 0x04 }, // EXTERNAL AUTHENTICATE
@@ -136,7 +136,7 @@ static const struct xpdu_t test_tpdu_case_3_error_late[] = {
 static const uint8_t test_tpdu_case_3_error_late_data[] = { 0x65, 0x81 };
 
 // TPDU exchanges for case 4 normal processing
-// See EMV 4.3 Book 1, Annex A4
+// See EMV Contact Interface Specification v1.0, Annex A4
 static const struct xpdu_t test_tpdu_case_4_normal[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E }, // SELECT
@@ -157,7 +157,7 @@ static const uint8_t test_tpdu_case_4_normal_data[] = {
 };
 
 // TPDU exchanges for case 4 error processing (early)
-// See EMV 4.3 Book 1, Annex A4
+// See EMV Contact Interface Specification v1.0, Annex A4
 static const struct xpdu_t test_tpdu_case_4_error_early[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E }, // SELECT
@@ -168,7 +168,7 @@ static const struct xpdu_t test_tpdu_case_4_error_early[] = {
 static const uint8_t test_tpdu_case_4_error_early_data[] = { 0x6A, 0x81 };
 
 // TPDU exchanges for case 4 error processing (early 2nd exchange)
-// See EMV 4.3 Book 1, Annex A4
+// See EMV Contact Interface Specification v1.0, Annex A4
 static const struct xpdu_t test_tpdu_case_4_error_early2[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E }, // SELECT
@@ -183,7 +183,7 @@ static const struct xpdu_t test_tpdu_case_4_error_early2[] = {
 static const uint8_t test_tpdu_case_4_error_early2_data[] = { 0x6A, 0x82 };
 
 // TPDU exchanges for case 4 error processing (late)
-// See EMV 4.3 Book 1, Annex A4
+// See EMV Contact Interface Specification v1.0, Annex A4
 static const struct xpdu_t test_tpdu_case_4_error_late[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E }, // SELECT
@@ -202,7 +202,7 @@ static const struct xpdu_t test_tpdu_case_4_error_late[] = {
 static const uint8_t test_tpdu_case_4_error_late_data[] = { 0x65, 0x81 };
 
 // TPDU exchanges for case 2 using both '61' and '6C' procedure bytes
-// See EMV 4.3 Book 1, Annex A5
+// See EMV Contact Interface Specification v1.0, Annex A5
 static const struct xpdu_t test_tpdu_case_2_normal_advanced[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xB2, 0x01, 0x0C, 0x00 }, // READ RECORD 1,1
@@ -229,7 +229,7 @@ static const uint8_t test_tpdu_case_2_normal_advanced_data[] = {
 };
 
 // TPDU exchanges for case 4 (using multiple '61' procedure bytes)
-// See EMV 4.3 Book 1, Annex A6
+// See EMV Contact Interface Specification v1.0, Annex A6
 static const struct xpdu_t test_tpdu_case_4_normal_advanced[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E }, // SELECT
@@ -253,9 +253,9 @@ static const uint8_t test_tpdu_case_4_normal_advanced_data[] = {
 	0x6F, 0x24, 0x84, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x12, 0x88, 0x01, 0x01, 0x5F, 0x2D, 0x08, 0x65, 0x6E, 0x65, 0x73, 0x66, 0x72, 0x64, 0x65, 0x9F, 0x11, 0x01, 0x01,
 };
 
-// TPDU exchanges for case 4 warning processing
-// See EMV 4.3 Book 1, Annex A4
-static const struct xpdu_t test_tpdu_case_4_warning[] = {
+// TPDU exchanges for case 4 warning processing ('62' then '6C')
+// See EMV Contact Interface Specification v1.0, Annex A7, first example
+static const struct xpdu_t test_tpdu_case_4_warning1[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E }, // SELECT
 		1, (uint8_t[]){ 0xA4 },
@@ -274,7 +274,28 @@ static const struct xpdu_t test_tpdu_case_4_warning[] = {
 	},
 	{ 0 }
 };
-static const uint8_t test_tpdu_case_4_warning_data[] = {
+static const uint8_t test_tpdu_case_4_warning1_data[] = {
+	0x6F, 0x24, 0x84, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x12, 0x88, 0x01, 0x01, 0x5F, 0x2D, 0x08, 0x65, 0x6E, 0x65, 0x73, 0x66, 0x72, 0x64, 0x65, 0x9F, 0x11, 0x01, 0x01,
+};
+
+// TPDU exchanges for case 4 warning processing ('61' then '62')
+// See EMV Contact Interface Specification v1.0, Annex A7, second example
+static const struct xpdu_t test_tpdu_case_4_warning2[] = {
+	{
+		5, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E }, // SELECT
+		1, (uint8_t[]){ 0xA4 },
+	},
+	{
+		14, (uint8_t[]){ 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31 },
+		2, (uint8_t[]){ 0x61, 0x26 },
+	},
+	{
+		5, (uint8_t[]){ 0x00, 0xC0, 0x00, 0x00, 0x26 },
+		0x29, (uint8_t[]){ 0xC0, 0x6F, 0x24, 0x84, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x12, 0x88, 0x01, 0x01, 0x5F, 0x2D, 0x08, 0x65, 0x6E, 0x65, 0x73, 0x66, 0x72, 0x64, 0x65, 0x9F, 0x11, 0x01, 0x01, 0x62, 0x86 }, // No input available from a sensor on the card
+	},
+	{ 0 }
+};
+static const uint8_t test_tpdu_case_4_warning2_data[] = {
 	0x6F, 0x24, 0x84, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x12, 0x88, 0x01, 0x01, 0x5F, 0x2D, 0x08, 0x65, 0x6E, 0x65, 0x73, 0x66, 0x72, 0x64, 0x65, 0x9F, 0x11, 0x01, 0x01,
 };
 
@@ -764,9 +785,9 @@ int main(void)
 	}
 	printf("Success\n");
 
-	// Test APDU case 4; warning processing
-	printf("\nTesting APDU case 4 (TPDU mode); warning processing...\n");
-	emul_ctx.xpdu_list = test_tpdu_case_4_warning;
+	// Test APDU case 4; warning processing ('62' then '6C')
+	printf("\nTesting APDU case 4 (TPDU mode); warning processing ('62' then '6C')...\n");
+	emul_ctx.xpdu_list = test_tpdu_case_4_warning1;
 	emul_ctx.xpdu_current = NULL;
 	data_len = sizeof(data);
 
@@ -782,11 +803,44 @@ int main(void)
 		fprintf(stderr, "emv_ttl_trx() failed; r=%d\n", r);
 		return 1;
 	}
-	if (data_len != sizeof(test_tpdu_case_4_warning_data)) {
+	if (data_len != sizeof(test_tpdu_case_4_warning1_data)) {
 		fprintf(stderr, "emv_ttl_trx() failed; incorrect response data length\n");
 		return 1;
 	}
-	if (memcmp(data, test_tpdu_case_4_warning_data, data_len) != 0) {
+	if (memcmp(data, test_tpdu_case_4_warning1_data, data_len) != 0) {
+		fprintf(stderr, "emv_ttl_trx() failed; incorrect response data\n");
+		print_buf("data", data, data_len);
+		return 1;
+	}
+	if (sw1sw2 != 0x6286) {
+		fprintf(stderr, "Unexpected SW1-SW2 %04X\n", sw1sw2);
+		return 2;
+	}
+	printf("Success\n");
+
+	// Test APDU case 4; warning processing ('61' then '62')
+	printf("\nTesting APDU case 4 (TPDU mode); warning processing ('61' then '62')...\n");
+	emul_ctx.xpdu_list = test_tpdu_case_4_warning2;
+	emul_ctx.xpdu_current = NULL;
+	data_len = sizeof(data);
+
+	r = emv_ttl_select_by_df_name(
+		&ttl,
+		PSE,
+		sizeof(PSE) - 1,
+		data,
+		&data_len,
+		&sw1sw2
+	);
+	if (r) {
+		fprintf(stderr, "emv_ttl_trx() failed; r=%d\n", r);
+		return 1;
+	}
+	if (data_len != sizeof(test_tpdu_case_4_warning2_data)) {
+		fprintf(stderr, "emv_ttl_trx() failed; incorrect response data length\n");
+		return 1;
+	}
+	if (memcmp(data, test_tpdu_case_4_warning2_data, data_len) != 0) {
 		fprintf(stderr, "emv_ttl_trx() failed; incorrect response data\n");
 		print_buf("data", data, data_len);
 		return 1;

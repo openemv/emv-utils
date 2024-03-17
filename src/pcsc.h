@@ -133,7 +133,7 @@ int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_
  * @param tx_buf Transmit buffer
  * @param tx_buf_len Length of transmit buffer in bytes
  * @param rx_buf Receive buffer
- * @param rx_buf_len Length of R-APDU buffer in bytes
+ * @param rx_buf_len Length of receive buffer in bytes
  * @return Zero for success. Less than zero for error.
  */
 int pcsc_reader_trx(

@@ -64,8 +64,8 @@ int emv_ttl_trx(
 
 	// Determine the APDU case
 	// See ISO 7816-3:2006, 12.1.3, table 13
-	// See EMV 4.3 Book 1, 9.3.1.1
-	// See EMV 4.3 Book 1, Annex A
+	// See EMV Contact Interface Specification v1.0, 9.3.1.1
+	// See EMV Contact Interface Specification v1.0, Annex A
 
 	// APDU cases:
 	// Case 1: CLA INS P1 P2
@@ -169,7 +169,7 @@ int emv_ttl_trx(
 
 		// For APDU case 1, the R-APDU should only be SW1-SW2; no further action
 		// See ISO 7816-3:2006, 12.2.1, table 14
-		// See EMV 4.3 Book 1, 9.3.1.1.1
+		// See EMV Contact Interface Specification v1.0, 9.3.1.1.1
 		if (apdu_case == ISO7816_APDU_CASE_1) {
 			if (rx_len != 2) {
 				// Unexpected response length for APDU case 1
@@ -191,7 +191,7 @@ int emv_ttl_trx(
 
 		// Process response containing single procedure byte
 		// See ISO 7816-3:2006, 10.3.3
-		// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
+		// See EMV Contact Interface Specification v1.0, 9.2.2.3.1, table 25
 		if (rx_len == 1) {
 			uint8_t procedure_byte = *((uint8_t*)rx_buf);
 
@@ -205,7 +205,6 @@ int emv_ttl_trx(
 			}
 
 			// ACK: Send remaining data bytes
-			// See EMV 4.3 Book 1, Annex A
 			if (procedure_byte == INS) {
 				if (!c_tpdu_data) {
 					// Unexpected procedure byte if no data available
@@ -268,10 +267,11 @@ int emv_ttl_trx(
 		// Process status bytes
 		// See ISO 7816-3:2006, 12.2.1, table 14
 		// See ISO 7816-4:2005, 5.1.3, table 6
-		// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
-		// See EMV 4.3 Book 1, 9.2.2.3.2
-		// See EMV 4.3 Book 1, 9.3.1.2
-		// See EMV 4.3 Book 1, Annex A for examples
+		// See EMV Contact Interface Specification v1.0, 9.2.2.3.1, table 25
+		// See EMV Contact Interface Specification v1.0, 9.2.2.3.2
+		// See EMV Contact Interface Specification v1.0, 9.3.1.1
+		// See EMV Contact Interface Specification v1.0, 9.3.1.2
+		// See EMV Contact Interface Specification v1.0, Annex A for examples
 		switch (SW1) {
 			case 0x61: // Normal processing: SW2 encodes the number of available bytes
 
@@ -303,16 +303,19 @@ int emv_ttl_trx(
 
 			default:
 				// Terminal Application Layer (TAL) should receive the SW1-SW2
-				// value of the initial command and not the subsequent
-				// GET RESPONSE command.
-				// See EMV 4.3 Book 1, Annex A7 "Case 4 Command with Warning Condition"
+				// value for all remaining cases, including normal completion
+				// and completion with a warning. Note that warning processing
+				// may occur before the response data is received.
+				// See EMV Contact Interface Specification v1.0, 9.3.1.1
 				if (!*sw1sw2) {
 					// Output status bytes SW1-SW2 in host endianness
 					*sw1sw2 = ((uint16_t)SW1 << 8) | SW2;
 
-					// For APDU case 4, warning processing is followed by GET RESPONSE
-					// See EMV 4.3 Book 1, Annex A7 "Case 4 Command with Warning Condition"
+					// For APDU case 4, if warning processing occurs without
+					// response data, it is followed by GET RESPONSE
+					// See EMV Contact Interface Specification v1.0, Annex A7 "Case 4 Command with Warning Condition"
 					if (apdu_case == ISO7816_APDU_CASE_4S &&
+						rx_len == 2 &&
 						iso7816_sw1sw2_is_warning(SW1, SW2)
 					) {
 						tx_get_response = true;
@@ -397,7 +400,7 @@ int emv_ttl_trx(
 
 			// Build GET RESPONSE for next transmission
 			// See ISO 7816-4:2005, 7.6.1
-			// See EMV 4.3 Book 1, 9.3.1.3
+			// See EMV Contact Interface Specification v1.0, 9.3.1.3
 			c_tpdu_header[0] = 0x00; // CLA
 			c_tpdu_header[1] = 0xC0; // INS: GET RESPONSE
 			c_tpdu_header[2] = 0x00; // P1
@@ -412,7 +415,7 @@ int emv_ttl_trx(
 
 		if (tx_update_le) {
 			// Update Le for next transmission
-			// See EMV 4.3 Book 1, 9.2.2.3.1, table 25
+			// See EMV Contact Interface Specification v1.0, 9.2.2.3.1, table 25
 			memcpy(c_tpdu_header, tx_buf, 4);
 			c_tpdu_header[4] = SW2; // P3 = Le
 			tx_buf = c_tpdu_header;
@@ -422,24 +425,15 @@ int emv_ttl_trx(
 			continue;
 		}
 
-		// If SW1-SW2 indicates success or error, finalise the R-APDU
-		// Only warning processing may proceed
-		if (iso7816_sw1sw2_is_success(SW1, SW2) ||
-			iso7816_sw1sw2_is_error(SW1, SW2)
-		) {
-			// Finalise R-APDU using initial SW1-SW2
-			r_apdu_ptr[0] = *sw1sw2 >> 8;
-			r_apdu_ptr[1] = *sw1sw2 & 0xFF;
-			r_apdu_ptr += 2;
-			*r_apdu_len = (void*)r_apdu_ptr - r_apdu;
+		// Finalise R-APDU using current SW1-SW2
+		r_apdu_ptr[0] = *sw1sw2 >> 8;
+		r_apdu_ptr[1] = *sw1sw2 & 0xFF;
+		r_apdu_ptr += 2;
+		*r_apdu_len = (void*)r_apdu_ptr - r_apdu;
 
-			// Let Terminal Application Layer (TAL) process the response
-			emv_debug_rapdu(r_apdu, *r_apdu_len);
-			return 0;
-		}
-
-		// This should never happen
-		return -100;
+		// Let Terminal Application Layer (TAL) process the response
+		emv_debug_rapdu(r_apdu, *r_apdu_len);
+		return 0;
 
 	} while (true);
 }
@@ -466,19 +460,19 @@ int emv_ttl_select_by_df_name(
 	}
 
 	// For SELECT, ensure that Lc is from 0x05 to 0x10
-	// See EMV 4.3 Book 1, 11.3.2, table 40
+	// See EMV 4.4 Book 1, 11.3.2, table 5
 	if (df_name_len < 0x05 || df_name_len > 0x10) {
 		return -3;
 	}
 
 	// Build SELECT command
-	c_apdu.CLA = 0x00; // See EMV 4.3 Book 3, 6.3.2
-	c_apdu.INS = 0xA4; // See EMV 4.3 Book 1, 11.3.2, table 40
-	c_apdu.P1  = 0x04; // See EMV 4.3 Book 1, 11.3.2, table 41
-	c_apdu.P2  = 0x00; // See EMV 4.3 Book 1, 11.3.2, table 42
+	c_apdu.CLA = 0x00; // See EMV 4.4 Book 3, 6.3.2
+	c_apdu.INS = 0xA4; // See EMV 4.4 Book 1, 11.3.2, table 5
+	c_apdu.P1  = 0x04; // See EMV 4.4 Book 1, 11.3.2, table 6
+	c_apdu.P2  = 0x00; // See EMV 4.4 Book 1, 11.3.2, table 7
 	c_apdu.Lc  = df_name_len;
 	memcpy(c_apdu.data, df_name, c_apdu.Lc);
-	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.3 Book 1, 11.3.2, table 40
+	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.4 Book 1, 11.3.2, table 5
 
 	r = emv_ttl_trx(
 		ctx,
@@ -527,19 +521,19 @@ int emv_ttl_select_by_df_name_next(
 	}
 
 	// For SELECT, ensure that Lc is from 0x05 to 0x10
-	// See EMV 4.3 Book 1, 11.3.2, table 40
+	// See EMV 4.4 Book 1, 11.3.2, table 5
 	if (df_name_len < 0x05 || df_name_len > 0x10) {
 		return -3;
 	}
 
 	// Build SELECT command
-	c_apdu.CLA = 0x00; // See EMV 4.3 Book 3, 6.3.2
-	c_apdu.INS = 0xA4; // See EMV 4.3 Book 1, 11.3.2, table 40
-	c_apdu.P1  = 0x04; // See EMV 4.3 Book 1, 11.3.2, table 41
-	c_apdu.P2  = 0x02; // See EMV 4.3 Book 1, 11.3.2, table 42
+	c_apdu.CLA = 0x00; // See EMV 4.4 Book 3, 6.3.2
+	c_apdu.INS = 0xA4; // See EMV 4.4 Book 1, 11.3.2, table 5
+	c_apdu.P1  = 0x04; // See EMV 4.4 Book 1, 11.3.2, table 6
+	c_apdu.P2  = 0x02; // See EMV 4.4 Book 1, 11.3.2, table 7
 	c_apdu.Lc  = df_name_len;
 	memcpy(c_apdu.data, df_name, c_apdu.Lc);
-	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.3 Book 1, 11.3.2, table 40
+	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.4 Book 1, 11.3.2, table 5
 
 	r = emv_ttl_trx(
 		ctx,

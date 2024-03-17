@@ -258,7 +258,7 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 			// For T=1, reject 2^CWI < (N + 1)
 			// - if N==0xFF, consider N to be -1
 			// - if N==0x00, consider CWI to be 1
-			// See EMV Level 1 Contact Interface v1.0, 8.3.3.1
+			// See EMV Level 1 Contact Interface v1.0, 8.3.3.10
 			int N = (atr_info.global.N != 0xFF) ? atr_info.global.N : -1;
 			unsigned int CWI = atr_info.global.N ? atr_info.protocol_T1.CWI : 1;
 			unsigned int pow_2_CWI = 1 << CWI;

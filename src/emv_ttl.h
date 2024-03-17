@@ -96,7 +96,7 @@ int emv_ttl_trx(
 /**
  * SELECT (0xA4) the first or only application by Dedicated File (DF) name
  * and provide File Control Information (FCI) template.
- * @remark See EMV 4.3 Book 1, 11.3
+ * @remark See EMV 4.4 Book 1, 11.3
  * @remark See ISO 7816-4:2005, 7.1.1
  *
  * @param ctx EMV Terminal Transport Layer context
@@ -119,7 +119,7 @@ int emv_ttl_select_by_df_name(
 /**
  * SELECT (0xA4) the next application by Dedicated File (DF) name and
  * provide File Control Information (FCI) template.
- * @remark See EMV 4.3 Book 1, 11.3
+ * @remark See EMV 4.4 Book 1, 11.3
  * @remark See ISO 7816-4:2005, 7.1.1
  *
  * @param ctx EMV Terminal Transport Layer context
