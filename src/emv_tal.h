@@ -67,6 +67,7 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_PSE_SELECT_FAILED, ///< Failed to select Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_SFI_NOT_FOUND, ///< Failed to find Short File Identifier (SFI) for Payment System Environment (PSE)
+	EMV_TAL_RESULT_PSE_SFI_INVALID, ///< Invalid Short File Identifier (SFI) for Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_AEF_PARSE_FAILED, ///< Failed to parse Application Elementary File (AEF) of Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_AEF_INVALID, ///< Invalid Payment System Environment (PSE) Application Elementary File (AEF) record
 	EMV_TAL_RESULT_APP_NOT_FOUND, ///< Selected application not found

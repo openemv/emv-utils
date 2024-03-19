@@ -137,6 +137,15 @@ int emv_tal_read_pse(
 		r = EMV_TAL_RESULT_PSE_SFI_NOT_FOUND;
 		goto exit;
 	}
+	if (pse_sfi->length != 1 || !pse_sfi->value) {
+		emv_debug_trace_data("pse_sfi=", pse_sfi->value, pse_sfi->length);
+
+		// Invalid SFI for PSE; terminal may continue session
+		// See EMV 4.4 Book 1, 12.3.2, step 1
+		emv_debug_error("Invalid SFI length or value for PSE records");
+		r = EMV_TAL_RESULT_PSE_SFI_INVALID;
+		goto exit;
+	}
 
 	// Read all records from PSE AEF using the SFI
 	// See EMV 4.4 Book 1, 12.2.3
@@ -182,15 +191,15 @@ int emv_tal_read_pse(
 		);
 		if (r) {
 			emv_debug_trace_msg("emv_tal_parse_aef_record() failed; r=%d", r);
-		}
-		if (r > 0) {
-			// Invalid PSE AEF record; ignore and continue
-			emv_debug_error("Invalid PSE AEF record");
-		}
-		if (r < 0) {
-			// Unknown error; terminate session
-			emv_debug_error("Unknown PSE AEF record error");
-			goto exit;
+			if (r < 0) {
+				// Unknown error; terminate session
+				emv_debug_error("Unknown PSE AEF record error");
+				goto exit;
+			}
+			if (r > 0) {
+				// Invalid PSE AEF record; ignore and continue
+				emv_debug_error("Invalid PSE AEF record");
+			}
 		}
 	}
 
@@ -230,8 +239,8 @@ static int emv_tal_parse_aef_record(
 		return EMV_TAL_RESULT_PSE_AEF_PARSE_FAILED;
 	}
 	if (aef_template_tlv.tag != EMV_TAG_70_DATA_TEMPLATE) {
-		// Record doesn't contain AEF template; ignore and continue
-		emv_debug_error("Record doesn't contain AEF template");
+		// No AEF template in PSE record; ignore and continue
+		emv_debug_error("Unexpected data element 0x%02X in PSE AEF record", tlv.tag);
 		return EMV_TAL_RESULT_PSE_AEF_INVALID;
 	}
 
