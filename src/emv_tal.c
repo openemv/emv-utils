@@ -127,9 +127,9 @@ int emv_tal_read_pse(
 
 	// Find Short File Identifier (SFI) for PSE directory Application Elementary File (AEF)
 	// See EMV 4.4 Book 1, 11.3.4, table 8
-	pse_sfi = emv_tlv_list_find(&pse_tlv_list, EMV_TAG_88_SFI);
+	pse_sfi = emv_tlv_list_find_const(&pse_tlv_list, EMV_TAG_88_SFI);
 	if (!pse_sfi) {
-		emv_debug_trace_msg("emv_tlv_list_find() failed; pse_sfi=%p", pse_sfi);
+		emv_debug_trace_msg("emv_tlv_list_find_const() failed; pse_sfi=%p", pse_sfi);
 
 		// Failed to find SFI for PSE records; terminal may continue session
 		// See EMV 4.4 Book 1, 12.3.2, step 1
@@ -544,8 +544,8 @@ int emv_tal_get_processing_options(
 	const void* data,
 	size_t data_len,
 	struct emv_tlv_list_t* list,
-	struct emv_tlv_t** aip,
-	struct emv_tlv_t** afl
+	const struct emv_tlv_t** aip,
+	const struct emv_tlv_t** afl
 )
 {
 	int r;
@@ -554,7 +554,7 @@ int emv_tal_get_processing_options(
 	uint16_t sw1sw2;
 	struct iso8825_tlv_t gpo_tlv;
 	struct emv_tlv_list_t gpo_list = EMV_TLV_LIST_INIT;
-	struct emv_tlv_t* tlv;
+	const struct emv_tlv_t* tlv;
 
 	if (!ttl || !list) {
 		// Invalid parameters; terminate session
@@ -696,7 +696,7 @@ int emv_tal_get_processing_options(
 	}
 
 	// Populate AIP pointer
-	tlv = emv_tlv_list_find(&gpo_list, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+	tlv = emv_tlv_list_find_const(&gpo_list, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 	if (!tlv) {
 		// Mandatory field missing; terminate session
 		// See EMV 4.4 Book 3, 6.5.8.4
@@ -709,7 +709,7 @@ int emv_tal_get_processing_options(
 	}
 
 	// Populate AFL pointer
-	tlv = emv_tlv_list_find(&gpo_list, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	tlv = emv_tlv_list_find_const(&gpo_list, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (!tlv) {
 		// Mandatory field missing; terminate session
 		// See EMV 4.4 Book 3, 6.5.8.4

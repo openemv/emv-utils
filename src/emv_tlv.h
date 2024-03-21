@@ -119,6 +119,23 @@ struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list);
 struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int tag);
 
 /**
+ * Const alternative for @ref emv_tlv_list_find
+ * @param list EMV TLV list
+ * @param tag EMV tag to find
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+#ifdef __GNUC__
+__attribute__((always_inline))
+#endif
+inline const struct emv_tlv_t* emv_tlv_list_find_const(
+	const struct emv_tlv_list_t* list,
+	unsigned int tag
+)
+{
+	return emv_tlv_list_find((struct emv_tlv_list_t*)list, tag);
+}
+
+/**
  * Determine whether EMV TLV list contains duplicate fields
  * @param list EMV TLV list
  * @return Boolean indicating whether EMV TLV list contains duplicate fields

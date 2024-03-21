@@ -127,8 +127,8 @@ int emv_dol_compute_data_length(const void* ptr, size_t len)
 int emv_dol_build_data(
 	const void* ptr,
 	size_t len,
-	struct emv_tlv_list_t* source1,
-	struct emv_tlv_list_t* source2,
+	const struct emv_tlv_list_t* source1,
+	const struct emv_tlv_list_t* source2,
 	void* data,
 	size_t* data_len
 )
@@ -156,9 +156,9 @@ int emv_dol_build_data(
 		}
 
 		// Find TLV
-		tlv = emv_tlv_list_find(source1, entry.tag);
+		tlv = emv_tlv_list_find_const(source1, entry.tag);
 		if (!tlv && source2) {
-			tlv = emv_tlv_list_find(source2, entry.tag);
+			tlv = emv_tlv_list_find_const(source2, entry.tag);
 		}
 		if (!tlv) {
 			// If TLV is not found, zero data output

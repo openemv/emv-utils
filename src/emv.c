@@ -458,7 +458,7 @@ int emv_initiate_application_processing(
 
 	// Process PDOL, if available
 	// See EMV 4.4 Book 3, 10.1
-	pdol = emv_tlv_list_find(&selected_app->tlv_list, EMV_TAG_9F38_PDOL);
+	pdol = emv_tlv_list_find_const(&selected_app->tlv_list, EMV_TAG_9F38_PDOL);
 	if (pdol) {
 		int dol_data_len;
 		size_t gpo_data_offset;
@@ -494,8 +494,8 @@ int emv_initiate_application_processing(
 		r = emv_dol_build_data(
 			pdol->value,
 			pdol->length,
-			(struct emv_tlv_list_t*)source1,
-			(struct emv_tlv_list_t*)source2,
+			source1,
+			source2,
 			gpo_data + gpo_data_offset,
 			&gpo_data_len
 		);
@@ -595,7 +595,7 @@ int emv_read_application_data(
 
 	// Process Application File Locator (AFL)
 	// See EMV 4.4 Book 3, 10.2
-	afl = emv_tlv_list_find(icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	afl = emv_tlv_list_find_const(icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (!afl) {
 		// AFL not found; terminate session
 		// See EMV 4.4 Book 3, 6.5.8.4

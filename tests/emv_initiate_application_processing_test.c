@@ -132,8 +132,8 @@ int main(void)
 	struct emv_tlv_list_t source2 = EMV_TLV_LIST_INIT;
 	struct emv_app_t* app = NULL;
 	struct emv_tlv_list_t icc = EMV_TLV_LIST_INIT;
-	struct emv_tlv_t* aip;
-	struct emv_tlv_t* afl;
+	const struct emv_tlv_t* aip;
+	const struct emv_tlv_t* afl;
 
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = &emul_ctx;
@@ -193,7 +193,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	aip = emv_tlv_list_find(&icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+	aip = emv_tlv_list_find_const(&icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 	if (!aip) {
 		fprintf(stderr, "Failed to find AIP\n");
 		r = 1;
@@ -208,7 +208,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	afl = emv_tlv_list_find(&icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	afl = emv_tlv_list_find_const(&icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (!afl) {
 		fprintf(stderr, "Failed to find AFL\n");
 		r = 1;
@@ -259,7 +259,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	aip = emv_tlv_list_find(&icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+	aip = emv_tlv_list_find_const(&icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 	if (!aip) {
 		fprintf(stderr, "Failed to find AIP\n");
 		r = 1;
@@ -274,7 +274,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	afl = emv_tlv_list_find(&icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	afl = emv_tlv_list_find_const(&icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (!afl) {
 		fprintf(stderr, "Failed to find AFL\n");
 		r = 1;
@@ -361,7 +361,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	aip = emv_tlv_list_find(&icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+	aip = emv_tlv_list_find_const(&icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 	if (!aip) {
 		fprintf(stderr, "Failed to find AIP\n");
 		r = 1;
@@ -376,7 +376,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	afl = emv_tlv_list_find(&icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	afl = emv_tlv_list_find_const(&icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (!afl) {
 		fprintf(stderr, "Failed to find AFL\n");
 		r = 1;

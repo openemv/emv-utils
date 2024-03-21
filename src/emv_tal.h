@@ -170,8 +170,8 @@ int emv_tal_get_processing_options(
 	const void* data,
 	size_t data_len,
 	struct emv_tlv_list_t* list,
-	struct emv_tlv_t** aip,
-	struct emv_tlv_t** afl
+	const struct emv_tlv_t** aip,
+	const struct emv_tlv_t** afl
 );
 
 /**
