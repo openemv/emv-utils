@@ -452,7 +452,12 @@ int emv_tlv_get_info(
 				"Uniquely identifies the account of a customer at a financial "
 				"institution as defined in ISO 13616.";
 			info->format = EMV_FORMAT_VAR;
-			return emv_tlv_value_get_string(tlv, EMV_FORMAT_CN, 34, value_str, value_str_len);
+			// EMV 4.4 Book 3 Annex A states that this field has format 'var'
+			// and a length of up to 34 bytes while Wikipedia states that an
+			// IBAN consists of 34 alphanumeric characters. Therefore this
+			// implementation assumes that this field can be interpreted as
+			// format 'an'.
+			return emv_tlv_value_get_string(tlv, EMV_FORMAT_AN, 34, value_str, value_str_len);
 
 		case EMV_TAG_5F54_BANK_IDENTIFIER_CODE:
 			info->tag_name = "Bank Identifier Code (BIC)";
