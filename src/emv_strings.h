@@ -694,6 +694,21 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Authorisation Response Code (field 8A)
+ * @param arc Authorisation Response Code field. Must be 2 bytes.
+ * @param arc_len Length of Authorisation Response Code field. Must be 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_auth_response_code_get_string(
+	const void* arc,
+	size_t arc_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif

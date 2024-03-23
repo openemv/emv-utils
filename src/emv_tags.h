@@ -94,6 +94,10 @@ __BEGIN_DECLS
 /// EMV tag 88 Short File Indicator (SFI). Template A5.
 #define EMV_TAG_88_SFI                                          (0x88)
 
+/// EMV tag 8A Authorisation Response Code
+/// @remark See ISO 8583:2021, J.2.2.2
+#define EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE                  (0x8A)
+
 /// EMV tag 8C Card Risk Management Data Object List 1 (CDOL1). Template 70 or 77.
 #define EMV_TAG_8C_CDOL1                                        (0x8C)
 

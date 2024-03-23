@@ -64,6 +64,7 @@ static int emv_iad_mchip_append_string_list(const uint8_t* iad, size_t iad_len, 
 static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static const char* emv_mastercard_device_type_get_string(const char* device_type);
+static const char* emv_arc_get_desc(const char* arc);
 
 int emv_strings_init(const char* isocodes_path, const char* mcc_path)
 {
@@ -251,6 +252,12 @@ int emv_tlv_get_info(
 				"high order bits set to zero.";
 			info->format = EMV_FORMAT_B;
 			return 0;
+
+		case EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE:
+			info->tag_name = "Authorisation Response Code";
+			info->tag_desc = "Code that defines the disposition of a message";
+			info->format = EMV_FORMAT_AN;
+			return emv_auth_response_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_8C_CDOL1:
 			info->tag_name = "Card Risk Management Data Object List 1 (CDOL1)";
@@ -5337,6 +5344,238 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26: emv_str_list_add(&itr, "C-4 kernel version 2.4 - 2.6"); break;
 		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7"); break;
 		default: emv_str_list_add(&itr, "C-4 kernel version unknown"); break;
+	}
+
+	return 0;
+}
+
+static const struct {
+	char arc[3];
+	const char* desc;
+} emv_auth_response_code_map[] = {
+	// See ISO 8583:2021, J.2.2.2, table J.3
+	{ "00", "Approved or completed successfully" },
+	{ "01", "Refer to card issuer" },
+	{ "02", "Refer to card issuer's special conditions" },
+	{ "03", "Invalid merchant" },
+	{ "04", "Pick-up" },
+	{ "05", "Do not honour" },
+	{ "06", "Error" },
+	{ "07", "Pick-up card, special condition" },
+	{ "08", "Honour with identification" },
+	{ "09", "Request in progress" },
+	{ "0A", "No reason to decline" },
+	{ "0B", "Approved but fees disputed" },
+	{ "0C", "Approved, unable to process online" },
+	{ "0D", "Approved, transaction processed offline" },
+	{ "0E", "Approved, transaction processed offline after referral" },
+	{ "10", "Approved for partial amount" },
+	{ "11", "Approved (VIP)" },
+	{ "12", "Invalid transaction" },
+	{ "13", "Invalid amount" },
+	{ "14", "Invalid card/cardholder number" },
+	{ "15", "No such issuer (invalid IIN)" },
+	{ "16", "Approved, update track 3" },
+	{ "17", "Customer cancellation" },
+	{ "18", "Customer dispute" },
+	{ "19", "Re-enter transaction" },
+	{ "1A", "Additional consumer authentication required" },
+	{ "1B", "Cashback not allowed" },
+	{ "1C", "Cashback amount exceeded" },
+	{ "1D", "Surcharge amount not permitted for card product" },
+	{ "1E", "Surcharge not permitted by selected network" },
+	{ "1F", "Exceeds pre-authorized amount" },
+	{ "1G", "Currency unacceptable to card issuer" },
+	{ "1H", "Authorization lifecycle unacceptable" },
+	{ "1I", "Authorization lifecycle has expired" },
+	{ "1J", "Message sequence number error" },
+	{ "1K", "Payment date invalid" },
+	{ "1L", "Stop payment order - Specific pre-authorized payment" },
+	{ "1M", "Stop payment order - All pre-authorized payments for merchant" },
+	{ "1N", "Stop payment order - Account" },
+	{ "1O", "Recurring data error" },
+	{ "1P", "Scheduled transactions exist" },
+	{ "1W", "Cheque already posted" },
+	{ "1X", "Declined, unable to process offline" },
+	{ "1Y", "Declined, transaction processed offline" },
+	{ "1Z", "Declined, transaction processed offline after referral" },
+	{ "20", "Invalid response" },
+	{ "21", "No action taken" },
+	{ "22", "Suspected malfunction" },
+	{ "23", "Unacceptable transaction fee" },
+	{ "24", "File update not supported by receiver" },
+	{ "25", "Unable to locate record on file" },
+	{ "26", "Duplicate file update record, old record replaced" },
+	{ "27", "File update field edit error" },
+	{ "28", "File update file locked out" },
+	{ "29", "File update not successful" },
+	{ "2A", "Duplicate, new record rejected" },
+	{ "2B", "Unknown file" },
+	{ "2C", "Invalid security code" },
+	{ "2D", "Database error" },
+	{ "2E", "Update not allowed" },
+	{ "2F", "Not authorized and fees disputed" },
+	{ "30", "Format error" },
+	{ "31", "Acquirer bank not supported" },
+	{ "32", "Completed partially" },
+	{ "33", "Expired card" },
+	{ "34", "Suspected fraud" },
+	{ "35", "Card acceptor contact acquirer" },
+	{ "36", "Restricted card" },
+	{ "37", "Card acceptor call acquirer security" },
+	{ "38", "Allowable PIN tries exceeded" },
+	{ "39", "No credit account" },
+	{ "3A", "Suspected counterfeit card, pick up card" },
+	{ "3B", "Daily withdrawal uses exceeded" },
+	{ "3C", "Daily withdrawal amount exceeded" },
+	{ "40", "Requested function not supported" },
+	{ "41", "Lost card, pick-up" },
+	{ "42", "No universal account" },
+	{ "43", "Stolen card, pick-up" },
+	{ "44", "No investment account" },
+	{ "45", "No account of type requested" },
+	{ "46", "Closed account, or restricted for closing" },
+	{ "47", "From account bad status" },
+	{ "48", "To account bad status" },
+	{ "49", "Bad debt" },
+	{ "4A", "Card not effective" },
+	{ "4B", "Closed savings account, or restricted for closing" },
+	{ "4C", "Closed credit account or restricted for closing" },
+	{ "4D", "Closed credit facility cheque account or restricted for closing" },
+	{ "4E", "Closed cheque account or restricted for closing" },
+	{ "51", "Not sufficient funds" },
+	{ "52", "No chequing account" },
+	{ "53", "No savings account" },
+	{ "54", "Expired card" },
+	{ "55", "Incorrect personal identification number" },
+	{ "56", "No card record" },
+	{ "57", "Transaction not permitted to cardholder" },
+	{ "58", "Transaction not permitted to terminal" },
+	{ "59", "Suspected fraud" },
+	{ "5A", "Suspected counterfeit card" },
+	{ "5B", "Transaction does not fulfill Anti-Money Laundering requirements" },
+	{ "5C", "Transaction not supported by the card issuer" },
+	{ "60", "Card acceptor contact acquirer" },
+	{ "61", "Exceeds withdrawal amount limit" },
+	{ "62", "Restricted card" },
+	{ "63", "Security violation" },
+	{ "64", "Original amount incorrect" },
+	{ "65", "Exceeds withdrawal frequency limit" },
+	{ "66", "Card acceptor call acquirer's security department" },
+	{ "67", "Hard capture (requires that card be picked up at ATM)" },
+	{ "68", "Response received too late" },
+	{ "6P", "Verification data failed" },
+	{ "6Q", "No communication keys available for use" },
+	{ "6R", "MAC key sync error" },
+	{ "6S", "MAC incorrect" },
+	{ "6T", "Security software/hardware error - try again" },
+	{ "6U", "Security software/hardware error - do not retry" },
+	{ "6V", "Encryption key sync error" },
+	{ "6W", "Key verification failed. Key check value does not match" },
+	{ "6X", "Key sync error" },
+	{ "6Y", "Missing required data to verify/process PIN" },
+	{ "6Z", "Invalid PIN block" },
+	{ "70", "PIN data required" },
+	{ "71", "New PIN invalid" },
+	{ "72", "PIN change required" },
+	{ "73", "PIN is not allowed for transaction" },
+	{ "74", "PIN length error" },
+	{ "75", "Allowable number of PIN tries exceeded" },
+	{ "8A", "Reconciled, in balance" },
+	{ "8B", "Amount not reconciled, totals provided" },
+	{ "8C", "Totals not available" },
+	{ "8D", "Not reconciled, totals provided" },
+	{ "8E", "Ineligible to receive financial position information" },
+	{ "8F", "Reconciliation cutover or checkpoint error" },
+	{ "8G", "Advice acknowledged, no financial liability accepted" },
+	{ "8H", "Advice acknowledged, financial liability accepted" },
+	{ "8I", "Message number out of sequence" },
+	{ "8W", "Perform Stand-In Processing (STIP)" },
+	{ "8X", "Currently unable to perform request; try later" },
+	{ "8Y", "Card issuer signed off" },
+	{ "8Z", "Card issuer timed out" },
+	{ "90", "Cutoff is in process (switch ending a day's business and starting the next. Transaction can be sent again in a few minutes)" },
+	{ "91", "Issuer or switch is unavailable or inoperative" },
+	{ "92", "Financial institution or intermediate network facility cannot be found for routing" },
+	{ "93", "Transaction cannot be completed. Violation of law" },
+	{ "94", "Duplicate transmission" },
+	{ "95", "Reconcile error" },
+	{ "96", "System malfunction" },
+	{ "9A", "Violation of business arrangement" },
+	{ "9B", "No matching original transaction" },
+	{ "9C", "Original transaction was declined" },
+	{ "9D", "Bank not found" },
+	{ "9E", "Bank not effective" },
+	{ "9F", "Information not on file" },
+};
+
+static const char* emv_arc_get_desc(const char* arc)
+{
+	for (size_t i = 0; i < sizeof(emv_auth_response_code_map) / sizeof(emv_auth_response_code_map[0]); ++i) {
+		if (strncmp(emv_auth_response_code_map[i].arc, arc, 2) == 0) {
+			return emv_auth_response_code_map[i].desc;
+		}
+	}
+
+	return NULL;
+}
+
+int emv_auth_response_code_get_string(
+	const void* arc,
+	size_t arc_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	const char* arc_desc;
+
+	if (!arc || !arc_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+	str[0] = 0;
+
+	if (str_len < 3) {
+		// Insufficient length for 2-character Authorisation Response Code
+		return -2;
+	}
+
+	if (arc_len != 2) {
+		// Authorisation Response Code (field 8A) must be 2 bytes
+		return 1;
+	}
+
+	// Stringify 2-byte Authorisation Response Code
+	r = emv_format_an_get_string(arc, 2, str, str_len);
+	if (r) {
+		// Empty string on error
+		str[0] = 0;
+		return r;
+	}
+
+	if (str_len < 10) {
+		// Insufficient length for Authorisation Response Code description
+		// Output string contains 2-character Authorisation Response Code
+		return 0;
+	}
+
+	// Append Authorisation Response Code description
+	arc_desc = emv_arc_get_desc(arc);
+	if (!arc_desc) {
+		// Unknown Authorisation Response Code description
+		// Output string contains 2-character Authorisation Response Code
+		return 0;
+	}
+	r = snprintf(str + 2, str_len - 2, " - %s", arc_desc);
+	if (r < 0) {
+		// Unknown error; preserve 2-character Authorisation Response Code
+		str[2] = 0;
+		return -1;
 	}
 
 	return 0;
