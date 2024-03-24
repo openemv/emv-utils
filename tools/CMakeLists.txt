@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright (c) 2022-2023 Leon Lynch
+# Copyright (c) 2022-2024 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -580,6 +580,84 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	set_tests_properties(emv_decode_9F1D_test2
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION ${emv_decode_9F1D_test2_regex}
+	)
+
+	# From actual Visa transaction
+	add_test(NAME emv_decode_issuer_response_test1
+		COMMAND emv-decode --tlv 89063130363630398A023030910A50FC6205038200003030
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_issuer_response_test1_regex
+		"^89 \\| Authorisation Code : \\[6\\] 31 30 36 36 30 39 \"106609\"[\r\n]"
+		"8A \\| Authorisation Response Code : \\[2\\] 30 30 \"00 - Approved or completed successfully\"[\r\n]"
+		"91 : \\[10\\] 50 FC 62 05 03 82 00 00 30 30[\r\n]"
+	)
+	set_tests_properties(emv_decode_issuer_response_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test1_regex}
+	)
+
+	# From actual Visa transaction
+	add_test(NAME emv_decode_issuer_response_test2
+		COMMAND emv-decode --tlv 89063632373132337211860F04DA9F6B0A000000050000919863528A0230309108A584F94900820000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_issuer_response_test2_regex
+		"^89 \\| Authorisation Code : \\[6\\] 36 32 37 31 32 33 \"627123\"[\r\n]"
+		"72 \\| Issuer Script Template 2 : \\[17\\][\r\n]"
+		"  86 \\| Issuer Script Command : \\[15\\] 04 DA 9F 6B 0A 00 00 00 05 00 00 91 98 63 52[\r\n]"
+		"8A \\| Authorisation Response Code : \\[2\\] 30 30 \"00 - Approved or completed successfully\"[\r\n]"
+		"91 : \\[8\\] A5 84 F9 49 00 82 00 00[\r\n]"
+	)
+	set_tests_properties(emv_decode_issuer_response_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test2_regex}
+	)
+
+	# From actual Mastercard transaction
+	add_test(NAME emv_decode_issuer_response_test3
+		COMMAND emv-decode --tlv 910AFC436535D614F37300108A0230308906383139353334
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_issuer_response_test3_regex
+		"^91 : \\[10\\] FC 43 65 35 D6 14 F3 73 00 10[\r\n]"
+		"8A \\| Authorisation Response Code : \\[2\\] 30 30 \"00 - Approved or completed successfully\"[\r\n]"
+		"89 \\| Authorisation Code : \\[6\\] 38 31 39 35 33 34 \"819534\"[\r\n]"
+	)
+	set_tests_properties(emv_decode_issuer_response_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test3_regex}
+	)
+
+	# From Implementing American Express EMV Acceptance on a Terminal (Oct 2007), page 16, table 5
+	add_test(NAME emv_decode_issuer_response_test4
+		COMMAND emv-decode --tlv 72459F18048000000086158424000210FEBF34F00B7CE770DC61DA847BFB1E59862504DA8E00200000000000000000420141035E031F020000000000000000AC7F4DF1D624A0ED
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_issuer_response_test4_regex
+		"^72 \\| Issuer Script Template 2 : \\[69\\][\r\n]"
+		"  9F18 \\| Issuer Script Identifier : \\[4\\] 80 00 00 00[\r\n]"
+		"  86 \\| Issuer Script Command : \\[21\\] 84 24 00 02 10 FE BF 34 F0 0B 7C E7 70 DC 61 DA 84 7B FB 1E 59[\r\n]"
+		"  86 \\| Issuer Script Command : \\[37\\] 04 DA 8E 00 20 00 00 00 00 00 00 00 00 42 01 41 03 5E 03 1F 02 00 00 00 00 00 00 00 00 AC 7F 4D F1 D6 24 A0 ED[\r\n]"
+	)
+	set_tests_properties(emv_decode_issuer_response_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test4_regex}
+	)
+
+	# From Implementing American Express EMV Acceptance on a Terminal (Oct 2007), page 17, table 6
+	add_test(NAME emv_decode_issuer_response_test5
+		COMMAND emv-decode --tlv 72179F180400004000860E04DA9F580900C7356286E3779889
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_issuer_response_test5_regex
+		"^72 \\| Issuer Script Template 2 : \\[23\\][\r\n]"
+		"  9F18 \\| Issuer Script Identifier : \\[4\\] 00 00 40 00[\r\n]"
+		"  86 \\| Issuer Script Command : \\[14\\] 04 DA 9F 58 09 00 C7 35 62 86 E3 77 98 89[\r\n]"
+	)
+	set_tests_properties(emv_decode_issuer_response_test5
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test5_regex}
 	)
 
 	if(WIN32)

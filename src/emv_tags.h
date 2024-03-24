@@ -61,6 +61,12 @@ __BEGIN_DECLS
 /// @remark Used as generic EMV data template
 #define EMV_TAG_70_DATA_TEMPLATE                                (0x70)
 
+/// EMV tag 71 Issuer Script Template 1
+#define EMV_TAG_71_ISSUER_SCRIPT_TEMPLATE_1                     (0x71)
+
+/// EMV tag 72 Issuer Script Template 2
+#define EMV_TAG_72_ISSUER_SCRIPT_TEMPLATE_2                     (0x72)
+
 /// EMV tag 73 Directory Discretionary Template. Template 61.
 #define EMV_TAG_73_DIRECTORY_DISCRETIONARY_TEMPLATE             (0x73)
 
@@ -88,11 +94,20 @@ __BEGIN_DECLS
 /// EMV tag 84 Dedicated File (DF) Name. Template 6F.
 #define EMV_TAG_84_DF_NAME                                      (0x84)
 
+/// EMV tag 86 Issuer Script Command. Template 71 or 72.
+#define EMV_TAG_86_ISSUER_SCRIPT_COMMAND                        (0x86)
+
 /// EMV tag 87 Application Priority Indicator. Template 61 or A5.
 #define EMV_TAG_87_APPLICATION_PRIORITY_INDICATOR               (0x87)
 
 /// EMV tag 88 Short File Indicator (SFI). Template A5.
 #define EMV_TAG_88_SFI                                          (0x88)
+
+/// EMV tag 89 Authorisation Code
+/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+/// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+/// @remark See M/Chip Requirements for Contact and Contactless, 28 November 2023, Appendix A
+#define EMV_TAG_89_AUTHORISATION_CODE                           (0x89)
 
 /// EMV tag 8A Authorisation Response Code
 /// @remark See ISO 8583:2021, J.2.2.2
@@ -245,6 +260,9 @@ __BEGIN_DECLS
 /// EMV tag 9F16 Merchant Identifier
 /// @remark Also used as the Card Acceptor Identification by ISO 8583. See EMV 4.4 Book 4, Annex C, Table 40
 #define EMV_TAG_9F16_MERCHANT_IDENTIFIER                        (0x9F16)
+
+/// EMV tag 9F18 Issuer Script Identifier. Template 71 or 72.
+#define EMV_TAG_9F18_ISSUER_SCRIPT_IDENTIFIER                   (0x9F18)
 
 /// EMV tag 9F1A Terminal Country Code
 #define EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE                      (0x9F1A)
