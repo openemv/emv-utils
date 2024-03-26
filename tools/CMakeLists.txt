@@ -590,7 +590,9 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	string(CONCAT emv_decode_issuer_response_test1_regex
 		"^89 \\| Authorisation Code : \\[6\\] 31 30 36 36 30 39 \"106609\"[\r\n]"
 		"8A \\| Authorisation Response Code : \\[2\\] 30 30 \"00 - Approved or completed successfully\"[\r\n]"
-		"91 : \\[10\\] 50 FC 62 05 03 82 00 00 30 30[\r\n]"
+		"91 \\| Issuer Authentication Data : \\[10\\] 50 FC 62 05 03 82 00 00 30 30[\r\n]"
+		"  - Authorisation Response Cryptogram \\(ARPC\\): 50FC620503820000[\r\n]"
+		"  - Authorisation Response Code: 00[\r\n]"
 	)
 	set_tests_properties(emv_decode_issuer_response_test1
 		PROPERTIES
@@ -607,7 +609,9 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"72 \\| Issuer Script Template 2 : \\[17\\][\r\n]"
 		"  86 \\| Issuer Script Command : \\[15\\] 04 DA 9F 6B 0A 00 00 00 05 00 00 91 98 63 52[\r\n]"
 		"8A \\| Authorisation Response Code : \\[2\\] 30 30 \"00 - Approved or completed successfully\"[\r\n]"
-		"91 : \\[8\\] A5 84 F9 49 00 82 00 00[\r\n]"
+		"91 \\| Issuer Authentication Data : \\[8\\] A5 84 F9 49 00 82 00 00[\r\n]"
+		"  - Authorisation Response Cryptogram \\(ARPC\\): A584F949[\r\n]"
+		"  - Card Status Update \\(CSU\\): 00820000[\r\n]"
 	)
 	set_tests_properties(emv_decode_issuer_response_test2
 		PROPERTIES
@@ -620,7 +624,9 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_issuer_response_test3_regex
-		"^91 : \\[10\\] FC 43 65 35 D6 14 F3 73 00 10[\r\n]"
+		"^91 \\| Issuer Authentication Data : \\[10\\] FC 43 65 35 D6 14 F3 73 00 10[\r\n]"
+		"  - Authorisation Response Cryptogram \\(ARPC\\): FC436535D614F373[\r\n]"
+		"  - M/Chip ARPC Response Code: 0010[\r\n]"
 		"8A \\| Authorisation Response Code : \\[2\\] 30 30 \"00 - Approved or completed successfully\"[\r\n]"
 		"89 \\| Authorisation Code : \\[6\\] 38 31 39 35 33 34 \"819534\"[\r\n]"
 	)

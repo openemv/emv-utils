@@ -128,6 +128,9 @@ __BEGIN_DECLS
 /// EMV tag 90 Issuer Public Key Certificate. Template 70 or 77.
 #define EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE                (0x90)
 
+/// EMV tag 91 Issuer Authentication Data
+#define EMV_TAG_91_ISSUER_AUTHENTICATION_DATA                   (0x91)
+
 /// EMV tag 92 Issuer Public Key Remainder. Template 70 or 77.
 #define EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER                  (0x92)
 

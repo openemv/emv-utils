@@ -333,6 +333,13 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_91_ISSUER_AUTHENTICATION_DATA:
+			info->tag_name = "Issuer Authentication Data";
+			info->tag_desc =
+				"Data sent to the ICC for online issuer authentication";
+			info->format = EMV_FORMAT_B;
+			return emv_issuer_auth_data_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER:
 			info->tag_name = "Issuer Public Key Remainder";
 			info->tag_desc =
@@ -5617,6 +5624,91 @@ int emv_auth_response_code_get_string(
 		// Unknown error; preserve 2-character Authorisation Response Code
 		str[2] = 0;
 		return -1;
+	}
+
+	return 0;
+}
+
+int emv_issuer_auth_data_get_string_list(
+	const uint8_t* iad,
+	size_t iad_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t itr;
+	char arc_str[3];
+
+	if (!iad || !iad_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (iad_len < 8 || iad_len > 32) {
+		// Issuer Authentication Data (field 91) must be 8 to 16 bytes.
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Issuer Authentication Data (field 91) is determined by the issuer
+	// while each payment scheme may have one or more different formats.
+	// Therefore some guesing may be required to partially decode it.
+	if (iad_len == 10) {
+		r = emv_format_an_get_string(iad + 8, 2, arc_str, sizeof(arc_str));
+		if (r == 0) {
+			// Likely Visa CVN10 or Visa CVN17
+			// 8-byte ARPC followed by 2-character ARPC Response Code resembling Authorisation Response Code
+			// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+			emv_str_list_add(&itr, "Authorisation Response Cryptogram (ARPC): %02X%02X%02X%02X%02X%02X%02X%02X",
+				iad[0], iad[1], iad[2], iad[3], iad[4], iad[5], iad[6], iad[7]
+			);
+			emv_str_list_add(&itr, "Authorisation Response Code: %s", arc_str);
+
+			return 0;
+
+		} else if ((iad[8] & 0xF0) == 0) { // Check for M/Chip RFU bits
+			// Likely M/Chip
+			// 8-byte ARPC followed by 2-byte ARPC Response code in M/Chip format
+			// NOTE: From unverified internet sources
+			emv_str_list_add(&itr, "Authorisation Response Cryptogram (ARPC): %02X%02X%02X%02X%02X%02X%02X%02X",
+				iad[0], iad[1], iad[2], iad[3], iad[4], iad[5], iad[6], iad[7]
+			);
+			emv_str_list_add(&itr, "M/Chip ARPC Response Code: %02X%02X", iad[8], iad[9]);
+
+			return 0;
+		}
+	}
+	if ((iad[4] & 0x70) == 0 && iad[6] == 0) { // Check for Visa CSU RFU bits
+		// Likely Visa CVN18 or Visa CVN'22'
+		// 4-byte ARPC followed by CSU and optional Proprietary Authentication Data
+		// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+		emv_str_list_add(&itr, "Authorisation Response Cryptogram (ARPC): %02X%02X%02X%02X",
+			iad[0], iad[1], iad[2], iad[3]
+		);
+		emv_str_list_add(&itr, "Card Status Update (CSU): %02X%02X%02X%02X",
+			iad[4], iad[5], iad[6], iad[7]
+		);
+		if (iad_len > 8) { // If extra data after CSU
+			if ((iad[4] & 0x80) == 0x80) { // CSU indicates Proprietary Authentication Data
+				emv_str_list_add(&itr, "Proprietary Authentication Data: %zu bytes", iad_len - 8);
+			} else if (iad_len == 10) {
+				// Two extra bytes but not Proprietary Authentication Data
+				r = emv_format_an_get_string(iad + 8, 2, arc_str, sizeof(arc_str));
+				if (r == 0) {
+					// Likely Visa CVN18 or Visa CVN'22' "third map issuers"
+					// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+					emv_str_list_add(&itr, "Authorisation Response Code: %s", arc_str);
+				}
+			}
+		}
+
+		return 0;
 	}
 
 	return 0;

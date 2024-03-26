@@ -709,6 +709,22 @@ int emv_auth_response_code_get_string(
 	size_t str_len
 );
 
+/**
+ * Stringify Issuer Authentication Data (field 91)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param iad Issuer Authentication Data field. Must be 8 to 16 bytes.
+ * @param iad_len Length of Issuer Authentication Data field. Must be 8 to 16 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_issuer_auth_data_get_string_list(
+	const uint8_t* iad,
+	size_t iad_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif
