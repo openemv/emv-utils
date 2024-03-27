@@ -267,7 +267,7 @@ int emv_tlv_get_info(
 			return 0;
 
 		case EMV_TAG_88_SFI:
-			info->tag_name = "Short File Indicator (SFI)";
+			info->tag_name = "Short File Identifier (SFI)";
 			info->tag_desc =
 				"Identifies the Application Elementary File (AEF) referenced "
 				"in commands related to a given Application Definition File "

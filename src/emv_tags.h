@@ -100,7 +100,7 @@ __BEGIN_DECLS
 /// EMV tag 87 Application Priority Indicator. Template 61 or A5.
 #define EMV_TAG_87_APPLICATION_PRIORITY_INDICATOR               (0x87)
 
-/// EMV tag 88 Short File Indicator (SFI). Template A5.
+/// EMV tag 88 Short File Identifier (SFI). Template A5.
 #define EMV_TAG_88_SFI                                          (0x88)
 
 /// EMV tag 89 Authorisation Code
