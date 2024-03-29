@@ -81,7 +81,7 @@ if(BUILD_EMV_TOOL)
 	endif()
 
 	add_executable(emv-tool emv-tool.c ../src/pcsc.c)
-	target_link_libraries(emv-tool PRIVATE print_helpers iso7816 emv emv_strings)
+	target_link_libraries(emv-tool PRIVATE print_helpers emv emv_strings)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-tool PRIVATE libargp::argp)
 	endif()

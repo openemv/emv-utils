@@ -2,7 +2,7 @@
  * @file print_helpers.h
  * @brief Helper functions for command line output
  *
- * Copyright (c) 2021, 2022 Leon Lynch
+ * Copyright (c) 2021-2022, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -70,6 +70,13 @@ void print_atr(const struct iso7816_atr_info_t* atr_info);
  * @param atr_info Parsed ATR info
  */
 void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info);
+
+/**
+ * Print R-APDU
+ * @param r_apdu Response Application Protocol Data Unit (C-APDU)
+ * @param r_apdu_len Length of Response Application Protocol Data Unit (C-APDU). Must be at least 4 bytes.
+ */
+void print_rapdu(const void* r_apdu, size_t r_apdu_len);
 
 /**
  * Print status bytes SW1-SW2

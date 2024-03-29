@@ -65,6 +65,11 @@ const char* iso7816_sw1sw2_get_string(uint8_t SW1, uint8_t SW2, char* str, size_
 	int r;
 	char* str_ptr = str;
 
+	if (!str || !str_len) {
+		// Invalid parameters
+		return NULL;
+	}
+
 	// Normal processing (see ISO 7816-4:2005, 5.1.3)
 	if (SW1 == 0x90 && SW2 == 0x00) {
 		snprintf(str, str_len, "Normal");
