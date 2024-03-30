@@ -25,6 +25,8 @@
 #include "emv_fields.h"
 #include "isocodes_lookup.h"
 #include "mcc_lookup.h"
+#include "iso7816_apdu.h"
+#include "iso7816_strings.h"
 
 #include <string.h>
 #include <stdarg.h>
@@ -256,7 +258,7 @@ int emv_tlv_get_info(
 			info->tag_name = "Issuer Script Command";
 			info->tag_desc = "Contains a command for transmission to the ICC";
 			info->format = EMV_FORMAT_VAR;
-			return 0;
+			return emv_capdu_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_87_APPLICATION_PRIORITY_INDICATOR:
 			info->tag_name = "Application Priority Indicator";
@@ -5712,4 +5714,86 @@ int emv_issuer_auth_data_get_string_list(
 	}
 
 	return 0;
+}
+
+int emv_capdu_get_string(
+	const uint8_t* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+)
+{
+	if (!c_apdu || !c_apdu_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	str[0] = 0; // NULL terminate
+
+	if (str_len < 4) {
+		// C-APDU must be least 4 bytes
+		// See EMV Contact Interface Specification v1.0, 9.4.1
+		return -2;
+	}
+
+	if (c_apdu[0] == 0xFF) {
+		// Class byte 'FF' is invalid
+		// See EMV Contact Interface Specification v1.0, 9.4.1
+		return 1;
+	}
+
+	if ((c_apdu[0] & ISO7816_CLA_PROPRIETARY) != 0) {
+		// Proprietary class interpreted as EMV
+		// Decode according to EMV 4.4 Book 3, 6.5
+
+		// Decode INS byte
+		const char* ins_str = NULL;
+		switch (c_apdu[1]) {
+			// See EMV 4.4 Book 3, 6.5.1.2
+			case 0x1E: ins_str = "APPLICATION BLOCK"; break;
+			// See EMV 4.4 Book 3, 6.5.2.2
+			case 0x18: ins_str = "APPLICATION UNBLOCK"; break;
+			// See EMV 4.4 Book 3, 6.5.3.2
+			case 0x16: ins_str = "CARD BLOCK"; break;
+			// See EMV 4.4 Book 3, 6.5.5.2
+			case 0xAE: ins_str = "GENERATE AC"; break;
+			// See EMV 4.4 Book 3, 6.5.7.2
+			case 0xCA: ins_str = "GET DATA"; break;
+			// See EMV 4.4 Book 3, 6.5.8.2
+			case 0xA8: ins_str = "GET PROCESSING OPTIONS"; break;
+			// See EMV 4.4 Book 3, 6.5.10.2
+			case 0x24: ins_str = "PIN CHANGE/UNBLOCK"; break;
+		}
+
+		if (!ins_str) {
+			// Unknown command
+			return 2;
+		}
+
+		strncpy(str, ins_str, str_len);
+		str[str_len - 1] = 0;
+
+		return 0;
+
+	} else {
+		const char* s;
+
+		s = iso7816_capdu_get_string(
+			c_apdu,
+			c_apdu_len,
+			str,
+			str_len
+		);
+		if (!s) {
+			// Failed to stringify ISO 7816 C-APDU
+			str[0] = 0;
+			return 3;
+		}
+
+		return 0;
+	}
 }

@@ -72,6 +72,13 @@ void print_atr(const struct iso7816_atr_info_t* atr_info);
 void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info);
 
 /**
+ * Print C-APDU
+ * @param c_apdu Command Application Protocol Data Unit (C-APDU)
+ * @param c_apdu_len Length of Command Application Protocol Data Unit (C-APDU). Must be at least 4 bytes.
+ */
+void print_capdu(const void* c_apdu, size_t c_apdu_len);
+
+/**
  * Print R-APDU
  * @param r_apdu Response Application Protocol Data Unit (C-APDU)
  * @param r_apdu_len Length of Response Application Protocol Data Unit (C-APDU). Must be at least 4 bytes.

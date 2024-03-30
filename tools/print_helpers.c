@@ -246,6 +246,36 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 	}
 }
 
+void print_capdu(const void* c_apdu, size_t c_apdu_len)
+{
+	int r;
+	const uint8_t* ptr = c_apdu;
+	char str[1024];
+
+	if (!c_apdu || !c_apdu_len) {
+		printf("(null)\n");
+		return;
+	}
+
+	for (size_t i = 0; i < c_apdu_len; i++) {
+		printf("%02X", ptr[i]);
+	}
+
+	r = emv_capdu_get_string(
+		c_apdu,
+		c_apdu_len,
+		str,
+		sizeof(str)
+	);
+	if (r) {
+		// Failed to parse C-APDU
+		printf("\n");
+		return;
+	}
+
+	printf(" (%s)\n", str);
+}
+
 void print_rapdu(const void* r_apdu, size_t r_apdu_len)
 {
 	const uint8_t* ptr = r_apdu;
@@ -558,6 +588,11 @@ static void print_emv_debug_internal(
 
 			case EMV_DEBUG_TYPE_ATR:
 				print_atr(buf);
+				return;
+
+			case EMV_DEBUG_TYPE_CAPDU:
+				printf("%s: ", str);
+				print_capdu(buf, buf_len);
 				return;
 
 			case EMV_DEBUG_TYPE_RAPDU:

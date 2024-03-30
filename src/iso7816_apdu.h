@@ -3,7 +3,7 @@
  * @brief ISO/IEC 7816 Application Protocol Data Unit (APDU)
  *        definitions and helpers
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -40,6 +40,11 @@ __BEGIN_DECLS
 
 /// Maximum length of R-APDU buffer in bytes
 #define ISO7816_RAPDU_MAX (ISO7816_RAPDU_DATA_MAX + 2)
+
+// ISO 7816 Class byte
+// See ISO 7816-4:2005, 5.1.1
+#define ISO7816_CLA_INTERINDUSTRY                               (0x00) ///< ISO 7816 C-APDU interindustry class
+#define ISO7816_CLA_PROPRIETARY                                 (0x80) ///< ISO 7816 C-APDU proprietary class
 
 /// ISO 7816 C-APDU cases. See ISO 7816-3:2006, 12.1.3
 enum iso7816_apdu_case_t {

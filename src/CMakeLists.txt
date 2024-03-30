@@ -340,6 +340,7 @@ target_include_directories(emv_strings
 )
 target_link_libraries(emv_strings
 	PRIVATE
+		iso7816 # Used by emv_strings.c
 		emv # Used by emv_strings.c
 		json-c::json-c # Used by isocodes_lookup.c
 )

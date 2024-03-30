@@ -2,7 +2,7 @@
  * @file iso7816_strings.c
  * @brief ISO/IEC 7816 string helper functions
  *
- * Copyright (c) 2021, 2022 Leon Lynch
+ * Copyright (c) 2021-2022, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,6 +20,7 @@
  */
 
 #include "iso7816_strings.h"
+#include "iso7816_apdu.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -58,6 +59,104 @@ static void iso7816_str_list_add(struct str_itr_t* itr, const char* str)
 
 	// NULL terminate string list
 	*itr->ptr = 0;
+}
+
+const char* iso7816_capdu_get_string(
+	const void* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+)
+{
+	const uint8_t* c_apdu_hdr = c_apdu;
+	const char* ins_str;
+
+	if (!c_apdu || !c_apdu_len || !str || !str_len) {
+		// Invalid parameters
+		return NULL;
+	}
+	str[0] = 0; // NULL terminate
+
+	if (str_len < 4) {
+		// C-APDU must be least 4 bytes
+		// See ISO 7816-4:2005, 5.1
+		return NULL;
+	}
+
+	if (c_apdu_hdr[0] == 0xFF) {
+		// Class byte 'FF' is invalid
+		// See ISO 7816-4:2005, 5.1.1
+		return NULL;
+	}
+
+	// Determine whether it is interindustry or proprietary
+	// See ISO 7816-4:2005, 5.1.1
+	if ((c_apdu_hdr[0] & ISO7816_CLA_PROPRIETARY) == 0) {
+		// Interindustry class
+		// Decode INS byte according to ISO 7816-4:2005, 5.1.2, table 4.2
+		switch (c_apdu_hdr[1]) {
+			case 0x04: ins_str = "DEACTIVATE FILE"; break;
+			case 0x0C: ins_str = "ERASE RECORD"; break;
+			case 0x0E:
+			case 0x0F: ins_str = "ERASE BINARY"; break;
+			case 0x10: ins_str = "PERFORM SCQL OPERATION"; break;
+			case 0x12: ins_str = "PERFORM TRANSACTION OPERATION"; break;
+			case 0x14: ins_str = "PERFORM USER OPERATION"; break;
+			case 0x20:
+			case 0x21: ins_str = "VERIFY"; break;
+			case 0x22: ins_str = "MANAGE SECURITY ENVIRONMENT"; break;
+			case 0x24: ins_str = "CHANGE REFERENCE DATA"; break;
+			case 0x26: ins_str = "DISABLE VERIFICATION REQUIREMENT"; break;
+			case 0x28: ins_str = "ENABLE VERIFICATION REQUIREMENT"; break;
+			case 0x2A: ins_str = "PERFORM SECURITY OPERATION"; break;
+			case 0x2C: ins_str = "RESET RETRY COUNTER"; break;
+			case 0x44: ins_str = "ACTIVATE FILE"; break;
+			case 0x46: ins_str = "GENERATE ASYMMETRIC KEY PAIR"; break;
+			case 0x70: ins_str = "MANAGE CHANNEL"; break;
+			case 0x82: ins_str = "EXTERNAL AUTHENTICATE"; break;
+			case 0x84: ins_str = "GET CHALLENGE"; break;
+			case 0x86:
+			case 0x87: ins_str = "GENERAL AUTHENTICATE"; break;
+			case 0x88: ins_str = "INTERNAL AUTHENTICATE"; break;
+			case 0xA0:
+			case 0xA1: ins_str = "SEARCH BINARY"; break;
+			case 0xA2: ins_str = "SEARCH RECORD"; break;
+			case 0xA4: ins_str = "SELECT"; break;
+			case 0xB0:
+			case 0xB1: ins_str = "READ BINARY"; break;
+			case 0xB2:
+			case 0xB3: ins_str = "READ RECORD"; break;
+			case 0xC0: ins_str = "GET RESPONSE"; break;
+			case 0xC2:
+			case 0xC3: ins_str = "ENVELOPE"; break;
+			case 0xCA:
+			case 0xCB: ins_str = "GET DATA"; break;
+			case 0xD0:
+			case 0xD1: ins_str = "WRITE BINARY"; break;
+			case 0xD2: ins_str = "WRITE RECORD"; break;
+			case 0xD6:
+			case 0xD7: ins_str = "UPDATE BINARY"; break;
+			case 0xDA:
+			case 0xDB: ins_str = "PUT DATA"; break;
+			case 0xDC:
+			case 0xDD: ins_str = "UPDATE RECORD"; break;
+			case 0xE0: ins_str = "CREATE FILE"; break;
+			case 0xE2: ins_str = "APPEND RECORD"; break;
+			case 0xE4: ins_str = "DELETE FILE"; break;
+			case 0xE6: ins_str = "TERMINATE DF"; break;
+			case 0xE8: ins_str = "TERMINATE EF"; break;
+			case 0xFE: ins_str = "TERMINATE CARD USAGE"; break;
+
+			default: return NULL; // Unknown command
+		}
+	} else {
+		return NULL; // Unknown proprietary command
+	}
+
+	strncpy(str, ins_str, str_len);
+	str[str_len - 1] = 0;
+
+	return str;
 }
 
 const char* iso7816_sw1sw2_get_string(uint8_t SW1, uint8_t SW2, char* str, size_t str_len)

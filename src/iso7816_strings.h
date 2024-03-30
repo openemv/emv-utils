@@ -2,7 +2,7 @@
  * @file iso7816_strings.h
  * @brief ISO/IEC 7816 string helper functions
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -84,6 +84,21 @@ __BEGIN_DECLS
 #define ISO7816_CARD_CAPS_CHAN_NUM_ASSIGN_IFD   (0x08) ///< Card capabilities: logical channel number assignment by the interface device
 #define ISO7816_CARD_CAPS_CHAN_NUM_ASSIGN_NONE  (0x00) ///< Card capabilities: no logical channel
 #define ISO7816_CARD_CAPS_MAX_CHAN_MASK         (0x07) ///< Card capabilities mask for maximum number of logical channels
+
+/**
+ * Stringify ISO/IEC 7816 Command Application Protocol Data Unit (C-APDU)
+ * @param c_apdu Command Application Protocol Data Unit (C-APDU). Must be at least 4 bytes.
+ * @param c_apdu_len Length of Command Application Protocol Data Unit (C-APDU). Must be at least 4 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso7816_capdu_get_string(
+	const void* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+);
 
 /**
  * Stringify ISO/IEC 7816 status bytes (SW1-SW2)

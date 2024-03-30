@@ -725,6 +725,21 @@ int emv_issuer_auth_data_get_string_list(
 	size_t str_len
 );
 
+/**
+ * Stringify Command Application Protocol Data Unit (C-APDU)
+ * @param c_apdu Command Application Protocol Data Unit (C-APDU). Must be at least 4 bytes.
+ * @param c_apdu_len Length of Command Application Protocol Data Unit (C-APDU). Must be at least 4 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_capdu_get_string(
+	const uint8_t* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+);
+
 __END_DECLS
 
 #endif
