@@ -58,10 +58,6 @@ int emv_ttl_trx(
 
 	emv_debug_capdu(c_apdu, c_apdu_len);
 
-	if (c_apdu_len < 4) {
-		return -1;
-	}
-
 	// Determine the APDU case
 	// See ISO 7816-3:2006, 12.1.3, table 13
 	// See EMV Contact Interface Specification v1.0, 9.3.1.1
@@ -73,27 +69,16 @@ int emv_ttl_trx(
 	// Case 3: CLA INS P1 P2 Lc [Data(Lc)]
 	// Case 4: CLA INS P1 P2 Lc [Data(Lc)] Le
 
-	if (c_apdu_len == 4) {
-		apdu_case = ISO7816_APDU_CASE_1;
-		emv_debug_apdu("APDU case 1");
-	} else if (c_apdu_len == 5) {
-		apdu_case = ISO7816_APDU_CASE_2S;
-		emv_debug_apdu("APDU case 2S");
-	} else {
-		// Extract byte C5 from header; See ISO 7816-3:2006, 12.1.3
-		unsigned int C5 = *(uint8_t*)(c_apdu + 4);
+	apdu_case = iso7816_apdu_case(c_apdu, c_apdu_len);
+	switch (apdu_case) {
+		case ISO7816_APDU_CASE_1: emv_debug_apdu("APDU case 1"); break;
+		case ISO7816_APDU_CASE_2S: emv_debug_apdu("APDU case 2S"); break;
+		case ISO7816_APDU_CASE_3S: emv_debug_apdu("APDU case 3S"); break;
+		case ISO7816_APDU_CASE_4S: emv_debug_apdu("APDU case 4S"); break;
 
-		if (C5 != 0 && C5 + 5 == c_apdu_len) { // If C5 is Lc and Le is absent
-			apdu_case = ISO7816_APDU_CASE_3S;
-			emv_debug_apdu("APDU case 3S");
-		} else if (C5 != 0 && C5 + 6 == c_apdu_len) { // If C5 is Lc and Le is present
-			apdu_case = ISO7816_APDU_CASE_4S;
-			emv_debug_apdu("APDU case 4S");
-		} else {
-			// Unknown APDU case
+		default:
 			emv_debug_error("Unknown APDU case");
 			return -2;
-		}
 	}
 
 	if (ctx->cardreader.mode == EMV_CARDREADER_MODE_APDU) {

@@ -24,6 +24,7 @@
 #define ISO7816_APDU_H
 
 #include <sys/cdefs.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -56,6 +57,63 @@ enum iso7816_apdu_case_t {
 	ISO7816_APDU_CASE_4S,                       ///< ISO 7816 C-APDU case 4 for short Lc/Le fields: CLA, INS, P1, P2, Lc, Data(Lc), Le
 	ISO7816_APDU_CASE_4E,                       ///< ISO 7816 C-APDU case 4 for long Lc/Le fields: CLA, INS, P1, P2, Lc(3), Data(Lc), Le(3)
 };
+
+/**
+ * Determine ISO 7816 Command Application Protocol Data Unit (C-APDU) case
+ * @remark See ISO 7816-3:2006, 12.1.3
+ * @param c_apdu Command Application Protocol Data Unit (C-APDU) buffer
+ * @param c_apdu_len Length of Application Protocol Data Unit (C-APDU) buffer in bytes
+ * @return Less than zero for error. Otherwise @ref iso7816_apdu_case_t
+ */
+static inline int iso7816_apdu_case(const void* c_apdu, size_t c_apdu_len)
+{
+	if (!c_apdu || c_apdu_len < 4) {
+		return -1;
+	}
+
+	if (c_apdu_len == 4) {
+		return ISO7816_APDU_CASE_1;
+	} else if (c_apdu_len == 5) {
+		return ISO7816_APDU_CASE_2S;
+	} else {
+		// Extract byte C5 from header
+		// See ISO 7816-3:2006, 12.1.3, table 13
+		unsigned int C5 = *(uint8_t*)(c_apdu + 4);
+
+		if (C5 != 0) { // If C5 is Lc
+			if (5 + C5 == c_apdu_len) { // Le is absent
+				return ISO7816_APDU_CASE_3S;
+			}
+			if (6 + C5 == c_apdu_len) { // Le is present
+				return ISO7816_APDU_CASE_4S;
+			}
+		} else { // If C5 is zero
+			if (c_apdu_len == 7) {
+				return ISO7816_APDU_CASE_2E;
+			}
+
+			if (c_apdu_len > 7) {
+				// Extract bytes C6C7 from header
+				// See ISO 7816-3:2006, 12.1.3, table 13
+				unsigned int C6 = *(uint8_t*)(c_apdu + 6);
+				unsigned int C7 = *(uint8_t*)(c_apdu + 7);
+				unsigned int C6C7 = (C6 << 8) + C7;
+
+				if (C6C7) {
+					if (7 + C6C7 == c_apdu_len) { // Le is absent
+						return ISO7816_APDU_CASE_3E;
+					}
+					if (9 + C6C7 == c_apdu_len) { // Le is present
+						return ISO7816_APDU_CASE_4E;
+					}
+				}
+			}
+		}
+	}
+
+	// Unknown C-APDU case
+	return -2;
+}
 
 /// ISO 7816 C-APDU case 1 structure
 struct iso7816_apdu_case_1_t {
