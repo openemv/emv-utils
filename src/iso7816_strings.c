@@ -22,6 +22,7 @@
 #include "iso7816_strings.h"
 #include "iso7816_apdu.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -59,6 +60,122 @@ static void iso7816_str_list_add(struct str_itr_t* itr, const char* str)
 
 	// NULL terminate string list
 	*itr->ptr = 0;
+}
+
+static const char* iso7816_capdu_select_get_string(
+	const uint8_t* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+)
+{
+	enum iso7816_apdu_case_t apdu_case;
+	const struct iso7816_apdu_case_2s_t* apdu_case_2s = NULL;
+	const struct iso7816_apdu_case_4s_t* apdu_case_4s = NULL;
+	bool file_id_printable;
+	char file_id_str[ISO7816_CAPDU_DATA_MAX * 2 + 1];
+	const char* occurence_str;
+
+	if (!c_apdu || !c_apdu_len || !str || !str_len) {
+		// Invalid parameters
+		return NULL;
+	}
+
+	if ((c_apdu[0] & ISO7816_CLA_PROPRIETARY) != 0 ||
+		c_apdu[1] != 0xA4
+	) {
+		// Not SELECT
+		return NULL;
+	}
+
+	// SELECT must be APDU case 2S or case 4S
+	apdu_case = iso7816_apdu_case(c_apdu, c_apdu_len);
+	switch (apdu_case) {
+		case ISO7816_APDU_CASE_2S:
+			apdu_case_2s = (void*)c_apdu;
+			break;
+
+		case ISO7816_APDU_CASE_4S:
+			apdu_case_4s = (void*)c_apdu;
+			break;
+
+		default:
+			// Invalid APDU case for SELECT
+			return NULL;
+	}
+
+	// Determine whether master file is being selected
+	// See ISO 7816-4:2005, 7.1.1
+	if (c_apdu[2] == 0x00 && c_apdu[3] == 0x00) { // If P1 and P2 are zero
+		// If no command data field or command data field is 3F00
+		if (apdu_case_2s ||
+			(
+				apdu_case_4s &&
+				apdu_case_4s->Lc == 2 &&
+				apdu_case_4s->data[0] == 0x3F &&
+				apdu_case_4s->data[1] == 0x00
+			)
+		) {
+			snprintf(str, str_len, "SELECT Master File");
+			return str;
+		}
+	} else if (!apdu_case_4s) {
+		// Must be APDU case 4S if P1 or P2 are non-zero
+		return NULL;
+	}
+
+	// Determine whether file identifier is printable
+	file_id_printable = true;
+	for (size_t i = 0; i < apdu_case_4s->Lc; ++i) {
+		if (apdu_case_4s->data[i] < 0x20 || apdu_case_4s->data[i] > 0x7E) {
+			file_id_printable = false;
+			break;
+		}
+	}
+	if (file_id_printable) {
+		snprintf(file_id_str, sizeof(file_id_str), "%.*s", apdu_case_4s->Lc, apdu_case_4s->data);
+	} else {
+		for (size_t i = 0; i < apdu_case_4s->Lc; ++i) {
+			snprintf(
+				file_id_str + (i * 2),
+				sizeof(file_id_str) - 1 - (i * 2),
+				"%02X",
+				apdu_case_4s->data[i]
+			);
+		}
+	}
+
+	// Decode P2 for file occurence
+	// See ISO 7816-4:2005, 7.1.1, table 40
+	switch (apdu_case_4s->P2 & ISO7816_SELECT_P2_FILE_OCCURRENCE_MASK) {
+		case ISO7816_SELECT_P2_FILE_OCCURRENCE_FIRST:
+			occurence_str = "first";
+			break;
+
+		case ISO7816_SELECT_P2_FILE_OCCURRENCE_LAST:
+			occurence_str = "last";
+			break;
+
+		case ISO7816_SELECT_P2_FILE_OCCURRENCE_NEXT:
+			occurence_str = "next";
+			break;
+
+		case ISO7816_SELECT_P2_FILE_OCCURRENCE_PREVIOUS:
+			occurence_str = "previous";
+			break;
+
+		default:
+			// Invalid P2
+			return NULL;
+	}
+
+	// Stringify
+	snprintf(str, str_len, "SELECT %s %s",
+		occurence_str,
+		file_id_str
+	);
+
+	return str;
 }
 
 const char* iso7816_capdu_get_string(
@@ -121,7 +238,7 @@ const char* iso7816_capdu_get_string(
 			case 0xA0:
 			case 0xA1: ins_str = "SEARCH BINARY"; break;
 			case 0xA2: ins_str = "SEARCH RECORD"; break;
-			case 0xA4: ins_str = "SELECT"; break;
+			case 0xA4: return iso7816_capdu_select_get_string(c_apdu, c_apdu_len, str, str_len);
 			case 0xB0:
 			case 0xB1: ins_str = "READ BINARY"; break;
 			case 0xB2:

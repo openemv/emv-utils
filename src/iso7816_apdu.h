@@ -47,6 +47,14 @@ __BEGIN_DECLS
 #define ISO7816_CLA_INTERINDUSTRY                               (0x00) ///< ISO 7816 C-APDU interindustry class
 #define ISO7816_CLA_PROPRIETARY                                 (0x80) ///< ISO 7816 C-APDU proprietary class
 
+// ISO 7816 SELECT (A4) command, P2 byte
+// See ISO 7816-4:2005, 7.1.1, table 40
+#define ISO7816_SELECT_P2_FILE_OCCURRENCE_MASK                  (0x03) ///< ISO 7816 SELECT P2 mask for file occurrence
+#define ISO7816_SELECT_P2_FILE_OCCURRENCE_FIRST                 (0x00) ///< ISO 7816 SELECT: First occurrence
+#define ISO7816_SELECT_P2_FILE_OCCURRENCE_LAST                  (0x01) ///< ISO 7816 SELECT: Last occurrence
+#define ISO7816_SELECT_P2_FILE_OCCURRENCE_NEXT                  (0x02) ///< ISO 7816 SELECT: Next occurrence
+#define ISO7816_SELECT_P2_FILE_OCCURRENCE_PREVIOUS              (0x03) ///< ISO 7816 SELECT: Previous occurrence
+
 /// ISO 7816 C-APDU cases. See ISO 7816-3:2006, 12.1.3
 enum iso7816_apdu_case_t {
 	ISO7816_APDU_CASE_1,                        ///< ISO 7816 C-APDU case 1: CLA, INS, P1, P2
