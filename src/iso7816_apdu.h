@@ -55,6 +55,21 @@ __BEGIN_DECLS
 #define ISO7816_SELECT_P2_FILE_OCCURRENCE_NEXT                  (0x02) ///< ISO 7816 SELECT: Next occurrence
 #define ISO7816_SELECT_P2_FILE_OCCURRENCE_PREVIOUS              (0x03) ///< ISO 7816 SELECT: Previous occurrence
 
+// ISO 7816 READ RECORD (B2 / B3) command, P2 byte
+// See ISO 7816-4:2005, 7.3.3, table 49
+#define ISO7816_READ_RECORD_P2_SHORT_EF_ID_MASK                 (0xF8) ///< ISO 7816 READ RECORD P2 mask for Short EF Identifier
+#define ISO7816_READ_RECORD_P2_SHORT_EF_ID_SHIFT                (3) ///< ISO 7816 READ RECORD P2 shift for Short EF Identifier
+#define ISO7816_READ_RECORD_P2_RECORD_NUMBER                    (0x04) ///< ISO 7816 READ RECORD P2 bit for record number in P1, otherwise record identifer in P1
+#define ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_MASK        (0x03) ///< ISO 7816 READ RECORD P2 mask for file occurrence
+#define ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_FIRST       (0x00) ///< ISO 7816 READ RECORD: First occurrence
+#define ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_LAST        (0x01) ///< ISO 7816 READ RECORD: Last occurrence
+#define ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_NEXT        (0x02) ///< ISO 7816 READ RECORD: Next occurrence
+#define ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_PREVIOUS    (0x03) ///< ISO 7816 READ RECORD: Previous occurrence
+#define ISO7816_READ_RECORD_P2_RECORD_SEQUENCE_MASK             (0x03) ///< ISO 7816 READ RECORD P2 mask for record sequence
+#define ISO7816_READ_RECORD_P2_RECORD_SEQUENCE_ONE              (0x00) ///< ISO 7816 READ RECORD: Read record P1
+#define ISO7816_READ_RECORD_P2_RECORD_SEQUENCE_P1_TO_LAST       (0x01) ///< ISO 7816 READ RECORD: Read all records from P1 up to the last
+#define ISO7816_READ_RECORD_P2_RECORD_SEQUENCE_LAST_TO_P1       (0x02) ///< ISO 7816 READ RECORD: Read all records from the last up to P1
+
 /// ISO 7816 C-APDU cases. See ISO 7816-3:2006, 12.1.3
 enum iso7816_apdu_case_t {
 	ISO7816_APDU_CASE_1,                        ///< ISO 7816 C-APDU case 1: CLA, INS, P1, P2

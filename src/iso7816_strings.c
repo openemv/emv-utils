@@ -178,6 +178,138 @@ static const char* iso7816_capdu_select_get_string(
 	return str;
 }
 
+static const char* iso7816_capdu_read_record_get_string(
+	const uint8_t* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+)
+{
+	enum iso7816_apdu_case_t apdu_case;
+	uint8_t P1;
+	uint8_t P2;
+	char record_str[32]; // "current record" / "record number XX" / "record identifer XX"
+	unsigned int short_ef_id;
+
+	if ((c_apdu[0] & ISO7816_CLA_PROPRIETARY) != 0 ||
+		(c_apdu[1] != 0xB2 && c_apdu[1] != 0xB3)
+	) {
+		// Not READ RECORD
+		return NULL;
+	}
+
+	// READ RECORD must be APDU case 2S/2E or case 4S/4E
+	apdu_case = iso7816_apdu_case(c_apdu, c_apdu_len);
+	switch (apdu_case) {
+		case ISO7816_APDU_CASE_2S:
+		case ISO7816_APDU_CASE_2E:
+			if (c_apdu[1] != 0xB2) {
+				// INS must be B2 for READ RECORD case 2S/2E
+				return NULL;
+			}
+			break;
+
+		case ISO7816_APDU_CASE_4S:
+		case ISO7816_APDU_CASE_4E:
+			if (c_apdu[1] != 0xB3) {
+				// INS must be B3 for READ RECORD case 4S/4E
+				return NULL;
+			}
+			break;
+
+		default:
+			// Invalid APDU case for READ RECORD
+			return NULL;
+	}
+
+	// Extract P1 and P2 for convenience
+	P1 = c_apdu[2];
+	P2 = c_apdu[3];
+
+	// P1 is record identifier/number (zero is current record)
+	if (P1 != 0 && P1 != 0xFF) {
+		if (P2 & ISO7816_READ_RECORD_P2_RECORD_NUMBER) {
+			snprintf(record_str, sizeof(record_str), "record number %u", P1);
+		} else {
+			snprintf(record_str, sizeof(record_str), "record identifier %u", P1);
+		}
+	} else if (P1 == 0) {
+		snprintf(record_str, sizeof(record_str), "current record");
+	} else {
+		// Invalid P1
+		return NULL;
+	}
+
+	// Decode P2
+	// See ISO 7816-4:2005, 7.3.3, table 49
+	short_ef_id = (P2 & ISO7816_READ_RECORD_P2_SHORT_EF_ID_MASK)
+		>> ISO7816_READ_RECORD_P2_SHORT_EF_ID_SHIFT;
+	if (P2 & ISO7816_READ_RECORD_P2_RECORD_NUMBER) {
+		// P1 is record number and P2 describes record sequence and also
+		// output string format
+		switch (P2 & ISO7816_READ_RECORD_P2_RECORD_SEQUENCE_MASK) {
+			case ISO7816_READ_RECORD_P2_RECORD_SEQUENCE_ONE:
+				snprintf(str, str_len, "READ RECORD from short EF %u, %s",
+					short_ef_id,
+					record_str
+				);
+				return str;
+
+			case ISO7816_READ_RECORD_P2_RECORD_SEQUENCE_P1_TO_LAST:
+				snprintf(str, str_len, "READ RECORD from short EF %u, "
+					"all records from %s up to last",
+					short_ef_id,
+					record_str
+				);
+				return str;
+
+			case ISO7816_READ_RECORD_P2_RECORD_SEQUENCE_LAST_TO_P1:
+				snprintf(str, str_len, "READ RECORD from short EF %u, "
+					"all records from the last up to %s",
+					short_ef_id,
+					record_str
+				);
+				return str;
+
+			default:
+				// Invalid P2
+				return NULL;
+		}
+	} else {
+		// P1 is record identifier and P2 describes record occurence
+		const char* occurence_str;
+		switch (P2 & ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_MASK) {
+			case ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_FIRST:
+				occurence_str = "first";
+				break;
+
+			case ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_LAST:
+				occurence_str = "last";
+				break;
+
+			case ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_NEXT:
+				occurence_str = "next";
+				break;
+
+			case ISO7816_READ_RECORD_P2_RECORD_ID_OCCURRENCE_PREVIOUS:
+				occurence_str = "previous";
+				break;
+
+			default:
+				// Invalid P2
+				return NULL;
+		}
+
+		snprintf(str, str_len, "READ RECORD from short EF %u, "
+			"%s occurence of %s",
+			short_ef_id,
+			occurence_str,
+			record_str
+		);
+		return str;
+	}
+}
+
 const char* iso7816_capdu_get_string(
 	const void* c_apdu,
 	size_t c_apdu_len,
@@ -242,7 +374,7 @@ const char* iso7816_capdu_get_string(
 			case 0xB0:
 			case 0xB1: ins_str = "READ BINARY"; break;
 			case 0xB2:
-			case 0xB3: ins_str = "READ RECORD"; break;
+			case 0xB3: return iso7816_capdu_read_record_get_string(c_apdu, c_apdu_len, str, str_len);
 			case 0xC0: ins_str = "GET RESPONSE"; break;
 			case 0xC2:
 			case 0xC3: ins_str = "ENVELOPE"; break;
