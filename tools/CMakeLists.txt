@@ -607,7 +607,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	string(CONCAT emv_decode_issuer_response_test2_regex
 		"^89 \\| Authorisation Code : \\[6\\] 36 32 37 31 32 33 \"627123\"[\r\n]"
 		"72 \\| Issuer Script Template 2 : \\[17\\][\r\n]"
-		"  86 \\| Issuer Script Command : \\[15\\] 04 DA 9F 6B 0A 00 00 00 05 00 00 91 98 63 52 \\(PUT DATA\\)[\r\n]"
+		"  86 \\| Issuer Script Command : \\[15\\] 04 DA 9F 6B 0A 00 00 00 05 00 00 91 98 63 52 \\(PUT DATA for BER-TLV field 9F6B\\)[\r\n]"
 		"8A \\| Authorisation Response Code : \\[2\\] 30 30 \"00 - Approved or completed successfully\"[\r\n]"
 		"91 \\| Issuer Authentication Data : \\[8\\] A5 84 F9 49 00 82 00 00[\r\n]"
 		"  - Authorisation Response Cryptogram \\(ARPC\\): A584F949[\r\n]"
@@ -644,7 +644,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"^72 \\| Issuer Script Template 2 : \\[69\\][\r\n]"
 		"  9F18 \\| Issuer Script Identifier : \\[4\\] 80 00 00 00[\r\n]"
 		"  86 \\| Issuer Script Command : \\[21\\] 84 24 00 02 10 FE BF 34 F0 0B 7C E7 70 DC 61 DA 84 7B FB 1E 59 \\(PIN CHANGE/UNBLOCK\\)[\r\n]"
-		"  86 \\| Issuer Script Command : \\[37\\] 04 DA 8E 00 20 00 00 00 00 00 00 00 00 42 01 41 03 5E 03 1F 02 00 00 00 00 00 00 00 00 AC 7F 4D F1 D6 24 A0 ED \\(PUT DATA\\)[\r\n]"
+		"  86 \\| Issuer Script Command : \\[37\\] 04 DA 8E 00 20 00 00 00 00 00 00 00 00 42 01 41 03 5E 03 1F 02 00 00 00 00 00 00 00 00 AC 7F 4D F1 D6 24 A0 ED \\(PUT DATA for BER-TLV field 8E00\\)[\r\n]"
 	)
 	set_tests_properties(emv_decode_issuer_response_test4
 		PROPERTIES
@@ -659,7 +659,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	string(CONCAT emv_decode_issuer_response_test5_regex
 		"^72 \\| Issuer Script Template 2 : \\[23\\][\r\n]"
 		"  9F18 \\| Issuer Script Identifier : \\[4\\] 00 00 40 00[\r\n]"
-		"  86 \\| Issuer Script Command : \\[14\\] 04 DA 9F 58 09 00 C7 35 62 86 E3 77 98 89 \\(PUT DATA\\)[\r\n]"
+		"  86 \\| Issuer Script Command : \\[14\\] 04 DA 9F 58 09 00 C7 35 62 86 E3 77 98 89 \\(PUT DATA for BER-TLV field 9F58\\)[\r\n]"
 	)
 	set_tests_properties(emv_decode_issuer_response_test5
 		PROPERTIES

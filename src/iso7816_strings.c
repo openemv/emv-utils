@@ -310,6 +310,98 @@ static const char* iso7816_capdu_read_record_get_string(
 	}
 }
 
+static const char* iso7816_capdu_put_data_get_string(
+	const uint8_t* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+)
+{
+	enum iso7816_apdu_case_t apdu_case;
+	struct iso7816_apdu_case_3s_t* apdu_case_3s;
+	uint8_t P1;
+	uint8_t P2;
+
+	if ((c_apdu[0] & ISO7816_CLA_PROPRIETARY) != 0 ||
+		(c_apdu[1] != 0xDA && c_apdu[1] != 0xDB)
+	) {
+		// Not PUT DATA
+		return NULL;
+	}
+
+	// PUT DATA must be APDU case 3S/3E but only support 3S for now
+	// See ISO 7816-4:2005, 7.4.3, table 64
+	apdu_case = iso7816_apdu_case(c_apdu, c_apdu_len);
+	switch (apdu_case) {
+		case ISO7816_APDU_CASE_3S:
+			apdu_case_3s = (void*)c_apdu;
+			break;
+
+		case ISO7816_APDU_CASE_3E:
+			// Unsupported APDU case for PUT DATA
+			snprintf(str, str_len, "PUT DATA");
+			return str;
+
+		default:
+			// Invalid APDU case for PUT DATA
+			return NULL;
+	}
+
+	// Extract P1 and P2 for convenience
+	P1 = apdu_case_3s->P1;
+	P2 = apdu_case_3s->P2;
+
+	// Decode P1 and P2
+	// See ISO 7816-4:2005, 7.4.1, table 62
+	if ((c_apdu[1] & 0x01) == 0) {
+		// Even INS code
+		if (P1 == 0 && P2 >= 0x40 && P2 <= 0xFE) {
+			// P2 is 1-byte BER-TLV tag
+			snprintf(str, str_len, "PUT DATA for BER-TLV field %02X", P2);
+			return str;
+		} else if (P1 == 1) {
+			// P2 is proprietary
+			snprintf(str, str_len, "PUT DATA for proprietary identifier %02X", P2);
+			return str;
+		} else if (P1 == 2 && P2 >= 0x01 && P2 <= 0xFE) {
+			// P2 is 1-byte SIMPLE-TLV tag
+			snprintf(str, str_len, "PUT DATA for SIMPLE-TLV field %02X", P2);
+			return str;
+		} else if (P1 >= 0x40) {
+			// P1-P2 is 2-byte BER-TLV tag
+			snprintf(str, str_len, "PUT DATA for BER-TLV field %02X%02X", P1, P2);
+			return str;
+		}
+	} else {
+		// Odd INS code
+		if (P1 == 0x00 && (P2 & 0xE0) == 0x00 && // Highest 11 bits of P1-P2 are unset
+			(P2 & 0x1F) != 0x00 && (P2 & 0x1F) != 0x1F // Lowest 5 bits are not equal
+		) {
+			// P2 is short EF identifier
+			snprintf(str, str_len, "PUT DATA for short EF %u", P2);
+			return str;
+		} else if (P1 == 0x3F && P2 == 0xFF) { // P1-P2 is 3FFF
+			// P1-P2 is current DF
+			snprintf(str, str_len, "PUT DATA for current DF");
+			return str;
+		} else if (P1 == 0x00 && P2 == 0x00 && // P1-P2 is 0000
+			apdu_case_3s->Lc == 0 // No command data
+		) {
+			// P1-P2 is current EF
+			snprintf(str, str_len, "PUT DATA for current EF");
+			return str;
+		} else if (P1 != 0x00 || P2 != 0x00) { // P1-P2 is not 0000
+			// P1-P2 is file identifier
+			snprintf(str, str_len, "PUT DATA for file %02X%02X", P1, P2);
+			return str;
+		}
+	}
+
+	// Unknown P1 and P2
+	snprintf(str, str_len, "PUT DATA");
+	return str;
+}
+
 const char* iso7816_capdu_get_string(
 	const void* c_apdu,
 	size_t c_apdu_len,
@@ -386,7 +478,7 @@ const char* iso7816_capdu_get_string(
 			case 0xD6:
 			case 0xD7: ins_str = "UPDATE BINARY"; break;
 			case 0xDA:
-			case 0xDB: ins_str = "PUT DATA"; break;
+			case 0xDB: return iso7816_capdu_put_data_get_string(c_apdu, c_apdu_len, str, str_len);
 			case 0xDC:
 			case 0xDD: ins_str = "UPDATE RECORD"; break;
 			case 0xE0: ins_str = "CREATE FILE"; break;
