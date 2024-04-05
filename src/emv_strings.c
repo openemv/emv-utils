@@ -67,6 +67,7 @@ static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_
 static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static const char* emv_mastercard_device_type_get_string(const char* device_type);
 static const char* emv_arc_get_desc(const char* arc);
+static int emv_capdu_get_data_get_string(const uint8_t* c_apdu, size_t c_apdu_len, char* str, size_t str_len);
 
 int emv_strings_init(const char* isocodes_path, const char* mcc_path)
 {
@@ -5716,6 +5717,26 @@ int emv_issuer_auth_data_get_string_list(
 	return 0;
 }
 
+static int emv_capdu_get_data_get_string(
+	const uint8_t* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+)
+{
+	if ((c_apdu[0] & ISO7816_CLA_PROPRIETARY) == 0 ||
+		c_apdu[1] != 0xCA
+	) {
+		// Not GET DATA
+		return -3;
+	}
+
+	// P1-P2 represents EMV field to retrieve
+	// See EMV 4.4 Book 3, 6.5.7.2
+	snprintf(str, str_len, "GET DATA field %02X%02X", c_apdu[2], c_apdu[3]);
+	return 0;
+}
+
 int emv_capdu_get_string(
 	const uint8_t* c_apdu,
 	size_t c_apdu_len,
@@ -5762,7 +5783,7 @@ int emv_capdu_get_string(
 			// See EMV 4.4 Book 3, 6.5.5.2
 			case 0xAE: ins_str = "GENERATE AC"; break;
 			// See EMV 4.4 Book 3, 6.5.7.2
-			case 0xCA: ins_str = "GET DATA"; break;
+			case 0xCA: return emv_capdu_get_data_get_string(c_apdu, c_apdu_len, str, str_len);
 			// See EMV 4.4 Book 3, 6.5.8.2
 			case 0xA8: ins_str = "GET PROCESSING OPTIONS"; break;
 			// See EMV 4.4 Book 3, 6.5.10.2
