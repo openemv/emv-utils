@@ -2,7 +2,7 @@
  * @file pcsc.c
  * @brief PC/SC abstraction
  *
- * Copyright (c) 2021, 2022 Leon Lynch
+ * Copyright (c) 2021-2022, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,7 +29,7 @@
 
 #ifndef USE_PCSCLITE
 // Only PCSCLite provides pcsc_stringify_error()
-static char* pcsc_stringify_error(unsigned int result)
+static const char* pcsc_stringify_error(unsigned int result)
 {
 	static char str[16];
 	snprintf(str, sizeof(str), "0x%08X", result);
@@ -49,14 +49,26 @@ struct pcsc_t {
 };
 
 struct pcsc_reader_t {
+	// Populated by pcsc_init()
 	struct pcsc_t* pcsc;
 	LPCSTR name;
 
+	// Populated by SCardConnect()
 	SCARDHANDLE card;
+	DWORD protocol;
+
+	// Populated by SCardStatus()
 	BYTE atr[PCSC_MAX_ATR_SIZE];
 	DWORD atr_len;
-	DWORD protocol;
+
+	// Populated by pcsc_reader_connect()
+	uint8_t uid[10]; // See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3
+	size_t uid_len;
+	enum pcsc_card_type_t type;
 };
+
+// Helper functions
+static int pcsc_reader_internal_get_uid(pcsc_reader_ctx_t reader_ctx, uint8_t* uid, size_t* uid_len);
 
 int pcsc_init(pcsc_ctx_t* ctx)
 {
@@ -282,6 +294,59 @@ int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx)
 	return 1;
 }
 
+static int pcsc_reader_internal_get_uid(pcsc_reader_ctx_t reader_ctx, uint8_t* uid, size_t* uid_len)
+{
+	int r;
+	uint8_t rx_buf[12]; // ISO 14443 Type A triple size UID + status bytes
+	size_t rx_len = sizeof(rx_buf);
+	uint8_t SW1;
+	uint8_t SW2;
+
+	// PC/SC GET DATA command for requesting contactless UID
+	// See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3
+	static const uint8_t pcsc_get_uid_capdu[] = { 0xFF, 0xCA, 0x00, 0x00, 0x00 };
+
+	r = pcsc_reader_trx(reader_ctx, pcsc_get_uid_capdu, sizeof(pcsc_get_uid_capdu), rx_buf, &rx_len);
+	if (r) {
+		return r;
+	}
+	if (rx_len < 2) {
+		// Invalid respones length
+		return -5;
+	}
+
+	// Extract status bytes
+	SW1 = *((uint8_t*)(rx_buf + rx_len - 2));
+	SW2 = *((uint8_t*)(rx_buf + rx_len - 1));
+
+	// Remove status bytes
+	rx_len -= 2;
+
+	// Process warning/error status bytes
+	// See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3, table 3-9
+	if (SW1 == 0x6A && SW2 == 0x81) {
+		// SW1-SW2 is 6A81 (Function not supported)
+		// Card is ISO 7816 contact
+		return 1;
+	}
+
+	if (SW1 != 0x90 || SW2 != 0x00) {
+		// SW1-SW2 is not 9000 (Normal)
+		// Unknown failure
+		return -6;
+	}
+
+
+	if (*uid_len < rx_len) {
+		// Output buffer too small
+		return -7;
+	}
+	memcpy(uid, rx_buf, rx_len);
+	*uid_len = rx_len;
+
+	return 0;
+}
+
 int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx)
 {
 	struct pcsc_reader_t* reader;
@@ -316,7 +381,40 @@ int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx)
 		return -1;
 	}
 
-	return 0;
+	// Determine whether PC/SC ATR may be for contactless card
+	// See PC/SC Part 3 Rev 2.01.09, 3.1.3.2.3.1
+	if (reader->atr_len > 4 &&
+		reader->atr[0] == 0x3B &&
+		(reader->atr[1] & 0x80) == 0x80 &&
+		reader->atr[2] == 0x80 &&
+		reader->atr[3] == 0x01 &&
+		reader->atr_len == 5 + (reader->atr[1] & 0x0F)
+	) {
+		int r;
+
+		// Determine whether it is a contactless card by requesting the
+		// contactless UID
+		reader->uid_len = sizeof(reader->uid);
+		r = pcsc_reader_internal_get_uid(
+			reader_ctx,
+			reader->uid,
+			&reader->uid_len
+		);
+		if (r < 0) {
+			// Error during UID retrieval; assume card error
+			return r;
+		} else if (r > 0) {
+			// Function not supported; assume contact card
+			reader->type = PCSC_CARD_TYPE_CONTACT;
+		} else {
+			// UID retrieved; assume contactless card
+			reader->type = PCSC_CARD_TYPE_CONTACTLESS;
+		}
+	} else {
+		reader->type = PCSC_CARD_TYPE_CONTACT;
+	}
+
+	return reader->type;
 }
 
 int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx)
@@ -338,9 +436,10 @@ int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx)
 
 	// Clear card attributes
 	reader->card = 0;
+	reader->protocol = SCARD_PROTOCOL_UNDEFINED;
 	memset(reader->atr, 0, sizeof(reader->atr));
 	reader->atr_len = 0;
-	reader->protocol = SCARD_PROTOCOL_UNDEFINED;
+	reader->type = PCSC_CARD_TYPE_UNKNOWN;
 
 	return 0;
 }
@@ -355,7 +454,11 @@ int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_
 	reader = reader_ctx;
 
 	if (!reader->atr_len) {
-		return -1;
+		return 1;
+	}
+
+	if (reader->type != PCSC_CARD_TYPE_CONTACT) {
+		return 2;
 	}
 
 	memcpy(atr, reader->atr, reader->atr_len);

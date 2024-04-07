@@ -460,7 +460,7 @@ int main(int argc, char** argv)
 		r = pcsc_reader_get_state(reader, &reader_state);
 		if (r == 0) {
 			reader_state_str = pcsc_get_reader_state_string(reader_state);
-			if (reader_state) {
+			if (reader_state_str) {
 				printf("; %s", reader_state_str);
 			} else {
 				printf("; Unknown state");
@@ -483,14 +483,38 @@ int main(int argc, char** argv)
 	}
 
 	reader = pcsc_get_reader(pcsc, reader_idx);
-	printf("Card detected\n\n");
+	printf("%zu: %s", reader_idx, pcsc_reader_get_name(reader));
+	reader_state = 0;
+	r = pcsc_reader_get_state(reader, &reader_state);
+	if (r == 0) {
+		reader_state_str = pcsc_get_reader_state_string(reader_state);
+		if (reader_state_str) {
+			printf("; %s", reader_state_str);
+		} else {
+			printf("; Unknown state");
+		}
+	}
+	printf("\nCard detected\n\n");
 
 	r = pcsc_reader_connect(reader);
-	if (r) {
+	if (r < 0) {
 		printf("PC/SC reader activation failed\n");
 		goto pcsc_exit;
 	}
 	printf("Card activated\n");
+
+	switch (r) {
+		case PCSC_CARD_TYPE_CONTACT:
+			break;
+
+		case PCSC_CARD_TYPE_CONTACTLESS:
+			printf("Contactless not (yet) supported\n");
+			goto pcsc_exit;
+
+		default:
+			printf("Unknown card type\n");
+			goto pcsc_exit;
+	}
 
 	r = pcsc_reader_get_atr(reader, atr, &atr_len);
 	if (r) {

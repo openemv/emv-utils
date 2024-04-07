@@ -2,7 +2,7 @@
  * @file pcsc.h
  * @brief PC/SC abstraction
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright (c) 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -47,6 +47,13 @@ typedef void* pcsc_reader_ctx_t; ///< PC/SC reader context pointer type
 #define PCSC_READER_ANY         (0xFFFFFFFF) ///< Use any reader
 
 #define PCSC_MAX_ATR_SIZE       (33) ///< Maximum size of ATR buffer
+
+/// Type of card presented
+enum pcsc_card_type_t {
+	PCSC_CARD_TYPE_UNKNOWN = 0, ///< Unknown card type
+	PCSC_CARD_TYPE_CONTACT, ///< ISO 7816 contact card
+	PCSC_CARD_TYPE_CONTACTLESS, ///< ISO 14443 contactless card
+};
 
 /**
  * Initialize PC/SC context
@@ -103,10 +110,10 @@ int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state);
 int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx);
 
 /**
- * Connect to PC/SC reader.
- * This function will attempt to power up the card.
+ * Connect to PC/SC reader, attempt to power up the card, and attempt to
+ * identify the type of card.
  * @param reader_ctx PC/SC reader context
- * @return Zero for success. Less than zero for error.
+ * @return Less than zero for error. Otherwise @ref pcsc_card_type_t
  */
 int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx);
 
@@ -119,11 +126,13 @@ int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx);
 int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx);
 
 /**
- * Retrieve ATR for current card in reader
+ * Retrieve ISO 7816 Answer-To-Reset (ATR) for current card in reader
+ * @note Although PC/SC provides an artificial ATR for contactless cards, this
+ *       function will only retrieve the ATR for contact cards.
  * @param reader_ctx PC/SC reader context
  * @param atr ATR output of at most @ref PCSC_MAX_ATR_SIZE bytes
  * @param atr_len Length of ATR output in bytes
- * @return Zero for success. Less than zero for error.
+ * @return Zero for success. Less than zero for error. Greater than zero if not available.
  */
 int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_len);
 
