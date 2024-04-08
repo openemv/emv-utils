@@ -39,8 +39,8 @@ __BEGIN_DECLS
 
 // Application Selection Indicator
 // See EMV 4.4 Book 1, 12.3.1
-#define EMV_ASI_EXACT_MATCH                                     (0x00)
-#define EMV_ASI_PARTIAL_MATCH                                   (0x01)
+#define EMV_ASI_EXACT_MATCH                                     (0x00) ///< Application Selection Indicator: Exact match required
+#define EMV_ASI_PARTIAL_MATCH                                   (0x01) ///< Application Selection Indicator: Partial match allowed
 
 // Transaction Type (field 9C)
 // See ISO 8583:1987, 4.3.8
@@ -495,7 +495,7 @@ enum emv_iad_format_t {
 
 // Card Verification Results (CVR) byte 1 for Visa Smart Debit/Credit (VSDC) IAD Format 2/4 applications
 // NOTE: From unverified internet sources
-#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MASK                  (0xF0) ///< Card Verification Results (CVR) mask CVM Verifying Entity
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MASK                  (0xF0) ///< Card Verification Results (CVR) mask for CVM Verifying Entity
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_NONE                  (0x00) ///< Card Verification Results (CVR): No CDCVM
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_VMPA                  (0x10) ///< Card Verification Results (CVR): Visa Mobile Payment Application (VMPA)
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MG                    (0x20) ///< Card Verification Results (CVR): MG
@@ -505,7 +505,7 @@ enum emv_iad_format_t {
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_TERMINAL              (0x60) ///< Card Verification Results (CVR): Terminal
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_CLOUD                 (0x70) ///< Card Verification Results (CVR): Verified in the cloud
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_ENTITY_MOBILE_DEVICE_OS      (0x80) ///< Card Verification Results (CVR): Verified by the mobile device OS
-#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_MASK                    (0x0F) ///< Card Verification Results (CVR) mask CVM Verified Type
+#define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_MASK                    (0x0F) ///< Card Verification Results (CVR) mask for CVM Verified Type
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_NONE                    (0x00) ///< Card Verification Results (CVR): No CDCVM
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_PASSCODE                (0x01) ///< Card Verification Results (CVR): Passcode
 #define EMV_IAD_VSDC_CVR_BYTE1_CVM_TYPE_BIOMETRIC_FINGER        (0x02) ///< Card Verification Results (CVR): Finger biometric
@@ -897,7 +897,7 @@ struct emv_cv_rule_t {
 };
 
 /**
- * Initialize Cardholder Verification Method (CVM) List amounts and iterator
+ * Initialise Cardholder Verification Method (CVM) List amounts and iterator
  * @param cvmlist Cardholder Verification Method (CVM) List field
  * @param cvmlist_len Length of Cardholder Verification Method (CVM) List field
  * @param amounts Cardholder Verification Method (CVM) List amounts output

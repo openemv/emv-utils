@@ -61,7 +61,7 @@ struct iso7816_compact_tlv_t {
 int iso7816_compact_tlv_decode(const void* buf, size_t len, struct iso7816_compact_tlv_t* tlv);
 
 /**
- * Initialize COMPACT-TLV iterator
+ * Initialise COMPACT-TLV iterator
  * @param buf COMPACT-TLV buffer
  * @param len Length of COMPACT-TLV buffer in bytes
  * @param itr Iterator output

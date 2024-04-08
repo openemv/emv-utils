@@ -335,7 +335,7 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 
 	r = iso8825_ber_itr_init(ptr, len, &itr);
 	if (r) {
-		printf("Failed to initialize BER iterator\n");
+		printf("Failed to initialise BER iterator\n");
 		return;
 	}
 
@@ -455,7 +455,7 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 
 	r = iso8825_ber_itr_init(ptr, len, &itr);
 	if (r) {
-		printf("Failed to initialize BER iterator\n");
+		printf("Failed to initialise BER iterator\n");
 		return;
 	}
 
@@ -493,7 +493,7 @@ void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int
 
 	r = emv_dol_itr_init(ptr, len, &itr);
 	if (r) {
-		printf("Failed to initialize DOL iterator\n");
+		printf("Failed to initialise DOL iterator\n");
 		return;
 	}
 

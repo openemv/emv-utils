@@ -119,7 +119,7 @@ struct emv_tlv_info_t {
 };
 
 /**
- * Initialize EMV strings. This will load ISO 3166, ISO 4217,
+ * Initialise EMV strings. This will load ISO 3166, ISO 4217,
  * and ISO 639 strings from the iso-codes package.
  *
  * @param isocodes_path Override directory path where iso-codes JSON files can

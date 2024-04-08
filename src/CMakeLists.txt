@@ -111,6 +111,7 @@ add_library(iso7816
 )
 set(iso7816_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	iso7816.h
+	iso7816_apdu.h
 	iso7816_compact_tlv.h
 	iso7816_strings.h
 	PARENT_SCOPE # Doxygen generator requires a list of headers

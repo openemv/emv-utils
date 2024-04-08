@@ -166,7 +166,7 @@ static inline bool iso8825_ber_is_constructed(const struct iso8825_tlv_t* tlv) {
 bool iso8825_ber_is_string(const struct iso8825_tlv_t* tlv);
 
 /**
- * Initialize BER iterator
+ * Initialise BER iterator
  * @param ptr BER encoded data
  * @param len Length of BER encoded data in bytes
  * @param itr BER iterator output
