@@ -24,6 +24,7 @@
 
 #include <sys/cdefs.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 __BEGIN_DECLS
@@ -31,6 +32,18 @@ __BEGIN_DECLS
 // Forward declarations
 typedef void* pcsc_ctx_t; ///< PC/SC context pointer type
 typedef void* pcsc_reader_ctx_t; ///< PC/SC reader context pointer type
+
+/**
+ * @name PC/SC reader features
+ * @remark See PC/SC Part 10 Rev 2.02.09, 2.3
+ * @anchor pcsc-reader-features
+ */
+/// @{
+#define PCSC_FEATURE_VERIFY_PIN_DIRECT          (0x06) ///< Direct PIN verification
+#define PCSC_FEATURE_MODIFY_PIN_DIRECT          (0x07) ///< Direct PIN modification
+#define PCSC_FEATURE_MCT_READER_DIRECT          (0x08) ///< Multifunctional Card Terminal (MCT) direct commands
+#define PCSC_FEATURE_MCT_UNIVERSAL              (0x09) ///< Multifunctional Card Terminal (MCT) universal commands
+/// @}
 
 /**
  * @name PC/SC reader states
@@ -95,6 +108,14 @@ pcsc_reader_ctx_t pcsc_get_reader(pcsc_ctx_t ctx, size_t idx);
  * @return PC/SC reader name. NULL for error. Do not @ref free()
  */
 const char* pcsc_reader_get_name(pcsc_reader_ctx_t reader_ctx);
+
+/**
+ * Indicate whether PC/SC reader feature is supported
+ * @param reader_ctx PC/SC reader context
+ * @param feature PC/SC reader feature. See @ref pcsc-reader-features "PC/SC reader features"
+ * @return Boolean indicating whether specified PC/SC reader feature is supported.
+ */
+bool pcsc_reader_has_feature(pcsc_reader_ctx_t reader_ctx, unsigned int feature);
 
 /**
  * Retrieve PC/SC reader state

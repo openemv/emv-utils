@@ -22,7 +22,10 @@
 #include "pcsc.h"
 
 #include <winscard.h>
+#include <reader.h>
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,10 +51,19 @@ struct pcsc_t {
 	SCARD_READERSTATE* reader_states;
 };
 
+struct pcsc_reader_features_t {
+	// Populated by SCardControl(CM_IOCTL_GET_FEATURE_REQUEST)
+	uint8_t buf[MAX_BUFFER_SIZE];
+	DWORD buf_len;
+};
+
 struct pcsc_reader_t {
 	// Populated by pcsc_init()
 	struct pcsc_t* pcsc;
 	LPCSTR name;
+
+	// Populated by pcsc_reader_populate_features()
+	struct pcsc_reader_features_t features;
 
 	// Populated by SCardConnect()
 	SCARDHANDLE card;
@@ -68,6 +80,7 @@ struct pcsc_reader_t {
 };
 
 // Helper functions
+static int pcsc_reader_populate_features(struct pcsc_reader_t* reader);
 static int pcsc_reader_internal_get_uid(pcsc_reader_ctx_t reader_ctx, uint8_t* uid, size_t* uid_len);
 
 int pcsc_init(pcsc_ctx_t* ctx)
@@ -136,8 +149,93 @@ int pcsc_init(pcsc_ctx_t* ctx)
 		pcsc->reader_states[i].dwCurrentState = SCARD_STATE_UNAWARE;
 	}
 
+	// Populate features for each reader
+	for (size_t i = 0; i < pcsc->reader_count; ++i) {
+		// Intentionally ignore errors
+		pcsc_reader_populate_features(&pcsc->readers[i]);
+	}
+
 	// Success
 	return 0;
+}
+
+static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
+{
+	int r;
+	LONG result;
+	SCARDHANDLE card;
+	DWORD protocol;
+	const PCSC_TLV_STRUCTURE* pcsc_tlv;
+
+	if (!reader) {
+		return -1;
+	}
+
+	// Connect without negotiating the card protocol because the card
+	// may not be present yet
+	result = SCardConnect(
+		reader->pcsc->context,
+		reader->name,
+		SCARD_SHARE_DIRECT,
+		0,
+		&card,
+		&protocol
+	);
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardConnect(SCARD_SHARE_DIRECT) failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
+		r = -2;
+		goto exit;
+	}
+
+	// Request reader features
+	result = SCardControl(
+		card,
+		CM_IOCTL_GET_FEATURE_REQUEST,
+		NULL,
+		0,
+		reader->features.buf,
+		sizeof(reader->features.buf),
+		&reader->features.buf_len
+	);
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardControl(CM_IOCTL_GET_FEATURE_REQUEST) failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
+		r = -3;
+		goto exit;
+	}
+
+	// Validate feature list buffer length
+	if (reader->features.buf_len % sizeof(PCSC_TLV_STRUCTURE) != 0) {
+		fprintf(stderr, "Failed to parse PC/SC reader features\n");
+		reader->features.buf_len = 0; // Invalidate buffer length
+		r = -4;
+		goto exit;
+	}
+
+	// Validate feature list TLV lengths
+	// See PC/SC Part 10 Rev 2.02.09, 2.2
+	pcsc_tlv = (PCSC_TLV_STRUCTURE*)reader->features.buf;
+	while ((void*)pcsc_tlv - (void*)reader->features.buf < reader->features.buf_len) {
+		if (pcsc_tlv->length != 4) {
+			fprintf(stderr, "Failed to parse PC/SC reader features\n");
+			r = -5;
+			goto exit;
+		}
+		++pcsc_tlv;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	// Disconnect from card reader and leave card as-is if present
+	result = SCardDisconnect(card, SCARD_LEAVE_CARD);
+	if (result != SCARD_S_SUCCESS) {
+		fprintf(stderr, "SCardDisconnect(SCARD_LEAVE_CARD) failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
+		// Intentionally ignore errors
+	}
+
+	return r;
 }
 
 void pcsc_release(pcsc_ctx_t* ctx)
@@ -214,6 +312,31 @@ const char* pcsc_reader_get_name(pcsc_reader_ctx_t reader_ctx)
 	reader = reader_ctx;
 
 	return reader->name;
+}
+
+bool pcsc_reader_has_feature(pcsc_reader_ctx_t reader_ctx, unsigned int feature)
+{
+	struct pcsc_reader_t* reader;
+	const PCSC_TLV_STRUCTURE* pcsc_tlv;
+
+	if (!reader_ctx) {
+		return NULL;
+	}
+	reader = reader_ctx;
+
+	if (!reader->features.buf_len) {
+		return false;
+	}
+
+	pcsc_tlv = (PCSC_TLV_STRUCTURE*)reader->features.buf;
+	while ((void*)pcsc_tlv - (void*)reader->features.buf < reader->features.buf_len) {
+		if (pcsc_tlv->tag == feature) {
+			return true;
+		}
+		++pcsc_tlv;
+	}
+
+	return false;
 }
 
 int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state)

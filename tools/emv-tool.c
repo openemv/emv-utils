@@ -31,6 +31,7 @@
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
 #include "emv_debug.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -454,19 +455,47 @@ int main(int argc, char** argv)
 	printf("PC/SC readers:\n");
 	for (size_t i = 0; i < pcsc_count; ++i) {
 		reader = pcsc_get_reader(pcsc, i);
-		printf("%zu: %s", i, pcsc_reader_get_name(reader));
+		printf("Reader %zu: %s\n", i, pcsc_reader_get_name(reader));
 
+		printf("\tFeatures: ");
+		struct {
+			unsigned int feature;
+			const char* str;
+		} feature_list[] = {
+			{ PCSC_FEATURE_VERIFY_PIN_DIRECT, "PIN verification" },
+			{ PCSC_FEATURE_MODIFY_PIN_DIRECT, "PIN modification" },
+			{ PCSC_FEATURE_MCT_READER_DIRECT, "MCT direct" },
+			{ PCSC_FEATURE_MCT_UNIVERSAL, "MCT universal" },
+		};
+		bool feature_found = false;
+		for (size_t j = 0; j < sizeof(feature_list) / sizeof(feature_list[0]); ++j) {
+			if (pcsc_reader_has_feature(reader, feature_list[j].feature)) {
+				if (feature_found) {
+					printf(", ");
+				} else {
+					feature_found = true;
+				}
+
+				printf("%s", feature_list[j].str);
+			}
+		}
+		if (!feature_found) {
+			printf("Unspecified");
+		}
+		printf("\n");
+
+		printf("\tState: ");
 		reader_state = 0;
+		reader_state_str = NULL;
 		r = pcsc_reader_get_state(reader, &reader_state);
 		if (r == 0) {
 			reader_state_str = pcsc_get_reader_state_string(reader_state);
-			if (reader_state_str) {
-				printf("; %s", reader_state_str);
-			} else {
-				printf("; Unknown state");
-			}
 		}
-
+		if (reader_state_str) {
+			printf("%s", reader_state_str);
+		} else {
+			printf("Unknown");
+		}
 		printf("\n");
 	}
 
@@ -483,16 +512,17 @@ int main(int argc, char** argv)
 	}
 
 	reader = pcsc_get_reader(pcsc, reader_idx);
-	printf("%zu: %s", reader_idx, pcsc_reader_get_name(reader));
+	printf("Reader %zu: %s", reader_idx, pcsc_reader_get_name(reader));
 	reader_state = 0;
+	reader_state_str = NULL;
 	r = pcsc_reader_get_state(reader, &reader_state);
 	if (r == 0) {
 		reader_state_str = pcsc_get_reader_state_string(reader_state);
-		if (reader_state_str) {
-			printf("; %s", reader_state_str);
-		} else {
-			printf("; Unknown state");
-		}
+	}
+	if (reader_state_str) {
+		printf("; %s", reader_state_str);
+	} else {
+		printf("; Unknown state");
 	}
 	printf("\nCard detected\n\n");
 
