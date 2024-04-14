@@ -45,6 +45,22 @@ else()
 	set(PCSC_LIBRARIES PCSCLite::PCSCLite)
 endif()
 
+# Check for headers that provide ntohl/htonl and friends
+include(CheckIncludeFile)
+CHECK_INCLUDE_FILE(
+	arpa/inet.h
+	HAVE_ARPA_INET_H
+)
+CHECK_INCLUDE_FILE(
+	winsock.h
+	HAVE_WINSOCK_H
+)
+if(NOT HAVE_ARPA_INET_H AND NOT HAVE_WINSOCK_H)
+	if(BUILD_EMV_TOOL)
+		message(FATAL_ERROR "Failed to find either arpa/inet.h or winsock.h. This is required to build emv-tool.")
+	endif()
+endif()
+
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
 # Print helpers object library
@@ -74,9 +90,21 @@ endif()
 # EMV processing command line tool
 if(BUILD_EMV_TOOL)
 	if(PCSCLite_FOUND)
-		set_source_files_properties(../src/pcsc.c
-			PROPERTIES
-				COMPILE_DEFINITIONS USE_PCSCLITE
+		set_property(
+			SOURCE ../src/pcsc.c
+			APPEND PROPERTY COMPILE_DEFINITIONS USE_PCSCLITE
+		)
+	endif()
+	if(HAVE_ARPA_INET_H)
+		set_property(
+			SOURCE ../src/pcsc.c
+			APPEND PROPERTY COMPILE_DEFINITIONS HAVE_ARPA_INET_H
+		)
+	endif()
+	if(HAVE_WINSOCK_H)
+		set_property(
+			SOURCE ../src/pcsc.c
+			APPEND PROPERTY COMPILE_DEFINITIONS HAVE_WINSOCK_H
 		)
 	endif()
 
@@ -87,6 +115,9 @@ if(BUILD_EMV_TOOL)
 	endif()
 	if(PCSC_LIBRARIES)
 		target_link_libraries(emv-tool PRIVATE ${PCSC_LIBRARIES})
+	endif()
+	if(HAVE_WINSOCK_H AND NOT HAVE_ARPA_INET_H)
+		target_link_libraries(emv-tool PRIVATE ws2_32)
 	endif()
 
 	install(

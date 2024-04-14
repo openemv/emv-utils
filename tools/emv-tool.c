@@ -48,6 +48,7 @@ struct emv_txn_t;
 // Helper functions
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
 static const char* pcsc_get_reader_state_string(unsigned int reader_state);
+static void print_pcsc_readers(pcsc_ctx_t pcsc);
 static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
 static void emv_txn_load_config(struct emv_txn_t* emv_txn);
 static void emv_txn_destroy(struct emv_txn_t* emv_txn);
@@ -303,6 +304,266 @@ static const char* pcsc_get_reader_state_string(unsigned int reader_state)
 	return NULL;
 }
 
+static void print_pcsc_readers(pcsc_ctx_t pcsc)
+{
+	int r;
+	size_t pcsc_count;
+
+	pcsc_count = pcsc_get_reader_count(pcsc);
+	if (!pcsc_count) {
+		// Nothing to print
+		return;
+	}
+
+	printf("\nPC/SC readers:\n");
+	for (size_t i = 0; i < pcsc_count; ++i) {
+		pcsc_reader_ctx_t reader;
+		bool print_features;
+		bool print_properties;
+		unsigned int reader_state;
+		const char* reader_state_str;
+
+		reader = pcsc_get_reader(pcsc, i);
+		if (!reader) {
+			// Invalid reader; skip
+			continue;
+		}
+		printf("Reader %zu: %s\n", i, pcsc_reader_get_name(reader));
+
+		// Recognised features
+		struct {
+			unsigned int feature;
+			const char* str;
+		} feature_list[] = {
+			{ PCSC_FEATURE_VERIFY_PIN_DIRECT, "PIN verification" },
+			{ PCSC_FEATURE_MODIFY_PIN_DIRECT, "PIN modification" },
+			{ PCSC_FEATURE_MCT_READER_DIRECT, "MCT direct" },
+			{ PCSC_FEATURE_MCT_UNIVERSAL, "MCT universal" },
+		};
+
+		// Determine whether there are any recognisable features
+		print_features = false;
+		for (size_t j = 0; j < sizeof(feature_list) / sizeof(feature_list[0]); ++j) {
+			if (pcsc_reader_has_feature(reader, feature_list[j].feature)) {
+				print_features = true;
+				break;
+			}
+		}
+
+		// If so, print recognised features
+		if (print_features) {
+			bool feature_comma = false;
+
+			printf("\tFeatures: ");
+			for (size_t j = 0; j < sizeof(feature_list) / sizeof(feature_list[0]); ++j) {
+				if (pcsc_reader_has_feature(reader, feature_list[j].feature)) {
+					if (feature_comma) {
+						printf(", ");
+					} else {
+						feature_comma = true;
+					}
+
+					printf("%s", feature_list[j].str);
+				}
+			}
+			printf("\n");
+		}
+
+		// Recognised properties
+		unsigned int property_list[] = {
+			PCSC_PROPERTY_wLcdLayout,
+			PCSC_PROPERTY_wLcdMaxCharacters,
+			PCSC_PROPERTY_wLcdMaxLines,
+			PCSC_PROPERTY_bMinPINSize,
+			PCSC_PROPERTY_bMaxPINSize,
+			PCSC_PROPERTY_wIdVendor,
+			PCSC_PROPERTY_wIdProduct,
+		};
+
+		// Determine whether there are any recognisable properties
+		print_properties = false;
+		for (size_t j = 0; j < sizeof(property_list) / sizeof(property_list[0]); ++j) {
+			uint8_t value[256];
+			size_t value_len = sizeof(value);
+			r = pcsc_reader_get_property(reader, property_list[j], value, &value_len);
+			if (r == 0) {
+				print_properties = true;
+				break;
+			}
+		}
+
+		// If so, print recognised properties
+		if (print_properties) {
+			bool property_comma = false;
+
+			printf("\tProperties: ");
+
+			{
+				uint8_t value[2];
+				size_t value_len = sizeof(value);
+
+				r = pcsc_reader_get_property(reader, PCSC_PROPERTY_wLcdLayout, value, &value_len);
+				if (r == 0 && value_len == 2) {
+					if (property_comma) {
+						printf(", ");
+					}
+
+					if (value[0] || value[1]) {
+						printf("LCD %u x %u", value[0], value[1]);
+					} else {
+						printf("No LCD");
+					}
+
+					property_comma = true;
+				}
+			}
+
+			{
+				uint16_t wLcdMaxCharacters;
+				size_t wLcdMaxCharacters_len = sizeof(wLcdMaxCharacters);
+				uint16_t wLcdMaxLines;
+				size_t wLcdMaxLines_len = sizeof(wLcdMaxLines);
+
+				r = pcsc_reader_get_property(
+					reader,
+					PCSC_PROPERTY_wLcdMaxCharacters,
+					&wLcdMaxCharacters,
+					&wLcdMaxCharacters_len
+				);
+				if (r || wLcdMaxCharacters_len != 2) {
+					// If property not found or invalid, zero property value
+					wLcdMaxCharacters = 0;
+				}
+
+				r = pcsc_reader_get_property(
+					reader,
+					PCSC_PROPERTY_wLcdMaxLines,
+					&wLcdMaxLines,
+					&wLcdMaxLines_len
+				);
+				if (r || wLcdMaxLines_len != 2) {
+					// If property not found or invalid, zero property value
+					wLcdMaxLines = 0;
+				}
+
+				if ((wLcdMaxCharacters && wLcdMaxLines) ||
+					wLcdMaxCharacters_len || wLcdMaxLines_len
+				) {
+					if (property_comma) {
+						printf(", ");
+					}
+
+					if (wLcdMaxCharacters && wLcdMaxLines) {
+						printf("LCD %u x %u", wLcdMaxCharacters, wLcdMaxLines);
+					} else {
+						printf("LCD");
+					}
+
+					property_comma = true;
+				}
+			}
+
+			{
+				uint8_t bMinPINSize;
+				size_t bMinPINSize_len = sizeof(bMinPINSize);
+				uint8_t bMaxPINSize;
+				size_t bMaxPINSize_len = sizeof(bMaxPINSize);
+
+				r = pcsc_reader_get_property(
+					reader,
+					PCSC_PROPERTY_bMinPINSize,
+					&bMinPINSize,
+					&bMinPINSize_len
+				);
+				if (r || bMinPINSize_len != 1) {
+					// If property not found or invalid, zero property value
+					bMinPINSize = 0;
+				}
+
+				r = pcsc_reader_get_property(
+					reader,
+					PCSC_PROPERTY_bMaxPINSize,
+					&bMaxPINSize,
+					&bMaxPINSize_len
+				);
+				if (r || bMaxPINSize_len != 1) {
+					// If property not found or invalid, zero property value
+					bMaxPINSize = 0;
+				}
+
+				if (bMinPINSize || bMaxPINSize) {
+					if (property_comma) {
+						printf(", ");
+					}
+
+					if (bMaxPINSize) {
+						printf("PIN size %u-%u", bMinPINSize, bMaxPINSize);
+					} else {
+						printf("PIN size %u+", bMinPINSize);
+					}
+
+					property_comma = true;
+				}
+			}
+
+			{
+				uint16_t wIdVendor;
+				size_t wIdVendor_len = sizeof(wIdVendor);
+				uint16_t wIdProduct;
+				size_t wIdProduct_len = sizeof(wIdProduct);
+
+				r = pcsc_reader_get_property(
+					reader,
+					PCSC_PROPERTY_wIdVendor,
+					&wIdVendor,
+					&wIdVendor_len
+				);
+				if (r || wIdVendor_len != 2) {
+					// If property not found or invalid, zero property value
+					wIdVendor = 0;
+				}
+
+				r = pcsc_reader_get_property(
+					reader,
+					PCSC_PROPERTY_wIdProduct,
+					&wIdProduct,
+					&wIdProduct_len
+				);
+				if (r || wIdProduct_len != 2) {
+					// If property not found or invalid, zero property value
+					wIdProduct = 0;
+				}
+
+				if (wIdVendor && wIdProduct) {
+					if (property_comma) {
+						printf(", ");
+					}
+
+					printf("USB device %04x:%04x", wIdVendor, wIdProduct);
+
+					property_comma = true;
+				}
+			}
+
+			printf("\n");
+		}
+
+		printf("\tState: ");
+		reader_state = 0;
+		reader_state_str = NULL;
+		r = pcsc_reader_get_state(reader, &reader_state);
+		if (r == 0) {
+			reader_state_str = pcsc_get_reader_state_string(reader_state);
+		}
+		if (reader_state_str) {
+			printf("%s", reader_state_str);
+		} else {
+			printf("Unknown");
+		}
+		printf("\n");
+	}
+}
+
 static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other)
 {
 	time_t t = time(NULL);
@@ -452,52 +713,8 @@ int main(int argc, char** argv)
 		goto pcsc_exit;
 	}
 
-	printf("PC/SC readers:\n");
-	for (size_t i = 0; i < pcsc_count; ++i) {
-		reader = pcsc_get_reader(pcsc, i);
-		printf("Reader %zu: %s\n", i, pcsc_reader_get_name(reader));
-
-		printf("\tFeatures: ");
-		struct {
-			unsigned int feature;
-			const char* str;
-		} feature_list[] = {
-			{ PCSC_FEATURE_VERIFY_PIN_DIRECT, "PIN verification" },
-			{ PCSC_FEATURE_MODIFY_PIN_DIRECT, "PIN modification" },
-			{ PCSC_FEATURE_MCT_READER_DIRECT, "MCT direct" },
-			{ PCSC_FEATURE_MCT_UNIVERSAL, "MCT universal" },
-		};
-		bool feature_found = false;
-		for (size_t j = 0; j < sizeof(feature_list) / sizeof(feature_list[0]); ++j) {
-			if (pcsc_reader_has_feature(reader, feature_list[j].feature)) {
-				if (feature_found) {
-					printf(", ");
-				} else {
-					feature_found = true;
-				}
-
-				printf("%s", feature_list[j].str);
-			}
-		}
-		if (!feature_found) {
-			printf("Unspecified");
-		}
-		printf("\n");
-
-		printf("\tState: ");
-		reader_state = 0;
-		reader_state_str = NULL;
-		r = pcsc_reader_get_state(reader, &reader_state);
-		if (r == 0) {
-			reader_state_str = pcsc_get_reader_state_string(reader_state);
-		}
-		if (reader_state_str) {
-			printf("%s", reader_state_str);
-		} else {
-			printf("Unknown");
-		}
-		printf("\n");
-	}
+	// List readers
+	print_pcsc_readers(pcsc);
 
 	// Wait for card presentation
 	printf("\nPresent card\n");

@@ -30,6 +30,13 @@
 #include <stdio.h>
 #include <string.h>
 
+// For ntohl and friends
+#if defined(HAVE_ARPA_INET_H)
+#include <arpa/inet.h>
+#elif defined(HAVE_WINSOCK_H)
+#include <winsock.h>
+#endif
+
 #ifndef USE_PCSCLITE
 // Only PCSCLite provides pcsc_stringify_error()
 static const char* pcsc_stringify_error(unsigned int result)
@@ -55,6 +62,22 @@ struct pcsc_reader_features_t {
 	// Populated by SCardControl(CM_IOCTL_GET_FEATURE_REQUEST)
 	uint8_t buf[MAX_BUFFER_SIZE];
 	DWORD buf_len;
+
+	// Populated by SCardControl(IFD_PIN_PROPERTIES)
+	PIN_PROPERTIES_STRUCTURE pin_properties;
+	DWORD pin_properties_len;
+
+	// Populated by SCardControl(IFD_DISPLAY_PROPERTIES)
+	struct {
+		uint16_t wLcdMaxCharacters;
+		uint16_t wLcdMaxLines;
+	} __attribute__((packed))
+	display_properties;
+	DWORD display_properties_len;
+
+	// Populated by SCardControl(GET_TLV_PROPERTIES)
+	uint8_t properties[MAX_BUFFER_SIZE];
+	DWORD properties_len;
 };
 
 struct pcsc_reader_t {
@@ -81,6 +104,7 @@ struct pcsc_reader_t {
 
 // Helper functions
 static int pcsc_reader_populate_features(struct pcsc_reader_t* reader);
+static int pcsc_reader_get_feature(struct pcsc_reader_t* reader, unsigned int feature, LPDWORD control_code);
 static int pcsc_reader_internal_get_uid(pcsc_reader_ctx_t reader_ctx, uint8_t* uid, size_t* uid_len);
 
 int pcsc_init(pcsc_ctx_t* ctx)
@@ -166,6 +190,7 @@ static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
 	SCARDHANDLE card;
 	DWORD protocol;
 	const PCSC_TLV_STRUCTURE* pcsc_tlv;
+	DWORD control_code;
 
 	if (!reader) {
 		return -1;
@@ -223,6 +248,87 @@ static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
 		++pcsc_tlv;
 	}
 
+	r = pcsc_reader_get_feature(reader, FEATURE_IFD_PIN_PROPERTIES, &control_code);
+	if (r < 0) {
+		r = -6;
+		goto exit;
+	}
+	if (r == 0) {
+		// Request reader TLV properties
+		result = SCardControl(
+			card,
+			control_code,
+			NULL,
+			0,
+			&reader->features.pin_properties,
+			sizeof(reader->features.pin_properties),
+			&reader->features.pin_properties_len
+		);
+		if (result != SCARD_S_SUCCESS) {
+			fprintf(stderr, "SCardControl(%04X) failed; result=0x%x [%s]\n", (unsigned int)control_code, (unsigned int)result, pcsc_stringify_error(result));
+			r = -7;
+			goto exit;
+		}
+		if (reader->features.pin_properties_len != sizeof(reader->features.pin_properties)) {
+			fprintf(stderr, "Failed to parse PC/SC reader IFD PIN properties\n");
+			reader->features.pin_properties_len = 0; // Invalidate buffer length
+			r = -8;
+			goto exit;
+		}
+	}
+
+	r = pcsc_reader_get_feature(reader, FEATURE_IFD_DISPLAY_PROPERTIES, &control_code);
+	if (r < 0) {
+		r = -9;
+		goto exit;
+	}
+	if (r == 0) {
+		// Request reader TLV properties
+		result = SCardControl(
+			card,
+			control_code,
+			NULL,
+			0,
+			&reader->features.display_properties,
+			sizeof(reader->features.display_properties),
+			&reader->features.display_properties_len
+		);
+		if (result != SCARD_S_SUCCESS) {
+			fprintf(stderr, "SCardControl(%04X) failed; result=0x%x [%s]\n", (unsigned int)control_code, (unsigned int)result, pcsc_stringify_error(result));
+			r = -10;
+			goto exit;
+		}
+		if (reader->features.display_properties_len != sizeof(reader->features.display_properties)) {
+			fprintf(stderr, "Failed to parse PC/SC reader IFD display properties\n");
+			reader->features.display_properties_len = 0; // Invalidate buffer length
+			r = -11;
+			goto exit;
+		}
+	}
+
+	r = pcsc_reader_get_feature(reader, FEATURE_GET_TLV_PROPERTIES, &control_code);
+	if (r < 0) {
+		r = -12;
+		goto exit;
+	}
+	if (r == 0) {
+		// Request reader TLV properties
+		result = SCardControl(
+			card,
+			control_code,
+			NULL,
+			0,
+			reader->features.properties,
+			sizeof(reader->features.properties),
+			&reader->features.properties_len
+		);
+		if (result != SCARD_S_SUCCESS) {
+			fprintf(stderr, "SCardControl(%04X) failed; result=0x%x [%s]\n", (unsigned int)control_code, (unsigned int)result, pcsc_stringify_error(result));
+			r = -13;
+			goto exit;
+		}
+	}
+
 	// Success
 	r = 0;
 	goto exit;
@@ -236,6 +342,34 @@ exit:
 	}
 
 	return r;
+}
+
+static int pcsc_reader_get_feature(
+	struct pcsc_reader_t* reader,
+	unsigned int feature,
+	LPDWORD control_code
+)
+{
+	const PCSC_TLV_STRUCTURE* pcsc_tlv;
+
+	if (!reader) {
+		return -1;
+	}
+
+	if (!reader->features.buf_len) {
+		return 1;
+	}
+
+	pcsc_tlv = (PCSC_TLV_STRUCTURE*)reader->features.buf;
+	while ((void*)pcsc_tlv - (void*)reader->features.buf < reader->features.buf_len) {
+		if (pcsc_tlv->tag == feature && pcsc_tlv->length == 4) {
+			*control_code = ntohl(pcsc_tlv->value);
+			return 0;
+		}
+		++pcsc_tlv;
+	}
+
+	return 1;
 }
 
 void pcsc_release(pcsc_ctx_t* ctx)
@@ -337,6 +471,104 @@ bool pcsc_reader_has_feature(pcsc_reader_ctx_t reader_ctx, unsigned int feature)
 	}
 
 	return false;
+}
+
+int pcsc_reader_get_property(
+	pcsc_reader_ctx_t reader_ctx,
+	unsigned int property,
+	void* value,
+	size_t* value_len
+)
+{
+	struct pcsc_reader_t* reader;
+	const uint8_t* tlv;
+	size_t tlv_len;
+
+	if (!reader_ctx || !value || !value_len) {
+		return -1;
+	}
+	reader = reader_ctx;
+
+	// Retrieve from GET_TLV_PROPERTIES
+	// See PC/SC Part 10 Rev 2.02.09, 2.6.14
+	tlv = reader->features.properties;
+	tlv_len = reader->features.properties_len;
+	while (tlv_len >= 2) { // 1-byte tag and 1-byte length
+		if (tlv[0] == property) {
+			if (tlv[1] > tlv_len - 2) {
+				*value_len = 0;
+				return -2;
+			}
+			if (tlv[1] > *value_len) {
+				*value_len = 0;
+				return -3;
+			}
+
+			memcpy(value, tlv + 2, tlv[1]);
+			*value_len = tlv[1];
+			return 0;
+		}
+
+		tlv += (2 + tlv[1]);
+		tlv_len -= (2 + tlv[1]);
+	}
+
+	// Otherwise, retrieve from IFD_PIN_PROPERTIES
+	// See PC/SC Part 10 Rev 2.02.09, 2.5.5
+	if (reader->features.pin_properties_len) {
+		if (property == PCSC_PROPERTY_wLcdLayout) {
+			if (*value_len < sizeof(reader->features.pin_properties.wLcdLayout)) {
+				*value_len = 0;
+				return -4;
+			}
+
+			memcpy(
+				value,
+				&reader->features.pin_properties.wLcdLayout,
+				sizeof(reader->features.pin_properties.wLcdLayout)
+			);
+			*value_len = sizeof(reader->features.pin_properties.wLcdLayout);
+			return 0;
+		}
+	}
+
+	// Otherwise, retrieve from IFD_DISPLAY_PROPERTIES
+	// See PC/SC Part 10 Rev 2.02.09, 2.5.6
+	if (reader->features.display_properties_len) {
+		if (property == PCSC_PROPERTY_wLcdMaxCharacters) {
+			if (*value_len < sizeof(reader->features.display_properties.wLcdMaxCharacters)) {
+				*value_len = 0;
+				return -5;
+			}
+
+			memcpy(
+				value,
+				&reader->features.display_properties.wLcdMaxCharacters,
+				sizeof(reader->features.display_properties.wLcdMaxCharacters)
+			);
+			*value_len = sizeof(reader->features.display_properties.wLcdMaxCharacters);
+			return 0;
+		}
+
+		if (property == PCSC_PROPERTY_wLcdMaxLines) {
+			if (*value_len < sizeof(reader->features.display_properties.wLcdMaxLines)) {
+				*value_len = 0;
+				return -6;
+			}
+
+			memcpy(
+				value,
+				&reader->features.display_properties.wLcdMaxLines,
+				sizeof(reader->features.display_properties.wLcdMaxLines)
+			);
+			*value_len = sizeof(reader->features.display_properties.wLcdMaxLines);
+			return 0;
+		}
+	}
+
+	// Property not found
+	*value_len = 0;
+	return 1;
 }
 
 int pcsc_reader_get_state(pcsc_reader_ctx_t reader_ctx, unsigned int* state)

@@ -46,6 +46,21 @@ typedef void* pcsc_reader_ctx_t; ///< PC/SC reader context pointer type
 /// @}
 
 /**
+ * @name PC/SC reader properties
+ * @remark See PC/SC Part 10 Rev 2.02.09, 2.6.14
+ * @anchor pcsc-reader-properties
+ */
+/// @{
+#define PCSC_PROPERTY_wLcdLayout                (0x01) ///< LCD Layout (from USB CCID wLcdLayout field)
+#define PCSC_PROPERTY_wLcdMaxCharacters         (0x04) ///< Maximum number of characters on a single line of LCD (from USB CCID wLcdLayout field)
+#define PCSC_PROPERTY_wLcdMaxLines              (0x05) ///< Maximum number of lines of LCD (from USB CCID wLcdLayout field)
+#define PCSC_PROPERTY_bMinPINSize               (0x06) ///< Minimum PIN size accepted by the reader
+#define PCSC_PROPERTY_bMaxPINSize               (0x07) ///< Maximum PIN size accepted by the reader
+#define PCSC_PROPERTY_wIdVendor                 (0x0B) ///< USB Vendor ID (from USB idVendor field)
+#define PCSC_PROPERTY_wIdProduct                (0x0C) ///< USB Product ID (from USB idProduct field)
+/// @}
+
+/**
  * @name PC/SC reader states
  * @remark These are derived from PCSCLite's SCARD_STATE_* defines
  * @anchor pcsc-reader-states
@@ -116,6 +131,21 @@ const char* pcsc_reader_get_name(pcsc_reader_ctx_t reader_ctx);
  * @return Boolean indicating whether specified PC/SC reader feature is supported.
  */
 bool pcsc_reader_has_feature(pcsc_reader_ctx_t reader_ctx, unsigned int feature);
+
+/**
+ * Retrieve PC/SC reader property value
+ * @param reader_ctx PC/SC reader context
+ * @param property PC/SC property to retrieve. See @ref pcsc-reader-properties "PC/SC reader properties"
+ * @param value Value buffer output
+ * @param value_len Length of value buffer in bytes
+ * @return Zero for success. Less than zero for error. Greater than zero if not found.
+ */
+int pcsc_reader_get_property(
+	pcsc_reader_ctx_t reader_ctx,
+	unsigned int property,
+	void* value,
+	size_t* value_len
+);
 
 /**
  * Retrieve PC/SC reader state
