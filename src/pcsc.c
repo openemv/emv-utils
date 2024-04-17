@@ -610,14 +610,18 @@ int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx)
 	struct pcsc_t* pcsc;
 	LONG result;
 
-	if (!ctx) {
+	if (!ctx || !idx) {
 		return -1;
 	}
 	pcsc = ctx;
 
 	// Prepare reader states for card detection
 	for (size_t i = 0; i < pcsc->reader_count; ++i) {
-		pcsc->reader_states[i].dwCurrentState = SCARD_STATE_EMPTY;
+		if (*idx == PCSC_READER_ANY || *idx == i) {
+			pcsc->reader_states[i].dwCurrentState = SCARD_STATE_EMPTY;
+		} else {
+			pcsc->reader_states[i].dwCurrentState = SCARD_STATE_IGNORE;
+		}
 	}
 
 	// Wait for empty state to change

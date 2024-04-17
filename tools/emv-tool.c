@@ -718,6 +718,7 @@ int main(int argc, char** argv)
 
 	// Wait for card presentation
 	printf("\nPresent card\n");
+	reader_idx = PCSC_READER_ANY;
 	r = pcsc_wait_for_card(pcsc, 5000, &reader_idx);
 	if (r < 0) {
 		printf("PC/SC error\n");
