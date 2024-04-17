@@ -803,7 +803,7 @@ int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx)
 	return 0;
 }
 
-int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_len)
+int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, void* atr, size_t* atr_len)
 {
 	struct pcsc_reader_t* reader;
 

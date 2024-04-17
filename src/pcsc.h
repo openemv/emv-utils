@@ -25,7 +25,6 @@
 #include <sys/cdefs.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <stdint.h>
 
 __BEGIN_DECLS
 
@@ -191,7 +190,7 @@ int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx);
  * @param atr_len Length of ATR output in bytes
  * @return Zero for success. Less than zero for error. Greater than zero if not available.
  */
-int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, uint8_t* atr, size_t* atr_len);
+int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, void* atr, size_t* atr_len);
 
 /**
  * Transmit and receive data for current card in reader
