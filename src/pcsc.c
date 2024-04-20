@@ -22,7 +22,12 @@
 #include "pcsc.h"
 
 #include <winscard.h>
+#ifdef USE_PCSCLITE
+// Only PCSCLite provides reader.h
 #include <reader.h>
+#endif
+// Compatibility helpers must not conflict with winscard.h or reader.h
+#include "pcsc_compat.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -35,16 +40,6 @@
 #include <arpa/inet.h>
 #elif defined(HAVE_WINSOCK_H)
 #include <winsock.h>
-#endif
-
-#ifndef USE_PCSCLITE
-// Only PCSCLite provides pcsc_stringify_error()
-static const char* pcsc_stringify_error(unsigned int result)
-{
-	static char str[16];
-	snprintf(str, sizeof(str), "0x%08X", result);
-	return str;
-}
 #endif
 
 struct pcsc_t {
@@ -60,7 +55,7 @@ struct pcsc_t {
 
 struct pcsc_reader_features_t {
 	// Populated by SCardControl(CM_IOCTL_GET_FEATURE_REQUEST)
-	uint8_t buf[MAX_BUFFER_SIZE];
+	uint8_t buf[PCSC_MAX_BUFFER_SIZE];
 	DWORD buf_len;
 
 	// Populated by SCardControl(IFD_PIN_PROPERTIES)
@@ -68,15 +63,11 @@ struct pcsc_reader_features_t {
 	DWORD pin_properties_len;
 
 	// Populated by SCardControl(IFD_DISPLAY_PROPERTIES)
-	struct {
-		uint16_t wLcdMaxCharacters;
-		uint16_t wLcdMaxLines;
-	} __attribute__((packed))
-	display_properties;
+	DISPLAY_PROPERTIES_STRUCTURE display_properties;
 	DWORD display_properties_len;
 
 	// Populated by SCardControl(GET_TLV_PROPERTIES)
-	uint8_t properties[MAX_BUFFER_SIZE];
+	uint8_t properties[PCSC_MAX_BUFFER_SIZE];
 	DWORD properties_len;
 };
 
@@ -248,7 +239,7 @@ static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
 		++pcsc_tlv;
 	}
 
-	r = pcsc_reader_get_feature(reader, FEATURE_IFD_PIN_PROPERTIES, &control_code);
+	r = pcsc_reader_get_feature(reader, PCSC_FEATURE_IFD_PIN_PROPERTIES, &control_code);
 	if (r < 0) {
 		r = -6;
 		goto exit;
@@ -277,7 +268,7 @@ static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
 		}
 	}
 
-	r = pcsc_reader_get_feature(reader, FEATURE_IFD_DISPLAY_PROPERTIES, &control_code);
+	r = pcsc_reader_get_feature(reader, PCSC_FEATURE_IFD_DISPLAY_PROPERTIES, &control_code);
 	if (r < 0) {
 		r = -9;
 		goto exit;
@@ -306,7 +297,7 @@ static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
 		}
 	}
 
-	r = pcsc_reader_get_feature(reader, FEATURE_GET_TLV_PROPERTIES, &control_code);
+	r = pcsc_reader_get_feature(reader, PCSC_FEATURE_GET_TLV_PROPERTIES, &control_code);
 	if (r < 0) {
 		r = -12;
 		goto exit;
