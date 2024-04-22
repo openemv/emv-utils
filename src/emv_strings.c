@@ -322,7 +322,7 @@ int emv_tlv_get_info(
 			return emv_cvm_list_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX:
-			info->tag_name = "Certification Authority Public Key Index";
+			info->tag_name = "Certification Authority Public Key (CAPK) Index";
 			info->tag_desc =
 				"Identifies the certification authority's public key in "
 				"conjunction with the RID";
@@ -711,6 +711,26 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 16, value_str, value_str_len);
 
+		case EMV_TAG_9F13_LAST_ONLINE_ATC_REGISTER:
+			info->tag_name =
+				"Last Online Application Transaction Counter (ATC) Register";
+			info->tag_desc =
+				"Application Transaction Counter (ATC) "
+				"value of the last transaction that went "
+				"online";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F14_LOWER_CONSECUTIVE_OFFLINE_LIMIT:
+			info->tag_name = "Lower Consecutive Offline Limit";
+			info->tag_desc =
+				"Issuer-specified preference for the maximum "
+				"number of consecutive offline transactions for "
+				"this ICC application allowed in a terminal "
+				"with online capability";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F15_MCC:
 			info->tag_name = "Merchant Category Code (MCC)";
 			info->tag_desc = "Classifies the type of business being done by "
@@ -727,10 +747,27 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 15, value_str, value_str_len);
 
+		case EMV_TAG_9F17_PIN_TRY_COUNTER:
+			info->tag_name =
+				"Personal Identification Number (PIN) Try Counter";
+			info->tag_desc = "Number of PIN tries remaining";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F18_ISSUER_SCRIPT_IDENTIFIER:
 			info->tag_name = "Issuer Script Identifier";
 			info->tag_desc = "Identification of the Issuer Script";
 			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F19_TOKEN_REQUESTOR_ID:
+			info->tag_name = "Token Requestor ID";
+			info->tag_desc =
+				"Uniquely identifies the pairing of the Token "
+				"Requestor with the Token Domain, as defined "
+				"in the EMV Payment Tokenisation "
+				"Framework";
+			info->format = EMV_FORMAT_N;
 			return 0;
 
 		case EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE:
@@ -780,16 +817,6 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
 
-		case EMV_TAG_9F19_TOKEN_REQUESTOR_ID:
-			info->tag_name = "Token Requestor ID";
-			info->tag_desc =
-				"Uniquely identifies the pairing of the Token "
-				"Requestor with the Token Domain, as defined "
-				"in the EMV Payment Tokenisation "
-				"Framework";
-			info->format = EMV_FORMAT_N;
-			return 0;
-
 		case EMV_TAG_9F20_TRACK2_DISCRETIONARY_DATA:
 			info->tag_name = "Track 2 Discretionary Data";
 			info->tag_desc =
@@ -803,6 +830,37 @@ int emv_tlv_get_info(
 				"Local time that the transaction was authorised";
 			info->format = EMV_FORMAT_N;
 			return emv_time_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX:
+			info->tag_name = "Certification Authority Public Key (CAPK) Index";
+			info->tag_desc =
+				"Identifies the certification authority's public key in "
+				"conjunction with the RID";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F23_UPPER_CONSECUTIVE_OFFLINE_LIMIT:
+			info->tag_name = "Upper Consecutive Offline Limit";
+			info->tag_desc =
+				"Issuer-specified preference for the maximum "
+				"number of consecutive offline transactions for "
+				"this ICC application allowed in a terminal "
+				"without online capability";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F24_PAYMENT_ACCOUNT_REFERENCE:
+			info->tag_name = "Payment Account Reference (PAR)";
+			info->tag_desc =
+				"A non-financial reference assigned to each "
+				"unique PAN and used to link a Payment "
+				"Account represented by that PAN to affiliated "
+				"Payment Tokens, as defined in the EMV "
+				"Tokenisation Framework. The PAR may be "
+				"assigned in advance of Payment Token "
+				"issuance.";
+			info->format = EMV_FORMAT_AN;
+			return emv_tlv_value_get_string(tlv, info->format, 29, value_str, value_str_len);
 
 		case EMV_TAG_9F25_LAST_4_DIGITS_OF_PAN:
 			info->tag_name = "Last 4 Digits of PAN";

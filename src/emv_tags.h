@@ -122,7 +122,7 @@ __BEGIN_DECLS
 /// EMV tag 8E Cardholder Verification Method (CVM) List. Template 70 or 77.
 #define EMV_TAG_8E_CVM_LIST                                     (0x8E)
 
-/// EMV tag 8F Certification Authority Public Key Index. Template 70 or 77.
+/// EMV tag 8F Certification Authority Public Key (CAPK) Index. Template 70 or 77.
 #define EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX     (0x8F)
 
 /// EMV tag 90 Issuer Public Key Certificate. Template 70 or 77.
@@ -257,6 +257,12 @@ __BEGIN_DECLS
 /// EMV tag 9F12 Application Preferred Name. Template 61 or A5.
 #define EMV_TAG_9F12_APPLICATION_PREFERRED_NAME                 (0x9F12)
 
+/// EMV tag 9F13 Last Online Application Transaction Counter (ATC) Register
+#define EMV_TAG_9F13_LAST_ONLINE_ATC_REGISTER                   (0x9F13)
+
+/// EMV tag 9F14 Lower Consecutive Offline Limit. Template 70 or 77.
+#define EMV_TAG_9F14_LOWER_CONSECUTIVE_OFFLINE_LIMIT            (0x9F14)
+
 /// EMV tag 9F15 Merchant Category Code (MCC)
 #define EMV_TAG_9F15_MCC                                        (0x9F15)
 
@@ -264,8 +270,14 @@ __BEGIN_DECLS
 /// @remark Also used as the Card Acceptor Identification by ISO 8583. See EMV 4.4 Book 4, Annex C, Table 40
 #define EMV_TAG_9F16_MERCHANT_IDENTIFIER                        (0x9F16)
 
+/// EMV tag 9F17 Personal Identification Number (PIN) Try Counter
+#define EMV_TAG_9F17_PIN_TRY_COUNTER                            (0x9F17)
+
 /// EMV tag 9F18 Issuer Script Identifier. Template 71 or 72.
 #define EMV_TAG_9F18_ISSUER_SCRIPT_IDENTIFIER                   (0x9F18)
+
+/// EMV tag 9F19 Token Requestor ID. Template 70 or 77.
+#define EMV_TAG_9F19_TOKEN_REQUESTOR_ID                         (0x9F19)
 
 /// EMV tag 9F1A Terminal Country Code
 #define EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE                      (0x9F1A)
@@ -289,14 +301,20 @@ __BEGIN_DECLS
 /// EMV tag 9F1F Track 1 Discretionary Data. Template 70 or 77.
 #define EMV_TAG_9F1F_TRACK1_DISCRETIONARY_DATA                  (0x9F1F)
 
-/// EMV tag 9F19 Token Requestor ID. Template 70 or 77.
-#define EMV_TAG_9F19_TOKEN_REQUESTOR_ID                         (0x9F19)
-
 /// EMV tag 9F20 Track 2 Discretionary Data. Template 70 or 77.
 #define EMV_TAG_9F20_TRACK2_DISCRETIONARY_DATA                  (0x9F20)
 
 /// EMV tag 9F21 Transaction Time
 #define EMV_TAG_9F21_TRANSACTION_TIME                           (0x9F21)
+
+/// EMV tag 9F22 Certification Authority Public Key (CAPK) Index
+#define EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX   (0x9F22)
+
+/// EMV tag 9F23 Upper Consecutive Offline Limit. Template 70 or 77.
+#define EMV_TAG_9F23_UPPER_CONSECUTIVE_OFFLINE_LIMIT            (0x9F23)
+
+/// EMV tag 9F24 Payment Account Reference (PAR). Template 70 or 77.
+#define EMV_TAG_9F24_PAYMENT_ACCOUNT_REFERENCE                  (0x9F24)
 
 /// EMV tag 9F25 Last 4 Digits of PAN. Template 70 or 77.
 #define EMV_TAG_9F25_LAST_4_DIGITS_OF_PAN                       (0x9F25)
