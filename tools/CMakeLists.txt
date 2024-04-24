@@ -697,6 +697,50 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test5_regex}
 	)
 
+	add_test(NAME emv_decode_9F27_test1
+		COMMAND emv-decode --tlv 9F270160
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F27_test1_regex
+		"^9F27 \\| Cryptogram Information Data : \\[1\\] 60[\r\n]"
+		"  - Application Cryptogram \\(AC\\) type: Transaction Certificate \\(TC\\)[\r\n]"
+		"  - Payment System-specific cryptogram: 0x20[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F27_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F27_test1_regex}
+	)
+
+	add_test(NAME emv_decode_9F27_test2
+		COMMAND emv-decode --tlv 9F270101
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F27_test2_regex
+		"^9F27 \\| Cryptogram Information Data : \\[1\\] 01[\r\n]"
+		"  - Application Cryptogram \\(AC\\) type: Application Authentication Cryptogram \\(AAC\\)[\r\n]"
+		"  - No advice required[\r\n]"
+		"  - Advice: Service not allowed[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F27_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F27_test2_regex}
+	)
+
+	add_test(NAME emv_decode_9F27_test3
+		COMMAND emv-decode --tlv 9F27018A
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F27_test3_regex
+		"^9F27 \\| Cryptogram Information Data : \\[1\\] 8A[\r\n]"
+		"  - Application Cryptogram \\(AC\\) type: Authorisation Request Cryptogram \\(ARQC\\)[\r\n]"
+		"  - Advice required[\r\n]"
+		"  - Advice: PIN Try Limit exceeded[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F27_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F27_test3_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

@@ -329,6 +329,22 @@ __BEGIN_DECLS
 // See EMV 4.4 Book 3, Annex C6, Table 47
 #define EMV_TSI_BYTE2_RFU                                       (0xFF) ///< Transaction Status Information: RFU
 
+// Cryptogram Information Data (field 9F27)
+// See EMV 4.4 Book 3, 6.5.5.4, table 15
+#define EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK                (0xC0) ///< Cryptogram Information Data mask for Application Cryptogram (AC) type
+#define EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC                 (0x00) ///< Application Cryptogram (AC) type: Application Authentication Cryptogram (AAC)
+#define EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC                  (0x40) ///< Application Cryptogram (AC) type: Transaction Certificate (TC)
+#define EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC                (0x80) ///< Application Cryptogram (AC) type: Authorisation Request Cryptogram (ARQC)
+#define EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_RFU                 (0xC0) ///< Application Cryptogram (AC) type: RFU
+#define EMV_CID_PAYMENT_SYSTEM_SPECIFIC_CRYPTOGRAM_MASK         (0x30) ///< Cryptogram Information Data: Payment System-specific cryptogram
+#define EMV_CID_ADVICE_REQUIRED                                 (0x08) ///< Cryptogram Information Data: Advice required
+#define EMV_CID_ADVICE_CODE_MASK                                (0x07) ///< Cryptogram Information Data mask reason/advice code
+#define EMV_CID_ADVICE_NO_INFO                                  (0x00) ///< Advice: No information given
+#define EMV_CID_ADVICE_SERVICE_NOT_ALLOWED                      (0x01) ///< Advice: Service not allowed
+#define EMV_CID_ADVICE_PIN_TRY_LIMIT_EXCEEDED                   (0x02) ///< Advice: PIN Try Limit exceeded
+#define EMV_CID_ADVICE_ISSUER_AUTHENTICATION_FAILED             (0x03) ///< Advice: Issuer authentication failed
+#define EMV_CID_ADVICE_RFU                                      (0x04) ///< Advice: RFU
+
 /// Issuer Application Data (field 9F10) formats
 enum emv_iad_format_t {
 	EMV_IAD_FORMAT_INVALID = -1, ///< Invalid IAD format

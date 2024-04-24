@@ -884,7 +884,13 @@ int emv_tlv_get_info(
 				"Indicates the type of cryptogram and the actions to be "
 				"performed by the terminal";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
+			return emv_cid_get_string_list(tlv->value[0], value_str, value_str_len);
 
 		case EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT:
 			info->tag_name = "Issuer Public Key Exponent";
@@ -3757,6 +3763,85 @@ int emv_tsi_get_string_list(
 	}
 	if (tsi[0] & EMV_TSI_BYTE1_RFU || tsi[1] & EMV_TSI_BYTE2_RFU) {
 		emv_str_list_add(&itr, "RFU");
+	}
+
+	return 0;
+}
+
+int emv_cid_get_string_list(
+	uint8_t cid,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!str || !str_len) {
+		return -1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Application Cryptogram (AC) type
+	// See EMV 4.4 Book 3, 6.5.5.4, table 15
+	switch (cid & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
+			emv_str_list_add(&itr, "Application Cryptogram (AC) type: Application Authentication Cryptogram (AAC)");
+			break;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
+			emv_str_list_add(&itr, "Application Cryptogram (AC) type: Transaction Certificate (TC)");
+			break;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC:
+			emv_str_list_add(&itr, "Application Cryptogram (AC) type: Authorisation Request Cryptogram (ARQC)");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Application Cryptogram (AC) type: RFU");
+			break;
+	}
+
+	// Payment System-specific cryptogram
+	// See EMV 4.4 Book 3, 6.5.5.4, table 15
+	if (cid & EMV_CID_PAYMENT_SYSTEM_SPECIFIC_CRYPTOGRAM_MASK) {
+		emv_str_list_add(&itr,
+			"Payment System-specific cryptogram: 0x%02X",
+			cid & EMV_CID_PAYMENT_SYSTEM_SPECIFIC_CRYPTOGRAM_MASK
+		);
+	}
+
+	// Advice required
+	// See EMV 4.4 Book 3, 6.5.5.4, table 15
+	if (cid & EMV_CID_ADVICE_REQUIRED) {
+		emv_str_list_add(&itr, "Advice required");
+	} else if (cid & EMV_CID_ADVICE_CODE_MASK) {
+		// Indicate that advice is not required although it is provided
+		emv_str_list_add(&itr, "No advice required");
+	}
+
+	// Reason/advice code
+	// See EMV 4.4 Book 3, 6.5.5.4, table 15
+	switch (cid & EMV_CID_ADVICE_CODE_MASK) {
+		case EMV_CID_ADVICE_NO_INFO:
+			// No information given; ignore
+			break;
+
+		case EMV_CID_ADVICE_SERVICE_NOT_ALLOWED:
+			emv_str_list_add(&itr, "Advice: Service not allowed");
+			break;
+
+		case EMV_CID_ADVICE_PIN_TRY_LIMIT_EXCEEDED:
+			emv_str_list_add(&itr, "Advice: PIN Try Limit exceeded");
+			break;
+
+		case EMV_CID_ADVICE_ISSUER_AUTHENTICATION_FAILED:
+			emv_str_list_add(&itr, "Advice: Issuer authentication failed");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Advice: RFU");
+			break;
 	}
 
 	return 0;
