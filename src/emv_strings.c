@@ -67,6 +67,7 @@ static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_
 static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static const char* emv_mastercard_device_type_get_string(const char* device_type);
 static const char* emv_arc_get_desc(const char* arc);
+static int emv_csu_append_string_list(const uint8_t* csu, size_t csu_len, struct str_itr_t* itr);
 static int emv_capdu_get_data_get_string(const uint8_t* c_apdu, size_t c_apdu_len, char* str, size_t str_len);
 
 int emv_strings_init(const char* isocodes_path, const char* mcc_path)
@@ -5775,6 +5776,79 @@ int emv_auth_response_code_get_string(
 	return 0;
 }
 
+static int emv_csu_append_string_list(
+	const uint8_t* csu,
+	size_t csu_len,
+	struct str_itr_t* itr
+)
+{
+	if (!csu) {
+		return -1;
+	}
+	if (csu_len != 4) {
+		// See EMV 4.4 Book 3, Annex C10
+		return -2;
+	}
+
+	// Card Status Update (CSU) byte 1
+	// See EMV 4.4 Book 3, Annex C10
+	if (csu[0] & EMV_CSU_BYTE1_PROPRIETARY_AUTHENTICATION_DATA_INCLUDED) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Proprietary Authentication Data Included");
+	}
+	if (csu[0] & EMV_CSU_BYTE1_PIN_TRY_COUNTER_MASK) {
+		emv_str_list_add(itr, "Card Status Update (CSU): PIN Try Counter = %u", csu[0] & EMV_CSU_BYTE1_PIN_TRY_COUNTER_MASK);
+	}
+
+	// Card Status Update (CSU) byte 2
+	// See EMV 4.4 Book 3, Annex C10
+	if (csu[1] & EMV_CSU_BYTE2_ISSUER_APPROVES_ONLINE_TRANSACTION) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Issuer Approves Online Transaction");
+	}
+	if (csu[1] & EMV_CSU_BYTE2_CARD_BLOCK) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Card Block");
+	}
+	if (csu[1] & EMV_CSU_BYTE2_APPLICATION_BLOCK) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Application Block");
+	}
+	if (csu[1] & EMV_CSU_BYTE2_UPDATE_PIN_TRY_COUNTER) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Update PIN Try Counter");
+	}
+	if (csu[1] & EMV_CSU_BYTE2_GO_ONLINE_ON_NEXT_TXN) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Set Go Online on Next Transaction");
+	}
+	if (csu[1] & EMV_CSU_BYTE2_CREATED_BY_PROXY_FOR_ISSUER) {
+		emv_str_list_add(itr, "Card Status Update (CSU): CSU Created by Proxy for the Issuer");
+	}
+	if ((csu[1] & EMV_CSU_BYTE2_UPDATE_COUNTERS_MASK) == EMV_CSU_BYTE2_UPDATE_COUNTERS_DO_NOT_UPDATE) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Do Not Update Offline Counters");
+	}
+	if ((csu[1] & EMV_CSU_BYTE2_UPDATE_COUNTERS_MASK) == EMV_CSU_BYTE2_UPDATE_COUNTERS_UPPER_OFFLINE_LIMIT) {
+		emv_str_list_add(itr, "ard Status Update (CSU): Set Offline Counters to Upper Offline Limits");
+	}
+	if ((csu[1] & EMV_CSU_BYTE2_UPDATE_COUNTERS_MASK) == EMV_CSU_BYTE2_UPDATE_COUNTERS_RESET) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Reset Offline Counters to Zero");
+	}
+	if ((csu[1] & EMV_CSU_BYTE2_UPDATE_COUNTERS_MASK) == EMV_CSU_BYTE2_UPDATE_COUNTERS_ADD_TO_OFFLINE) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Add Transaction to Offline Counter");
+	}
+
+	// Card Status Update (CSU) byte 4
+	// See EMV 4.4 Book 3, Annex C10
+	if (csu[3] & EMV_CSU_BYTE4_ISSUER_DISCRETIONARY) {
+		emv_str_list_add(itr, "Card Status Update (CSU): Issuer Discretionary 0x%02X", csu[3]);
+	}
+
+	// Card Status Update (CSU) RFU bits
+	// See EMV 4.4 Book 3, Annex C10
+	if (csu[0] & EMV_CSU_BYTE1_RFU ||
+		csu[2] & EMV_CSU_BYTE3_RFU
+	) {
+		emv_str_list_add(itr, "Card Status Update (CSU): RFU");
+	}
+
+	return 0;
+}
+
 int emv_issuer_auth_data_get_string_list(
 	const uint8_t* iad,
 	size_t iad_len,
@@ -5830,18 +5904,22 @@ int emv_issuer_auth_data_get_string_list(
 			return 0;
 		}
 	}
-	if ((iad[4] & 0x70) == 0 && iad[6] == 0) { // Check for Visa CSU RFU bits
-		// Likely Visa CVN18 or Visa CVN'22'
-		// 4-byte ARPC followed by CSU and optional Proprietary Authentication Data
+	// Check for Card Status Update (CSU) RFU bits
+	if ((iad[4] & EMV_CSU_BYTE1_RFU) == 0 &&
+		(iad[6] & EMV_CSU_BYTE3_RFU) == 0
+	) {
+		// Likely CCD, Visa CVN18 or Visa CVN'22'
+		// 4-byte ARPC followed by 4-byte CSU and optional Proprietary Authentication Data
+		// See EMV 4.4 Book 2, 8.2.2
+		// See EMV 4.4 Book 3, Annex C10
 		// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 		emv_str_list_add(&itr, "Authorisation Response Cryptogram (ARPC): %02X%02X%02X%02X",
 			iad[0], iad[1], iad[2], iad[3]
 		);
-		emv_str_list_add(&itr, "Card Status Update (CSU): %02X%02X%02X%02X",
-			iad[4], iad[5], iad[6], iad[7]
-		);
+		emv_csu_append_string_list(iad + 4, 4, &itr);
+
 		if (iad_len > 8) { // If extra data after CSU
-			if ((iad[4] & 0x80) == 0x80) { // CSU indicates Proprietary Authentication Data
+			if ((iad[4] & EMV_CSU_BYTE1_PROPRIETARY_AUTHENTICATION_DATA_INCLUDED)) { // CSU indicates Proprietary Authentication Data
 				emv_str_list_add(&itr, "Proprietary Authentication Data: %zu bytes", iad_len - 8);
 			} else if (iad_len == 10) {
 				// Two extra bytes but not Proprietary Authentication Data

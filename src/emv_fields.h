@@ -759,6 +759,34 @@ enum emv_iad_format_t {
 #define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26            (0x02) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.4 - 2.6
 #define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27               (0x03) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.7
 
+// Card Status Update (CSU) byte 1
+// See EMV 4.4 Book 3, Annex C10
+#define EMV_CSU_BYTE1_PROPRIETARY_AUTHENTICATION_DATA_INCLUDED  (0x80) ///< Card Status Update (CSU): Proprietary Authentication Data Included
+#define EMV_CSU_BYTE1_RFU                                       (0x70) ///< Card Status Update (CSU): RFU
+#define EMV_CSU_BYTE1_PIN_TRY_COUNTER_MASK                      (0x0F) ///< Card Status Update (CSU) mask for PIN Try Counter
+
+// Card Status Update (CSU) byte 2
+// See EMV 4.4 Book 3, Annex C10
+#define EMV_CSU_BYTE2_ISSUER_APPROVES_ONLINE_TRANSACTION        (0x80) ///< Card Status Update (CSU): Issuer Approves Online Transaction
+#define EMV_CSU_BYTE2_CARD_BLOCK                                (0x40) ///< Card Status Update (CSU): Card Block
+#define EMV_CSU_BYTE2_APPLICATION_BLOCK                         (0x20) ///< Card Status Update (CSU): Application Block
+#define EMV_CSU_BYTE2_UPDATE_PIN_TRY_COUNTER                    (0x10) ///< Card Status Update (CSU): Update PIN Try Counter
+#define EMV_CSU_BYTE2_GO_ONLINE_ON_NEXT_TXN                     (0x08) ///< Card Status Update (CSU): Set Go Online on Next Transaction
+#define EMV_CSU_BYTE2_CREATED_BY_PROXY_FOR_ISSUER               (0x04) ///< Card Status Update (CSU): CSU Created by Proxy for the Issuer
+#define EMV_CSU_BYTE2_UPDATE_COUNTERS_MASK                      (0x03) ///< Card Status Update (CSU) mask for Update Counters
+#define EMV_CSU_BYTE2_UPDATE_COUNTERS_DO_NOT_UPDATE             (0x00) ///< Card Status Update (CSU): Do Not Update Offline Counters
+#define EMV_CSU_BYTE2_UPDATE_COUNTERS_UPPER_OFFLINE_LIMIT       (0x01) ///< Card Status Update (CSU): Set Offline Counters to Upper Offline Limits
+#define EMV_CSU_BYTE2_UPDATE_COUNTERS_RESET                     (0x02) ///< Card Status Update (CSU): Reset Offline Counters to Zero
+#define EMV_CSU_BYTE2_UPDATE_COUNTERS_ADD_TO_OFFLINE            (0x03) ///< Card Status Update (CSU): Add Transaction to Offline Counter
+
+// Card Status Update (CSU) byte 3
+// See EMV 4.4 Book 3, Annex C10
+#define EMV_CSU_BYTE3_RFU                                       (0xFF) ///< Card Status Update (CSU): RFU
+
+// Card Status Update (CSU) byte 4
+// See EMV 4.4 Book 3, Annex C10
+#define EMV_CSU_BYTE4_ISSUER_DISCRETIONARY                      (0xFF) ///< Card Status Update (CSU): Issuer Discretionary
+
 /// EMV card schemes
 enum emv_card_scheme_t {
 	EMV_CARD_SCHEME_UNKNOWN = 0, ///< Unknown card scheme

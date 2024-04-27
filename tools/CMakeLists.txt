@@ -642,7 +642,8 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"8A \\| Authorisation Response Code : \\[2\\] 30 30 \"00 - Approved or completed successfully\"[\r\n]"
 		"91 \\| Issuer Authentication Data : \\[8\\] A5 84 F9 49 00 82 00 00[\r\n]"
 		"  - Authorisation Response Cryptogram \\(ARPC\\): A584F949[\r\n]"
-		"  - Card Status Update \\(CSU\\): 00820000[\r\n]"
+		"  - Card Status Update \\(CSU\\): Issuer Approves Online Transaction[\r\n]"
+		"  - Card Status Update \\(CSU\\): Reset Offline Counters to Zero[\r\n]"
 	)
 	set_tests_properties(emv_decode_issuer_response_test2
 		PROPERTIES
