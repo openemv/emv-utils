@@ -22,6 +22,7 @@
 #include "emv.h"
 #include "pcsc.h"
 #include "print_helpers.h"
+#include "emv_ttl.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
 #include "emv_strings.h"
@@ -39,9 +40,6 @@
 #include <time.h>
 #include <argp.h>
 
-// HACK: remove
-#include "emv_ttl.h"
-
 // Forward declarations
 struct emv_txn_t;
 
@@ -49,9 +47,8 @@ struct emv_txn_t;
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
 static const char* pcsc_get_reader_state_string(unsigned int reader_state);
 static void print_pcsc_readers(pcsc_ctx_t pcsc);
-static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
-static void emv_txn_load_config(struct emv_txn_t* emv_txn);
-static void emv_txn_destroy(struct emv_txn_t* emv_txn);
+static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
+static void emv_txn_load_config(struct emv_ctx_t* emv);
 
 // argp option keys
 enum emv_tool_param_t {
@@ -120,30 +117,6 @@ static enum emv_debug_level_t debug_level = EMV_DEBUG_INFO;
 
 // Testing parameters
 static char* mcc_json = NULL;
-
-struct emv_txn_t {
-	// Terminal Transport Layer
-	struct emv_ttl_t ttl;
-
-	// Transaction parameters (type, amount, counter, etc)
-	struct emv_tlv_list_t params;
-
-	// Terminal configuration
-	struct emv_tlv_list_t terminal;
-
-	// Supported applications
-	struct emv_tlv_list_t supported_aids;
-
-	// ICC data
-	struct emv_tlv_list_t icc;
-
-	// Cardholder application selection required?
-	bool application_selection_required;
-
-	// Selected application
-	struct emv_app_t* selected_app;
-};
-static struct emv_txn_t emv_txn;
 
 
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
@@ -564,7 +537,7 @@ static void print_pcsc_readers(pcsc_ctx_t pcsc)
 	}
 }
 
-static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other)
+static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other)
 {
 	time_t t = time(NULL);
 	struct tm* tm = localtime(&t);
@@ -574,8 +547,8 @@ static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt,
 	uint8_t buf[6];
 
 	// Transaction sequence counter
-	// See EMV 4.3 Book 4, 6.5.5
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER, 4, emv_uint_to_format_n(txn_seq_cnt, buf, 4), 0);
+	// See EMV 4.4 Book 4, 6.5.5
+	emv_tlv_list_push(&emv->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER, 4, emv_uint_to_format_n(txn_seq_cnt, buf, 4), 0);
 
 	// Current date and time
 	tm->tm_year += date_offset; // Useful for expired test cards
@@ -585,62 +558,53 @@ static void emv_txn_load_params(struct emv_txn_t* emv_txn, uint32_t txn_seq_cnt,
 	emv_time[0] = ((tm->tm_hour / 10) << 4) | (tm->tm_hour % 10);
 	emv_time[1] = ((tm->tm_min / 10) << 4) | (tm->tm_min % 10);
 	emv_time[2] = ((tm->tm_sec / 10) << 4) | (tm->tm_sec % 10);
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9A_TRANSACTION_DATE, 3, emv_date, 0);
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F21_TRANSACTION_TIME, 3, emv_time, 0);
+	emv_tlv_list_push(&emv->params, EMV_TAG_9A_TRANSACTION_DATE, 3, emv_date, 0);
+	emv_tlv_list_push(&emv->params, EMV_TAG_9F21_TRANSACTION_TIME, 3, emv_time, 0);
 
 	// Transaction currency
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0); // Euro (978)
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT, 1, (uint8_t[]){ 0x02 }, 0); // Currency has 2 decimal places
+	emv_tlv_list_push(&emv->params, EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0); // Euro (978)
+	emv_tlv_list_push(&emv->params, EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT, 1, (uint8_t[]){ 0x02 }, 0); // Currency has 2 decimal places
 
 	// Transaction type and amount(s)
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9C_TRANSACTION_TYPE, 1, &txn_type, 0);
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, emv_uint_to_format_n(amount, buf, 6), 0);
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, emv_uint_to_format_b(amount, buf, 4), 0);
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC, 6, emv_uint_to_format_n(amount_other, buf, 6), 0);
-	emv_tlv_list_push(&emv_txn->params, EMV_TAG_9F04_AMOUNT_OTHER_BINARY, 4, emv_uint_to_format_b(amount_other, buf, 4), 0);
+	emv_tlv_list_push(&emv->params, EMV_TAG_9C_TRANSACTION_TYPE, 1, &txn_type, 0);
+	emv_tlv_list_push(&emv->params, EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, emv_uint_to_format_n(amount, buf, 6), 0);
+	emv_tlv_list_push(&emv->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, emv_uint_to_format_b(amount, buf, 4), 0);
+	emv_tlv_list_push(&emv->params, EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC, 6, emv_uint_to_format_n(amount_other, buf, 6), 0);
+	emv_tlv_list_push(&emv->params, EMV_TAG_9F04_AMOUNT_OTHER_BINARY, 4, emv_uint_to_format_b(amount_other, buf, 4), 0);
 }
 
-static void emv_txn_load_config(struct emv_txn_t* emv_txn)
+static void emv_txn_load_config(struct emv_ctx_t* emv)
 {
 	// Terminal config
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F01_ACQUIRER_IDENTIFIER, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0 ); // Unique acquirer identifier
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE, 2, (uint8_t[]){ 0x05, 0x28 }, 0); // Netherlands
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x03, 0xE8 }, 0); // 1000
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F16_MERCHANT_IDENTIFIER, 15, (const uint8_t*)"0987654321     ", 0); // Unique merchant identifier
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F1C_TERMINAL_IDENTIFICATION, 8, (const uint8_t*)"TID12345", 0); // Unique location of terminal at merchant
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F1E_IFD_SERIAL_NUMBER, 8, (const uint8_t*)"12345678", 0); // Serial number
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION, 12, (const uint8_t*)"ACME Peanuts", 0); // Merchant Name and Location
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F01_ACQUIRER_IDENTIFIER, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0 ); // Unique acquirer identifier
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE, 2, (uint8_t[]){ 0x05, 0x28 }, 0); // Netherlands
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x03, 0xE8 }, 0); // 1000
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F16_MERCHANT_IDENTIFIER, 15, (const uint8_t*)"0987654321     ", 0); // Unique merchant identifier
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F1C_TERMINAL_IDENTIFICATION, 8, (const uint8_t*)"TID12345", 0); // Unique location of terminal at merchant
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F1E_IFD_SERIAL_NUMBER, 8, (const uint8_t*)"12345678", 0); // Serial number
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION, 12, (const uint8_t*)"ACME Peanuts", 0); // Merchant Name and Location
 
 	// Terminal Capabilities:
 	// - Card Data Input Capability: IC with Contacts
 	// - CVM Capability: Plaintext offline PIN, Enciphered online PIN, Signature, Enciphered offline PIN, No CVM
 	// - Security Capability: SDA, DDA, CDA
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, 0xC8}, 0);
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, 0xC8}, 0);
 
 	// Merchant attended, offline with online capability
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){ 0x22 }, 0);
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){ 0x22 }, 0);
 
 	// Additional Terminal Capabilities:
 	// - Transaction Type Capability: Goods, Services, Cashback, Cash, Inquiry, Payment
 	// - Terminal Data Input Capability: Numeric, Alphabetic and special character keys, Command keys, Function keys
 	// - Terminal Data Output Capability: Attended print, Attended display, Code table 1 to 10
-	emv_tlv_list_push(&emv_txn->terminal, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES, 5, (uint8_t[]){ 0xFA, 0x00, 0xF0, 0xA3, 0xFF }, 0);
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES, 5, (uint8_t[]){ 0xFA, 0x00, 0xF0, 0xA3, 0xFF }, 0);
 
 	// Supported applications
-	emv_tlv_list_push(&emv_txn->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
-	emv_tlv_list_push(&emv_txn->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, EMV_ASI_EXACT_MATCH); // Visa Electron
-	emv_tlv_list_push(&emv_txn->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, EMV_ASI_EXACT_MATCH); // V Pay
-	emv_tlv_list_push(&emv_txn->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
-	emv_tlv_list_push(&emv_txn->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30 }, EMV_ASI_PARTIAL_MATCH); // Maestro
-}
-
-static void emv_txn_destroy(struct emv_txn_t* emv_txn)
-{
-	emv_tlv_list_clear(&emv_txn->params);
-	emv_tlv_list_clear(&emv_txn->supported_aids);
-	emv_tlv_list_clear(&emv_txn->terminal);
-	emv_tlv_list_clear(&emv_txn->icc);
-	emv_app_free(emv_txn->selected_app);
+	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
+	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, EMV_ASI_EXACT_MATCH); // Visa Electron
+	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, EMV_ASI_EXACT_MATCH); // V Pay
+	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
+	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30 }, EMV_ASI_PARTIAL_MATCH); // Maestro
 }
 
 int main(int argc, char** argv)
@@ -654,6 +618,10 @@ int main(int argc, char** argv)
 	size_t reader_idx;
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
+	struct emv_ttl_t ttl;
+	struct emv_ctx_t emv;
+	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
+	bool application_selection_required;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -782,30 +750,35 @@ int main(int argc, char** argv)
 	}
 
 	// Prepare for EMV transaction
-	memset(&emv_txn, 0, sizeof(emv_txn));
-	emv_txn.ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
-	emv_txn.ttl.cardreader.ctx = reader;
-	emv_txn.ttl.cardreader.trx = &pcsc_reader_trx;
+	memset(&ttl, 0, sizeof(ttl));
+	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
+	ttl.cardreader.ctx = reader;
+	ttl.cardreader.trx = &pcsc_reader_trx;
+	r = emv_ctx_init(&emv, &ttl);
+	if (r) {
+		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
+		goto pcsc_exit;
+	}
+	emv_txn_load_config(&emv);
 	emv_txn_load_params(
-		&emv_txn,
+		&emv,
 		42, // Transaction Sequence Counter
 		txn_type, // Transaction Type
 		txn_amount, // Transaction Amount
 		txn_amount_other // Transaction Amount, Other
 	);
-	emv_txn_load_config(&emv_txn);
-
-	printf("\nTransaction parameters:\n");
-	print_emv_tlv_list(&emv_txn.params);
 
 	printf("\nTerminal config:\n");
-	print_emv_tlv_list(&emv_txn.terminal);
+	print_emv_tlv_list(&emv.config);
 
-	// Candidate applications for selection
-	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
+	printf("\nSupported AIDs:\n");
+	print_emv_tlv_list(&emv.supported_aids);
+
+	printf("\nTransaction parameters:\n");
+	print_emv_tlv_list(&emv.params);
 
 	printf("\nBuild candidate list\n");
-	r = emv_build_candidate_list(&emv_txn.ttl, &emv_txn.supported_aids, &app_list);
+	r = emv_build_candidate_list(emv.ttl, &emv.supported_aids, &app_list);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
@@ -820,15 +793,15 @@ int main(int argc, char** argv)
 		print_emv_app(app);
 	}
 
-	emv_txn.application_selection_required = emv_app_list_selection_is_required(&app_list);
-	if (emv_txn.application_selection_required) {
+	application_selection_required = emv_app_list_selection_is_required(&app_list);
+	if (application_selection_required) {
 		printf("Cardholder selection is required\n");
 	}
 
 	do {
 		unsigned int index;
 
-		if (emv_txn.application_selection_required) {
+		if (application_selection_required) {
 			unsigned int app_count = 0;
 			int r;
 			char s[4]; // two digits, newline and null
@@ -862,7 +835,7 @@ int main(int argc, char** argv)
 			index = 0;
 		}
 
-		r = emv_select_application(&emv_txn.ttl, &app_list, index, &emv_txn.selected_app);
+		r = emv_select_application(emv.ttl, &app_list, index, &emv.selected_app);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
@@ -876,18 +849,18 @@ int main(int argc, char** argv)
 			}
 			goto emv_exit;
 		}
-		if (!emv_txn.selected_app) {
+		if (!emv.selected_app) {
 			fprintf(stderr, "selected_app unexpectedly NULL\n");
 			goto emv_exit;
 		}
 
 		printf("\nInitiate application processing:\n");
 		r = emv_initiate_application_processing(
-			&emv_txn.ttl,
-			emv_txn.selected_app,
-			&emv_txn.params,
-			&emv_txn.terminal,
-			&emv_txn.icc
+			emv.ttl,
+			emv.selected_app,
+			&emv.params,
+			&emv.config,
+			&emv.icc
 		);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
@@ -898,7 +871,7 @@ int main(int argc, char** argv)
 			if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
 				// Return to cardholder application selection/confirmation
 				// See EMV 4.4 Book 4, 6.3.1
-				emv_app_free(emv_txn.selected_app);
+				emv_app_free(emv.selected_app);
 				continue;
 			}
 			goto emv_exit;
@@ -916,7 +889,7 @@ int main(int argc, char** argv)
 	// TODO: EMV 4.4 Book 1, 12.4, create 9F06 from 84
 
 	printf("\nRead application data\n");
-	r = emv_read_application_data(&emv_txn.ttl, &emv_txn.icc);
+	r = emv_read_application_data(emv.ttl, &emv.icc);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
@@ -925,7 +898,7 @@ int main(int argc, char** argv)
 		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 		goto emv_exit;
 	}
-	print_emv_tlv_list(&emv_txn.icc);
+	print_emv_tlv_list(&emv.icc);
 
 	r = pcsc_reader_disconnect(reader);
 	if (r) {
@@ -936,7 +909,7 @@ int main(int argc, char** argv)
 
 emv_exit:
 	emv_app_list_clear(&app_list);
-	emv_txn_destroy(&emv_txn);
+	emv_ctx_clear(&emv);
 pcsc_exit:
 	pcsc_release(&pcsc);
 

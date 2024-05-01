@@ -22,6 +22,8 @@
 #ifndef EMV_H
 #define EMV_H
 
+#include "emv_tlv.h"
+
 #include <sys/cdefs.h>
 #include <stddef.h>
 
@@ -29,9 +31,85 @@ __BEGIN_DECLS
 
 // Forward declarations
 struct emv_ttl_t;
-struct emv_tlv_list_t;
 struct emv_app_list_t;
 struct emv_app_t;
+
+/**
+ * @brief EMV processing context
+ *
+ * Initialise using @ref emv_ctx_init() and then follow the instructions for
+ * populating remaining fields.
+ *
+ * Reset using @ref emv_ctx_reset() to prepare for next transaction using
+ * the same configuration.
+ *
+ * Clear using @ref emv_ctx_clear().
+ */
+struct emv_ctx_t {
+	/**
+	 * @brief Terminal Transport Layer (TTL) context
+	 *
+	 * Populated by @ref emv_ctx_init().
+	 */
+	struct emv_ttl_t* ttl;
+
+	/**
+	 * @brief Terminal configuration.
+	 *
+	 * Populate after @ref emv_ctx_init() and before EMV processing by
+	 * using @ref emv_tlv_list_push().
+	 */
+	struct emv_tlv_list_t config;
+
+	/**
+	 * @brief List of supported applications.
+	 *
+	 * Populate after @ref emv_ctx_init() and before EMV processing
+	 * using @ref emv_tlv_list_push(). Each entry is a @ref EMV_TAG_9F06_AID
+	 * field containing a supported Application Identifier (AID) with
+	 * @ref emv_tlv_t.flags set to either @ref EMV_ASI_EXACT_MATCH or
+	 * @ref EMV_ASI_PARTIAL_MATCH.
+	 *
+	 */
+	struct emv_tlv_list_t supported_aids;
+
+	/**
+	 * @brief Parameters for current transaction.
+	 *
+	 * Populate after @ref emv_ctx_init() and before EMV processing by
+	 * using @ref emv_tlv_list_push().
+	 *
+	 * The minimum required fields for transaction processing are:
+	 * - @ref EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER
+	 * - @ref EMV_TAG_9A_TRANSACTION_DATE
+	 * - @ref EMV_TAG_9F21_TRANSACTION_TIME
+	 * - @ref EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE
+	 * - @ref EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT
+	 * - @ref EMV_TAG_9C_TRANSACTION_TYPE
+	 * - @ref EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC
+	 * - @ref EMV_TAG_81_AMOUNT_AUTHORISED_BINARY
+	 *
+	 * Optional fields are:
+	 * - @ref EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC
+	 * - @ref EMV_TAG_9F04_AMOUNT_OTHER_BINARY
+	 */
+	struct emv_tlv_list_t params;
+
+	/**
+	 * @brief Currently selected application
+	 *
+	 * Populated by @ref emv_select_application().
+	 */
+	struct emv_app_t* selected_app;
+
+	/**
+	 * @brief Integrated Circuit Card (ICC) data for current application.
+	 *
+	 * Populated by @ref emv_initiate_application_processing() and
+	 * @ref emv_read_application_data().
+	 */
+	struct emv_tlv_list_t icc;
+};
 
 /**
  * EMV errors
@@ -61,6 +139,51 @@ enum emv_outcome_t {
  * @return Pointer to null-terminated string. Do not free.
  */
 const char* emv_lib_version_string(void);
+
+/**
+ * Initialize EMV processing context
+ *
+ * @param ctx EMV processing context
+ * @param ttl Terminal Transport Layer (TTL) context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_ctx_init(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl);
+
+/**
+ * Reset EMV processing context for next transaction.
+ *
+ * This function will clear these transaction specific context members:
+ * - @ref emv_ctx_t.params
+ * - @ref emv_ctx_t.icc
+ *
+ * And this function will preserve these members that can be reused for the
+ * next transaction:
+ * - @ref emv_ctx_t.ttl
+ * - @ref emv_ctx_t.config
+ * - @ref emv_ctx_t.supported_aids
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_ctx_reset(struct emv_ctx_t* ctx);
+
+/**
+ * Clear EMV processing context
+ *
+ * This functions will clear dynamically allocated memory used by members of
+ * the EMV processing context, but will not free the EMV processing context
+ * structure itself.
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_ctx_clear(struct emv_ctx_t* ctx);
 
 /**
  * Retrieve string associated with error value

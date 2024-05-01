@@ -50,6 +50,46 @@ const char* emv_error_get_string(enum emv_error_t error)
 	return "Unknown error";
 }
 
+int emv_ctx_init(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
+{
+	if (!ctx || !ttl) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	memset(ctx, 0, sizeof(*ctx));
+	ctx->ttl = ttl;
+
+	return 0;
+}
+
+int emv_ctx_reset(struct emv_ctx_t* ctx)
+{
+	if (!ctx) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_tlv_list_clear(&ctx->params);
+	emv_tlv_list_clear(&ctx->icc);
+	emv_app_free(ctx->selected_app);
+	ctx->selected_app = NULL;
+
+	return 0;
+}
+
+int emv_ctx_clear(struct emv_ctx_t* ctx)
+{
+	if (!ctx) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	ctx->ttl = NULL;
+	emv_tlv_list_clear(&ctx->config);
+	emv_tlv_list_clear(&ctx->supported_aids);
+	emv_ctx_reset(ctx);
+
+	return 0;
+}
+
 const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 {
 	// See EMV 4.4 Book 4, 11.2, table 8
