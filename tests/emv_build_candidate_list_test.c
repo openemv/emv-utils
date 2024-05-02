@@ -27,6 +27,7 @@
 #include "emv_tags.h"
 #include "emv_fields.h"
 
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -351,7 +352,7 @@ int main(void)
 	int r;
 	struct emv_cardreader_emul_ctx_t emul_ctx;
 	struct emv_ttl_t ttl;
-	struct emv_tlv_list_t supported_aids = EMV_TLV_LIST_INIT;
+	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
 	size_t app_count;
 
@@ -359,12 +360,19 @@ int main(void)
 	ttl.cardreader.ctx = &emul_ctx;
 	ttl.cardreader.trx = &emv_cardreader_emul;
 
+	r = emv_ctx_init(&emv, &ttl);
+	if (r) {
+		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+
 	// Supported applications
-	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
-	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, EMV_ASI_EXACT_MATCH); // Visa Electron
-	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, EMV_ASI_EXACT_MATCH); // V Pay
-	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
-	emv_tlv_list_push(&supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30 }, EMV_ASI_PARTIAL_MATCH); // Maestro
+	emv_tlv_list_push(&emv.supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
+	emv_tlv_list_push(&emv.supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, EMV_ASI_EXACT_MATCH); // Visa Electron
+	emv_tlv_list_push(&emv.supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, EMV_ASI_EXACT_MATCH); // V Pay
+	emv_tlv_list_push(&emv.supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
+	emv_tlv_list_push(&emv.supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30 }, EMV_ASI_PARTIAL_MATCH); // Maestro
 
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
@@ -380,11 +388,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_pse_card_blocked;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r != EMV_OUTCOME_CARD_BLOCKED) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -414,11 +418,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_aid_card_blocked;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r != EMV_OUTCOME_CARD_BLOCKED) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -448,11 +448,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_nothing_found;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r != EMV_OUTCOME_NOT_ACCEPTED) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -482,11 +478,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_pse_blocked;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r != EMV_OUTCOME_NOT_ACCEPTED) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -516,11 +508,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_aid_blocked;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r != EMV_OUTCOME_NOT_ACCEPTED) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -550,11 +538,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_pse_app_not_supported;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r != EMV_OUTCOME_NOT_ACCEPTED) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -584,11 +568,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_pse_app_supported;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -618,11 +598,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_pse_multi_app_supported;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -652,11 +628,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_aid_multi_exact_match_app_supported;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -686,11 +658,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_aid_multi_partial_match_app_supported;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -720,11 +688,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_sorted_app_priority;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -765,11 +729,7 @@ int main(void)
 	emul_ctx.xpdu_list = test_app_cardholder_confirmation;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
-	r = emv_build_candidate_list(
-		&ttl,
-		&supported_aids,
-		&app_list
-	);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r) {
 		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -805,7 +765,7 @@ int main(void)
 	goto exit;
 
 exit:
-	emv_tlv_list_clear(&supported_aids);
+	emv_ctx_clear(&emv);
 	emv_app_list_clear(&app_list);
 
 	return r;

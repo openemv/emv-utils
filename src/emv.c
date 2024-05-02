@@ -331,21 +331,20 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 }
 
 int emv_build_candidate_list(
-	struct emv_ttl_t* ttl,
-	const struct emv_tlv_list_t* supported_aids,
+	const struct emv_ctx_t* ctx,
 	struct emv_app_list_t* app_list
 )
 {
 	int r;
 
-	if (!ttl || !supported_aids || !app_list) {
-		emv_debug_trace_msg("ttl=%p, supported_aids=%p, app_list=%p", ttl, supported_aids, app_list);
+	if (!ctx || !app_list) {
+		emv_debug_trace_msg("ctx=%p, app_list=%p", ctx, app_list);
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
 	emv_debug_info("SELECT Payment System Environment (PSE)");
-	r = emv_tal_read_pse(ttl, supported_aids, app_list);
+	r = emv_tal_read_pse(ctx->ttl, &ctx->supported_aids, app_list);
 	if (r < 0) {
 		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
 		emv_debug_error("Failed to read PSE; terminate session");
@@ -364,7 +363,7 @@ int emv_build_candidate_list(
 	// See EMV 4.4 Book 1, 12.3.2, step 5
 	if (emv_app_list_is_empty(app_list)) {
 		emv_debug_info("Discover list of AIDs");
-		r = emv_tal_find_supported_apps(ttl, supported_aids, app_list);
+		r = emv_tal_find_supported_apps(ctx->ttl, &ctx->supported_aids, app_list);
 		if (r) {
 			emv_debug_trace_msg("emv_tal_find_supported_apps() failed; r=%d", r);
 			emv_debug_error("Failed to find supported AIDs; terminate session");

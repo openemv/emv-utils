@@ -778,7 +778,7 @@ int main(int argc, char** argv)
 	print_emv_tlv_list(&emv.params);
 
 	printf("\nBuild candidate list\n");
-	r = emv_build_candidate_list(emv.ttl, &emv.supported_aids, &app_list);
+	r = emv_build_candidate_list(&emv, &app_list);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;

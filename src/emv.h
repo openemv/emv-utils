@@ -222,8 +222,7 @@ int emv_atr_parse(const void* atr, size_t atr_len);
  * Indicator
  * @remark See EMV 4.4 Book 1, 12.3
  *
- * @param ttl EMV Terminal Transport Layer context
- * @param supported_aids Supported AID (field 9F06) list including ASI flags
+ * @param ctx EMV processing context
  * @param app_list Candidate application list output
  *
  * @return Zero for success
@@ -231,8 +230,7 @@ int emv_atr_parse(const void* atr, size_t atr_len);
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_build_candidate_list(
-	struct emv_ttl_t* ttl,
-	const struct emv_tlv_list_t* supported_aids,
+	const struct emv_ctx_t* ctx,
 	struct emv_app_list_t* app_list
 );
 
