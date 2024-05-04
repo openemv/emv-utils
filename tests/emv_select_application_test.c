@@ -136,6 +136,14 @@ static const struct xpdu_t test_select_app_success[] = {
 	{ 0 }
 };
 
+static const struct xpdu_t test_repeat_select_app_success[] = {
+	{
+		13, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x04, 0x00 }, // SELECT A0000000031004
+		32, (uint8_t[]){ 0x6F, 0x1C, 0x84, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x04, 0xA5, 0x11, 0x50, 0x05, 0x56, 0x20, 0x50, 0x41, 0x59, 0x87, 0x01, 0x01, 0x5F, 0x2D, 0x04, 0x6E, 0x6C, 0x65, 0x6E, 0x90, 0x00 }, // FCI
+	},
+	{ 0 }
+};
+
 static bool verify_app_list_numbers(
 	const struct emv_app_list_t* app_list,
 	const unsigned int* numbers,
@@ -186,7 +194,6 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv.selected_app = (void*)42;
 
 	// Supported applications
 	emv_tlv_list_push(&emv.supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
@@ -244,7 +251,7 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest selection of invalid application index...\n");
-	r = emv_select_application(emv.ttl, &app_list, 13, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 13);
 	if (r != EMV_ERROR_INVALID_PARAMETER) {
 		fprintf(stderr, "Unexpected emv_select_application() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -268,7 +275,7 @@ int main(void)
 	printf("\nTest selection of first application index and application not found...\n");
 	emul_ctx.xpdu_list = test_select_app1;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_select_application(emv.ttl, &app_list, 0, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 0);
 	if (r != EMV_OUTCOME_TRY_AGAIN) {
 		fprintf(stderr, "Unexpected emv_select_application() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -297,7 +304,7 @@ int main(void)
 	printf("\nTest selection of last application index and application blocked...\n");
 	emul_ctx.xpdu_list = test_select_app7;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_select_application(emv.ttl, &app_list, 5, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 5);
 	if (r != EMV_OUTCOME_TRY_AGAIN) {
 		fprintf(stderr, "Unexpected emv_select_application() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -326,7 +333,7 @@ int main(void)
 	printf("\nTest card error during application selection...\n");
 	emul_ctx.xpdu_list = test_select_app4;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_select_application(emv.ttl, &app_list, 2, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 2);
 	if (r != EMV_OUTCOME_CARD_ERROR) {
 		fprintf(stderr, "Unexpected emv_select_application() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -355,7 +362,7 @@ int main(void)
 	printf("\nTest selection of application with card blocked...\n");
 	emul_ctx.xpdu_list = test_select_app3;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_select_application(emv.ttl, &app_list, 1, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 1);
 	if (r != EMV_OUTCOME_CARD_BLOCKED) {
 		fprintf(stderr, "Unexpected emv_select_application() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -384,7 +391,7 @@ int main(void)
 	printf("\nTest invalid FCI during application selection...\n");
 	emul_ctx.xpdu_list = test_select_app5;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_select_application(emv.ttl, &app_list, 1, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 1);
 	if (r != EMV_OUTCOME_TRY_AGAIN) {
 		fprintf(stderr, "Unexpected emv_select_application() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -413,7 +420,7 @@ int main(void)
 	printf("\nTest DF Name mismatch during application selection...\n");
 	emul_ctx.xpdu_list = test_select_app2;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_select_application(emv.ttl, &app_list, 0, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 0);
 	if (r != EMV_OUTCOME_TRY_AGAIN) {
 		fprintf(stderr, "Unexpected emv_select_application() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -442,7 +449,7 @@ int main(void)
 	printf("\nTest DF Name mismatch during application selection and expecting empty candidate application list...\n");
 	emul_ctx.xpdu_list = test_select_app6;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_select_application(emv.ttl, &app_list, 0, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 0);
 	if (r != EMV_OUTCOME_NOT_ACCEPTED) {
 		fprintf(stderr, "Unexpected emv_select_application() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -531,7 +538,7 @@ int main(void)
 	printf("\nTest successful application selection...\n");
 	emul_ctx.xpdu_list = test_select_app_success;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_select_application(emv.ttl, &app_list, 2, &emv.selected_app);
+	r = emv_select_application(&emv, &app_list, 2);
 	if (r) {
 		fprintf(stderr, "emv_select_application() failed; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -548,6 +555,35 @@ int main(void)
 		goto exit;
 	}
 	if (!verify_app_list_numbers(&app_list, (unsigned int[]){ 1, 2, 4, 5, 6, 7 }, 6)) {
+		fprintf(stderr, "Invalid remaining candidate application list\n");
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
+	printf("\nTest application selection after previous successful application selection...\n");
+	emul_ctx.xpdu_list = test_repeat_select_app_success;
+	emul_ctx.xpdu_current = NULL;
+	r = emv_select_application(&emv, &app_list, 2);
+	if (r) {
+		fprintf(stderr, "emv_select_application() failed; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	if (emul_ctx.xpdu_current->c_xpdu_len != 0) {
+		fprintf(stderr, "Incomplete card interaction\n");
+		r = 1;
+		goto exit;
+	}
+	if (!emv.selected_app) {
+		fprintf(stderr, "emv_select_application() failed to populate selected_app\n");
+		r = 1;
+		goto exit;
+	}
+	if (!verify_app_list_numbers(&app_list, (unsigned int[]){ 1, 2, 5, 6, 7 }, 5)) {
 		fprintf(stderr, "Invalid remaining candidate application list\n");
 		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 			print_emv_app(app);

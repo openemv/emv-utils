@@ -244,20 +244,18 @@ int emv_build_candidate_list(
  * @remark See EMV 4.4 Book 1, 12.4
  * @remark See EMV 4.4 Book 4, 11.3
  *
- * @param ttl EMV Terminal Transport Layer context
+ * @param ctx EMV processing context
  * @param app_list Candidate application list
  * @param index Index (starting from zero) of EMV application to select
- * @param selected_app Selected EMV application output. Use @ref emv_app_free() to free memory.
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_select_application(
-	struct emv_ttl_t* ttl,
+	struct emv_ctx_t* ctx,
 	struct emv_app_list_t* app_list,
-	unsigned int index,
-	struct emv_app_t** selected_app
+	unsigned int index
 );
 
 /**

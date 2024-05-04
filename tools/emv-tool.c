@@ -835,7 +835,7 @@ int main(int argc, char** argv)
 			index = 0;
 		}
 
-		r = emv_select_application(emv.ttl, &app_list, index, &emv.selected_app);
+		r = emv_select_application(&emv, &app_list, index);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
@@ -871,7 +871,6 @@ int main(int argc, char** argv)
 			if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
 				// Return to cardholder application selection/confirmation
 				// See EMV 4.4 Book 4, 6.3.1
-				emv_app_free(emv.selected_app);
 				continue;
 			}
 			goto emv_exit;

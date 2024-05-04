@@ -395,10 +395,9 @@ int emv_build_candidate_list(
 }
 
 int emv_select_application(
-	struct emv_ttl_t* ttl,
+	struct emv_ctx_t* ctx,
 	struct emv_app_list_t* app_list,
-	unsigned int index,
-	struct emv_app_t** selected_app
+	unsigned int index
 )
 {
 	int r;
@@ -406,15 +405,28 @@ int emv_select_application(
 	uint8_t current_aid[16];
 	size_t current_aid_len;
 
-	if (!ttl || !app_list || !selected_app) {
-		emv_debug_trace_msg("ttl=%p, app_list=%p, index=%u, selected_app=%p", ttl, app_list, index, selected_app);
+	if (!ctx || !app_list) {
+		emv_debug_trace_msg("ctx=%p, app_list=%p, index=%u", ctx, app_list, index);
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
-	*selected_app = NULL;
+
+	if (ctx->selected_app) {
+		// Free any previously selected app and ensure that it succeeds
+		r = emv_app_free(ctx->selected_app);
+		if (r) {
+			emv_debug_trace_msg("emv_app_free() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+
+		}
+		ctx->selected_app = NULL;
+	}
 
 	current_app = emv_app_list_remove_index(app_list, index);
 	if (!current_app) {
+		emv_debug_trace_msg("emv_app_list_remove_index() failed; index=%u", index);
+		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
@@ -427,10 +439,10 @@ int emv_select_application(
 	current_app = NULL;
 
 	r = emv_tal_select_app(
-		ttl,
+		ctx->ttl,
 		current_aid,
 		current_aid_len,
-		selected_app
+		&ctx->selected_app
 	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_select_app() failed; r=%d", r);
