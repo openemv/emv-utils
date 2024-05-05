@@ -98,7 +98,8 @@ struct emv_ctx_t {
 	/**
 	 * @brief Currently selected application
 	 *
-	 * Populated by @ref emv_select_application().
+	 * Populated by @ref emv_select_application() and used by
+	 * @ref emv_initiate_application_processing().
 	 */
 	struct emv_app_t* selected_app;
 
@@ -261,29 +262,26 @@ int emv_select_application(
 /**
  * Initiate EMV application processing by assessing the Processing Options
  * Data Object List (PDOL) and performing GET PROCESSING OPTIONS.
+ *
+ * When building the PDOL data required for GET PROCESSING OPTIONS, this
+ * function will search the TLV lists in this order:
+ * - @ref emv_ctx_t.params
+ * - @ref emv_ctx_t.config
+ *
  * @note Upon success, this function will also move the selected application's
- *       TLV data to the ICC data output and append the output of
+ *       TLV data to the ICC data list and append the output of
  *       GET PROCESSING OPTIONS.
+ *
  * @remark See EMV 4.4 Book 3, 10.1
  * @remark See EMV 4.4 Book 4, 6.3.1
  *
- * @param ttl EMV Terminal Transport Layer context
- * @param selected_app Selected EMV application
- * @param source1 EMV TLV list used as primary source. Required.
- * @param source2 EMV TLV list used as secondary source. NULL to ignore.
- * @param icc ICC data output
+ * @param ctx EMV processing context
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
-int emv_initiate_application_processing(
-	struct emv_ttl_t* ttl,
-	struct emv_app_t* selected_app,
-	const struct emv_tlv_list_t* source1,
-	const struct emv_tlv_list_t* source2,
-	struct emv_tlv_list_t* icc
-);
+int emv_initiate_application_processing(struct emv_ctx_t* ctx);
 
 /**
  * Read EMV application data by performing READ RECORD for all records

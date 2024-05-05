@@ -486,13 +486,7 @@ exit:
 	return r;
 }
 
-int emv_initiate_application_processing(
-	struct emv_ttl_t* ttl,
-	struct emv_app_t* selected_app,
-	const struct emv_tlv_list_t* source1,
-	const struct emv_tlv_list_t* source2,
-	struct emv_tlv_list_t* icc
-)
+int emv_initiate_application_processing(struct emv_ctx_t* ctx)
 {
 	int r;
 	const struct emv_tlv_t* pdol;
@@ -501,15 +495,18 @@ int emv_initiate_application_processing(
 	size_t gpo_data_len;
 	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
 
-	if (!ttl || !selected_app || !source1) {
-		emv_debug_trace_msg("ttl=%p, selected_app=%p, source1=%p, source2=%p", ttl, selected_app, source1, source2);
+	if (!ctx || !ctx->selected_app) {
+		emv_debug_trace_msg("ctx=%p, selected_app=%p", ctx, ctx->selected_app);
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
+	// Clear existing ICC data list to avoid ambiguity
+	emv_tlv_list_clear(&ctx->icc);
+
 	// Process PDOL, if available
 	// See EMV 4.4 Book 3, 10.1
-	pdol = emv_tlv_list_find_const(&selected_app->tlv_list, EMV_TAG_9F38_PDOL);
+	pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
 	if (pdol) {
 		int dol_data_len;
 		size_t gpo_data_offset;
@@ -545,8 +542,8 @@ int emv_initiate_application_processing(
 		r = emv_dol_build_data(
 			pdol->value,
 			pdol->length,
-			source1,
-			source2,
+			&ctx->params,
+			&ctx->config,
 			gpo_data + gpo_data_offset,
 			&gpo_data_len
 		);
@@ -569,7 +566,7 @@ int emv_initiate_application_processing(
 		gpo_data_len = 0;
 	}
 
-	r = emv_tal_get_processing_options(ttl, gpo_data, gpo_data_len, &gpo_output, NULL, NULL);
+	r = emv_tal_get_processing_options(ctx->ttl, gpo_data, gpo_data_len, &gpo_output, NULL, NULL);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_get_processing_options() failed; r=%d", r);
 		if (r < 0) {
@@ -600,11 +597,11 @@ int emv_initiate_application_processing(
 	}
 
 	// Move application data to ICC data list
-	*icc = selected_app->tlv_list;
-	selected_app->tlv_list = EMV_TLV_LIST_INIT;
+	ctx->icc = ctx->selected_app->tlv_list;
+	ctx->selected_app->tlv_list = EMV_TLV_LIST_INIT;
 
 	// Append GPO output to ICC data list
-	r = emv_tlv_list_append(icc, &gpo_output);
+	r = emv_tlv_list_append(&ctx->icc, &gpo_output);
 	if (r) {
 		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
 
@@ -619,7 +616,6 @@ int emv_initiate_application_processing(
 	goto exit;
 
 error:
-	emv_tlv_list_clear(icc);
 	emv_tlv_list_clear(&gpo_output);
 exit:
 	return r;

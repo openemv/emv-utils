@@ -855,13 +855,7 @@ int main(int argc, char** argv)
 		}
 
 		printf("\nInitiate application processing:\n");
-		r = emv_initiate_application_processing(
-			emv.ttl,
-			emv.selected_app,
-			&emv.params,
-			&emv.config,
-			&emv.icc
-		);
+		r = emv_initiate_application_processing(&emv);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
