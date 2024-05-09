@@ -288,21 +288,19 @@ int emv_initiate_application_processing(struct emv_ctx_t* ctx);
  * specified by the Application File Locator (AFL), checking that there are no
  * redundant TLV fields provided by the application records, and checking for
  * the mandatory fields.
- * @note Upon success, this function will append the TLV data to the ICC data
- *       output
+ *
+ * @note Upon success, this function will append the application data to the
+ *       ICC data list
+ *
  * @remark See EMV 4.4 Book 3, 10.2
  *
- * @param ttl EMV Terminal Transport Layer context
- * @param icc ICC data output
+ * @param ctx EMV processing context
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
-int emv_read_application_data(
-	struct emv_ttl_t* ttl,
-	struct emv_tlv_list_t* icc
-);
+int emv_read_application_data(struct emv_ctx_t* ctx);
 
 __END_DECLS
 

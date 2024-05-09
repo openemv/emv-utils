@@ -621,10 +621,7 @@ exit:
 	return r;
 }
 
-int emv_read_application_data(
-	struct emv_ttl_t* ttl,
-	struct emv_tlv_list_t* icc
-)
+int emv_read_application_data(struct emv_ctx_t* ctx)
 {
 	int r;
 	const struct emv_tlv_t* afl;
@@ -634,22 +631,22 @@ int emv_read_application_data(
 	bool found_8C = false;
 	bool found_8D = false;
 
-	if (!ttl || !icc) {
-		emv_debug_trace_msg("ttl=%p, icc=%p", ttl, icc);
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
 	// Process Application File Locator (AFL)
 	// See EMV 4.4 Book 3, 10.2
-	afl = emv_tlv_list_find_const(icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	afl = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (!afl) {
 		// AFL not found; terminate session
 		// See EMV 4.4 Book 3, 6.5.8.4
 		emv_debug_error("AFL not found");
 		return EMV_OUTCOME_CARD_ERROR;
 	}
-	r = emv_tal_read_afl_records(ttl, afl->value, afl->length, &record_data);
+	r = emv_tal_read_afl_records(ctx->ttl, afl->value, afl->length, &record_data);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_read_afl_records() failed; r=%d", r);
 		if (r < 0) {
@@ -702,7 +699,7 @@ int emv_read_application_data(
 		goto exit;
 	}
 
-	r = emv_tlv_list_append(icc, &record_data);
+	r = emv_tlv_list_append(&ctx->icc, &record_data);
 	if (r) {
 		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
 

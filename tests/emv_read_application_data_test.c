@@ -252,11 +252,18 @@ int main(void)
 	int r;
 	struct emv_cardreader_emul_ctx_t emul_ctx;
 	struct emv_ttl_t ttl;
-	struct emv_tlv_list_t icc = EMV_TLV_LIST_INIT;
+	struct emv_ctx_t emv;
 
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = &emul_ctx;
 	ttl.cardreader.trx = &emv_cardreader_emul;
+
+	r = emv_ctx_init(&emv, &ttl);
+	if (r) {
+		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
 
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
@@ -269,21 +276,18 @@ int main(void)
 	}
 
 	printf("\nTest 1: No AFL...\n");
-	r = emv_read_application_data(
-		&ttl,
-		&icc
-	);
+	r = emv_read_application_data(&emv);
 	if (r != EMV_OUTCOME_CARD_ERROR) {
 		fprintf(stderr, "emv_initiate_application_processing() did not return EMV_OUTCOME_CARD_ERROR; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 2: Malformed AFL...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test2_afl),
 		test2_afl,
@@ -294,14 +298,14 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test2_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
-		&ttl,
+		emv.ttl,
 		test2_afl,
 		sizeof(test2_afl),
-		&icc
+		&emv.icc
 	);
 	if (r != EMV_TAL_ERROR_AFL_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_AFL_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -313,12 +317,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 3: Read Record status 6985...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test3_afl),
 		test3_afl,
@@ -329,14 +333,14 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test3_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
-		&ttl,
+		emv.ttl,
 		test3_afl,
 		sizeof(test3_afl),
-		&icc
+		&emv.icc
 	);
 	if (r != EMV_TAL_ERROR_READ_RECORD_FAILED) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_READ_RECORD_FAILED; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -348,12 +352,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 4: Invalid record template...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test4_afl),
 		test4_afl,
@@ -364,14 +368,14 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test4_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
-		&ttl,
+		emv.ttl,
 		test4_afl,
 		sizeof(test4_afl),
-		&icc
+		&emv.icc
 	);
 	if (r != EMV_TAL_ERROR_READ_RECORD_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_READ_RECORD_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -383,12 +387,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 5: Record with additional data after template...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test5_afl),
 		test5_afl,
@@ -399,14 +403,14 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test5_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
-		&ttl,
+		emv.ttl,
 		test5_afl,
 		sizeof(test5_afl),
-		&icc
+		&emv.icc
 	);
 	if (r != EMV_TAL_ERROR_READ_RECORD_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_READ_RECORD_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -418,12 +422,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 6: Record with malformed EMV data...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test6_afl),
 		test6_afl,
@@ -434,14 +438,14 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test6_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
-		&ttl,
+		emv.ttl,
 		test6_afl,
 		sizeof(test6_afl),
-		&icc
+		&emv.icc
 	);
 	if (r != EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -453,12 +457,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 7: Malformed AFL entry...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test7_afl),
 		test7_afl,
@@ -469,14 +473,14 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test7_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
-		&ttl,
+		emv.ttl,
 		test7_afl,
 		sizeof(test7_afl),
-		&icc
+		&emv.icc
 	);
 	if (r != EMV_TAL_ERROR_AFL_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_AFL_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -488,12 +492,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 8: Redundant EMV field...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test8_afl),
 		test8_afl,
@@ -504,13 +508,10 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test8_apdu_list;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_read_application_data(
-		&ttl,
-		&icc
-	);
+	r = emv_read_application_data(&emv);
 	if (r != EMV_OUTCOME_CARD_ERROR) {
 		fprintf(stderr, "emv_read_application_data() did not return EMV_OUTCOME_CARD_ERROR; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -521,12 +522,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 9: Mandatory fields missing...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test9_afl),
 		test9_afl,
@@ -537,13 +538,10 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test9_apdu_list;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_read_application_data(
-		&ttl,
-		&icc
-	);
+	r = emv_read_application_data(&emv);
 	if (r != EMV_OUTCOME_CARD_ERROR) {
 		fprintf(stderr, "emv_read_application_data() did not return EMV_OUTCOME_CARD_ERROR; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -554,12 +552,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 10: Invalid record template for offline data authentication...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test10_afl),
 		test10_afl,
@@ -570,14 +568,14 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test10_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
-		&ttl,
+		emv.ttl,
 		test10_afl,
 		sizeof(test10_afl),
-		&icc
+		&emv.icc
 	);
 	if (r != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_RESULT_ODA_RECORD_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -589,12 +587,12 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	printf("\nTest 11: Normal processing...\n");
 	r = emv_tlv_list_push(
-		&icc,
+		&emv.icc,
 		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
 		sizeof(test11_afl),
 		test11_afl,
@@ -605,13 +603,10 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	print_emv_tlv_list(&icc);
+	print_emv_tlv_list(&emv.icc);
 	emul_ctx.xpdu_list = test11_apdu_list;
 	emul_ctx.xpdu_current = NULL;
-	r = emv_read_application_data(
-		&ttl,
-		&icc
-	);
+	r = emv_read_application_data(&emv);
 	if (r) {
 		fprintf(stderr, "emv_read_application_data() failed; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -622,7 +617,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	emv_tlv_list_clear(&icc);
+	emv_tlv_list_clear(&emv.icc);
 	printf("Success\n");
 
 	// Success
@@ -630,7 +625,7 @@ int main(void)
 	goto exit;
 
 exit:
-	emv_tlv_list_clear(&icc);
+	emv_ctx_clear(&emv);
 
 	return r;
 }

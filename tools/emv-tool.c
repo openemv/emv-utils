@@ -882,7 +882,7 @@ int main(int argc, char** argv)
 	// TODO: EMV 4.4 Book 1, 12.4, create 9F06 from 84
 
 	printf("\nRead application data\n");
-	r = emv_read_application_data(emv.ttl, &emv.icc);
+	r = emv_read_application_data(&emv);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
