@@ -24,6 +24,7 @@
 #include "emv_tags.h"
 #include "emv_ttl.h"
 #include "emv_app.h"
+#include "emv_fields.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -176,7 +177,7 @@ int main(void)
 	emul_ctx.xpdu_list = test1_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	emv_tlv_list_clear(&emv.icc);
-	r = emv_initiate_application_processing(&emv);
+	r = emv_initiate_application_processing(&emv, EMV_POS_ENTRY_MODE_ICC_WITH_CVV);
 	if (r) {
 		fprintf(stderr, "emv_initiate_application_processing() failed; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -222,6 +223,22 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
+	// This is ugly but it is what it is
+	if (emv_tlv_list_is_empty(&emv.terminal) ||
+		emv.terminal.front->tag != EMV_TAG_9F39_POS_ENTRY_MODE ||
+		!emv.terminal.front->next ||
+		emv.terminal.front->next->tag != EMV_TAG_9F06_AID ||
+		!emv.terminal.front->next->next ||
+		emv.terminal.front->next->next->tag != EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION ||
+		!emv.terminal.front->next->next->next ||
+		emv.terminal.front->next->next->next->tag != EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS ||
+		emv.terminal.front->next->next->next->next
+	) {
+		fprintf(stderr, "Unexpected terminal data list state\n");
+		print_emv_tlv_list(&emv.terminal);
+		r = 1;
+		goto exit;
+	}
 	emv_app_free(emv.selected_app);
 	emv.selected_app = NULL;
 	printf("Success\n");
@@ -236,7 +253,7 @@ int main(void)
 	emul_ctx.xpdu_list = test2_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	emv_tlv_list_clear(&emv.icc);
-	r = emv_initiate_application_processing(&emv);
+	r = emv_initiate_application_processing(&emv, EMV_POS_ENTRY_MODE_ICC_WITH_CVV);
 	if (r) {
 		fprintf(stderr, "emv_initiate_application_processing() failed; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -282,6 +299,22 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
+	// This is ugly but it is what it is
+	if (emv_tlv_list_is_empty(&emv.terminal) ||
+		emv.terminal.front->tag != EMV_TAG_9F39_POS_ENTRY_MODE ||
+		!emv.terminal.front->next ||
+		emv.terminal.front->next->tag != EMV_TAG_9F06_AID ||
+		!emv.terminal.front->next->next ||
+		emv.terminal.front->next->next->tag != EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION ||
+		!emv.terminal.front->next->next->next ||
+		emv.terminal.front->next->next->next->tag != EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS ||
+		emv.terminal.front->next->next->next->next
+	) {
+		fprintf(stderr, "Unexpected terminal data list state\n");
+		print_emv_tlv_list(&emv.terminal);
+		r = 1;
+		goto exit;
+	}
 	emv_app_free(emv.selected_app);
 	emv.selected_app = NULL;
 	printf("Success\n");
@@ -296,7 +329,7 @@ int main(void)
 	emul_ctx.xpdu_list = test3_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	emv_tlv_list_clear(&emv.icc);
-	r = emv_initiate_application_processing(&emv);
+	r = emv_initiate_application_processing(&emv, EMV_POS_ENTRY_MODE_ICC_WITH_CVV);
 	if (r != EMV_OUTCOME_GPO_NOT_ACCEPTED) {
 		fprintf(stderr, "emv_initiate_application_processing() did not return EMV_OUTCOME_GPO_NOT_ACCEPTED; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -309,6 +342,11 @@ int main(void)
 	}
 	if (!emv_tlv_list_is_empty(&emv.icc)) {
 		fprintf(stderr, "ICC list unexpectedly NOT empty\n");
+		r = 1;
+		goto exit;
+	}
+	if (!emv_tlv_list_is_empty(&emv.terminal)) {
+		fprintf(stderr, "Terminal list unexpectedly NOT empty\n");
 		r = 1;
 		goto exit;
 	}
@@ -326,7 +364,7 @@ int main(void)
 	emul_ctx.xpdu_list = test4_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	emv_tlv_list_clear(&emv.icc);
-	r = emv_initiate_application_processing(&emv);
+	r = emv_initiate_application_processing(&emv, EMV_POS_ENTRY_MODE_ICC_WITH_CVV);
 	if (r) {
 		fprintf(stderr, "emv_initiate_application_processing() failed; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -372,6 +410,22 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
+	// This is ugly but it is what it is
+	if (emv_tlv_list_is_empty(&emv.terminal) ||
+		emv.terminal.front->tag != EMV_TAG_9F39_POS_ENTRY_MODE ||
+		!emv.terminal.front->next ||
+		emv.terminal.front->next->tag != EMV_TAG_9F06_AID ||
+		!emv.terminal.front->next->next ||
+		emv.terminal.front->next->next->tag != EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION ||
+		!emv.terminal.front->next->next->next ||
+		emv.terminal.front->next->next->next->tag != EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS ||
+		emv.terminal.front->next->next->next->next
+	) {
+		fprintf(stderr, "Unexpected terminal data list state\n");
+		print_emv_tlv_list(&emv.terminal);
+		r = 1;
+		goto exit;
+	}
 	emv_app_free(emv.selected_app);
 	emv.selected_app = NULL;
 	printf("Success\n");
@@ -386,7 +440,7 @@ int main(void)
 	emul_ctx.xpdu_list = test5_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	emv_tlv_list_clear(&emv.icc);
-	r = emv_initiate_application_processing(&emv);
+	r = emv_initiate_application_processing(&emv, EMV_POS_ENTRY_MODE_ICC_WITH_CVV);
 	if (r != EMV_OUTCOME_CARD_ERROR) {
 		fprintf(stderr, "emv_initiate_application_processing() did not return EMV_OUTCOME_CARD_ERROR; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -399,6 +453,11 @@ int main(void)
 	}
 	if (!emv_tlv_list_is_empty(&emv.icc)) {
 		fprintf(stderr, "ICC list unexpectedly NOT empty\n");
+		r = 1;
+		goto exit;
+	}
+	if (!emv_tlv_list_is_empty(&emv.terminal)) {
+		fprintf(stderr, "Terminal list unexpectedly NOT empty\n");
 		r = 1;
 		goto exit;
 	}
@@ -416,7 +475,7 @@ int main(void)
 	emul_ctx.xpdu_list = test6_apdu_list;
 	emul_ctx.xpdu_current = NULL;
 	emv_tlv_list_clear(&emv.icc);
-	r = emv_initiate_application_processing(&emv);
+	r = emv_initiate_application_processing(&emv, EMV_POS_ENTRY_MODE_ICC_WITH_CVV);
 	if (r != EMV_OUTCOME_CARD_ERROR) {
 		fprintf(stderr, "emv_initiate_application_processing() did not return EMV_OUTCOME_CARD_ERROR; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -429,6 +488,11 @@ int main(void)
 	}
 	if (!emv_tlv_list_is_empty(&emv.icc)) {
 		fprintf(stderr, "ICC list unexpectedly NOT empty\n");
+		r = 1;
+		goto exit;
+	}
+	if (!emv_tlv_list_is_empty(&emv.terminal)) {
+		fprintf(stderr, "Terminal list unexpectedly NOT empty\n");
 		r = 1;
 		goto exit;
 	}

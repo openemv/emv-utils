@@ -26,6 +26,7 @@
 
 #include <sys/cdefs.h>
 #include <stddef.h>
+#include <stdint.h>
 
 __BEGIN_DECLS
 
@@ -110,6 +111,13 @@ struct emv_ctx_t {
 	 * @ref emv_read_application_data().
 	 */
 	struct emv_tlv_list_t icc;
+
+	/**
+	 * @brief Terminal data for the current transaction.
+	 *
+	 * Populated by @ref emv_initiate_application_processing().
+	 */
+	struct emv_tlv_list_t terminal;
 };
 
 /**
@@ -158,6 +166,7 @@ int emv_ctx_init(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl);
  * This function will clear these transaction specific context members:
  * - @ref emv_ctx_t.params
  * - @ref emv_ctx_t.icc
+ * - @ref emv_ctx_t.terminal
  *
  * And this function will preserve these members that can be reused for the
  * next transaction:
@@ -268,20 +277,28 @@ int emv_select_application(
  * - @ref emv_ctx_t.params
  * - @ref emv_ctx_t.config
  *
- * @note Upon success, this function will also move the selected application's
- *       TLV data to the ICC data list and append the output of
- *       GET PROCESSING OPTIONS.
+ * @note This functions clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
+ *       and then populates them appropriately. Upon success, the selected
+ *       application's TLV data will be moved to @ref emv_ctx_t.icc and the
+ *       output of GET PROCESSING OPTIONS will be appended. Upon success,
+ *       @ref emv_ctx_t.terminal will be populated with various fields,
+ *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE.
  *
  * @remark See EMV 4.4 Book 3, 10.1
  * @remark See EMV 4.4 Book 4, 6.3.1
  *
  * @param ctx EMV processing context
+ * @param pos_entry_mode Point-of-Service (POS) Entry Mode (field 9F39) value.
+ *                       See @ref pos-entry-mode-values "values".
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
-int emv_initiate_application_processing(struct emv_ctx_t* ctx);
+int emv_initiate_application_processing(
+	struct emv_ctx_t* ctx,
+	uint8_t pos_entry_mode
+);
 
 /**
  * Read EMV application data by performing READ RECORD for all records

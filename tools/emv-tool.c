@@ -616,6 +616,7 @@ int main(int argc, char** argv)
 	unsigned int reader_state;
 	const char* reader_state_str;
 	size_t reader_idx;
+	uint8_t pos_entry_mode;
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
 	struct emv_ttl_t ttl;
@@ -721,9 +722,11 @@ int main(int argc, char** argv)
 
 	switch (r) {
 		case PCSC_CARD_TYPE_CONTACT:
+			pos_entry_mode = EMV_POS_ENTRY_MODE_ICC_WITH_CVV;
 			break;
 
 		case PCSC_CARD_TYPE_CONTACTLESS:
+			pos_entry_mode = EMV_POS_ENTRY_MODE_CONTACTLESS_EMV;
 			printf("Contactless not (yet) supported\n");
 			goto pcsc_exit;
 
@@ -855,7 +858,7 @@ int main(int argc, char** argv)
 		}
 
 		printf("\nInitiate application processing:\n");
-		r = emv_initiate_application_processing(&emv);
+		r = emv_initiate_application_processing(&emv, pos_entry_mode);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
@@ -879,8 +882,6 @@ int main(int argc, char** argv)
 	// is no longer needed.
 	emv_app_list_clear(&app_list);
 
-	// TODO: EMV 4.4 Book 1, 12.4, create 9F06 from 84
-
 	printf("\nRead application data\n");
 	r = emv_read_application_data(&emv);
 	if (r < 0) {
@@ -891,7 +892,12 @@ int main(int argc, char** argv)
 		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 		goto emv_exit;
 	}
+
+	printf("\nICC data:\n");
 	print_emv_tlv_list(&emv.icc);
+
+	printf("\nTerminal data\n");
+	print_emv_tlv_list(&emv.terminal);
 
 	r = pcsc_reader_disconnect(reader);
 	if (r) {

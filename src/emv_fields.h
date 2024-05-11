@@ -93,10 +93,14 @@ __BEGIN_DECLS
 #define EMV_TERM_CAPS_SECURITY_XDA                              (0x04) ///< Security Capability: Extended Data Authentication (XDA)
 #define EMV_TERM_CAPS_SECURITY_RFU                              (0x13) ///< Security Capability: RFU
 
-// Point-of-Service (POS) Entry Mode (field 9F39)
-// See ISO 8583:1987, 4.3.14
-// See ISO 8583:1993, A.8
-// See ISO 8583:2021 J.2.2.1
+/**
+ * @name Point-of-Service (POS) Entry Mode (field 9F39)
+ * @remark See ISO 8583:1987, 4.3.14
+ * @remark See ISO 8583:1993, A.8
+ * @remark See ISO 8583:2021 J.2.2.1
+ * @anchor pos-entry-mode-values
+ */
+/// @{
 #define EMV_POS_ENTRY_MODE_UNKNOWN                              (0x00) ///< POS Entry Mode: Unknown
 #define EMV_POS_ENTRY_MODE_MANUAL                               (0x01) ///< POS Entry Mode: Manual PAN entry
 #define EMV_POS_ENTRY_MODE_MAG                                  (0x02) ///< POS Entry Mode: Magnetic stripe
@@ -110,6 +114,7 @@ __BEGIN_DECLS
 #define EMV_POS_ENTRY_MODE_CONTACTLESS_MAG                      (0x91) ///< POS Entry Mode: Auto entry via contactless magnetic stripe
 #define EMV_POS_ENTRY_MODE_ICC_WITHOUT_CVV                      (0x95) ///< POS Entry Mode: Integrated circuit card (ICC). CVV may not be checked.
 #define EMV_POS_ENTRY_MODE_ORIGINAL_TXN                         (0x99) ///< POS Entry Mode: Same as original transaction
+/// @}
 
 // Additional Terminal Capabilities (field 9F40) byte 1
 // See EMV 4.4 Book 4, Annex A3, table 28
