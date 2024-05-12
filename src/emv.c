@@ -493,6 +493,8 @@ int emv_initiate_application_processing(
 )
 {
 	int r;
+	const struct emv_tlv_list_t* sources[2];
+	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
 	const struct emv_tlv_t* pdol;
 	uint8_t gpo_data_buf[255]; // See EMV_CAPDU_DATA_MAX
 	uint8_t* gpo_data;
@@ -508,6 +510,10 @@ int emv_initiate_application_processing(
 	// Clear existing ICC data and terminal data lists to avoid ambiguity
 	emv_tlv_list_clear(&ctx->icc);
 	emv_tlv_list_clear(&ctx->terminal);
+
+	// Prepare ordered data source list
+	sources[0] = &ctx->params;
+	sources[1] = &ctx->config;
 
 	// Process PDOL, if available
 	// See EMV 4.4 Book 3, 10.1
@@ -547,8 +553,8 @@ int emv_initiate_application_processing(
 		r = emv_dol_build_data(
 			pdol->value,
 			pdol->length,
-			&ctx->params,
-			&ctx->config,
+			sources,
+			sources_count,
 			gpo_data + gpo_data_offset,
 			&gpo_data_len
 		);

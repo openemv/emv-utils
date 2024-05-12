@@ -127,8 +127,8 @@ int emv_dol_compute_data_length(const void* ptr, size_t len)
 int emv_dol_build_data(
 	const void* ptr,
 	size_t len,
-	const struct emv_tlv_list_t* source1,
-	const struct emv_tlv_list_t* source2,
+	const struct emv_tlv_list_t** sources,
+	size_t sources_count,
 	void* data,
 	size_t* data_len
 )
@@ -138,13 +138,18 @@ int emv_dol_build_data(
 	struct emv_dol_entry_t entry;
 	void* data_ptr = data;
 
-	if (!ptr || !len || !source1 || !data || !data_len || !*data_len) {
+	if (!ptr || !len || !sources || !sources_count || !data || !data_len || !*data_len) {
 		return -1;
+	}
+	for (size_t i = 0; i < sources_count; ++i) {
+		if (!sources[i]) {
+			return -2;
+		}
 	}
 
 	r = emv_dol_itr_init(ptr, len, &itr);
 	if (r) {
-		return -2;
+		return -3;
 	}
 
 	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
@@ -155,10 +160,12 @@ int emv_dol_build_data(
 			return 1;
 		}
 
-		// Find TLV
-		tlv = emv_tlv_list_find_const(source1, entry.tag);
-		if (!tlv && source2) {
-			tlv = emv_tlv_list_find_const(source2, entry.tag);
+		// Find TLV in ordered list of EMV TLV lists
+		for (size_t i = 0; i < sources_count; ++i) {
+			tlv = emv_tlv_list_find_const(sources[i], entry.tag);
+			if (tlv) {
+				break;
+			}
 		}
 		if (!tlv) {
 			// If TLV is not found, zero data output
@@ -209,10 +216,10 @@ int emv_dol_build_data(
 		}
 
 		// This should never happen
-		return -3;
+		return -4;
 	}
 	if (r != 0) {
-		return -4;
+		return -5;
 	}
 
 	*data_len = data_ptr - data;

@@ -84,8 +84,8 @@ int emv_dol_compute_data_length(const void* ptr, size_t len);
  * Build concatenated data according to Data Object List (DOL)
  * @param ptr Encoded EMV Data Object List (DOL)
  * @param len Length of encoded EMV Data Object List (DOL) in bytes
- * @param source1 EMV TLV list used as primary source. Required.
- * @param source2 EMV TLV list used as secondary source. NULL to ignore.
+ * @param sources Ordered list of EMV TLV lists used as data sources.
+ * @param sources_count Number of entries in @p sources.
  * @param data Concatenated data output
  * @param data_len Length of concatenated data output in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero if output data length too small.
@@ -93,8 +93,8 @@ int emv_dol_compute_data_length(const void* ptr, size_t len);
 int emv_dol_build_data(
 	const void* ptr,
 	size_t len,
-	const struct emv_tlv_list_t* source1,
-	const struct emv_tlv_list_t* source2,
+	const struct emv_tlv_list_t** sources,
+	size_t sources_count,
 	void* data,
 	size_t* data_len
 );
