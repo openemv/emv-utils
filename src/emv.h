@@ -276,6 +276,7 @@ int emv_select_application(
  * function will search the TLV lists in this order:
  * - @ref emv_ctx_t.params
  * - @ref emv_ctx_t.config
+ * - @ref emv_ctx_t.terminal
  *
  * @note This functions clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
  *       and then populates them appropriately. Upon success, the selected

@@ -493,7 +493,7 @@ int emv_initiate_application_processing(
 )
 {
 	int r;
-	const struct emv_tlv_list_t* sources[2];
+	const struct emv_tlv_list_t* sources[3];
 	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
 	const struct emv_tlv_t* pdol;
 	uint8_t gpo_data_buf[255]; // See EMV_CAPDU_DATA_MAX
@@ -511,9 +511,85 @@ int emv_initiate_application_processing(
 	emv_tlv_list_clear(&ctx->icc);
 	emv_tlv_list_clear(&ctx->terminal);
 
+	// NOTE: EMV 4.4 Book 1, 12.4, states that the terminal should set the
+	// value of Application Identifier (AID) - terminal (field 9F06) before
+	// GET PROCESSING OPTIONS. It is not explicitly stated that PDOL may list
+	// 9F06, but the assumption is that the PDOL may list any field having the
+	// terminal as the source. Therefore, this implementation will create the
+	// initial terminal data fields for the current transaction before PDOL
+	// processing and GET PROCESSING OPTIONS.
+
+	// Create Point-of-Service (POS) Entry Mode (field 9F39)
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9F39_POS_ENTRY_MODE,
+		1,
+		&pos_entry_mode,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Application Identifier (AID) - terminal (field 9F06)
+	// See EMV 4.4 Book 1, 12.4
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9F06_AID,
+		ctx->selected_app->aid->length,
+		ctx->selected_app->aid->value,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Transaction Status Information (TSI, field 9B)
+	// See EMV 4.4 Book 3, 10.1
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION,
+		2,
+		(uint8_t[]){ 0x00, 0x00 },
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Terminal Verification Results (TVR, field 95)
+	// See EMV 4.4 Book 3, 10.1
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS,
+		5,
+		(uint8_t[]){ 0x00, 0x00, 0x00, 0x00, 0x00 },
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
 	// Prepare ordered data source list
 	sources[0] = &ctx->params;
 	sources[1] = &ctx->config;
+	sources[2] = &ctx->terminal;
 
 	// Process PDOL, if available
 	// See EMV 4.4 Book 3, 10.1
@@ -615,77 +691,6 @@ int emv_initiate_application_processing(
 	r = emv_tlv_list_append(&ctx->icc, &gpo_output);
 	if (r) {
 		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		r = EMV_ERROR_INTERNAL;
-		goto error;
-	}
-
-	// Create Point-of-Service (POS) Entry Mode (field 9F39)
-	r = emv_tlv_list_push(
-		&ctx->terminal,
-		EMV_TAG_9F39_POS_ENTRY_MODE,
-		1,
-		&pos_entry_mode,
-		0
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		r = EMV_ERROR_INTERNAL;
-		goto error;
-	}
-
-	// Create Application Identifier (AID) - terminal (field 9F06)
-	// See EMV 4.4 Book 1, 12.4
-	r = emv_tlv_list_push(
-		&ctx->terminal,
-		EMV_TAG_9F06_AID,
-		ctx->selected_app->aid->length,
-		ctx->selected_app->aid->value,
-		0
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		r = EMV_ERROR_INTERNAL;
-		goto error;
-	}
-
-	// Create Transaction Status Information (TSI, field 9B)
-	// See EMV 4.4 Book 3, 10.1
-	r = emv_tlv_list_push(
-		&ctx->terminal,
-		EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION,
-		2,
-		(uint8_t[]){ 0x00, 0x00 },
-		0
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		r = EMV_ERROR_INTERNAL;
-		goto error;
-	}
-
-	// Create Terminal Verification Results (TVR, field 95)
-	// See EMV 4.4 Book 3, 10.1
-	r = emv_tlv_list_push(
-		&ctx->terminal,
-		EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS,
-		5,
-		(uint8_t[]){ 0x00, 0x00, 0x00, 0x00, 0x00 },
-		0
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
 
 		// Internal error; terminate session
 		emv_debug_error("Internal error");

@@ -125,6 +125,31 @@ static int populate_tlv_list(
 	return 0;
 }
 
+static int verify_terminal_data(struct emv_ctx_t* ctx)
+{
+	if (!ctx) {
+		return -1;
+	}
+
+	// This is ugly but that's why it's in a helper function
+	if (!emv_tlv_list_is_empty(&ctx->terminal) &&
+		ctx->terminal.front->tag == EMV_TAG_9F39_POS_ENTRY_MODE &&
+		ctx->terminal.front->next &&
+		ctx->terminal.front->next->tag == EMV_TAG_9F06_AID &&
+		ctx->terminal.front->next->next &&
+		ctx->terminal.front->next->next->tag == EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION &&
+		ctx->terminal.front->next->next->next &&
+		ctx->terminal.front->next->next->next->tag == EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS &&
+		!ctx->terminal.front->next->next->next->next
+	) {
+		// Expected state
+		return 0;
+	}
+
+	// Unexpected state
+	return 1;
+}
+
 int main(void)
 {
 	int r;
@@ -223,17 +248,8 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	// This is ugly but it is what it is
-	if (emv_tlv_list_is_empty(&emv.terminal) ||
-		emv.terminal.front->tag != EMV_TAG_9F39_POS_ENTRY_MODE ||
-		!emv.terminal.front->next ||
-		emv.terminal.front->next->tag != EMV_TAG_9F06_AID ||
-		!emv.terminal.front->next->next ||
-		emv.terminal.front->next->next->tag != EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION ||
-		!emv.terminal.front->next->next->next ||
-		emv.terminal.front->next->next->next->tag != EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS ||
-		emv.terminal.front->next->next->next->next
-	) {
+	r = verify_terminal_data(&emv);
+	if (r) {
 		fprintf(stderr, "Unexpected terminal data list state\n");
 		print_emv_tlv_list(&emv.terminal);
 		r = 1;
@@ -299,17 +315,8 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	// This is ugly but it is what it is
-	if (emv_tlv_list_is_empty(&emv.terminal) ||
-		emv.terminal.front->tag != EMV_TAG_9F39_POS_ENTRY_MODE ||
-		!emv.terminal.front->next ||
-		emv.terminal.front->next->tag != EMV_TAG_9F06_AID ||
-		!emv.terminal.front->next->next ||
-		emv.terminal.front->next->next->tag != EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION ||
-		!emv.terminal.front->next->next->next ||
-		emv.terminal.front->next->next->next->tag != EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS ||
-		emv.terminal.front->next->next->next->next
-	) {
+	r = verify_terminal_data(&emv);
+	if (r) {
 		fprintf(stderr, "Unexpected terminal data list state\n");
 		print_emv_tlv_list(&emv.terminal);
 		r = 1;
@@ -345,8 +352,10 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	if (!emv_tlv_list_is_empty(&emv.terminal)) {
-		fprintf(stderr, "Terminal list unexpectedly NOT empty\n");
+	r = verify_terminal_data(&emv);
+	if (r) {
+		fprintf(stderr, "Unexpected terminal data list state\n");
+		print_emv_tlv_list(&emv.terminal);
 		r = 1;
 		goto exit;
 	}
@@ -410,17 +419,8 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	// This is ugly but it is what it is
-	if (emv_tlv_list_is_empty(&emv.terminal) ||
-		emv.terminal.front->tag != EMV_TAG_9F39_POS_ENTRY_MODE ||
-		!emv.terminal.front->next ||
-		emv.terminal.front->next->tag != EMV_TAG_9F06_AID ||
-		!emv.terminal.front->next->next ||
-		emv.terminal.front->next->next->tag != EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION ||
-		!emv.terminal.front->next->next->next ||
-		emv.terminal.front->next->next->next->tag != EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS ||
-		emv.terminal.front->next->next->next->next
-	) {
+	r = verify_terminal_data(&emv);
+	if (r) {
 		fprintf(stderr, "Unexpected terminal data list state\n");
 		print_emv_tlv_list(&emv.terminal);
 		r = 1;
@@ -456,8 +456,10 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	if (!emv_tlv_list_is_empty(&emv.terminal)) {
-		fprintf(stderr, "Terminal list unexpectedly NOT empty\n");
+	r = verify_terminal_data(&emv);
+	if (r) {
+		fprintf(stderr, "Unexpected terminal data list state\n");
+		print_emv_tlv_list(&emv.terminal);
 		r = 1;
 		goto exit;
 	}
@@ -491,8 +493,10 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	if (!emv_tlv_list_is_empty(&emv.terminal)) {
-		fprintf(stderr, "Terminal list unexpectedly NOT empty\n");
+	r = verify_terminal_data(&emv);
+	if (r) {
+		fprintf(stderr, "Unexpected terminal data list state\n");
+		print_emv_tlv_list(&emv.terminal);
 		r = 1;
 		goto exit;
 	}
