@@ -2,7 +2,7 @@
  * @file pcsc_compat.h
  * @brief PC/SC compatibility helpers
  *
- * Copyright (c) 2024 Leon Lynch
+ * Copyright 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

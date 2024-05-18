@@ -2,7 +2,7 @@
  * @file iso7816_compact_tlv.c
  * @brief ISO/IEC 7816 COMPACT-TLV implementation
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright 2021 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

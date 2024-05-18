@@ -2,7 +2,7 @@
  * @file emv_aid_info_test.c
  * @brief Unit tests for AID info helper function
  *
- * Copyright (c) 2023 Leon Lynch
+ * Copyright 2023 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

@@ -3,7 +3,7 @@
  * @brief Basic Encoding Rules (BER) implementation
  *        (see ISO/IEC 8825-1 or ITU-T Rec X.690 07/2002)
  *
- * Copyright (c) 2021 Leon Lynch
+ * Copyright 2021 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

@@ -2,7 +2,7 @@
  * @file emv_str_parse_test.c
  * @brief Unit tests for string to EMV format conversion functions
  *
- * Copyright (c) 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

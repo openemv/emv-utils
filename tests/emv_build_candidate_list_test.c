@@ -2,7 +2,7 @@
  * @file emv_build_candidate_list_test.c
  * @brief Unit tests for EMV PSE processing and AID discovery
  *
- * Copyright (c) 2024 Leon Lynch
+ * Copyright 2024 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

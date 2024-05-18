@@ -2,7 +2,7 @@
  * @file iso8859_simple.c
  * @brief Simple ISO/IEC 8859-1 implementation
  *
- * Copyright (c) 2024 Leon Lynch
+ * Copyright 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

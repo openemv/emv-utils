@@ -2,7 +2,7 @@
  * @file isocodes_lookup.h
  * @brief Wrapper for iso-codes package
  *
- * Copyright (c) 2021, 2023 Leon Lynch
+ * Copyright 2021, 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

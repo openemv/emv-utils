@@ -2,7 +2,7 @@
  * @file mcc_lookup.cpp
  * @brief ISO 18245 Merchant Category Code (MCC) lookup helper functions
  *
- * Copyright (c) 2023 Leon Lynch
+ * Copyright 2023 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

@@ -2,7 +2,7 @@
  * @file emv_read_application_data_test.c
  * @brief Unit tests for EMV Read Application Data
  *
- * Copyright (c) 2024 Leon Lynch
+ * Copyright 2024 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

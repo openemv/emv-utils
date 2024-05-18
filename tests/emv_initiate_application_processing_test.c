@@ -2,7 +2,7 @@
  * @file emv_initiate_application_processing_test.c
  * @brief Unit tests for EMV application processing
  *
- * Copyright (c) 2024 Leon Lynch
+ * Copyright 2024 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public

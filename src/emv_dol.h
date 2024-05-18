@@ -3,7 +3,7 @@
  * @brief EMV Data Object List (DOL) processing functions
  * @remark See EMV 4.4 Book 3, 5.4
  *
- * Copyright (c) 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
