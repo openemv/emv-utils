@@ -164,9 +164,6 @@ static struct argp_option argp_options[] = {
 	{ "iso8859-14", EMV_DECODE_ISO8859_14, NULL, OPTION_HIDDEN },
 	{ "iso8859-15", EMV_DECODE_ISO8859_15, NULL, OPTION_HIDDEN },
 
-	{ 0, 0, NULL, 0, "OPTION may only be _one_ of the above." },
-	{ 0, 0, NULL, 0, "INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin" },
-
 	{ "version", EMV_DECODE_VERSION, NULL, 0, "Display emv-utils version" },
 
 	// Hidden option for testing
@@ -180,7 +177,10 @@ static struct argp argp_config = {
 	argp_options,
 	argp_parser_helper,
 	"INPUT",
-	"Decode data and print it in a human readable format.",
+	"Decode data and print it in a human readable format."
+	"\v" // Print remaining text after options
+	"OPTION may only be _one_ of the above.\n\n"
+	"INPUT is either a string of hex digits representing binary data, or \"-\" to read from stdin",
 };
 
 // argp parser helper function
