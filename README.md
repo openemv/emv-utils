@@ -25,11 +25,12 @@ licensing options.
 Installation
 ------------
 
-* For Ubuntu 20.04 LTS (Focal) or Ubuntu 22.04 LTS (Jammy), install the
-  appropriate [release package](https://github.com/openemv/emv-utils/releases)
-* For Fedora 36 or Fedora 37, install the appropriate
+* For Ubuntu 20.04 LTS (Focal), 22.04 LTS (Jammy), or 24.04 LTS (Noble) install
+  the appropriate
   [release package](https://github.com/openemv/emv-utils/releases)
-* For Gentoo, use  the
+* For Fedora 39 or Fedora 40, install the appropriate Fedora
+  [release package](https://github.com/openemv/emv-utils/releases)
+* For Gentoo, use the
   [OpenEMV overlay](https://github.com/openemv/openemv-overlay), set the
   keywords and useflags as needed, and install using
   `emerge --verbose --ask emv-utils`

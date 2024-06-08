@@ -15,10 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 37", fedora_version: 37, deps: "none", build_emv_tool: NO }
-          - { name: "Fedora 37", fedora_version: 37, deps: "pcsclite", build_emv_tool: YES }
-          - { name: "Fedora 38", fedora_version: 38, deps: "pcsclite", build_emv_tool: YES }
+          - { name: "Fedora 39", fedora_version: 39, deps: "none", build_emv_tool: NO }
           - { name: "Fedora 39", fedora_version: 39, deps: "pcsclite", build_emv_tool: YES }
+          - { name: "Fedora 40", fedora_version: 40, deps: "pcsclite", build_emv_tool: YES }
 
     name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
     runs-on: ubuntu-latest
@@ -59,9 +58,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 37", fedora_version: 37 }
-          - { name: "Fedora 38", fedora_version: 38 }
           - { name: "Fedora 39", fedora_version: 39 }
+          - { name: "Fedora 40", fedora_version: 40 }
 
     name: ${{ matrix.name }} release
     runs-on: ubuntu-latest
