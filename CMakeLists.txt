@@ -87,6 +87,43 @@ add_subdirectory(src)
 add_subdirectory(tools)
 add_subdirectory(tests)
 
+# If Qt::Widgets is available, build emv-viewer
+option(BUILD_EMV_VIEWER "Build emv-viewer")
+# See https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html#supporting-older-qt-5-versions
+# Note that CMAKE_DISABLE_FIND_PACKAGE_<PackageName> only applies to the
+# primary package name and not the alternative names and therefore it is
+# necessary to build the list of alternative names to ensure that either Qt5 or
+# Qt6 can be disabled, otherwise CMAKE_DISABLE_FIND_PACKAGE_<PackageName> will
+# be ignored.
+if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt5)
+	list(APPEND Qt_NAMES Qt5)
+endif()
+if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt6)
+	list(APPEND Qt_NAMES Qt6)
+endif()
+if(Qt_NAMES)
+	find_package(QT 5.12 NAMES ${Qt_NAMES} COMPONENTS Widgets)
+	if(QT_FOUND)
+		message(STATUS "Found Qt${QT_VERSION_MAJOR} Widgets: ${QT_CONFIG} (found suitable version \"${QT_VERSION}\")")
+	else()
+		if(BUILD_EMV_VIEWER)
+			message(FATAL_ERROR "Could NOT find Qt Widgets; required to build emv-viewer")
+		else()
+			message(STATUS "Could NOT find Qt Widgets: skipping emv-viewer build")
+		endif()
+	endif()
+else()
+	if(BUILD_EMV_VIEWER)
+		message(FATAL_ERROR "Both Qt5 and Qt6 are disabled: required to build emv-viewer")
+	else()
+		message(STATUS "Both Qt5 and Qt6 are disabled: skipping emv-viewer build")
+	endif()
+endif()
+if(QT_FOUND)
+	message(STATUS "Adding emv-viewer to build")
+	add_subdirectory(viewer)
+endif()
+
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
 # Install README and LICENSE files to runtime component

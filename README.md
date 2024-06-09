@@ -64,6 +64,10 @@ Dependencies
   [PCSCLite](https://pcsclite.apdu.fr/) on Linux/MacOS. Use the
   `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built and avoid the
   dependency on PC/SC.
+* `emv-viewer` can _optionally_ be built if [Qt](https://www.qt.io/) (see
+  [Qt](#qt) for details) is available at build-time. If it is not available,
+  `emv-viewer` will not be built. Use the `BUILD_EMV_VIEWER` option to ensure
+  that `emv-viewer` will be built.
 * [Doxygen](https://github.com/doxygen/doxygen) can _optionally_ be used to
   generate API documentation if it is available; see
   [Documentation](#documentation)
@@ -161,6 +165,20 @@ at build time using the CMake `ISO8859_IMPL` option. It allows these values:
   doesn't require C++.
 * `simple`: Only supports ISO 8859-1, has no dependencies and doesn't require
   C++.
+
+Qt
+--
+
+This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.6.x (although it
+may be possible to use other versions of Qt) when building the `emv-viewer`
+application. However, on some platforms it may be necessary to use the `QT_DIR`
+option (and not the `Qt5_DIR` nor `Qt6_DIR` options) or `CMAKE_PREFIX_PATH`
+option to specify the exact Qt installation to be used. For Qt6 it may also be
+necessary for the Qt tools to be available in the executable PATH regardless of
+the `QT_DIR` option.
+
+If the Qt installation does not provide universal binaries for MacOS, it will
+not be possible to build `emv-viewer` as a universal binary for MacOS.
 
 MacOS / Windows
 ---------------
