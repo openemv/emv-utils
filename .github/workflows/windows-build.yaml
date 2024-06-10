@@ -17,15 +17,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { sys: mingw64, env: x86_64, build_type: "Release", lib_type: "static", shared_libs: "NO", build_emv_tool: NO }
-          - { sys: mingw64, env: x86_64, build_type: "Debug", lib_type: "dll", shared_libs: "YES", build_emv_tool: YES }
-          - { sys: mingw64, env: x86_64, build_type: "Release", lib_type: "static", shared_libs: "NO", build_emv_tool: YES }
-          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", build_emv_tool: YES }
-          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", build_emv_tool: YES }
-          - { sys: clang64, env: clang-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", build_emv_tool: YES }
-          - { sys: clang64, env: clang-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", build_emv_tool: YES }
+          - { sys: mingw64, env: x86_64, build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", build_emv_tool: NO, build_emv_viewer: NO }
+          - { sys: mingw64, env: x86_64, build_type: "Debug", lib_type: "dll", shared_libs: "YES", deps: "qt6", build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: mingw64, env: x86_64, build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "qt5", build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "qt5", build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "qt6", build_emv_tool: YES, build_emv_viewer: YES }
+          # NOTE: Only test Qt6 for clang64 because Qt5's windeployqt does not support clang64
+          - { sys: clang64, env: clang-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "qt6", build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: clang64, env: clang-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "qt6", build_emv_tool: YES, build_emv_viewer: YES }
 
-    name: Windows MSYS2 ${{matrix.sys}} build (${{ matrix.lib_type }}/${{ matrix.build_type }})
+    name: Windows MSYS2 ${{matrix.sys}} build (${{ matrix.lib_type }}/${{ matrix.build_type }}/${{ matrix.deps }})
 
     defaults:
       run:
@@ -53,6 +54,16 @@ jobs:
           mingw-w64-${{matrix.env}}-json-c
           mingw-w64-${{matrix.env}}-gettext
 
+    - name: Install Qt5
+      if: contains(matrix.deps, 'qt5')
+      run: |
+        pacman --noconfirm -S --needed mingw-w64-${{matrix.env}}-qt5-base mingw-w64-${{matrix.env}}-qt5-tools
+
+    - name: Install Qt6
+      if: contains(matrix.deps, 'qt6')
+      run: |
+        pacman --noconfirm -S --needed mingw-w64-${{matrix.env}}-qt6-base mingw-w64-${{matrix.env}}-qt6-tools
+
     # MSYS2 Git assumes CRLF by default
     - name: Configure Git
       run: |
@@ -60,7 +71,7 @@ jobs:
         git describe --always --dirty
 
     - name: Configure CMake
-      run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} -DFETCH_ARGP=YES -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }}
+      run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} -DFETCH_ARGP=YES -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
       run: cmake --build build
