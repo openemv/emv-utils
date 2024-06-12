@@ -27,6 +27,7 @@
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
+#include <QtGui/QDesktopServices>
 
 EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 : QMainWindow(parent)
@@ -121,4 +122,10 @@ void EmvViewerMainWindow::saveSettings() const
 	settings.setValue(QStringLiteral("splitterBottomState"), splitterBottom->saveState());
 
 	settings.sync();
+}
+
+void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)
+{
+	// Open link using external application
+	QDesktopServices::openUrl(link);
 }

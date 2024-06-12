@@ -1,8 +1,8 @@
 /**
- * @file emv-viewer-mainwindow.h
- * @brief Main window of EMV Viewer
+ * @file betterplaintextedit.h
+ * @brief QPlainTextEdit derivative that emits events when links are clicked
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2023 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,29 +18,34 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef EMV_VIEWER_MAINWINDOW_H
-#define EMV_VIEWER_MAINWINDOW_H
+#ifndef BETTER_PLAIN_TEXT_EDIT_H
+#define BETTER_PLAIN_TEXT_EDIT_H
 
-#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QPlainTextEdit>
 
-#include "ui_emv-viewer-mainwindow.h"
-
-class EmvViewerMainWindow : public QMainWindow, private Ui::MainWindow
+class BetterPlainTextEdit : public QPlainTextEdit
 {
 	Q_OBJECT
 
 public:
-	explicit EmvViewerMainWindow(QWidget* parent = nullptr);
+	explicit BetterPlainTextEdit(QWidget* parent = nullptr)
+	: QPlainTextEdit(parent)
+	{}
 
-protected:
-	void closeEvent(QCloseEvent* event) override;
+	virtual void mousePressEvent(QMouseEvent* e) override
+	{
+		if (e->button() & Qt::LeftButton) {
+			QString href = anchorAt(e->pos());
+			if (!href.isEmpty()) {
+				emit linkActivated(href);
+			}
+		}
 
-private:
-	void loadSettings();
-	void saveSettings() const;
+		QPlainTextEdit::mousePressEvent(e);
+	}
 
-private slots: // connect-by-name helper functions
-	void on_descriptionText_linkActivated(const QString& link);
+signals:
+	void linkActivated(QString href);
 };
 
 #endif

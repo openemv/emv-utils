@@ -83,7 +83,7 @@
          <bool>true</bool>
         </property>
        </widget>
-       <widget class="QPlainTextEdit" name="descriptionText">
+       <widget class="BetterPlainTextEdit" name="descriptionText">
         <property name="minimumSize">
          <size>
           <width>300</width>
@@ -100,6 +100,13 @@
    </layout>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>BetterPlainTextEdit</class>
+   <extends>QPlainTextEdit</extends>
+   <header>betterplaintextedit.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
