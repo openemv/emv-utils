@@ -25,6 +25,7 @@
 #include <QtCore/QByteArray>
 #include <QtCore/QSettings>
 #include <QtCore/QTimer>
+#include <QtCore/QStringListModel> // TODO: remove/replace
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
 #include <QtGui/QDesktopServices>
@@ -32,6 +33,13 @@
 EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 : QMainWindow(parent)
 {
+	// Prepare timer used to bundle tree view updates. Do this before setupUi()
+	// calls QMetaObject::connectSlotsByName() to ensure that auto-connect
+	// works for on_modelUpdateTimer_timeout().
+	modelUpdateTimer = new QTimer(this);
+	modelUpdateTimer->setObjectName(QStringLiteral("modelUpdateTimer"));
+	modelUpdateTimer->setSingleShot(true);
+
 	// Setup UI widgets
 	setupUi(this);
 	setWindowTitle(windowTitle().append(QStringLiteral(" (") + qApp->applicationVersion() + QStringLiteral(")")));
@@ -58,6 +66,10 @@ EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 	QTimer::singleShot(0, [this]() {
 		descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
 	});
+
+	// Prepare model used for tree view
+	model = new QStringListModel(treeView);
+	treeView->setModel(model);
 }
 
 void EmvViewerMainWindow::closeEvent(QCloseEvent* event)
@@ -122,6 +134,22 @@ void EmvViewerMainWindow::saveSettings() const
 	settings.setValue(QStringLiteral("splitterBottomState"), splitterBottom->saveState());
 
 	settings.sync();
+}
+
+void EmvViewerMainWindow::parseData()
+{
+	// Test model update bundling by appending rows to a simple string list
+	// model. This will be replaced by the appropriate model in future.
+	if (model->insertRow(model->rowCount())) {
+		QModelIndex index = model->index(model->rowCount() - 1, 0);
+		model->setData(index, "asdf");
+	}
+}
+
+void EmvViewerMainWindow::on_dataEdit_textChanged()
+{
+	// Bundle updates by restarting the timer every time the data changes
+	modelUpdateTimer->start(300);
 }
 
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)

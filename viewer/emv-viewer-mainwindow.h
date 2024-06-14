@@ -25,6 +25,10 @@
 
 #include "ui_emv-viewer-mainwindow.h"
 
+// Forward declarations
+class QTimer;
+class QStringListModel;
+
 class EmvViewerMainWindow : public QMainWindow, private Ui::MainWindow
 {
 	Q_OBJECT
@@ -39,8 +43,16 @@ private:
 	void loadSettings();
 	void saveSettings() const;
 
+	void parseData();
+
 private slots: // connect-by-name helper functions
+	void on_modelUpdateTimer_timeout() { parseData(); }
+	void on_dataEdit_textChanged();
 	void on_descriptionText_linkActivated(const QString& link);
+
+protected:
+	QTimer* modelUpdateTimer;
+	QStringListModel* model;
 };
 
 #endif
