@@ -81,23 +81,33 @@ endif()
 find_package(QT 5.12 NAMES ${Qt_NAMES} REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets PATHS ${QT_DIR})
 message(STATUS "Found Qt${QT_VERSION_MAJOR} Widgets: ${QT_CONFIG} (found suitable version \"${QT_VERSION}\")")
+set(EMV_VIEWER_MOC_HEADERS
+	emv-viewer-mainwindow.h
+	emvhighlighter.h
+	betterplaintextedit.h
+)
 if(QT_VERSION VERSION_LESS 5.15)
 	# Qt-5.12 provides these versioned commands
 	qt5_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
-	qt5_wrap_cpp(MOC_SRCS emv-viewer-mainwindow.h betterplaintextedit.h)
+	qt5_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
 	add_library(Qt::Widgets ALIAS Qt5::Widgets)
 else()
 	# Qt-5.15 and Qt-6 provide these version-less commands
 	qt_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
-	qt_wrap_cpp(MOC_SRCS emv-viewer-mainwindow.h betterplaintextedit.h)
+	qt_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
 endif()
 
-add_executable(emv-viewer emv-viewer.cpp emv-viewer-mainwindow.cpp ${UI_SRCS} ${MOC_SRCS} ${QRC_SRCS})
+add_executable(emv-viewer
+	emv-viewer.cpp
+	emv-viewer-mainwindow.cpp
+	emvhighlighter.cpp
+	${UI_SRCS} ${MOC_SRCS} ${QRC_SRCS}
+)
 target_include_directories(emv-viewer PRIVATE
 	${CMAKE_CURRENT_BINARY_DIR} # For generated files
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> # For generated files to include source headers
 )
-target_link_libraries(emv-viewer Qt::Widgets)
+target_link_libraries(emv-viewer Qt::Widgets emv::iso8825)
 
 if(WIN32)
 	# Set properties needed for GUI applications on Windows

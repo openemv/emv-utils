@@ -19,6 +19,7 @@
  */
 
 #include "emv-viewer-mainwindow.h"
+#include "emvhighlighter.h"
 
 #include <QtCore/QStringLiteral>
 #include <QtCore/QString>
@@ -43,6 +44,11 @@ EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 	// Setup UI widgets
 	setupUi(this);
 	setWindowTitle(windowTitle().append(QStringLiteral(" (") + qApp->applicationVersion() + QStringLiteral(")")));
+
+	// Note that EmvHighlighter assumes that all blocks are processed in order
+	// for every change to the text. Therefore rehighlight() must be called
+	// whenever the widget text changes. See on_dataEdit_textChanged().
+	highlighter = new EmvHighlighter(dataEdit->document());
 
 	// Display copyright, license and disclaimer notice
 	descriptionText->appendHtml(QStringLiteral(
@@ -148,6 +154,15 @@ void EmvViewerMainWindow::parseData()
 
 void EmvViewerMainWindow::on_dataEdit_textChanged()
 {
+	// Rehighlight when text changes. This is required because EmvHighlighter
+	// assumes that all blocks are processed in order for every change to the
+	// text. Note that rehighlight() will also re-trigger the textChanged()
+	// signal and therefore signals must be blocked for the duration of
+	// rehighlight().
+	dataEdit->blockSignals(true);
+	highlighter->rehighlight();
+	dataEdit->blockSignals(false);
+
 	// Bundle updates by restarting the timer every time the data changes
 	modelUpdateTimer->start(300);
 }
