@@ -27,7 +27,6 @@
 
 // Forward declarations
 class QTimer;
-class QStringListModel;
 class EmvHighlighter;
 
 class EmvViewerMainWindow : public QMainWindow, private Ui::MainWindow
@@ -47,13 +46,12 @@ private:
 	void parseData();
 
 private slots: // connect-by-name helper functions
-	void on_modelUpdateTimer_timeout() { parseData(); }
+	void on_updateTimer_timeout();
 	void on_dataEdit_textChanged();
 	void on_descriptionText_linkActivated(const QString& link);
 
 protected:
-	QTimer* modelUpdateTimer;
-	QStringListModel* model;
+	QTimer* updateTimer;
 	EmvHighlighter* highlighter;
 };
 

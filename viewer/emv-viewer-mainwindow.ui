@@ -72,16 +72,24 @@
        <property name="childrenCollapsible">
         <bool>false</bool>
        </property>
-       <widget class="QTreeView" name="treeView">
+       <widget class="QTreeWidget" name="treeWidget">
         <property name="minimumSize">
          <size>
           <width>300</width>
           <height>0</height>
          </size>
         </property>
+        <property name="verticalScrollMode">
+         <enum>QAbstractItemView::ScrollPerPixel</enum>
+        </property>
         <property name="headerHidden">
          <bool>true</bool>
         </property>
+        <column>
+         <property name="text">
+          <string notr="true">1</string>
+         </property>
+        </column>
        </widget>
        <widget class="BetterPlainTextEdit" name="descriptionText">
         <property name="minimumSize">

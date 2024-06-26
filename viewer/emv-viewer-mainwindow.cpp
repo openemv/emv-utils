@@ -21,25 +21,30 @@
 #include "emv-viewer-mainwindow.h"
 #include "emvhighlighter.h"
 
+#include "iso8825_ber.h"
+
 #include <QtCore/QStringLiteral>
 #include <QtCore/QString>
 #include <QtCore/QByteArray>
 #include <QtCore/QSettings>
 #include <QtCore/QTimer>
-#include <QtCore/QStringListModel> // TODO: remove/replace
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
+#include <QtWidgets/QTreeWidgetItem>
 #include <QtGui/QDesktopServices>
+
+#include <cstddef>
+#include <cctype>
 
 EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 : QMainWindow(parent)
 {
 	// Prepare timer used to bundle tree view updates. Do this before setupUi()
 	// calls QMetaObject::connectSlotsByName() to ensure that auto-connect
-	// works for on_modelUpdateTimer_timeout().
-	modelUpdateTimer = new QTimer(this);
-	modelUpdateTimer->setObjectName(QStringLiteral("modelUpdateTimer"));
-	modelUpdateTimer->setSingleShot(true);
+	// works for on_updateTimer_timeout().
+	updateTimer = new QTimer(this);
+	updateTimer->setObjectName(QStringLiteral("updateTimer"));
+	updateTimer->setSingleShot(true);
 
 	// Setup UI widgets
 	setupUi(this);
@@ -72,10 +77,6 @@ EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 	QTimer::singleShot(0, [this]() {
 		descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
 	});
-
-	// Prepare model used for tree view
-	model = new QStringListModel(treeView);
-	treeView->setModel(model);
 }
 
 void EmvViewerMainWindow::closeEvent(QCloseEvent* event)
@@ -142,14 +143,136 @@ void EmvViewerMainWindow::saveSettings() const
 	settings.sync();
 }
 
+static bool parseData(
+	QTreeWidgetItem* parent,
+	const void* ptr,
+	std::size_t len,
+	std::size_t* validBytes
+)
+{
+	int r;
+	struct iso8825_ber_itr_t itr;
+	struct iso8825_tlv_t tlv;
+	bool valid;
+
+	r = iso8825_ber_itr_init(ptr, len, &itr);
+	if (r) {
+		qWarning("iso8825_ber_itr_init() failed; r=%d", r);
+		return false;
+	}
+
+	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+		QString itemStr = QString::asprintf("%02X : [%u]", tlv.tag, tlv.length);
+
+		if (iso8825_ber_is_constructed(&tlv)) {
+			// Add constructed field without its value bytes
+			QTreeWidgetItem* item = new QTreeWidgetItem(
+				parent,
+				QStringList(itemStr)
+			);
+			item->setExpanded(true);
+
+			// If the field is constructed, only consider the tag and length
+			// to be valid until the value has been parsed. The fields inside
+			// the value will be added when they are parsed.
+			*validBytes += (r - tlv.length);
+
+			// Recursively parse constructed fields
+			valid = parseData(item, tlv.value, tlv.length, validBytes);
+			if (!valid) {
+				qDebug("parseBerData() failed; validBytes=%zu", *validBytes);
+				return false;
+			}
+
+		} else {
+			// Add primitive field with its value bytes
+			QTreeWidgetItem* item = new QTreeWidgetItem(
+				parent,
+				QStringList(
+					itemStr + " " +
+					// Create an uppercase hex string, with spaces, from the
+					// field's value bytes
+					QByteArray::fromRawData(
+						reinterpret_cast<const char*>(tlv.value),
+						tlv.length
+					).toHex(' ').toUpper().constData()
+				)
+			);
+			item->setExpanded(true);
+
+			// If the field is not constructed, consider all of the bytes to
+			// be valid BER encoded data
+			*validBytes += r;
+		}
+	}
+	if (r < 0) {
+		qDebug("iso8825_ber_itr_next() failed; r=%d", r);
+		return false;
+	}
+
+	return true;
+}
+
 void EmvViewerMainWindow::parseData()
 {
-	// Test model update bundling by appending rows to a simple string list
-	// model. This will be replaced by the appropriate model in future.
-	if (model->insertRow(model->rowCount())) {
-		QModelIndex index = model->index(model->rowCount() - 1, 0);
-		model->setData(index, "asdf");
+	QString str;
+	int validLen;
+	QByteArray data;
+	std::size_t validBytes = 0;
+
+	str = dataEdit->toPlainText();
+	if (str.isEmpty()) {
+		treeWidget->clear();
+		return;
 	}
+
+	// Remove all whitespace from hex string
+	str = str.simplified().remove(' ');
+	validLen = str.length();
+
+	// Ensure that hex string contains only hex digits
+	for (int i = 0; i < validLen; ++i) {
+		if (!std::isxdigit(str[i].unicode())) {
+			// Only parse up to invalid digit
+			validLen = i;
+			break;
+		}
+	}
+
+	// Ensure that hex string has even number of digits
+	if (validLen & 0x01) {
+		// Odd number of digits. Ignore last digit to see whether parsing can
+		// proceed regardless and indicate invalid data later.
+		validLen -= 1;
+	}
+
+	data = QByteArray::fromHex(str.left(validLen).toUtf8());
+
+	// For now, clear the widget before repopulating it. In future, the widget
+	// should be updated incrementally instead.
+	treeWidget->clear();
+	treeWidget->expandAll();
+	::parseData(
+		treeWidget->invisibleRootItem(),
+		data.constData(), data.size(), &validBytes
+	);
+	validLen = validBytes * 2;
+
+	if (validLen < str.length()) {
+		QTreeWidgetItem* item = new QTreeWidgetItem(
+			treeWidget->invisibleRootItem(),
+			QStringList(
+				QStringLiteral("Remaining invalid data: ") +
+				str.right(str.length() - validLen)
+			)
+		);
+		item->setExpanded(true);
+	}
+}
+
+void EmvViewerMainWindow::on_updateTimer_timeout()
+{
+	parseData();
 }
 
 void EmvViewerMainWindow::on_dataEdit_textChanged()
@@ -164,7 +287,7 @@ void EmvViewerMainWindow::on_dataEdit_textChanged()
 	dataEdit->blockSignals(false);
 
 	// Bundle updates by restarting the timer every time the data changes
-	modelUpdateTimer->start(300);
+	updateTimer->start(200);
 }
 
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)
