@@ -107,7 +107,12 @@ target_include_directories(emv-viewer PRIVATE
 	${CMAKE_CURRENT_BINARY_DIR} # For generated files
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> # For generated files to include source headers
 )
-target_link_libraries(emv-viewer Qt::Widgets emv::iso8825)
+target_link_libraries(emv-viewer
+	PRIVATE
+		Qt::Widgets
+		emv::emv_strings
+		emv::emv
+)
 
 if(WIN32)
 	# Set properties needed for GUI applications on Windows
