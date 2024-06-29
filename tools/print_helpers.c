@@ -419,9 +419,11 @@ void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int
 			printf("%s%02X", i ? " " : "", tlv->value[i]);
 		}
 
-		// If empty value string or value string is list or Data Object List (DOL),
-		// end this line and continue on the next line
-		if (!value_str[0] || str_is_list(value_str) || info.format == EMV_FORMAT_DOL) {
+		// If the value string is empty or the value string is a list, end this
+		// line and continue on the next line. This implementation assumes that
+		// Data Object List (DOL) fields or Tag List fields will allways have
+		// an empty value string.
+		if (!value_str[0] || str_is_list(value_str)) {
 			printf("\n");
 
 			if (str_is_list(value_str)) {
@@ -511,9 +513,9 @@ void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int
 		}
 
 		if (info.tag_name) {
-			printf("%02X | %s : [%u]\n", entry.tag, info.tag_name, entry.length);
+			printf("%02X | %s [%u]\n", entry.tag, info.tag_name, entry.length);
 		} else {
-			printf("%02X : [%u]\n", entry.tag, entry.length);
+			printf("%02X [%u]\n", entry.tag, entry.length);
 		}
 	}
 }
