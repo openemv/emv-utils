@@ -101,6 +101,7 @@ add_executable(emv-viewer
 	emv-viewer.cpp
 	emv-viewer-mainwindow.cpp
 	emvhighlighter.cpp
+	emvtreeitem.cpp
 	${UI_SRCS} ${MOC_SRCS} ${QRC_SRCS}
 )
 target_include_directories(emv-viewer PRIVATE

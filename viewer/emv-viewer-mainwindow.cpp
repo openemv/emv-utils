@@ -20,11 +20,9 @@
 
 #include "emv-viewer-mainwindow.h"
 #include "emvhighlighter.h"
+#include "emvtreeitem.h"
 
 #include "iso8825_ber.h"
-#include "emv_tlv.h"
-#include "emv_dol.h"
-#include "emv_strings.h"
 
 #include <QtCore/QStringLiteral>
 #include <QtCore/QString>
@@ -146,175 +144,6 @@ void EmvViewerMainWindow::saveSettings() const
 	settings.sync();
 }
 
-static bool emv_str_is_list(const char* str)
-{
-	if (!str || !str[0]) {
-		return false;
-	}
-
-	// If the last character is a newline, assume it's a string list
-	return str[strlen(str) - 1] == '\n';
-}
-
-static QTreeWidgetItem* addItemString(
-	QTreeWidgetItem* item,
-	const struct emv_tlv_info_t* info,
-	const char* value_str
-)
-{
-	QString descStr;
-
-	if (emv_str_is_list(value_str)) {
-		descStr = value_str;
-		descStr = descStr.trimmed(); // Trim trailing newline
-	} else if (value_str[0]) {
-		// Use quotes for strings and parentheses for everything else
-		if (info->format == EMV_FORMAT_A ||
-			info->format == EMV_FORMAT_AN ||
-			info->format == EMV_FORMAT_ANS
-		) {
-			descStr = QStringLiteral("\"") + value_str + QStringLiteral("\"");
-		} else {
-			descStr = value_str;
-		}
-	} else {
-		return nullptr;
-	}
-
-	QTreeWidgetItem* descItem = new QTreeWidgetItem(
-		item,
-		QStringList(descStr)
-	);
-	descItem->setExpanded(true);
-	descItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
-
-	return descItem;
-}
-
-static QTreeWidgetItem* addItemDol(
-	QTreeWidgetItem* item,
-	const void* ptr,
-	std::size_t len
-)
-{
-	int r;
-	struct emv_dol_itr_t itr;
-	struct emv_dol_entry_t entry;
-	QString descStr = QStringLiteral("Data Object List:\n");
-
-	r = emv_dol_itr_init(ptr, len, &itr);
-	if (r) {
-		return nullptr;
-	}
-
-	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
-		struct emv_tlv_t emv_tlv;
-		struct emv_tlv_info_t info;
-
-		memset(&emv_tlv, 0, sizeof(emv_tlv));
-		emv_tlv.tag = entry.tag;
-		emv_tlv.length = entry.length;
-		emv_tlv_get_info(&emv_tlv, &info, nullptr, 0);
-
-		if (info.tag_name) {
-			descStr += QString::asprintf("  %02X | %s [%u]\n", entry.tag, info.tag_name, entry.length);
-		} else {
-			descStr += QString::asprintf("  %02X [%u]\n", entry.tag, entry.length);
-		}
-	}
-
-	QTreeWidgetItem* descItem = new QTreeWidgetItem(
-		item,
-		QStringList(descStr)
-	);
-	descItem->setExpanded(true);
-	descItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
-
-	return descItem;
-}
-
-static QTreeWidgetItem* addItemTagList(
-	QTreeWidgetItem* item,
-	const void* ptr,
-	std::size_t len
-)
-{
-	int r;
-	unsigned int tag;
-	QString descStr = QStringLiteral("Tag List:\n");
-
-	while ((r = iso8825_ber_tag_decode(ptr, len, &tag)) > 0) {
-		struct emv_tlv_t emv_tlv;
-		struct emv_tlv_info_t info;
-
-		memset(&emv_tlv, 0, sizeof(emv_tlv));
-		emv_tlv.tag = tag;
-		emv_tlv_get_info(&emv_tlv, &info, nullptr, 0);
-
-		if (info.tag_name) {
-			descStr += QString::asprintf("  %02X | %s\n", tag, info.tag_name);
-		} else {
-			descStr += QString::asprintf("  %02X\n", tag);
-		}
-
-		// Advance
-		ptr = static_cast<const char*>(ptr) + r;
-		len -= r;
-	}
-
-	QTreeWidgetItem* descItem = new QTreeWidgetItem(
-		item,
-		QStringList(descStr)
-	);
-	descItem->setExpanded(true);
-	descItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
-
-	return descItem;
-}
-
-static QTreeWidgetItem* addItemValue(
-	QTreeWidgetItem* item,
-	const void* ptr,
-	std::size_t len
-)
-{
-	QTreeWidgetItem* descItem = new QTreeWidgetItem(
-		item,
-		QStringList(
-			// Create an uppercase hex string, with spaces, from the
-			// field's value bytes
-			QByteArray::fromRawData(
-				reinterpret_cast<const char*>(ptr),
-				len
-			).toHex(' ').toUpper().constData()
-		)
-	);
-	descItem->setExpanded(true);
-	descItem->setFlags(Qt::ItemNeverHasChildren);
-
-	return descItem;
-}
-
-static void addItemDescription(
-	QTreeWidgetItem* item,
-	const struct iso8825_tlv_t* tlv,
-	const struct emv_tlv_info_t* info,
-	const char* value_str
-)
-{
-	QString descStr;
-
-	if (emv_str_is_list(value_str) || value_str[0]) {
-		addItemString(item, info, value_str);
-	} else if (info->format == EMV_FORMAT_DOL) {
-		addItemDol(item, tlv->value, tlv->length);
-	} else if (info->format == EMV_FORMAT_TAG_LIST) {
-		addItemTagList(item, tlv->value, tlv->length);
-	} else {
-		addItemValue(item, tlv->value, tlv->length);
-	}
-}
-
 static bool parseData(
 	QTreeWidgetItem* parent,
 	const void* ptr,
@@ -334,28 +163,7 @@ static bool parseData(
 	}
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
-		struct emv_tlv_t emv_tlv;
-		struct emv_tlv_info_t info;
-		char value_str[2048];
-		QString fieldStr;
-
-		emv_tlv.ber = tlv;
-		emv_tlv_get_info(&emv_tlv, &info, value_str, sizeof(value_str));
-
-		if (info.tag_name) {
-			fieldStr = QString::asprintf("%02X | %s [%u]", tlv.tag, info.tag_name, tlv.length);
-		} else {
-			fieldStr = QString::asprintf("%02X [%u]", tlv.tag, tlv.length);
-		}
-
-		// Add field without its value bytes. For constructed fields, the
-		// sub-fields will be added as children. For primitive fields, the
-		// value bytes will be decoded if possible.
-		QTreeWidgetItem* item = new QTreeWidgetItem(
-			parent,
-			QStringList(fieldStr)
-		);
-		item->setExpanded(true);
+		EmvTreeItem* item = new EmvTreeItem(parent, &tlv);
 
 		if (iso8825_ber_is_constructed(&tlv)) {
 			// If the field is constructed, only consider the tag and length
@@ -371,8 +179,6 @@ static bool parseData(
 			}
 
 		} else {
-			addItemDescription(item, &tlv, &info, value_str);
-
 			// If the field is not constructed, consider all of the bytes to
 			// be valid BER encoded data
 			*validBytes += r;
