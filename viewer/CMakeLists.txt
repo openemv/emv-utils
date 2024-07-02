@@ -84,6 +84,7 @@ message(STATUS "Found Qt${QT_VERSION_MAJOR} Widgets: ${QT_CONFIG} (found suitabl
 set(EMV_VIEWER_MOC_HEADERS
 	emv-viewer-mainwindow.h
 	emvhighlighter.h
+	emvtreeview.h
 	betterplaintextedit.h
 )
 if(QT_VERSION VERSION_LESS 5.15)
@@ -102,6 +103,7 @@ add_executable(emv-viewer
 	emv-viewer-mainwindow.cpp
 	emvhighlighter.cpp
 	emvtreeitem.cpp
+	emvtreeview.cpp
 	${UI_SRCS} ${MOC_SRCS} ${QRC_SRCS}
 )
 target_include_directories(emv-viewer PRIVATE

@@ -20,9 +20,7 @@
 
 #include "emv-viewer-mainwindow.h"
 #include "emvhighlighter.h"
-#include "emvtreeitem.h"
-
-#include "iso8825_ber.h"
+#include "emvtreeview.h"
 
 #include <QtCore/QStringLiteral>
 #include <QtCore/QString>
@@ -31,10 +29,8 @@
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
-#include <QtWidgets/QTreeWidgetItem>
 #include <QtGui/QDesktopServices>
 
-#include <cstddef>
 #include <cctype>
 
 EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
@@ -141,55 +137,8 @@ void EmvViewerMainWindow::saveSettings() const
 	settings.setValue(QStringLiteral("splitterState"), splitter->saveState());
 	settings.setValue(QStringLiteral("splitterBottomState"), splitterBottom->saveState());
 
+
 	settings.sync();
-}
-
-static bool parseData(
-	QTreeWidgetItem* parent,
-	const void* ptr,
-	std::size_t len,
-	std::size_t* validBytes
-)
-{
-	int r;
-	struct iso8825_ber_itr_t itr;
-	struct iso8825_tlv_t tlv;
-	bool valid;
-
-	r = iso8825_ber_itr_init(ptr, len, &itr);
-	if (r) {
-		qWarning("iso8825_ber_itr_init() failed; r=%d", r);
-		return false;
-	}
-
-	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
-		EmvTreeItem* item = new EmvTreeItem(parent, &tlv);
-
-		if (iso8825_ber_is_constructed(&tlv)) {
-			// If the field is constructed, only consider the tag and length
-			// to be valid until the value has been parsed. The fields inside
-			// the value will be added when they are parsed.
-			*validBytes += (r - tlv.length);
-
-			// Recursively parse constructed fields
-			valid = parseData(item, tlv.value, tlv.length, validBytes);
-			if (!valid) {
-				qDebug("parseBerData() failed; validBytes=%zu", *validBytes);
-				return false;
-			}
-
-		} else {
-			// If the field is not constructed, consider all of the bytes to
-			// be valid BER encoded data
-			*validBytes += r;
-		}
-	}
-	if (r < 0) {
-		qDebug("iso8825_ber_itr_next() failed; r=%d", r);
-		return false;
-	}
-
-	return true;
 }
 
 void EmvViewerMainWindow::parseData()
@@ -197,11 +146,11 @@ void EmvViewerMainWindow::parseData()
 	QString str;
 	int validLen;
 	QByteArray data;
-	std::size_t validBytes = 0;
+	unsigned int validBytes;
 
 	str = dataEdit->toPlainText();
 	if (str.isEmpty()) {
-		treeWidget->clear();
+		treeView->clear();
 		return;
 	}
 
@@ -226,20 +175,12 @@ void EmvViewerMainWindow::parseData()
 	}
 
 	data = QByteArray::fromHex(str.left(validLen).toUtf8());
-
-	// For now, clear the widget before repopulating it. In future, the widget
-	// should be updated incrementally instead.
-	treeWidget->clear();
-	treeWidget->expandAll();
-	::parseData(
-		treeWidget->invisibleRootItem(),
-		data.constData(), data.size(), &validBytes
-	);
+	validBytes = treeView->populateItems(data);
 	validLen = validBytes * 2;
 
 	if (validLen < str.length()) {
 		QTreeWidgetItem* item = new QTreeWidgetItem(
-			treeWidget->invisibleRootItem(),
+			treeView->invisibleRootItem(),
 			QStringList(
 				QStringLiteral("Remaining invalid data: ") +
 				str.right(str.length() - validLen)

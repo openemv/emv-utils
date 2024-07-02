@@ -72,7 +72,7 @@
        <property name="childrenCollapsible">
         <bool>false</bool>
        </property>
-       <widget class="QTreeWidget" name="treeWidget">
+       <widget class="EmvTreeView" name="treeView">
         <property name="minimumSize">
          <size>
           <width>300</width>
@@ -113,6 +113,11 @@
    <class>BetterPlainTextEdit</class>
    <extends>QPlainTextEdit</extends>
    <header>betterplaintextedit.h</header>
+  </customwidget>
+  <customwidget>
+   <class>EmvTreeView</class>
+   <extends>QTreeWidget</extends>
+   <header>emvtreeview.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
