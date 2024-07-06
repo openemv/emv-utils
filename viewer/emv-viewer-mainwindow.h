@@ -48,6 +48,7 @@ private:
 private slots: // connect-by-name helper functions
 	void on_updateTimer_timeout();
 	void on_dataEdit_textChanged();
+	void on_decodeCheckBox_stateChanged(int state);
 	void on_descriptionText_linkActivated(const QString& link);
 
 protected:

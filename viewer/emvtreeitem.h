@@ -22,18 +22,34 @@
 #define EMV_TREE_ITEM_H
 
 #include <QtWidgets/QTreeWidgetItem>
+#include <QtCore/QString>
 
 // Forward declarations
 struct iso8825_tlv_t;
 
+static const int EmvTreeItemType = 8825;
+
 class EmvTreeItem : public QTreeWidgetItem
 {
+private:
+	bool isConstructed;
+	QString simpleFieldStr;
+	QString decodedFieldStr;
+
 public:
 	EmvTreeItem(
 		QTreeWidgetItem* parent,
 		const struct iso8825_tlv_t* tlv,
+		bool decode = true,
 		bool autoExpand = true
 	);
+
+private:
+	void deleteChildren();
+
+public:
+	void render(bool showDecoded);
+	void setTlv(const struct iso8825_tlv_t* tlv, bool decode);
 };
 
 #endif

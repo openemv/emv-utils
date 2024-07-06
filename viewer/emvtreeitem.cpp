@@ -26,6 +26,7 @@
 #include "emv_strings.h"
 
 #include <QtCore/QByteArray>
+#include <QtCore/QList>
 #include <QtCore/QString>
 #include <QtCore/QStringLiteral>
 #include <QtCore/QStringList>
@@ -67,24 +68,71 @@ static QTreeWidgetItem* addDescRaw(
 EmvTreeItem::EmvTreeItem(
 	QTreeWidgetItem* parent,
 	const struct iso8825_tlv_t* tlv,
+	bool decode,
 	bool autoExpand
 )
-: QTreeWidgetItem(parent, 8825)
+: QTreeWidgetItem(parent, EmvTreeItemType)
+{
+	setTlv(tlv, decode);
+	if (isConstructed) {
+		// Always expand constructed fields
+		autoExpand = true;
+	}
+	setExpanded(autoExpand);
+}
+
+void EmvTreeItem::deleteChildren()
+{
+	QList<QTreeWidgetItem*> list;
+
+	list = takeChildren();
+	while (!list.empty()) {
+		delete list.takeFirst();
+	}
+}
+
+void EmvTreeItem::render(bool showDecoded)
+{
+	if (showDecoded) {
+		setText(0, decodedFieldStr);
+
+		// Make decoded descriptions visible
+		// First child is length and raw bytes for primitive fields
+		if (!isConstructed && childCount() > 1) {
+			for (int i = 1; i < childCount(); ++i) {
+				child(i)->setHidden(false);
+			}
+		}
+
+	} else {
+		setText(0, simpleFieldStr);
+
+		// Hide decoded descriptions
+		// First child is length and raw bytes for primitive fields
+		if (!isConstructed && childCount() > 1) {
+			for (int i = 1; i < childCount(); ++i) {
+				child(i)->setHidden(true);
+			}
+		}
+	}
+}
+
+void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv, bool decode)
 {
 	struct emv_tlv_t emv_tlv;
 	struct emv_tlv_info_t info;
 	QByteArray valueStr(2048, 0);
-	QString fieldStr;
+
+	// First delete existing children
+	deleteChildren();
 
 	emv_tlv.ber = *tlv;
 	emv_tlv_get_info(&emv_tlv, &info, valueStr.data(), valueStr.size());
-	fieldStr = buildFieldString(tlv->tag, info.tag_name);
-	setText(0, fieldStr);
+	isConstructed = iso8825_ber_is_constructed(tlv);
+	simpleFieldStr = buildFieldString(tlv->tag);
+	decodedFieldStr = buildFieldString(tlv->tag, info.tag_name);
 
-	if (iso8825_ber_is_constructed(tlv)) {
-		// Always expand constructed fields
-		autoExpand = true;
-	} else {
+	if (!isConstructed) {
 		// Always add raw value bytes for primitive fields
 		addDescRaw(this, tlv->value, tlv->length);
 
@@ -99,8 +147,10 @@ EmvTreeItem::EmvTreeItem(
 		}
 	}
 
-	setExpanded(autoExpand);
+	// Render the widget according to the current state
+	render(decode);
 }
+
 static QString buildFieldString(
 	unsigned int tag,
 	const char* name,

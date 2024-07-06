@@ -52,6 +52,11 @@ EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 	// whenever the widget text changes. See on_dataEdit_textChanged().
 	highlighter = new EmvHighlighter(dataEdit->document());
 
+	// Set initial state of EMV decoding because decodeCheckBox will only emit
+	// a stateChanged event if loadSettings() changes the value to be different
+	// from the initial state.
+	treeView->setDecodeFields(decodeCheckBox->isChecked());
+
 	// Display copyright, license and disclaimer notice
 	descriptionText->appendHtml(QStringLiteral(
 		"Copyright 2021-2024 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
@@ -208,6 +213,11 @@ void EmvViewerMainWindow::on_dataEdit_textChanged()
 
 	// Bundle updates by restarting the timer every time the data changes
 	updateTimer->start(200);
+}
+
+void EmvViewerMainWindow::on_decodeCheckBox_stateChanged(int state)
+{
+	treeView->setDecodeFields(state != Qt::Unchecked);
 }
 
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)

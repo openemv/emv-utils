@@ -26,12 +26,20 @@
 class EmvTreeView : public QTreeWidget
 {
 	Q_OBJECT
+	Q_PROPERTY(bool decodeFields READ decodeFields WRITE setDecodeFields)
 
 public:
 	EmvTreeView(QWidget* parent);
 
 public slots:
 	unsigned int populateItems(const QByteArray& data);
+	void setDecodeFields(bool enabled);
+
+public:
+	bool decodeFields() const { return m_decodeFields; }
+
+private:
+	bool m_decodeFields = true;
 };
 
 #endif

@@ -23,6 +23,8 @@
 
 #include "iso8825_ber.h"
 
+#include <QtWidgets/QTreeWidgetItemIterator>
+
 EmvTreeView::EmvTreeView(QWidget* parent)
 : QTreeWidget(parent)
 {
@@ -32,6 +34,7 @@ static bool parseData(
 	QTreeWidgetItem* parent,
 	const void* ptr,
 	unsigned int len,
+	bool decode,
 	unsigned int* validBytes
 )
 {
@@ -47,7 +50,11 @@ static bool parseData(
 	}
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
-		EmvTreeItem* item = new EmvTreeItem(parent, &tlv);
+		EmvTreeItem* item = new EmvTreeItem(
+			parent,
+			&tlv,
+			decode
+		);
 
 		if (iso8825_ber_is_constructed(&tlv)) {
 			// If the field is constructed, only consider the tag and length
@@ -56,7 +63,7 @@ static bool parseData(
 			*validBytes += (r - tlv.length);
 
 			// Recursively parse constructed fields
-			valid = parseData(item, tlv.value, tlv.length, validBytes);
+			valid = parseData(item, tlv.value, tlv.length, decode, validBytes);
 			if (!valid) {
 				qDebug("parseBerData() failed; validBytes=%u", *validBytes);
 				return false;
@@ -86,8 +93,28 @@ unsigned int EmvTreeView::populateItems(const QByteArray& data)
 
 	::parseData(
 		invisibleRootItem(),
-		data.constData(), data.size(), &validBytes
+		data.constData(),
+		data.size(),
+		m_decodeFields,
+		&validBytes
 	);
 
 	return validBytes;
+}
+
+void EmvTreeView::setDecodeFields(bool enabled)
+{
+	// Visit all EMV children recursively and re-render them according to the
+	// current state
+	QTreeWidgetItemIterator itr (this);
+	while (*itr) {
+		QTreeWidgetItem* item = *itr;
+		if (item->type() == EmvTreeItemType) {
+			EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
+			etItem->render(enabled);
+		}
+		++itr;
+	}
+
+	m_decodeFields = enabled;
 }
