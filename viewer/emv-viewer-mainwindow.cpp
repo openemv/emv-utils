@@ -52,9 +52,10 @@ EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 	// whenever the widget text changes. See on_dataEdit_textChanged().
 	highlighter = new EmvHighlighter(dataEdit->document());
 
-	// Set initial state of EMV decoding because decodeCheckBox will only emit
-	// a stateChanged event if loadSettings() changes the value to be different
-	// from the initial state.
+	// Set initial state of checkboxes for highlighter and tree view because
+	// checkboxes will only emit a stateChanged signal if loadSettings()
+	// changes the value to be different from the initial state.
+	highlighter->setIgnorePadding(paddingCheckBox->isChecked());
 	treeView->setDecodeFields(decodeCheckBox->isChecked());
 
 	// Display copyright, license and disclaimer notice
@@ -151,6 +152,7 @@ void EmvViewerMainWindow::parseData()
 	QString str;
 	int validLen;
 	QByteArray data;
+	bool paddingIsPossible = false;
 	unsigned int validBytes;
 
 	str = dataEdit->toPlainText();
@@ -179,19 +181,49 @@ void EmvViewerMainWindow::parseData()
 		validLen -= 1;
 	}
 
+	// Determine whether invalid data might be padding
+	if (paddingCheckBox->isChecked() && validLen == str.length()) {
+		// Input data is a valid hex string and therefore the possibility
+		// exists that if BER decoding fails, the remaining data might be
+		// cryptographic padding
+		paddingIsPossible = true;
+	}
+
 	data = QByteArray::fromHex(str.left(validLen).toUtf8());
 	validBytes = treeView->populateItems(data);
 	validLen = validBytes * 2;
 
 	if (validLen < str.length()) {
+		bool isPadding;
+		QString itemStr;
+		QColor itemColor;
+
+		// Determine whether invalid data is padding and prepare item details
+		// accordingly
+		if (paddingIsPossible &&
+			data.size() - validBytes > 0 &&
+			(
+				((data.size() & 0x7) == 0 && data.size() - validBytes < 8) ||
+				((data.size() & 0xF) == 0 && data.size() - validBytes < 16)
+			)
+		) {
+			// Invalid data is likely to be padding
+			isPadding = true;
+			itemStr = QStringLiteral("Padding: ");
+			itemColor = Qt::darkGray;
+		} else {
+			// Invalid data is either absent or unlikely to be padding
+			isPadding = false;
+			itemStr = QStringLiteral("Remaining invalid data: ");
+			itemColor = Qt::red;
+		}
+
 		QTreeWidgetItem* item = new QTreeWidgetItem(
 			treeView->invisibleRootItem(),
-			QStringList(
-				QStringLiteral("Remaining invalid data: ") +
-				str.right(str.length() - validLen)
-			)
+			QStringList(itemStr + str.right(str.length() - validLen))
 		);
-		item->setExpanded(true);
+		item->setDisabled(isPadding);
+		item->setForeground(0, itemColor);
 	}
 }
 
@@ -213,6 +245,15 @@ void EmvViewerMainWindow::on_dataEdit_textChanged()
 
 	// Bundle updates by restarting the timer every time the data changes
 	updateTimer->start(200);
+}
+
+void EmvViewerMainWindow::on_paddingCheckBox_stateChanged(int state)
+{
+	// Rehighlight when padding state changes. Note that rehighlight() will
+	// also trigger the textChanged() signal which will in turn update the tree
+	// view item associated with invalid data or padding as well.
+	highlighter->setIgnorePadding(state != Qt::Unchecked);
+	highlighter->rehighlight();
 }
 
 void EmvViewerMainWindow::on_decodeCheckBox_stateChanged(int state)

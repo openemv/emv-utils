@@ -107,8 +107,10 @@ void EmvHighlighter::highlightBlock(const QString& text)
 	int strLen = 0;
 	unsigned int validLen;
 	QString str;
+	bool paddingIsPossible = false;
 	QByteArray data;
 	std::size_t validBytes = 0;
+	QColor invalidColor;
 
 	// Concatenate all blocks without whitespace and compute start position
 	// and length of current block within concatenated string
@@ -144,12 +146,35 @@ void EmvHighlighter::highlightBlock(const QString& text)
 		validLen -= 1;
 	}
 
+	// Determine whether invalid data might be padding
+	if (m_ignorePadding && validLen == (unsigned int)strLen) {
+		// Input data is a valid hex string and therefore the possibility
+		// exists that if BER decoding fails, the remaining data might be
+		// cryptographic padding
+		paddingIsPossible = true;
+	}
+
 	// Only decode valid hex digits to binary
 	data = QByteArray::fromHex(str.left(validLen).toUtf8());
 
 	// Parse BER encoded data and update number of valid characters
 	parseBerData(data.constData(), data.size(), &validBytes);
 	validLen = validBytes * 2;
+
+	// Determine whether invalid data is padding and prepare colour accordingly
+	if (paddingIsPossible &&
+		data.size() - validBytes > 0 &&
+		(
+			((data.size() & 0x7) == 0 && data.size() - validBytes < 8) ||
+			((data.size() & 0xF) == 0 && data.size() - validBytes < 16)
+		)
+	) {
+		// Invalid data is likely to be padding
+		invalidColor = Qt::darkGray;
+	} else {
+		// Invalid data is either absent or unlikely to be padding
+		invalidColor = Qt::red;
+	}
 
 	EmvTextBlockUserData* blockData = static_cast<decltype(blockData)>(currentBlockUserData());
 	if (!blockData) {
@@ -164,7 +189,7 @@ void EmvHighlighter::highlightBlock(const QString& text)
 
 	} else if (validLen <= blockData->startPos) {
 		// All digits are invalid
-		setFormat(0, currentBlock().length(), QColor(Qt::red));
+		setFormat(0, currentBlock().length(), invalidColor);
 	} else {
 		// Some digits are invalid
 		unsigned int digitIdx = 0;
@@ -172,7 +197,7 @@ void EmvHighlighter::highlightBlock(const QString& text)
 			if (blockData->startPos + digitIdx < validLen) {
 				setFormat(i, 1, QTextCharFormat());
 			} else {
-				setFormat(i, 1, QColor(Qt::red));
+				setFormat(i, 1, invalidColor);
 			}
 
 			if (std::isxdigit(text[i].unicode())) {

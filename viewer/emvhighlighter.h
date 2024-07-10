@@ -29,6 +29,7 @@ class QTextDocument;
 class EmvHighlighter : public QSyntaxHighlighter
 {
 	Q_OBJECT
+	Q_PROPERTY(bool ignorePadding READ ignorePadding WRITE setIgnorePadding)
 
 public:
 	explicit EmvHighlighter(QTextDocument* parent)
@@ -36,6 +37,15 @@ public:
 	{}
 
 	virtual void highlightBlock(const QString& text) override;
+
+public slots:
+	void setIgnorePadding(bool enabled) { m_ignorePadding = enabled; }
+
+public:
+	bool ignorePadding() const { return m_ignorePadding; }
+
+private:
+	bool m_ignorePadding = false;
 };
 
 #endif

@@ -41,6 +41,13 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayoutSettings">
            <item>
+            <widget class="QCheckBox" name="paddingCheckBox">
+             <property name="text">
+              <string>Ignore padding</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QCheckBox" name="decodeCheckBox">
              <property name="text">
               <string>Decode EMV fields</string>
