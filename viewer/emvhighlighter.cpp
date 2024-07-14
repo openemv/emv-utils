@@ -90,91 +90,79 @@ public:
 	unsigned int length;
 };
 
-void EmvHighlighter::highlightBlock(const QString& text)
+void EmvHighlighter::parseBlocks()
 {
-	// QSyntaxHighlighter is designed to process one block at a time with very
-	// little context about other blocks. This is not ideal for EMV parsing
-	// but appears to be the only way to apply text formatting without
-	// impacting the undo/redo stack. Therefore, this implementation processes
-	// all blocks and reparses all of the EMV data when updating each block.
-	// This implementation also assumes that rehighlight() is called whenever
-	// the widget text changes because changes to later blocks may invalidate
-	// EMV field lengths specified in earlier blocks.
-
-	// NOTE: If anyone knows a better way, please let me know.
+	// This function is responsible for updating these member variables:
+	// - strLen (length of string without whitespace)
+	// - hexStrLen (length of string containing only hex digits)
+	// - berStrLen (length of string containing valid BER encoded data)
+	// The caller is responsible for calling this function before rehighlight()
+	// when the widget text changes to ensure that these member variables are
+	// updated appropriately. This allows highlightBlock() to use these member
+	// variables to determine the appropriate highlight formatting.
 
 	QTextDocument* doc = document();
-	int strLen = 0;
-	unsigned int validLen;
 	QString str;
-	bool paddingIsPossible = false;
 	QByteArray data;
 	std::size_t validBytes = 0;
-	QColor invalidColor;
 
 	// Concatenate all blocks without whitespace and compute start position
-	// and length of current block within concatenated string
+	// and length of each block within concatenated string
+	strLen = 0;
 	for (QTextBlock block = doc->begin(); block != doc->end(); block = block.next()) {
 		QString blockStr = block.text().simplified().remove(' ');
-		if (currentBlock() == block) {
-			block.setUserData(new EmvTextBlockUserData(strLen, blockStr.length()));
-		}
+		block.setUserData(new EmvTextBlockUserData(strLen, blockStr.length()));
 
 		strLen += blockStr.length();
 		str += blockStr;
 	}
-	if (strLen != str.length()) {
+	if (strLen != (unsigned int)str.length()) {
 		// Internal error
-		qWarning("strLen=%d; str.length()=%d", strLen, (int)str.length());
+		qWarning("strLen=%u; str.length()=%d", strLen, (int)str.length());
 		strLen = str.length();
 	}
-	validLen = strLen;
+	hexStrLen = strLen;
 
 	// Ensure that hex string contains only hex digits
-	for (unsigned int i = 0; i < validLen; ++i) {
+	for (unsigned int i = 0; i < hexStrLen; ++i) {
 		if (!std::isxdigit(str[i].unicode())) {
 			// Only parse up to invalid digit
-			validLen = i;
+			hexStrLen = i;
 			break;
 		}
 	}
 
 	// Ensure that hex string has even number of digits
-	if (validLen & 0x01) {
+	if (hexStrLen & 0x01) {
 		// Odd number of digits. Ignore last digit to see whether parsing can
 		// proceed regardless and highlight error later.
-		validLen -= 1;
-	}
-
-	// Determine whether invalid data might be padding
-	if (m_ignorePadding && validLen == (unsigned int)strLen) {
-		// Input data is a valid hex string and therefore the possibility
-		// exists that if BER decoding fails, the remaining data might be
-		// cryptographic padding
-		paddingIsPossible = true;
+		hexStrLen -= 1;
 	}
 
 	// Only decode valid hex digits to binary
-	data = QByteArray::fromHex(str.left(validLen).toUtf8());
+	data = QByteArray::fromHex(str.left(hexStrLen).toUtf8());
 
 	// Parse BER encoded data and update number of valid characters
 	parseBerData(data.constData(), data.size(), &validBytes);
-	validLen = validBytes * 2;
+	berStrLen = validBytes * 2;
+}
 
-	// Determine whether invalid data is padding and prepare colour accordingly
-	if (paddingIsPossible &&
-		data.size() - validBytes > 0 &&
-		(
-			((data.size() & 0x7) == 0 && data.size() - validBytes < 8) ||
-			((data.size() & 0xF) == 0 && data.size() - validBytes < 16)
-		)
-	) {
-		// Invalid data is likely to be padding
-		invalidColor = Qt::darkGray;
-	} else {
-		// Invalid data is either absent or unlikely to be padding
-		invalidColor = Qt::red;
-	}
+void EmvHighlighter::highlightBlock(const QString& text)
+{
+	// QSyntaxHighlighter is designed to process one block at a time with very
+	// little context about other blocks. This is not ideal for EMV parsing
+	// but appears to be the only way to apply text formatting without
+	// impacting the undo/redo stack. Also, changes to later blocks may
+	// invalidate EMV field lengths specified in earlier blocks and therefore
+	// this implementation assumes that all blocks must be reparsed whenever
+	// any block changes.
+
+	// This implementation relies on parseBlocks() to reprocess all blocks
+	// whenever the widget text changes but not to apply highlighting. However,
+	// rehighlight() is used to apply highlighting without reprocessing all
+	// blocks. Therefore, rehighlight should either be used after parseBlocks()
+	// when the widget text changed or separately from parseBlocks() when only
+	// a property changed.
 
 	EmvTextBlockUserData* blockData = static_cast<decltype(blockData)>(currentBlockUserData());
 	if (!blockData) {
@@ -183,18 +171,41 @@ void EmvHighlighter::highlightBlock(const QString& text)
 		return;
 	}
 
-	if (validLen >= blockData->startPos + blockData->length) {
+	// Determine whether invalid data is padding and prepare colour accordingly
+	QColor invalidColor = Qt::red; // Default colour for invalid data
+	if (m_ignorePadding &&
+		hexStrLen == strLen &&
+		hexStrLen - berStrLen > 0
+	) {
+		unsigned int totalBytes = hexStrLen / 2;
+		unsigned int extraBytes = (hexStrLen - berStrLen) / 2;
+
+		// Invalid data is assumed to be padding if it is either less than 8
+		// bytes when the total data length is a multiple of 8 bytes (for
+		// example DES) or if it is less than 16 bytes when the total data
+		// length is a multiple of 16 bytes (for example AES).
+
+		if (
+			((totalBytes & 0x7) == 0 && extraBytes < 8) ||
+			((totalBytes & 0xF) == 0 && extraBytes < 16)
+		) {
+			// Invalid data is likely to be padding
+			invalidColor = Qt::darkGray;
+		}
+	}
+
+	if (berStrLen >= blockData->startPos + blockData->length) {
 		// All digits are valid
 		setFormat(0, currentBlock().length(), QTextCharFormat());
 
-	} else if (validLen <= blockData->startPos) {
+	} else if (berStrLen <= blockData->startPos) {
 		// All digits are invalid
 		setFormat(0, currentBlock().length(), invalidColor);
 	} else {
 		// Some digits are invalid
 		unsigned int digitIdx = 0;
 		for (int i = 0; i < text.length(); ++i) {
-			if (blockData->startPos + digitIdx < validLen) {
+			if (blockData->startPos + digitIdx < berStrLen) {
 				setFormat(i, 1, QTextCharFormat());
 			} else {
 				setFormat(i, 1, invalidColor);

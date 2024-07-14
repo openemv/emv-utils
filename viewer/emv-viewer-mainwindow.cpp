@@ -240,6 +240,7 @@ void EmvViewerMainWindow::on_dataEdit_textChanged()
 	// signal and therefore signals must be blocked for the duration of
 	// rehighlight().
 	dataEdit->blockSignals(true);
+	highlighter->parseBlocks();
 	highlighter->rehighlight();
 	dataEdit->blockSignals(false);
 

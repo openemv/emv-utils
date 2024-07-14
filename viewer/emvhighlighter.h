@@ -39,6 +39,7 @@ public:
 	virtual void highlightBlock(const QString& text) override;
 
 public slots:
+	void parseBlocks();
 	void setIgnorePadding(bool enabled) { m_ignorePadding = enabled; }
 
 public:
@@ -46,6 +47,9 @@ public:
 
 private:
 	bool m_ignorePadding = false;
+	unsigned int strLen;
+	unsigned int hexStrLen;
+	unsigned int berStrLen;
 };
 
 #endif
