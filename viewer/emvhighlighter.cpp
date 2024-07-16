@@ -27,6 +27,7 @@
 #include <QtGui/QTextBlock>
 #include <QtGui/QTextCharFormat>
 #include <QtGui/QColor>
+#include <QtGui/QFont>
 
 #include <cstddef>
 #include <cctype>
@@ -171,8 +172,13 @@ void EmvHighlighter::highlightBlock(const QString& text)
 		return;
 	}
 
-	// Determine whether invalid data is padding and prepare colour accordingly
+	// Prepare colours/formats
 	QColor invalidColor = Qt::red; // Default colour for invalid data
+	QTextCharFormat nonHexFormat; // Default format for non-hex data
+	nonHexFormat.setFontWeight(QFont::Bold);
+	nonHexFormat.setBackground(Qt::red);
+
+	// Determine whether invalid data is padding and update colour accordingly
 	if (m_ignorePadding &&
 		hexStrLen == strLen &&
 		hexStrLen - berStrLen > 0
@@ -199,20 +205,31 @@ void EmvHighlighter::highlightBlock(const QString& text)
 		setFormat(0, currentBlock().length(), QTextCharFormat());
 
 	} else if (berStrLen <= blockData->startPos) {
-		// All digits are invalid
-		setFormat(0, currentBlock().length(), invalidColor);
+		// All digits are invalid and some may be non-hex as well
+		for (int i = 0; i < text.length(); ++i) {
+			if (std::isxdigit(text[i].unicode())) {
+				setFormat(i, 1, invalidColor);
+			} else {
+				setFormat(i, 1, nonHexFormat);
+			}
+		}
 	} else {
 		// Some digits are invalid
 		unsigned int digitIdx = 0;
 		for (int i = 0; i < text.length(); ++i) {
-			if (blockData->startPos + digitIdx < berStrLen) {
-				setFormat(i, 1, QTextCharFormat());
-			} else {
-				setFormat(i, 1, invalidColor);
-			}
-
 			if (std::isxdigit(text[i].unicode())) {
+				if (blockData->startPos + digitIdx < berStrLen) {
+					// Valid digits
+					setFormat(i, 1, QTextCharFormat());
+				} else {
+					// Invalid/padding digits
+					setFormat(i, 1, invalidColor);
+				}
+
 				++digitIdx;
+			} else {
+				// Non-hex digits
+				setFormat(i, 1, nonHexFormat);
 			}
 		}
 	}
