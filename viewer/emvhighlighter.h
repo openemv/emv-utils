@@ -22,6 +22,7 @@
 #define EMV_HIGHLIGHTER_H
 
 #include <QtGui/QSyntaxHighlighter>
+#include <QtCore/QVector>
 
 // Forward declarations
 class QTextDocument;
@@ -29,6 +30,7 @@ class QTextDocument;
 class EmvHighlighter : public QSyntaxHighlighter
 {
 	Q_OBJECT
+	Q_PROPERTY(bool emphasiseTags READ emphasiseTags WRITE setEmphasiseTags)
 	Q_PROPERTY(bool ignorePadding READ ignorePadding WRITE setIgnorePadding)
 
 public:
@@ -40,16 +42,26 @@ public:
 
 public slots:
 	void parseBlocks();
+	void setEmphasiseTags(bool enabled) { m_emphasiseTags = enabled; }
 	void setIgnorePadding(bool enabled) { m_ignorePadding = enabled; }
 
 public:
+	bool emphasiseTags() const { return m_emphasiseTags; }
 	bool ignorePadding() const { return m_ignorePadding; }
 
+	struct TagPosition {
+		unsigned int tag;
+		unsigned int offset;
+		unsigned int length;
+	};
+
 private:
+	bool m_emphasiseTags = false;
 	bool m_ignorePadding = false;
 	unsigned int strLen;
 	unsigned int hexStrLen;
 	unsigned int berStrLen;
+	QVector<TagPosition> tagPositions;
 };
 
 #endif

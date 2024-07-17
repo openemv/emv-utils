@@ -32,10 +32,33 @@
 #include <cstddef>
 #include <cctype>
 
+// Qt containers may perform a deep copy when begin() is called by a range-
+// based for loop, but std::as_const() is only available as of C++17 and
+// qAsConst is deprecated by Qt-6.6. Therefore define a local helper template
+// instead.
+template<class T>
+constexpr std::add_const_t<T>& to_const_ref(T& t) noexcept
+{
+	return t;
+}
+template<class T>
+void to_const_ref(const T&&) = delete;
+
+/**
+ * Parse BER data and invoke callback function for each tag
+ *
+ * @param ptr Pointer to buffer
+ * @param len Length of buffer
+ * @param validBytes[out] Number of BER bytes successfully parsed
+ * @param tagFunc Function to invoke for each tag, using tagFunc(offset, tag)
+ * @return Boolean indicating whether all bytes were parsed and valid
+ */
+template<typename F>
 static bool parseBerData(
 	const void* ptr,
 	std::size_t len,
-	std::size_t* validBytes
+	std::size_t* validBytes,
+	F tagFunc
 )
 {
 	int r;
@@ -51,6 +74,9 @@ static bool parseBerData(
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
 
+		// Notify caller of tag
+		tagFunc(*validBytes, tlv.tag);
+
 		if (iso8825_ber_is_constructed(&tlv)) {
 			// If the field is constructed, only consider the tag and length
 			// to be valid until the value has been parsed. The fields inside
@@ -58,7 +84,7 @@ static bool parseBerData(
 			*validBytes += (r - tlv.length);
 
 			// Recursively parse constructed fields
-			valid = parseBerData(tlv.value, tlv.length, validBytes);
+			valid = parseBerData(tlv.value, tlv.length, validBytes, tagFunc);
 			if (!valid) {
 				qDebug("parseBerData() failed; validBytes=%zu", *validBytes);
 				return false;
@@ -143,8 +169,29 @@ void EmvHighlighter::parseBlocks()
 	// Only decode valid hex digits to binary
 	data = QByteArray::fromHex(str.left(hexStrLen).toUtf8());
 
-	// Parse BER encoded data and update number of valid characters
-	parseBerData(data.constData(), data.size(), &validBytes);
+	// Parse BER encoded data, identify tag positions, and update number of
+	// valid characters
+	tagPositions.clear();
+	parseBerData(data.constData(), data.size(), &validBytes,
+		[this](unsigned int offset, unsigned int tag) {
+			unsigned int length;
+			// Compute tag length
+			if (tag <= 0xFF) {
+				length = 1;
+			} else if (tag <= 0xFFFF) {
+				length = 2;
+			} else if (tag <= 0xFFFFFF) {
+				length = 3;
+			} else if (tag <= 0xFFFFFFFF) {
+				length = 4;
+			} else {
+				// Unsupported
+				length = 0;
+			}
+
+			tagPositions.push_back({ tag, offset * 2, length * 2});;
+		}
+	);
 	berStrLen = validBytes * 2;
 }
 
@@ -177,6 +224,9 @@ void EmvHighlighter::highlightBlock(const QString& text)
 	QTextCharFormat nonHexFormat; // Default format for non-hex data
 	nonHexFormat.setFontWeight(QFont::Bold);
 	nonHexFormat.setBackground(Qt::red);
+	QTextCharFormat tagFormat;
+	tagFormat.setFontWeight(QFont::Bold);
+	tagFormat.setForeground(QColor(0xFF268BD2)); // Solarized blue
 
 	// Determine whether invalid data is padding and update colour accordingly
 	if (m_ignorePadding &&
@@ -200,6 +250,7 @@ void EmvHighlighter::highlightBlock(const QString& text)
 		}
 	}
 
+	// Apply formatting of valid BER vs valid hex vs invalid vs padding
 	if (berStrLen >= blockData->startPos + blockData->length) {
 		// All digits are valid
 		setFormat(0, currentBlock().length(), QTextCharFormat());
@@ -213,6 +264,7 @@ void EmvHighlighter::highlightBlock(const QString& text)
 				setFormat(i, 1, nonHexFormat);
 			}
 		}
+
 	} else {
 		// Some digits are invalid
 		unsigned int digitIdx = 0;
@@ -230,6 +282,28 @@ void EmvHighlighter::highlightBlock(const QString& text)
 			} else {
 				// Non-hex digits
 				setFormat(i, 1, nonHexFormat);
+			}
+		}
+	}
+
+	if (m_emphasiseTags) {
+		// Apply formatting of tags
+		for (auto&& tagPos : to_const_ref(tagPositions)) {
+			unsigned int digitIdx = 0;
+			for (int i = 0; i < text.length(); ++i) {
+				if (!std::isxdigit(text[i].unicode())) {
+					// Ignore non-hex digits
+					continue;
+				}
+
+				unsigned int currentIdx = blockData->startPos + digitIdx;
+				if (currentIdx >= tagPos.offset &&
+					currentIdx < (tagPos.offset + tagPos.length)
+				) {
+					setFormat(i, 1, tagFormat);
+				}
+
+				++digitIdx;
 			}
 		}
 	}

@@ -41,6 +41,13 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayoutSettings">
            <item>
+            <widget class="QCheckBox" name="tagsCheckBox">
+             <property name="text">
+              <string>Emphasise tags</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QCheckBox" name="paddingCheckBox">
              <property name="text">
               <string>Ignore padding</string>

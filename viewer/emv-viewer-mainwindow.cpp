@@ -55,6 +55,7 @@ EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 	// Set initial state of checkboxes for highlighter and tree view because
 	// checkboxes will only emit a stateChanged signal if loadSettings()
 	// changes the value to be different from the initial state.
+	highlighter->setEmphasiseTags(tagsCheckBox->isChecked());
 	highlighter->setIgnorePadding(paddingCheckBox->isChecked());
 	treeView->setDecodeFields(decodeCheckBox->isChecked());
 
@@ -246,6 +247,17 @@ void EmvViewerMainWindow::on_dataEdit_textChanged()
 
 	// Bundle updates by restarting the timer every time the data changes
 	updateTimer->start(200);
+}
+
+void EmvViewerMainWindow::on_tagsCheckBox_stateChanged(int state)
+{
+	// Rehighlight when emphasis state changes. Note that rehighlight() will
+	// also re-trigger the textChanged() signal and therefore signals must be
+	// blocked for the duration of rehighlight().
+	dataEdit->blockSignals(true);
+	highlighter->setEmphasiseTags(state != Qt::Unchecked);
+	highlighter->rehighlight();
+	dataEdit->blockSignals(false);
 }
 
 void EmvViewerMainWindow::on_paddingCheckBox_stateChanged(int state)
