@@ -21,6 +21,7 @@
 #include "emv-viewer-mainwindow.h"
 #include "emvhighlighter.h"
 #include "emvtreeview.h"
+#include "emvtreeitem.h"
 
 #include <QtCore/QStringLiteral>
 #include <QtCore/QString>
@@ -59,28 +60,11 @@ EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 	highlighter->setIgnorePadding(paddingCheckBox->isChecked());
 	treeView->setDecodeFields(decodeCheckBox->isChecked());
 
-	// Display copyright, license and disclaimer notice
-	descriptionText->appendHtml(QStringLiteral(
-		"Copyright 2021-2024 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
-		"<a href='https://github.com/openemv/emv-utils'>This program</a> is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.<br/>"
-		"<a href='https://github.com/openemv/emv-utils'>This program</a> is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.<br/>"
-		"See <a href='https://raw.githubusercontent.com/openemv/emv-utils/master/viewer/LICENSE.gpl'>LICENSE.gpl</a> file for more details.<br/><br/>"
-		"<a href='https://github.com/openemv/emv-utils'>This program</a> uses various libraries including:<br/>"
-		"- <a href='https://github.com/openemv/emv-utils'>emv-utils</a> (licensed under <a href='https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html'>LGPL v2.1</a>)<br/>"
-		"- <a href='https://www.qt.io'>Qt</a> (licensed under <a href='https://www.gnu.org/licenses/lgpl-3.0.html'>LGPL v3</a>)<br/>"
-		"<br/>"
-		"EMV\xAE is a registered trademark in the U.S. and other countries and an unregistered trademark elsewhere. The EMV trademark is owned by EMVCo, LLC. "
-		"This program refers to \"EMV\" only to indicate the specifications involved and does not imply any affiliation, endorsement or sponsorship by EMVCo in any way."
-	));
-
 	// Load previous UI values
 	loadSettings();
 
-	// Let description scroll to top after restoring settings and updating
-	// the content
-	QTimer::singleShot(0, [this]() {
-		descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
-	});
+	// Default to showing legal text in description widget
+	displayLegal();
 }
 
 void EmvViewerMainWindow::closeEvent(QCloseEvent* event)
@@ -146,6 +130,29 @@ void EmvViewerMainWindow::saveSettings() const
 
 
 	settings.sync();
+}
+
+void EmvViewerMainWindow::displayLegal()
+{
+	// Display copyright, license and disclaimer notice
+	descriptionText->clear();
+	descriptionText->appendHtml(QStringLiteral(
+		"Copyright 2021-2024 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
+		"<a href='https://github.com/openemv/emv-utils'>This program</a> is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.<br/>"
+		"<a href='https://github.com/openemv/emv-utils'>This program</a> is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.<br/>"
+		"See <a href='https://raw.githubusercontent.com/openemv/emv-utils/master/viewer/LICENSE.gpl'>LICENSE.gpl</a> file for more details.<br/><br/>"
+		"<a href='https://github.com/openemv/emv-utils'>This program</a> uses various libraries including:<br/>"
+		"- <a href='https://github.com/openemv/emv-utils'>emv-utils</a> (licensed under <a href='https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html'>LGPL v2.1</a>)<br/>"
+		"- <a href='https://www.qt.io'>Qt</a> (licensed under <a href='https://www.gnu.org/licenses/lgpl-3.0.html'>LGPL v3</a>)<br/>"
+		"<br/>"
+		"EMV\xAE is a registered trademark in the U.S. and other countries and an unregistered trademark elsewhere. The EMV trademark is owned by EMVCo, LLC. "
+		"This program refers to \"EMV\" only to indicate the specifications involved and does not imply any affiliation, endorsement or sponsorship by EMVCo in any way."
+	));
+
+	// Let description scroll to top after updating content
+	QTimer::singleShot(0, [this]() {
+		descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
+	});
 }
 
 void EmvViewerMainWindow::parseData()
@@ -272,6 +279,33 @@ void EmvViewerMainWindow::on_paddingCheckBox_stateChanged(int state)
 void EmvViewerMainWindow::on_decodeCheckBox_stateChanged(int state)
 {
 	treeView->setDecodeFields(state != Qt::Unchecked);
+}
+
+void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int column)
+{
+	if (item->type() == EmvTreeItemType) {
+		EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
+
+		// Assume that a tag description always has a tag name
+		descriptionText->clear();
+		if (!etItem->tagName().isEmpty()) {
+			descriptionText->appendHtml(
+				QStringLiteral("<b>") +
+				etItem->tagName() +
+				QStringLiteral("</b><br/><br/>") +
+				etItem->tagDescription()
+			);
+		}
+
+		// Let description scroll to top after updating content
+		QTimer::singleShot(0, [this]() {
+			descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
+		});
+
+		return;
+	}
+
+	displayLegal();
 }
 
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)

@@ -51,21 +51,21 @@ static QString buildFieldString(
 	const char* name = nullptr,
 	qsizetype length = -1
 );
-static QTreeWidgetItem* addDescStringList(
+static QTreeWidgetItem* addValueStringList(
 	EmvTreeItem* item,
 	const QByteArray& valueStr
 );
-static QTreeWidgetItem* addDescDol(
+static QTreeWidgetItem* addValueDol(
 	EmvTreeItem* item,
 	const void* ptr,
 	std::size_t len
 );
-static QTreeWidgetItem* addDescTagList(
+static QTreeWidgetItem* addValueTagList(
 	EmvTreeItem* item,
 	const void* ptr,
 	std::size_t len
 );
-static QTreeWidgetItem* addDescRaw(
+static QTreeWidgetItem* addValueRaw(
 	EmvTreeItem* item,
 	const void* ptr,
 	std::size_t len
@@ -80,7 +80,7 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType)
 {
 	setTlv(tlv, decode);
-	if (isConstructed) {
+	if (m_constructed) {
 		// Always expand constructed fields
 		autoExpand = true;
 	}
@@ -100,20 +100,20 @@ void EmvTreeItem::deleteChildren()
 void EmvTreeItem::render(bool showDecoded)
 {
 	if (showDecoded) {
-		setText(0, decodedFieldStr);
+		setText(0, m_decodedFieldStr);
 
-		// Make decoded descriptions visible
-		if (!isConstructed) {
+		// Make decoded values visible
+		if (!m_constructed) {
 			for (int i = 0; i < childCount(); ++i) {
 				child(i)->setHidden(false);
 			}
 		}
 
 	} else {
-		setText(0, simpleFieldStr);
+		setText(0, m_simpleFieldStr);
 
-		// Hide decoded descriptions
-		if (!isConstructed) {
+		// Hide decoded values
+		if (!m_constructed) {
 			for (int i = 0; i < childCount(); ++i) {
 				child(i)->setHidden(true);
 			}
@@ -123,6 +123,7 @@ void EmvTreeItem::render(bool showDecoded)
 
 void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv, bool decode)
 {
+	int r;
 	struct emv_tlv_t emv_tlv;
 	struct emv_tlv_info_t info;
 	QByteArray valueStr(2048, 0);
@@ -131,28 +132,37 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv, bool decode)
 	deleteChildren();
 
 	emv_tlv.ber = *tlv;
-	emv_tlv_get_info(&emv_tlv, &info, valueStr.data(), valueStr.size());
-	isConstructed = iso8825_ber_is_constructed(tlv);
-	decodedFieldStr = buildDecodedFieldString(tlv->tag, info, valueStr);
+	r = emv_tlv_get_info(&emv_tlv, &info, valueStr.data(), valueStr.size());
+	if (r) {
+		qDebug("emv_tlv_get_info()=%d; tag=0x%02X", r, tlv->tag);
+	}
+	if (info.tag_name) {
+		m_tagName = info.tag_name;
+	}
+	if (info.tag_desc) {
+		m_tagDescription = info.tag_desc;
+	}
+	m_constructed = iso8825_ber_is_constructed(tlv);
+	m_decodedFieldStr = buildDecodedFieldString(tlv->tag, info, valueStr);
 
-	if (isConstructed) {
+	if (m_constructed) {
 		// Add field length but omit raw value bytes from field strings for
 		// constructed fields
-		simpleFieldStr = buildSimpleFieldString(tlv->tag, tlv->length);
+		m_simpleFieldStr = buildSimpleFieldString(tlv->tag, tlv->length);
 	} else {
 		// Add field length and raw value bytes to simple field string for
 		// primitive fields
-		simpleFieldStr = buildSimpleFieldString(tlv->tag, tlv->length, tlv->value);
+		m_simpleFieldStr = buildSimpleFieldString(tlv->tag, tlv->length, tlv->value);
 
 		// Always add raw value bytes as first child for primitive fields
-		addDescRaw(this, tlv->value, tlv->length);
+		addValueRaw(this, tlv->value, tlv->length);
 
 		if (valueStrIsList(valueStr)) {
-			addDescStringList(this, valueStr);
+			addValueStringList(this, valueStr);
 		} else if (info.format == EMV_FORMAT_DOL) {
-			addDescDol(this, tlv->value, tlv->length);
+			addValueDol(this, tlv->value, tlv->length);
 		} else if (info.format == EMV_FORMAT_TAG_LIST) {
-			addDescTagList(this, tlv->value, tlv->length);
+			addValueTagList(this, tlv->value, tlv->length);
 		}
 	}
 
@@ -240,7 +250,7 @@ static QString buildFieldString(
 	}
 }
 
-static QTreeWidgetItem* addDescStringList(
+static QTreeWidgetItem* addValueStringList(
 	EmvTreeItem* item,
 	const QByteArray& valueStr
 )
@@ -249,18 +259,18 @@ static QTreeWidgetItem* addDescStringList(
 		return nullptr;
 	}
 
-	QTreeWidgetItem* descItem = new QTreeWidgetItem(
+	QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 		item,
 		QStringList(
 			QString::fromUtf8(valueStr).trimmed() // Trim trailing newline
 		)
 	);
-	descItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+	valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
 
-	return descItem;
+	return valueItem;
 }
 
-static QTreeWidgetItem* addDescDol(
+static QTreeWidgetItem* addValueDol(
 	EmvTreeItem* item,
 	const void* ptr,
 	std::size_t len
@@ -294,13 +304,13 @@ static QTreeWidgetItem* addDescDol(
 		emv_tlv.length = entry.length;
 		emv_tlv_get_info(&emv_tlv, &info, nullptr, 0);
 
-		QTreeWidgetItem* descItem = new QTreeWidgetItem(
+		QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 			dolItem,
 			QStringList(
 				buildFieldString(entry.tag, info.tag_name, entry.length)
 			)
 		);
-		descItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
 	}
 	if (r < 0) {
 		qDebug("emv_dol_itr_next() failed; r=%d", r);
@@ -310,7 +320,7 @@ static QTreeWidgetItem* addDescDol(
 	return dolItem;
 }
 
-static QTreeWidgetItem* addDescTagList(
+static QTreeWidgetItem* addValueTagList(
 	EmvTreeItem* item,
 	const void* ptr,
 	std::size_t len
@@ -336,13 +346,13 @@ static QTreeWidgetItem* addDescTagList(
 		emv_tlv.tag = tag;
 		emv_tlv_get_info(&emv_tlv, &info, nullptr, 0);
 
-		QTreeWidgetItem* descItem = new QTreeWidgetItem(
+		QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 			tlItem,
 			QStringList(
 				buildFieldString(tag, info.tag_name)
 			)
 		);
-		descItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
 
 		// Advance
 		ptr = static_cast<const char*>(ptr) + r;
@@ -356,13 +366,13 @@ static QTreeWidgetItem* addDescTagList(
 	return tlItem;
 }
 
-static QTreeWidgetItem* addDescRaw(
+static QTreeWidgetItem* addValueRaw(
 	EmvTreeItem* item,
 	const void* ptr,
 	std::size_t len
 )
 {
-	QTreeWidgetItem* descItem = new QTreeWidgetItem(
+	QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 		item,
 		QStringList(
 			QString::asprintf("[%zu] ", len) +
@@ -374,7 +384,7 @@ static QTreeWidgetItem* addDescRaw(
 			).toHex(' ').toUpper().constData()
 		)
 	);
-	descItem->setFlags(Qt::ItemNeverHasChildren);
+	valueItem->setFlags(Qt::ItemNeverHasChildren);
 
-	return descItem;
+	return valueItem;
 }

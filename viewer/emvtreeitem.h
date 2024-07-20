@@ -31,11 +31,6 @@ static const int EmvTreeItemType = 8825;
 
 class EmvTreeItem : public QTreeWidgetItem
 {
-private:
-	bool isConstructed;
-	QString simpleFieldStr;
-	QString decodedFieldStr;
-
 public:
 	EmvTreeItem(
 		QTreeWidgetItem* parent,
@@ -44,12 +39,22 @@ public:
 		bool autoExpand = true
 	);
 
+	QString tagName() const { return m_tagName; }
+	QString tagDescription() const { return m_tagDescription; }
+
 private:
 	void deleteChildren();
 
 public:
 	void render(bool showDecoded);
 	void setTlv(const struct iso8825_tlv_t* tlv, bool decode);
+
+private:
+	QString m_tagName;
+	QString m_tagDescription;
+	bool m_constructed;
+	QString m_simpleFieldStr;
+	QString m_decodedFieldStr;
 };
 
 #endif
