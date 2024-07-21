@@ -46,7 +46,7 @@ static size_t arg_str_len = 0;
 
 // Decoding modes
 enum emv_decode_mode_t {
-	EMV_DECODE_NONE = 0,
+	EMV_DECODE_NONE = -255, // Negative value to avoid short options
 	EMV_DECODE_ATR,
 	EMV_DECODE_SW1SW2,
 	EMV_DECODE_BER,

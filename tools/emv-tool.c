@@ -52,7 +52,7 @@ static void emv_txn_load_config(struct emv_ctx_t* emv);
 
 // argp option keys
 enum emv_tool_param_t {
-	EMV_TOOL_PARAM_TXN_TYPE = 1,
+	EMV_TOOL_PARAM_TXN_TYPE = -255, // Negative value to avoid short options
 	EMV_TOOL_PARAM_TXN_AMOUNT,
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
