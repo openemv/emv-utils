@@ -59,6 +59,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
 	EMV_TOOL_PARAM_DEBUG_LEVEL,
 	EMV_TOOL_VERSION,
+	EMV_TOOL_OVERRIDE_ISOCODES_PATH,
 	EMV_TOOL_OVERRIDE_MCC_JSON,
 };
 
@@ -76,7 +77,8 @@ static struct argp_option argp_options[] = {
 
 	{ "version", EMV_TOOL_VERSION, NULL, 0, "Display emv-utils version" },
 
-	// Hidden option for testing
+	// Hidden options for testing
+	{ "isocodes-path", EMV_TOOL_OVERRIDE_ISOCODES_PATH, "path", OPTION_HIDDEN, "Override directory path of iso-codes JSON files" },
 	{ "mcc-json", EMV_TOOL_OVERRIDE_MCC_JSON, "path", OPTION_HIDDEN, "Override path of mcc-codes JSON file" },
 
 	{ 0 },
@@ -116,6 +118,7 @@ static const char* debug_level_str[] = {
 static enum emv_debug_level_t debug_level = EMV_DEBUG_INFO;
 
 // Testing parameters
+static char* isocodes_path = NULL;
 static char* mcc_json = NULL;
 
 
@@ -242,6 +245,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				printf("Unknown\n");
 			}
 			exit(EXIT_SUCCESS);
+			return 0;
+		}
+
+		case EMV_TOOL_OVERRIDE_ISOCODES_PATH: {
+			isocodes_path = strdup(arg);
 			return 0;
 		}
 
@@ -650,13 +658,13 @@ int main(int argc, char** argv)
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 	}
 
-	r = emv_strings_init(NULL, mcc_json);
+	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
 		return 2;
 	}
 	if (r > 0) {
-		fprintf(stderr, "Failed to find iso-codes data; currency, country and language lookups will not be possible\n");
+		fprintf(stderr, "Failed to load iso-codes data or mcc-codes data; currency, country, language or MCC lookups may not be possible\n");
 	}
 
 	r = emv_debug_init(
@@ -912,6 +920,9 @@ emv_exit:
 pcsc_exit:
 	pcsc_release(&pcsc);
 
+	if (isocodes_path) {
+		free(isocodes_path);
+	}
 	if (mcc_json) {
 		free(mcc_json);
 	}

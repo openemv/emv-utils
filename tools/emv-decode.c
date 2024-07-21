@@ -89,11 +89,13 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ISO8859_14,
 	EMV_DECODE_ISO8859_15,
 	EMV_DECODE_VERSION,
+	EMV_DECODE_OVERRIDE_ISOCODES_PATH,
 	EMV_DECODE_OVERRIDE_MCC_JSON,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 
 // Testing parameters
+static char* isocodes_path = NULL;
 static char* mcc_json = NULL;
 
 // argp option structure
@@ -166,7 +168,8 @@ static struct argp_option argp_options[] = {
 
 	{ "version", EMV_DECODE_VERSION, NULL, 0, "Display emv-utils version" },
 
-	// Hidden option for testing
+	// Hidden options for testing
+	{ "isocodes-path", EMV_DECODE_OVERRIDE_ISOCODES_PATH, "path", OPTION_HIDDEN, "Override directory path of iso-codes JSON files" },
 	{ "mcc-json", EMV_DECODE_OVERRIDE_MCC_JSON, "path", OPTION_HIDDEN, "Override path of mcc-codes JSON file" },
 
 	{ 0 },
@@ -303,6 +306,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			return 0;
 		}
 
+		case EMV_DECODE_OVERRIDE_ISOCODES_PATH: {
+			isocodes_path = strdup(arg);
+			return 0;
+		}
+
 		case EMV_DECODE_OVERRIDE_MCC_JSON: {
 			mcc_json = strdup(arg);
 			return 0;
@@ -405,13 +413,13 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	r = emv_strings_init(NULL, mcc_json);
+	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
 		return 2;
 	}
 	if (r > 0) {
-		fprintf(stderr, "Failed to find iso-codes data; currency, country and language lookups will not be possible\n");
+		fprintf(stderr, "Failed to load iso-codes data or mcc-codes data; currency, country, language or MCC lookups may not be possible\n");
 	}
 
 	switch (emv_decode_mode) {
@@ -889,6 +897,7 @@ int main(int argc, char** argv)
 
 		case EMV_DECODE_ISO8859_X:
 		case EMV_DECODE_VERSION:
+		case EMV_DECODE_OVERRIDE_ISOCODES_PATH:
 		case EMV_DECODE_OVERRIDE_MCC_JSON:
 			// Implemented in argp_parser_helper()
 			break;
@@ -899,6 +908,9 @@ int main(int argc, char** argv)
 	}
 	if (arg_str) {
 		free(arg_str);
+	}
+	if (isocodes_path) {
+		free(isocodes_path);
 	}
 	if (mcc_json) {
 		free(mcc_json);
