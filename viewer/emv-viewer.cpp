@@ -19,17 +19,45 @@
  */
 
 #include <QtWidgets/QApplication>
+#include <QtCore/QCommandLineParser>
+#include <QtCore/QString>
 
 #include "emv_viewer_config.h"
+#include "emv_strings.h"
 #include "emv-viewer-mainwindow.h"
 
 int main(int argc, char** argv)
 {
+	int r;
+
 	QApplication app(argc, argv);
 	app.setOrganizationName("OpenEMV");
 	app.setOrganizationDomain("openemv.org");
 	app.setApplicationName("emv-viewer");
 	app.setApplicationVersion(EMV_VIEWER_VERSION_STRING);
+
+	QCommandLineParser parser;
+	parser.addHelpOption();
+	parser.addVersionOption();
+	parser.addOptions({
+		{ "isocodes-path", "Override directory path of iso-codes JSON files", "path" },
+		{ "mcc-json" , "Override mcc-codes JSON file", "file" },
+	});
+	parser.process(app);
+
+	QString isocodes_path = parser.value("isocodes-path");
+	QString mcc_path = parser.value("mcc-json");
+	r = emv_strings_init(
+		isocodes_path.isEmpty() ? nullptr : qPrintable(isocodes_path),
+		mcc_path.isEmpty() ? nullptr : qPrintable(mcc_path)
+	);
+	if (r < 0) {
+		qFatal("Failed to initialise EMV strings");
+		return 1;
+	}
+	if (r > 0) {
+		qWarning("Failed to load iso-codes data or mcc-codes data; currency, country, language or MCC lookups may not be possible");
+	}
 
 	EmvViewerMainWindow mainwindow;
 	mainwindow.show();
