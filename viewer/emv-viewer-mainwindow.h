@@ -22,6 +22,7 @@
 #define EMV_VIEWER_MAINWINDOW_H
 
 #include <QtWidgets/QMainWindow>
+#include <QtCore/QString>
 
 #include "ui_emv-viewer-mainwindow.h"
 
@@ -34,7 +35,11 @@ class EmvViewerMainWindow : public QMainWindow, private Ui::MainWindow
 	Q_OBJECT
 
 public:
-	explicit EmvViewerMainWindow(QWidget* parent = nullptr);
+	explicit EmvViewerMainWindow(
+		QWidget* parent = nullptr,
+		QString overrideData = QString(),
+		int overrideDecodeCheckBoxState = -1
+	);
 
 protected:
 	void closeEvent(QCloseEvent* event) override;

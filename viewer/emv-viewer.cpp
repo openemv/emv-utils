@@ -39,9 +39,11 @@ int main(int argc, char** argv)
 	QCommandLineParser parser;
 	parser.addHelpOption();
 	parser.addVersionOption();
-	parser.addOptions({
+	parser.addOptions({ // NOTE: These options intentionally match emv-decode
 		{ "isocodes-path", "Override directory path of iso-codes JSON files", "path" },
 		{ "mcc-json" , "Override mcc-codes JSON file", "file" },
+		{ "ber", "Decode ISO 8825-1 BER encoded data", "data" },
+		{ "tlv", "Decode EMV TLV data", "data" },
 	});
 	parser.process(app);
 
@@ -59,7 +61,24 @@ int main(int argc, char** argv)
 		qWarning("Failed to load iso-codes data or mcc-codes data; currency, country, language or MCC lookups may not be possible");
 	}
 
-	EmvViewerMainWindow mainwindow;
+	QString ber = parser.value("ber");
+	QString tlv = parser.value("tlv");
+	QString overrideData;
+	int overrideDecodeCheckBoxState = -1;
+	if (!ber.isEmpty()) {
+		overrideData = ber;
+		overrideDecodeCheckBoxState = Qt::Unchecked;
+	}
+	if (!tlv.isEmpty()) {
+		overrideData = tlv;
+		overrideDecodeCheckBoxState = Qt::Checked;
+	}
+
+	EmvViewerMainWindow mainwindow(
+		nullptr,
+		overrideData,
+		overrideDecodeCheckBoxState
+	);
 	mainwindow.show();
 
 	return app.exec();

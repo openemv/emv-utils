@@ -34,7 +34,11 @@
 
 #include <cctype>
 
-EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
+EmvViewerMainWindow::EmvViewerMainWindow(
+	QWidget* parent,
+	QString overrideData,
+	int overrideDecodeCheckBoxState
+)
 : QMainWindow(parent)
 {
 	// Prepare timer used to bundle tree view updates. Do this before setupUi()
@@ -62,6 +66,14 @@ EmvViewerMainWindow::EmvViewerMainWindow(QWidget* parent)
 
 	// Load previous UI values
 	loadSettings();
+
+	// Load values from command line options
+	if (!overrideData.isEmpty()) {
+		dataEdit->setPlainText(overrideData);
+	}
+	if (overrideDecodeCheckBoxState > -1) {
+		decodeCheckBox->setCheckState(static_cast<Qt::CheckState>(overrideDecodeCheckBoxState));
+	}
 
 	// Default to showing legal text in description widget
 	displayLegal();
