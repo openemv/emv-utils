@@ -26,7 +26,13 @@
       <widget class="QWidget" name="layoutWidget">
        <layout class="QHBoxLayout" name="horizontalLayoutTop">
         <item>
-         <widget class="QPlainTextEdit" name="dataEdit"/>
+         <widget class="QPlainTextEdit" name="dataEdit">
+          <property name="font">
+           <font>
+            <family>Monospace</family>
+           </font>
+          </property>
+         </widget>
         </item>
         <item>
          <widget class="QGroupBox" name="settingsGroupBox">

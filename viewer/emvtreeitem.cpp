@@ -386,5 +386,10 @@ static QTreeWidgetItem* addValueRaw(
 	);
 	valueItem->setFlags(Qt::ItemNeverHasChildren);
 
+	// Use default monospace font
+	QFont font = valueItem->font(0);
+	font.setFamily("Monospace");
+	valueItem->setFont(0, font);
+
 	return valueItem;
 }
