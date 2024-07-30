@@ -52,6 +52,8 @@ static bool parseData(
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
 		EmvTreeItem* item = new EmvTreeItem(
 			parent,
+			*validBytes,
+			r,
 			&tlv,
 			decode
 		);

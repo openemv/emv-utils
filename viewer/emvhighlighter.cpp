@@ -227,6 +227,7 @@ void EmvHighlighter::highlightBlock(const QString& text)
 	QTextCharFormat tagFormat;
 	tagFormat.setFontWeight(QFont::Bold);
 	tagFormat.setForeground(QColor(0xFF268BD2)); // Solarized blue
+	QColor selectedColor(0xFF657B83); // Solarized Base00
 
 	// Determine whether invalid data is padding and update colour accordingly
 	if (m_ignorePadding &&
@@ -305,6 +306,34 @@ void EmvHighlighter::highlightBlock(const QString& text)
 
 				++digitIdx;
 			}
+		}
+	}
+
+	if (m_selectionStart >= -1 && m_selectionCount > 0) {
+		// Apply formatting of selected digits
+		unsigned int digitIdx = 0;
+		for (int i = 0; i < text.length(); ++i) {
+			if (!std::isxdigit(text[i].unicode())) {
+				// Ignore non-hex digits
+				continue;
+			}
+
+			int currentIdx = blockData->startPos + digitIdx;
+			if (currentIdx >= m_selectionStart &&
+				currentIdx < (m_selectionStart + m_selectionCount)
+			) {
+				// Update format for selected digits
+				// - Bold digits (eg tags) become white for good contrast
+				// - Set background
+				QTextCharFormat currentFormat = format(i);
+				if (currentFormat.fontWeight() != QFont::Normal) {
+					currentFormat.setForeground(Qt::white);
+				}
+				currentFormat.setBackground(selectedColor);
+				setFormat(i, 1, currentFormat);
+			}
+
+			++digitIdx;
 		}
 	}
 }

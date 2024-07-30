@@ -73,11 +73,15 @@ static QTreeWidgetItem* addValueRaw(
 
 EmvTreeItem::EmvTreeItem(
 	QTreeWidgetItem* parent,
+	unsigned int srcOffset,
+	unsigned int srcLength,
 	const struct iso8825_tlv_t* tlv,
 	bool decode,
 	bool autoExpand
 )
-: QTreeWidgetItem(parent, EmvTreeItemType)
+: QTreeWidgetItem(parent, EmvTreeItemType),
+  m_srcOffset(srcOffset),
+  m_srcLength(srcLength)
 {
 	setTlv(tlv, decode);
 	if (m_constructed) {

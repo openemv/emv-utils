@@ -298,6 +298,18 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 	if (item->type() == EmvTreeItemType) {
 		EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
 
+		// Highlight selected item in input data. Note that rehighlight() will
+		// also trigger the textChanged() signal and therefore signals must be
+		// blocked for the duration of rehighlight().
+		dataEdit->blockSignals(true);
+		highlighter->setSelection(
+			etItem->srcOffset() * 2,
+			etItem->srcLength() * 2
+		);
+		highlighter->rehighlight();
+		dataEdit->blockSignals(false);
+
+		// Show description of selected item
 		// Assume that a tag description always has a tag name
 		descriptionText->clear();
 		if (!etItem->tagName().isEmpty()) {

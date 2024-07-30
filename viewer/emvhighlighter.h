@@ -44,6 +44,8 @@ public slots:
 	void parseBlocks();
 	void setEmphasiseTags(bool enabled) { m_emphasiseTags = enabled; }
 	void setIgnorePadding(bool enabled) { m_ignorePadding = enabled; }
+	void setSelection(int start, int count) { m_selectionStart = start; m_selectionCount = count; }
+	void clearSelection() { m_selectionStart = -1; m_selectionCount = 0; }
 
 public:
 	bool emphasiseTags() const { return m_emphasiseTags; }
@@ -58,6 +60,8 @@ public:
 private:
 	bool m_emphasiseTags = false;
 	bool m_ignorePadding = false;
+	int m_selectionStart = -1;
+	int m_selectionCount = 0;
 	unsigned int strLen;
 	unsigned int hexStrLen;
 	unsigned int berStrLen;

@@ -34,11 +34,15 @@ class EmvTreeItem : public QTreeWidgetItem
 public:
 	EmvTreeItem(
 		QTreeWidgetItem* parent,
+		unsigned int srcOffset,
+		unsigned int srcLength,
 		const struct iso8825_tlv_t* tlv,
 		bool decode = true,
 		bool autoExpand = true
 	);
 
+	unsigned int srcOffset() const { return m_srcOffset; }
+	unsigned int srcLength() const { return m_srcLength; }
 	QString tagName() const { return m_tagName; }
 	QString tagDescription() const { return m_tagDescription; }
 
@@ -50,6 +54,8 @@ public:
 	void setTlv(const struct iso8825_tlv_t* tlv, bool decode);
 
 private:
+	unsigned int m_srcOffset;
+	unsigned int m_srcLength;
 	QString m_tagName;
 	QString m_tagDescription;
 	bool m_constructed;
