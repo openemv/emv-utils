@@ -266,7 +266,17 @@ static QTreeWidgetItem* addValueStringList(
 	QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 		item,
 		QStringList(
-			QString::fromUtf8(valueStr).trimmed() // Trim trailing newline
+			// NOTE: Qt6 differs from Qt5 for when a QByteArray is passed to
+			// QString::fromUtf8(), resulting in a QString with the same size
+			// as the whole QByteArray, regardless of null-termination. It is
+			// safe for both Qt5 and Qt6 to pass the content of QByteArray as
+			// a C-string instead. For safety, it is useful to compute the size
+			// using qstrnlen() to ensure that it does not exceed the size of
+			// the QByteArray content.
+			QString::fromUtf8(
+				valueStr.constData(),
+				qstrnlen(valueStr.constData(), valueStr.size() - 1)
+			).trimmed() // Trim trailing newline
 		)
 	);
 	valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
