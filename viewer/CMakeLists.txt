@@ -117,6 +117,62 @@ target_link_libraries(emv-viewer
 		emv::emv
 )
 
+option(BUILD_MACOSX_BUNDLE "Build MacOS bundle containing emv-viewer, emv-decode and emv-tool")
+if(APPLE AND BUILD_MACOSX_BUNDLE)
+	# Set properties needed for bundle applications on MacOS
+	set_target_properties(
+		emv-viewer
+		PROPERTIES
+			MACOSX_BUNDLE TRUE
+			MACOSX_BUNDLE_BUNDLE_NAME "EMV Viewer"
+			MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION}
+			MACOSX_BUNDLE_SHORT_VERSION_STRING ${CMAKE_PROJECT_VERSION}
+			MACOSX_BUNDLE_COPYRIGHT "Copyright 2021-2024 Leon Lynch"
+			MACOSX_BUNDLE_GUI_IDENTIFIER org.openemv.${CMAKE_PROJECT_NAME}
+			OUTPUT_NAME "EMV Viewer"
+	)
+
+	# Install emv-viewer symlink into bundle for MacOS
+	install(CODE
+		"execute_process(COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"$<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/bin/\")"
+		COMPONENT emv_viewer_bundle
+	)
+	install(CODE
+		"execute_process(COMMAND \"${CMAKE_COMMAND}\" -E create_symlink \"../MacOS/$<TARGET_FILE_NAME:emv-viewer>\" \"$<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/bin/emv-viewer\")"
+		COMPONENT emv_viewer_bundle
+	)
+
+	# Install README and LICENSE.gpl into bundle for MacOS
+	if(EXISTS ${CMAKE_SOURCE_DIR}/README.md)
+		install(FILES
+			${CMAKE_SOURCE_DIR}/README.md
+			COMPONENT emv_viewer_bundle
+			DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/doc/
+		)
+	endif()
+	install(FILES
+		${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.gpl
+		COMPONENT emv_viewer_bundle
+		DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/doc/
+	)
+
+	# Install other tools into bundle for MacOS
+	if(TARGET emv-decode)
+		install(PROGRAMS
+			$<TARGET_FILE:emv-decode>
+			COMPONENT emv_viewer_bundle
+			DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/bin/
+		)
+	endif()
+	if(TARGET emv-tool)
+		install(PROGRAMS
+			$<TARGET_FILE:emv-tool>
+			COMPONENT emv_viewer_bundle
+			DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/bin/
+		)
+	endif()
+endif()
+
 if(WIN32)
 	# Set properties needed for GUI applications on Windows
 	set_target_properties(
@@ -146,4 +202,7 @@ install(
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	RUNTIME
 		COMPONENT emv_viewer_runtime
+	BUNDLE
+		COMPONENT emv_viewer_bundle
+		DESTINATION . # Install to root of MacOS bundle
 )

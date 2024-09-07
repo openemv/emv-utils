@@ -200,6 +200,16 @@ cmake -B build -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_BUILD_TYPE="RelW
 cmake --build build
 ```
 
+On MacOS, a bundle can also be built using the `BUILD_MACOSX_BUNDLE` option and
+packaged as a DMG installer. Assuming `QT_DIR` is already appropriately set,
+this is an example of how a self-contained, static, native bundle and installer
+can be built from scratch for MacOS:
+```shell
+rm -Rf build &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_MACOSX_BUNDLE=YES &&
+cmake --build build --target package
+```
+
 Usage
 -----
 

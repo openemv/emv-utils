@@ -362,6 +362,19 @@ if(rpmbuild_FOUND)
 	# NOTE: RPM generator automatically detects library dependencies
 endif()
 
+# Generate DragNDrop package for MacOS if emv-viewer is available
+if(APPLE AND TARGET emv-viewer AND BUILD_MACOSX_BUNDLE)
+	list(APPEND CPACK_GENERATOR "DragNDrop")
+	# Only package emv-viewer bundle (which includes ancillary files for MacOS)
+	set(CPACK_COMPONENTS_ALL emv_viewer_bundle)
+	# Use emv-viewer license file
+	set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/viewer/LICENSE.gpl")
+	set(CPACK_DMG_SLA_USE_RESOURCE_FILE_LICENSE ON)
+	# Use script to setup DMG interface
+	set(CPACK_DMG_DS_STORE_SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/macos/emv_utils_dmg_setup.scpt")
+	set(CPACK_DMG_BACKGROUND_IMAGE "${CMAKE_CURRENT_SOURCE_DIR}/macos/openemv_dmg_bg.tif")
+endif()
+
 # Generate NSIS package for Windows if emv-viewer is available
 if(WIN32 AND TARGET emv-viewer)
 	list(APPEND CPACK_GENERATOR "NSIS")
