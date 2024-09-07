@@ -362,4 +362,32 @@ if(rpmbuild_FOUND)
 	# NOTE: RPM generator automatically detects library dependencies
 endif()
 
+# Generate NSIS package for Windows if emv-viewer is available
+if(WIN32 AND TARGET emv-viewer)
+	list(APPEND CPACK_GENERATOR "NSIS")
+	# Only package runtime and development components
+	set(CPACK_COMPONENTS_ALL emv_runtime emv_viewer_runtime emv_development)
+	# Use emv-viewer license file
+	set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/viewer/LICENSE.gpl")
+	# Set display name used by Control Panel
+	set(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_VENDOR} ${CMAKE_PROJECT_NAME} ${CPACK_PACKAGE_VERSION}")
+	# Set name used by installer application
+	set(CPACK_NSIS_PACKAGE_NAME "${CPACK_PACKAGE_VENDOR} ${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}")
+	# Set project URL
+	set(CPACK_NSIS_URL_INFO_ABOUT "${CMAKE_PROJECT_HOMEPAGE_URL}")
+	# Install into vendor/package-version directory
+	set(CPACK_NSIS_INSTALL_ROOT "C:\\${CPACK_PACKAGE_VENDOR}")
+	set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}")
+	# Set display name used by Start Menu
+	set(CPACK_PACKAGE_EXECUTABLES "emv-viewer" "EMV Viewer")
+	# Set desktop link to emv-viewer
+	set(CPACK_CREATE_DESKTOP_LINKS emv-viewer)
+	# Set package file name based on architecture
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CPACK_PACKAGE_FILE_NAME ${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-win64-setup)
+	elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+		set(CPACK_PACKAGE_FILE_NAME ${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-win32-setup)
+	endif()
+endif()
+
 include(CPack)

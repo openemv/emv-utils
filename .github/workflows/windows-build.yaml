@@ -115,6 +115,7 @@ jobs:
           mingw-w64-${{matrix.env}}-iso-codes
           mingw-w64-${{matrix.env}}-json-c
           mingw-w64-${{matrix.env}}-gettext
+          mingw-w64-${{matrix.env}}-nsis
 
     - name: Install Qt6
       uses: jurplel/install-qt-action@v3
@@ -153,4 +154,5 @@ jobs:
         name: emv-utils-${{ env.GIT_DESCRIBE }}-windows
         path: |
             build/emv-utils-*.tar.gz
+            build/emv-utils-*.exe
         if-no-files-found: error

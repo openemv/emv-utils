@@ -73,6 +73,8 @@ Dependencies
   [Documentation](#documentation)
 * [bash-completion](https://github.com/scop/bash-completion) can _optionally_
   be used to generate bash completion for `emv-decode` and `emv-tool`
+* [NSIS](https://nsis.sourceforge.io) can _optionally_ be used to generate a
+  Windows installer for this project
 
 This project also makes use of sub-projects that must be provided as git
 submodules using `git clone --recurse-submodules`:

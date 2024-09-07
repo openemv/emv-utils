@@ -124,6 +124,13 @@ if(WIN32)
 		PROPERTIES
 			WIN32_EXECUTABLE TRUE
 	)
+
+	# Deploy runtime libraries for Windows
+	set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT emv_viewer_runtime)
+	include(InstallRequiredSystemLibraries)
+	if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+		message(STATUS "Required system libraries: ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}")
+	endif()
 endif()
 
 # Install LICENSE.gpl file to UI runtime component
