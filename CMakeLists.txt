@@ -280,8 +280,7 @@ if(Doxygen_FOUND)
 	endif()
 endif()
 
-# Configure CPack to generate .tar.gz package
-set(CPACK_GENERATOR "TGZ")
+# Configure CPack package details
 set(CPACK_PACKAGE_VERSION "${EMV_UTILS_VERSION_STRING}")
 set(CPACK_PACKAGE_VENDOR "OpenEMV")
 set(CPACK_PACKAGE_CONTACT "lynch.leon@gmail.com")
@@ -304,6 +303,9 @@ endif()
 # NOTE: for monolithic packages, uncomment the line below or specify it when
 # invoking CMake
 #set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+
+# Always generate at least a .tar.gz package
+set(CPACK_GENERATOR "TGZ")
 
 # Generate Debian/Ubuntu packages if dpkg is available
 find_package(dpkg) # Optional for building Debian/Ubuntu packages

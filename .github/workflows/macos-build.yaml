@@ -69,3 +69,46 @@ jobs:
 
     - name: Test
       run: ctest --test-dir build --output-on-failure
+
+  build-macos-release:
+    name: MacOS 12 (release)
+    runs-on: macos-12
+
+    steps:
+    - name: Install dependencies
+      run: |
+        brew install boost
+        brew install iso-codes
+        brew install json-c
+        brew install pcsc-lite
+        echo "PKG_CONFIG_PATH=$(brew --prefix pcsc-lite)/lib/pkgconfig" >> $GITHUB_ENV
+        brew install qt@5
+        echo "QT_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Get version from git tag
+      run: echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> $GITHUB_ENV
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_ARGP=YES -DBUILD_EMV_TOOL=YES -DBUILD_EMV_VIEWER=YES
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure
+
+    - name: Package
+      run: cmake --build build --target package
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: emv-utils-${{ env.GIT_DESCRIBE }}-macos
+        path: |
+            build/emv-utils-*.tar.gz
+        if-no-files-found: error

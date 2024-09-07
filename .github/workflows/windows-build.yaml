@@ -78,3 +78,79 @@ jobs:
 
     - name: Test
       run: ctest --test-dir build --output-on-failure
+
+  build-windows-msys2-release:
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { sys: mingw64, env: x86_64, build_type: "RelWithDebInfo" }
+
+    name: Windows MSYS2 ${{matrix.sys}} build (release)
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSYS2 ${{matrix.sys}}
+      uses: msys2/setup-msys2@v2
+      with:
+        release: false
+        msystem: ${{matrix.sys}}
+        install: >-
+          base-devel
+          git
+          mingw-w64-${{matrix.env}}-toolchain
+          mingw-w64-${{matrix.env}}-cmake
+          mingw-w64-${{matrix.env}}-ninja
+          mingw-w64-${{matrix.env}}-boost
+          mingw-w64-${{matrix.env}}-iso-codes
+          mingw-w64-${{matrix.env}}-json-c
+          mingw-w64-${{matrix.env}}-gettext
+
+    - name: Install Qt6
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: 6.5.*
+        host: windows
+        target: desktop
+        arch: win64_mingw
+        archives: qtbase qttools MinGW
+        cache: true
+
+    # MSYS2 Git assumes CRLF by default
+    - name: Configure Git
+      run: |
+        git config --global core.autocrlf true
+        echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> $GITHUB_ENV
+
+    - name: Configure CMake
+      run: cmake -G Ninja -B build -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" -DBUILD_SHARED_LIBS=YES -DFETCH_ARGP=YES -DBUILD_EMV_TOOL=YES -DBUILD_EMV_VIEWER=YES
+      # CMake will only accept Windows paths if they are environment variables, not CMake command line cache entries
+      env:
+        CMAKE_PREFIX_PATH: ${{ env.Qt6_DIR }}
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure
+
+    - name: Package
+      run: cmake --build build --target package
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: emv-utils-${{ env.GIT_DESCRIBE }}-windows
+        path: |
+            build/emv-utils-*.tar.gz
+        if-no-files-found: error
