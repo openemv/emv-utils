@@ -171,6 +171,10 @@ if(APPLE AND BUILD_MACOSX_BUNDLE)
 			DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/bin/
 		)
 	endif()
+
+	# Deploy Qt into bundle for MacOS
+	include(DeployQt)
+	macdeployqt(emv-viewer emv_viewer_bundle)
 endif()
 
 if(WIN32)
@@ -180,6 +184,10 @@ if(WIN32)
 		PROPERTIES
 			WIN32_EXECUTABLE TRUE
 	)
+
+	# Deploy Qt for Windows
+	include(DeployQt)
+	windeployqt(emv-viewer emv_viewer_runtime)
 
 	# Deploy runtime libraries for Windows
 	set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT emv_viewer_runtime)
