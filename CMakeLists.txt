@@ -298,6 +298,7 @@ set(CPACK_COMPONENT_EMV_DOCS_DISPLAY_NAME "Documentation for EMV libraries")
 set(CPACK_COMPONENT_EMV_DOCS_DESCRIPTION ${CPACK_COMPONENT_EMV_DOCS_DISPLAY_NAME})
 if(BUILD_SHARED_LIBS)
 	set(CPACK_COMPONENT_EMV_DEVELOPMENT_DEPENDS emv_runtime)
+	set(CPACK_COMPONENT_EMV_VIEWER_RUNTIME_DEPENDS emv_runtime)
 endif()
 
 # NOTE: for monolithic packages, uncomment the line below or specify it when
