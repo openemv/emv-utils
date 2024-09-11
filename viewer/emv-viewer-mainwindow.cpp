@@ -50,6 +50,7 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 
 	// Setup UI widgets
 	setupUi(this);
+	setWindowIcon(QIcon(":icons/openemv_emv_utils_512x512.png"));
 	setWindowTitle(windowTitle().append(QStringLiteral(" (") + qApp->applicationVersion() + QStringLiteral(")")));
 
 	// Note that EmvHighlighter assumes that all blocks are processed in order

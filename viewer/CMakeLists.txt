@@ -91,11 +91,13 @@ if(QT_VERSION VERSION_LESS 5.15)
 	# Qt-5.12 provides these versioned commands
 	qt5_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
 	qt5_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
+	qt5_add_resources(QRC_SRCS icons.qrc)
 	add_library(Qt::Widgets ALIAS Qt5::Widgets)
 else()
 	# Qt-5.15 and Qt-6 provide these version-less commands
 	qt_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
 	qt_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
+	qt_add_resources(QRC_SRCS icons.qrc)
 endif()
 
 add_executable(emv-viewer
@@ -129,8 +131,13 @@ if(APPLE AND BUILD_MACOSX_BUNDLE)
 			MACOSX_BUNDLE_SHORT_VERSION_STRING ${CMAKE_PROJECT_VERSION}
 			MACOSX_BUNDLE_COPYRIGHT "Copyright 2021-2024 Leon Lynch"
 			MACOSX_BUNDLE_GUI_IDENTIFIER org.openemv.${CMAKE_PROJECT_NAME}
+			MACOSX_BUNDLE_ICON_FILE "openemv_emv_utils.icns"
+			RESOURCE icons/openemv_emv_utils.icns
 			OUTPUT_NAME "EMV Viewer"
 	)
+
+	# Add application icon for MacOS
+	target_sources(emv-viewer PRIVATE icons/openemv_emv_utils.icns)
 
 	# Install emv-viewer symlink into bundle for MacOS
 	install(CODE
@@ -185,6 +192,9 @@ if(WIN32)
 			WIN32_EXECUTABLE TRUE
 	)
 
+	# Add application icon for Windows
+	target_sources(emv-viewer PRIVATE icon.rc)
+
 	# Deploy Qt for Windows
 	include(DeployQt)
 	windeployqt(emv-viewer emv_viewer_runtime)
@@ -203,6 +213,33 @@ install(FILES
 	TYPE DOC
 	COMPONENT emv_viewer_runtime
 )
+
+if(NOT APPLE AND NOT WIN32)
+	# Install icon file to UI runtime component for Linux
+	set(EMV_UTILS_INSTALL_ICONSDIR ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps CACHE STRING "Installation location for emv-viewer icon files")
+	install(FILES
+		${CMAKE_CURRENT_SOURCE_DIR}/icons/openemv_emv_utils_512x512.png
+		DESTINATION ${EMV_UTILS_INSTALL_ICONSDIR}
+		COMPONENT emv_viewer_runtime
+		RENAME emv-viewer.png
+	)
+
+	# Install desktop entry file to UI runtime component for Linux
+	set(EMV_UTILS_INSTALL_DESKTOPENTRYDIR ${CMAKE_INSTALL_DATADIR}/applications CACHE STRING "Installation location for emv-viewer desktop entry files")
+	install(FILES
+		${CMAKE_CURRENT_SOURCE_DIR}/emv-viewer.desktop
+		DESTINATION ${EMV_UTILS_INSTALL_DESKTOPENTRYDIR}
+		COMPONENT emv_viewer_runtime
+	)
+
+	# Install appstream file to UI runtime component for Linux
+	set(EMV_UTILS_INSTALL_APPSTREAMDIR ${CMAKE_INSTALL_DATADIR}/metainfo CACHE STRING "Installation location for emv-viewer appstream files")
+	install(FILES
+		${CMAKE_CURRENT_SOURCE_DIR}/emv-viewer.appdata.xml
+		DESTINATION ${EMV_UTILS_INSTALL_APPSTREAMDIR}
+		COMPONENT emv_viewer_runtime
+	)
+endif()
 
 install(
 	TARGETS

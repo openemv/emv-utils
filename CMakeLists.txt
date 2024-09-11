@@ -383,6 +383,11 @@ if(WIN32 AND TARGET emv-viewer)
 	set(CPACK_COMPONENTS_ALL emv_runtime emv_viewer_runtime emv_development)
 	# Use emv-viewer license file
 	set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/viewer/LICENSE.gpl")
+	# Set installer branding icon
+	set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/viewer/icons\\openemv_emv_utils.bmp") # CMake's own installer uses a backslash for the last slash due to a bug in NSIS
+	# Set installer and uninstaller application icons
+	set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}/viewer/icons\\openemv_emv_utils.ico") # CMake's own installer uses a backslash for the last slash due to a bug in NSIS
+	set(CPACK_NSIS_MUI_UNIICON "${CMAKE_CURRENT_SOURCE_DIR}/viewer/icons\\openemv_emv_utils.ico") # CMake's own installer uses a backslash for the last slash due to a bug in NSIS
 	# Set display name used by Control Panel
 	set(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_VENDOR} ${CMAKE_PROJECT_NAME} ${CPACK_PACKAGE_VERSION}")
 	# Set name used by installer application

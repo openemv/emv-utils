@@ -35,6 +35,7 @@ int main(int argc, char** argv)
 	app.setOrganizationDomain("openemv.org");
 	app.setApplicationName("emv-viewer");
 	app.setApplicationVersion(EMV_VIEWER_VERSION_STRING);
+	app.setWindowIcon(QIcon(":icons/openemv_emv_utils_512x512.png"));
 
 	QCommandLineParser parser;
 	parser.addHelpOption();

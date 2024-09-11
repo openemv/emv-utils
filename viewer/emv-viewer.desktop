@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=EMV Viewer
+Comment=Decoder and viewer for EMV card data
+Exec=emv-viewer
+Icon=emv-viewer
+Categories=Development;Qt
+Terminal=false
