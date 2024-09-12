@@ -83,11 +83,12 @@ if(EMV_UTILS_IS_TOP_LEVEL)
 	include(CTest)
 endif()
 
+include(FindPackageHandleStandardArgs) # Provides find_package() messages
+include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
+
 add_subdirectory(src)
 add_subdirectory(tools)
 add_subdirectory(tests)
-
-include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
 # Install README and LICENSE files to runtime component
 install(FILES

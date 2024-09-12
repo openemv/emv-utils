@@ -61,7 +61,7 @@ find_package(json-c CONFIG)
 if(json-c_FOUND)
 	# The json-c CMake config doesn't print a find_package() message but it is
 	# always good to know where it was found
-	message(STATUS "Found json-c: ${json-c_CONFIG}")
+	find_package_handle_standard_args(json-c CONFIG_MODE)
 else()
 	# Try custom Findjson-c.cmake module
 	find_package(json-c REQUIRED)
@@ -70,8 +70,6 @@ endif()
 # facilitate the generation of CMake package configuration files.
 list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "json-c")
 set(EMV_UTILS_PACKAGE_DEPENDENCIES ${EMV_UTILS_PACKAGE_DEPENDENCIES} PARENT_SCOPE)
-
-include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
 # Find and use mcc-codes submodule
 set(MCC_JSON_SOURCE_FILE mcc_codes.json)
@@ -198,7 +196,10 @@ target_include_directories(iso8859 INTERFACE
 	$<INSTALL_INTERFACE:include/iso8859>
 )
 if(ISO8859_IMPL STREQUAL "boost")
-	find_package(Boost REQUIRED COMPONENTS locale)
+	find_package(Boost REQUIRED COMPONENTS locale CONFIG) # See policy CMP0167
+	# The Boost CMake config does not print a find_package() message but it is
+	# always good to know where it was found and which version was found
+	find_package_handle_standard_args(Boost CONFIG_MODE)
 	message(STATUS "Using Boost.Locale for iso8859 implementation")
 	target_sources(iso8859 PRIVATE iso8859_boost.cpp)
 	target_link_libraries(iso8859 PRIVATE Boost::locale)
