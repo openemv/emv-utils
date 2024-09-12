@@ -71,8 +71,6 @@ endif()
 list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "json-c")
 set(EMV_UTILS_PACKAGE_DEPENDENCIES ${EMV_UTILS_PACKAGE_DEPENDENCIES} PARENT_SCOPE)
 
-include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
-
 # Find and use mcc-codes submodule
 set(MCC_JSON_SOURCE_FILE mcc_codes.json)
 set(MCC_JSON_SOURCE_PATH ${PROJECT_SOURCE_DIR}/mcc-codes/${MCC_JSON_SOURCE_FILE})

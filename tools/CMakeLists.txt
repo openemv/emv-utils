@@ -61,8 +61,6 @@ if(NOT HAVE_ARPA_INET_H AND NOT HAVE_WINSOCK_H)
 	endif()
 endif()
 
-include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
-
 # Print helpers object library
 add_library(print_helpers OBJECT EXCLUDE_FROM_ALL print_helpers.c)
 target_include_directories(print_helpers INTERFACE

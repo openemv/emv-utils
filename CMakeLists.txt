@@ -83,6 +83,9 @@ if(EMV_UTILS_IS_TOP_LEVEL)
 	include(CTest)
 endif()
 
+include(FindPackageHandleStandardArgs) # Provides find_package() messages
+include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
+
 add_subdirectory(src)
 add_subdirectory(tools)
 add_subdirectory(tests)
@@ -104,7 +107,9 @@ endif()
 if(Qt_NAMES)
 	find_package(QT 5.12 NAMES ${Qt_NAMES} COMPONENTS Widgets)
 	if(QT_FOUND)
-		message(STATUS "Found Qt${QT_VERSION_MAJOR} Widgets: ${QT_CONFIG} (found suitable version \"${QT_VERSION}\")")
+		find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets PATHS ${QT_DIR})
+		find_package_handle_standard_args(Qt${QT_VERSION_MAJOR} CONFIG_MODE)
+		find_package_handle_standard_args(Qt${QT_VERSION_MAJOR}Widgets CONFIG_MODE)
 	else()
 		if(BUILD_EMV_VIEWER)
 			message(FATAL_ERROR "Could NOT find Qt Widgets; required to build emv-viewer")
@@ -123,8 +128,6 @@ if(QT_FOUND)
 	message(STATUS "Adding emv-viewer to build")
 	add_subdirectory(viewer)
 endif()
-
-include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
 # Install README and LICENSE files to runtime component
 install(FILES
