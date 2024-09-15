@@ -113,3 +113,11 @@ jobs:
             build/emv-utils-*.tar.gz
             build/emv-utils-*.dmg
         if-no-files-found: error
+
+    - name: Upload build directory if failed
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: emv-utils-${{ env.GIT_DESCRIBE }}-macos-build
+        path: ./
+        if-no-files-found: error
