@@ -62,7 +62,14 @@ jobs:
         submodules: recursive
 
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}" -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} -DFETCH_ARGP=${{ matrix.fetch_deps }} -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
+      run: |
+        cmake -B build \
+          -DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}" \
+          -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
+          -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+          -DFETCH_ARGP=${{ matrix.fetch_deps }} \
+          -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
+          -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
       run: cmake --build build
@@ -94,7 +101,14 @@ jobs:
       run: echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> $GITHUB_ENV
 
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_ARGP=YES -DBUILD_EMV_TOOL=YES -DBUILD_EMV_VIEWER=YES -DBUILD_MACOSX_BUNDLE=YES
+      run: |
+        cmake -B build \
+          -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+          -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+          -DFETCH_ARGP=YES \
+          -DBUILD_EMV_TOOL=YES \
+          -DBUILD_EMV_VIEWER=YES \
+          -DBUILD_MACOSX_BUNDLE=YES
 
     - name: Build
       run: cmake --build build

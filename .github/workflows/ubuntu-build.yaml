@@ -47,7 +47,12 @@ jobs:
     - run: git describe --always --dirty
 
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE="Debug" -DISO8859_IMPL=${{ matrix.iso8859 }} -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE="Debug" \
+          -DISO8859_IMPL=${{ matrix.iso8859 }} \
+          -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
+          -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
       run: cmake --build build
@@ -87,7 +92,16 @@ jobs:
       # intended Ubuntu release. The ppa1 component indicates that this is not
       # an official Ubuntu package. The release name component indicates that
       # this is for the specific Ubuntu release that has that name.
-      run: cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=YES -DBUILD_DOCS=YES -DBUILD_EMV_TOOL=YES -DBUILD_EMV_VIEWER=YES -DCPACK_COMPONENTS_GROUPING=ALL_COMPONENTS_IN_ONE -DCPACK_DEBIAN_PACKAGE_RELEASE="0ubuntu1~ppa1~${{ matrix.ubuntu_release_name }}1"
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+          -DCMAKE_INSTALL_PREFIX=/usr \
+          -DBUILD_SHARED_LIBS=YES \
+          -DBUILD_DOCS=YES \
+          -DBUILD_EMV_TOOL=YES \
+          -DBUILD_EMV_VIEWER=YES \
+          -DCPACK_COMPONENTS_GROUPING=ALL_COMPONENTS_IN_ONE \
+          -DCPACK_DEBIAN_PACKAGE_RELEASE="0ubuntu1~ppa1~${{ matrix.ubuntu_release_name }}1"
 
     - name: Build
       run: cmake --build build
