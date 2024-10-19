@@ -116,6 +116,7 @@ jobs:
           -DBUILD_EMV_TOOL=YES \
           -DBUILD_EMV_VIEWER=YES \
           -DBUILD_MACOSX_BUNDLE=YES \
+          -DCPACK_COMMAND_HDIUTIL="/usr/bin/sudo /usr/bin/hdiutil" \
           -DSIGN_MACOSX_BUNDLE=openemv.org
 
     - name: Build
