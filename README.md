@@ -171,7 +171,7 @@ at build time using the CMake `ISO8859_IMPL` option. It allows these values:
 Qt
 --
 
-This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.6.x (although it
+This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.7.x (although it
 may be possible to use other versions of Qt) when building the `emv-viewer`
 application. However, on some platforms it may be necessary to use the `QT_DIR`
 option (and not the `Qt5_DIR` nor `Qt6_DIR` options) or `CMAKE_PREFIX_PATH`
@@ -279,8 +279,12 @@ License
 
 Copyright 2021-2024 [Leon Lynch](https://github.com/leonlynch).
 
-This project is licensed under the terms of the LGPL v2.1 license. See
-[LICENSE](https://github.com/openemv/emv-utils/blob/master/LICENSE) file.
+This project is licensed under the terms of the LGPL v2.1 license with the
+exception of `emv-viewer` which is licensed under the terms of the GPL v3
+license.
+See [LICENSE](https://github.com/openemv/emv-utils/blob/master/LICENSE) and
+[LICENSE.gpl](https://github.com/openemv/emv-utils/blob/master/viewer/LICENSE.gpl)
+files.
 
 This project includes [mcc-codes](https://github.com/greggles/mcc-codes) as a
 git submodule and it is licensed under The Unlicense license. See
