@@ -88,8 +88,10 @@ if(EXISTS ${MCC_JSON_SOURCE_PATH})
 		COMPONENT emv_runtime
 	)
 
-	# Default mcc-codes paths to be used by libraries and applications
-	# The build path is also set for the parent scope to facilitate testing
+	# Default mcc-codes paths to be used by libraries and applications.
+	# The source path is set for the parent scope to facilitate sub-projects.
+	# The build path is also set for the parent scope to facilitate testing.
+	set(MCC_JSON_SOURCE_PATH ${MCC_JSON_SOURCE_PATH} PARENT_SCOPE)
 	set(MCC_JSON_BUILD_PATH ${MCC_JSON_BINARY_DIR}/${MCC_JSON_SOURCE_FILE})
 	set(MCC_JSON_BUILD_PATH ${MCC_JSON_BUILD_PATH} PARENT_SCOPE)
 	set(MCC_JSON_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${EMV_UTILS_INSTALL_MCC_CODES_DIR}/${MCC_JSON_SOURCE_FILE})

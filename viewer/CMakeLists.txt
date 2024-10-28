@@ -41,12 +41,31 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 endif()
 
 if(EMV_VIEWER_IS_TOP_LEVEL)
-	# If this is the top-level project, look for the platform emv-utils libraries
-	find_package(emv-viewer 0.1.0 REQUIRED)
+	# If this is the top-level project, look for the emv-utils libraries
+	find_package(emv-utils 0.1.0 REQUIRED)
+
+	# If this is the top-level project and being built as a MacOS bundle, the
+	# mcc-codes file must be available. Otherwise rely entirely on the
+	# installed libraries for data files such as mcc-codes and iso-codes.
+	if(APPLE AND BUILD_MACOSX_BUNDLE)
+		set(MCC_JSON_SOURCE_FILE mcc_codes.json)
+		set(MCC_JSON_SOURCE_PATH ${PROJECT_SOURCE_DIR}/mcc-codes/${MCC_JSON_SOURCE_FILE})
+		if(NOT EXISTS ${MCC_JSON_SOURCE_PATH})
+			message(FATAL_ERROR "mcc-codes/mcc_codes.json not found")
+		endif()
+	endif()
 else()
-	# Otherwise the parent project must provide the emv-utils targets
+	# Parent project must provide the emv-utils targets
 	if(NOT TARGET emv::emv_strings)
 		message(FATAL_ERROR "Parent project must provide emv-utils libraries")
+	endif()
+
+	# Parent project must provide the mcc-codes file
+	if(NOT MCC_JSON_SOURCE_PATH)
+		message(FATAL_ERROR "Parent project must provide mcc-codes submodule")
+	endif()
+	if(NOT EXISTS ${MCC_JSON_SOURCE_PATH})
+		message(FATAL_ERROR "mcc_codes.json not found")
 	endif()
 endif()
 
@@ -164,6 +183,23 @@ if(APPLE AND BUILD_MACOSX_BUNDLE)
 		DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/doc/
 	)
 
+	# Install iso-codes into bundle for MacOS
+	find_package(IsoCodes REQUIRED)
+	install(FILES
+		${IsoCodes_JSON_PATH}/iso_639-2.json
+		${IsoCodes_JSON_PATH}/iso_3166-1.json
+		${IsoCodes_JSON_PATH}/iso_4217.json
+		COMPONENT emv_viewer_bundle
+		DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/Resources/
+	)
+
+	# Install mcc-codes into bundle for MacOS
+	install(FILES
+		${MCC_JSON_SOURCE_PATH}
+		COMPONENT emv_viewer_bundle
+		DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/Resources/
+	)
+
 	# Install other tools into bundle for MacOS
 	if(TARGET emv-decode)
 		install(PROGRAMS
@@ -195,6 +231,16 @@ if(WIN32)
 
 	# Add application icon for Windows
 	target_sources(emv-viewer PRIVATE icon.rc)
+
+	# Install iso-codes for Windows
+	find_package(IsoCodes REQUIRED)
+	install(FILES
+		${IsoCodes_JSON_PATH}/iso_639-2.json
+		${IsoCodes_JSON_PATH}/iso_3166-1.json
+		${IsoCodes_JSON_PATH}/iso_4217.json
+		COMPONENT emv_runtime # Same as for mcc-codes
+		DESTINATION ${CMAKE_INSTALL_DATADIR}/emv-utils/ # Same as for mcc-codes
+	)
 
 	# Deploy Qt for Windows
 	include(DeployQt)
