@@ -21,6 +21,7 @@
 #include <QtWidgets/QApplication>
 #include <QtCore/QCommandLineParser>
 #include <QtCore/QString>
+#include <QtCore/QStringLiteral>
 
 #include "emv_viewer_config.h"
 #include "emv_strings.h"
@@ -50,6 +51,19 @@ int main(int argc, char** argv)
 
 	QString isocodes_path = parser.value("isocodes-path");
 	QString mcc_path = parser.value("mcc-json");
+#ifdef EMV_VIEWER_USE_RELATIVE_DATA_PATH
+	if (isocodes_path.isEmpty()) {
+		isocodes_path =
+			app.applicationDirPath() + QStringLiteral("/") +
+			QStringLiteral(EMV_VIEWER_USE_RELATIVE_DATA_PATH);
+	}
+	if (mcc_path.isEmpty()) {
+		mcc_path =
+			app.applicationDirPath() + QStringLiteral("/") +
+			QStringLiteral(EMV_VIEWER_USE_RELATIVE_DATA_PATH) +
+			QStringLiteral("mcc_codes.json");
+	}
+#endif
 	r = emv_strings_init(
 		isocodes_path.isEmpty() ? nullptr : qPrintable(isocodes_path),
 		mcc_path.isEmpty() ? nullptr : qPrintable(mcc_path)

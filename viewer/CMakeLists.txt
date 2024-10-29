@@ -53,6 +53,9 @@ if(EMV_VIEWER_IS_TOP_LEVEL)
 		if(NOT EXISTS ${MCC_JSON_SOURCE_PATH})
 			message(FATAL_ERROR "mcc-codes/mcc_codes.json not found")
 		endif()
+
+		# Use relative data paths for MacOS bundles
+		set(EMV_VIEWER_USE_RELATIVE_DATA_PATH "../Resources/")
 	endif()
 else()
 	# Parent project must provide the emv-utils targets
@@ -66,6 +69,14 @@ else()
 	endif()
 	if(NOT EXISTS ${MCC_JSON_SOURCE_PATH})
 		message(FATAL_ERROR "mcc_codes.json not found")
+	endif()
+
+	# All-in-builds intended for installers should use relative data paths
+	if(APPLE AND BUILD_MACOSX_BUNDLE)
+		set(EMV_VIEWER_USE_RELATIVE_DATA_PATH "../Resources/")
+	endif()
+	if(WIN32)
+		set(EMV_VIEWER_USE_RELATIVE_DATA_PATH "../${CMAKE_INSTALL_DATADIR}/emv-utils/")
 	endif()
 endif()
 
@@ -184,21 +195,25 @@ if(APPLE AND BUILD_MACOSX_BUNDLE)
 	)
 
 	# Install iso-codes into bundle for MacOS
-	find_package(IsoCodes REQUIRED)
-	install(FILES
-		${IsoCodes_JSON_PATH}/iso_639-2.json
-		${IsoCodes_JSON_PATH}/iso_3166-1.json
-		${IsoCodes_JSON_PATH}/iso_4217.json
-		COMPONENT emv_viewer_bundle
-		DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/Resources/
-	)
+	if(EMV_VIEWER_USE_RELATIVE_DATA_PATH)
+		find_package(IsoCodes REQUIRED)
+		install(FILES
+			${IsoCodes_JSON_PATH}/iso_639-2.json
+			${IsoCodes_JSON_PATH}/iso_3166-1.json
+			${IsoCodes_JSON_PATH}/iso_4217.json
+			COMPONENT emv_viewer_bundle
+			DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/Resources/
+		)
+	endif()
 
 	# Install mcc-codes into bundle for MacOS
-	install(FILES
-		${MCC_JSON_SOURCE_PATH}
-		COMPONENT emv_viewer_bundle
-		DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/Resources/
-	)
+	if(EMV_VIEWER_USE_RELATIVE_DATA_PATH)
+		install(FILES
+			${MCC_JSON_SOURCE_PATH}
+			COMPONENT emv_viewer_bundle
+			DESTINATION $<TARGET_BUNDLE_CONTENT_DIR:emv-viewer>/Resources/
+		)
+	endif()
 
 	# Install other tools into bundle for MacOS
 	if(TARGET emv-decode)
@@ -233,14 +248,16 @@ if(WIN32)
 	target_sources(emv-viewer PRIVATE icon.rc)
 
 	# Install iso-codes for Windows
-	find_package(IsoCodes REQUIRED)
-	install(FILES
-		${IsoCodes_JSON_PATH}/iso_639-2.json
-		${IsoCodes_JSON_PATH}/iso_3166-1.json
-		${IsoCodes_JSON_PATH}/iso_4217.json
-		COMPONENT emv_runtime # Same as for mcc-codes
-		DESTINATION ${CMAKE_INSTALL_DATADIR}/emv-utils/ # Same as for mcc-codes
-	)
+	if(EMV_VIEWER_USE_RELATIVE_DATA_PATH)
+		find_package(IsoCodes REQUIRED)
+		install(FILES
+			${IsoCodes_JSON_PATH}/iso_639-2.json
+			${IsoCodes_JSON_PATH}/iso_3166-1.json
+			${IsoCodes_JSON_PATH}/iso_4217.json
+			COMPONENT emv_runtime # Same as for mcc-codes
+			DESTINATION ${CMAKE_INSTALL_DATADIR}/emv-utils/ # Same as for mcc-codes
+		)
+	endif()
 
 	# Deploy Qt for Windows
 	include(DeployQt)
