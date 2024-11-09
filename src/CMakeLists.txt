@@ -112,8 +112,8 @@ set(iso7816_HEADERS # PUBLIC_HEADER property requires a list instead of individu
 	iso7816_apdu.h
 	iso7816_compact_tlv.h
 	iso7816_strings.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
+set(iso7816_HEADERS ${iso7816_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::iso7816 ALIAS iso7816)
 set_target_properties(iso7816
 	PROPERTIES
@@ -147,8 +147,8 @@ add_library(iso8825
 )
 set(iso8825_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	iso8825_ber.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
+set(iso8825_HEADERS ${iso8825_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::iso8825 ALIAS iso8825)
 set_target_properties(iso8825
 	PROPERTIES
@@ -183,8 +183,8 @@ add_library(iso8859)
 add_library(emv::iso8859 ALIAS iso8859)
 set(iso8859_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	iso8859.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
+set(iso8859_HEADERS ${iso8859_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 set_target_properties(iso8859
 	PROPERTIES
 		PUBLIC_HEADER "${iso8859_HEADERS}"
@@ -265,8 +265,8 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_ttl.h
 	emv_app.h
 	emv_tal.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
+set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::emv ALIAS emv)
 target_compile_definitions(emv PUBLIC EMV_DEBUG_ENABLED) # Enabled all debugging
 target_link_libraries(emv
@@ -320,8 +320,8 @@ set(emv_strings_HEADERS # PUBLIC_HEADER property requires a list instead of indi
 	emv_strings.h
 	isocodes_lookup.h
 	mcc_lookup.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
+set(emv_strings_HEADERS ${emv_strings_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::emv_strings ALIAS emv_strings)
 # The EMVSTRINGS_PKGCONFIG_REQ_PRIV and EMVSTRINGS_PKGCONFIG_LIBS_PRIV variables are set
 # for the parent scope to facilitate the generation of pkgconfig files.
