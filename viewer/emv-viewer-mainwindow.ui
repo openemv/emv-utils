@@ -32,6 +32,9 @@
             <family>Monospace</family>
            </font>
           </property>
+          <property name="placeholderText">
+           <string>&lt;Paste hex encoded data here&gt;</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -48,6 +51,9 @@
           <layout class="QVBoxLayout" name="verticalLayoutSettings">
            <item>
             <widget class="QCheckBox" name="tagsCheckBox">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Visually distinguish tag of each input field in input data.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
              <property name="text">
               <string>Emphasise tags</string>
              </property>
@@ -55,6 +61,9 @@
            </item>
            <item>
             <widget class="QCheckBox" name="paddingCheckBox">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ignore invalid data if the input aligns with either the DES or AES cipher block size and invalid data is less than the cipher block size.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
              <property name="text">
               <string>Ignore padding</string>
              </property>
@@ -62,6 +71,9 @@
            </item>
            <item>
             <widget class="QCheckBox" name="decodeCheckBox">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interpret each input field according to EMV. Disable to view only the ISO 8825 structure instead.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
              <property name="text">
               <string>Decode EMV fields</string>
              </property>
