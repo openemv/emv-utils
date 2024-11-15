@@ -231,6 +231,7 @@ install(
 	TARGETS
 		iso8859
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	RUNTIME_DEPENDENCY_SET iso8859_deps
 	PUBLIC_HEADER
 		DESTINATION "include/iso8859"
 		COMPONENT emv_development
@@ -242,6 +243,22 @@ install(
 	ARCHIVE
 		COMPONENT emv_development
 )
+if(WIN32 AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21")
+	# Assume that MSYS2/MinGW environments have all DLLs in the same path
+	# as the compiler
+	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
+	install(
+		RUNTIME_DEPENDENCY_SET iso8859_deps
+		PRE_EXCLUDE_REGEXES
+			"api-ms-"
+		POST_EXCLUDE_REGEXES
+			"system32"
+		DIRECTORIES
+			${COMPILER_PATH}
+		RUNTIME
+			COMPONENT emv_runtime
+	)
+endif()
 
 # EMV library
 add_library(emv
@@ -349,6 +366,7 @@ install(
 	TARGETS
 		emv_strings
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	RUNTIME_DEPENDENCY_SET emv_strings_deps
 	PUBLIC_HEADER
 		DESTINATION "include/emv"
 		COMPONENT emv_development
@@ -360,3 +378,19 @@ install(
 	ARCHIVE
 		COMPONENT emv_development
 )
+if(WIN32 AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21")
+	# Assume that MSYS2/MinGW environments have all DLLs in the same path
+	# as the compiler
+	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
+	install(
+		RUNTIME_DEPENDENCY_SET emv_strings_deps
+		PRE_EXCLUDE_REGEXES
+			"api-ms-"
+		POST_EXCLUDE_REGEXES
+			"system32"
+		DIRECTORIES
+			${COMPILER_PATH}
+		RUNTIME
+			COMPONENT emv_runtime
+	)
+endif()
