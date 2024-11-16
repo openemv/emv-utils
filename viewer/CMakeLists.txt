@@ -75,7 +75,7 @@ else()
 	if(APPLE AND BUILD_MACOSX_BUNDLE)
 		set(EMV_VIEWER_USE_RELATIVE_DATA_PATH "../Resources/")
 	endif()
-	if(WIN32)
+	if(WIN32 AND BUILD_WIN_STANDALONE)
 		set(EMV_VIEWER_USE_RELATIVE_DATA_PATH "../${CMAKE_INSTALL_DATADIR}/emv-utils/")
 	endif()
 endif()
@@ -150,7 +150,6 @@ target_link_libraries(emv-viewer
 		emv::emv
 )
 
-option(BUILD_MACOSX_BUNDLE "Build MacOS bundle containing emv-viewer, emv-decode and emv-tool")
 if(APPLE AND BUILD_MACOSX_BUNDLE)
 	# Set properties needed for bundle applications on MacOS
 	set_target_properties(
@@ -247,28 +246,30 @@ if(WIN32)
 	# Add application icon for Windows
 	target_sources(emv-viewer PRIVATE icon.rc)
 
-	# Install iso-codes for Windows
-	if(EMV_VIEWER_USE_RELATIVE_DATA_PATH)
-		find_package(IsoCodes REQUIRED)
-		install(FILES
-			${IsoCodes_JSON_PATH}/iso_639-2.json
-			${IsoCodes_JSON_PATH}/iso_3166-1.json
-			${IsoCodes_JSON_PATH}/iso_4217.json
-			COMPONENT emv_runtime # Same as for mcc-codes
-			DESTINATION ${CMAKE_INSTALL_DATADIR}/emv-utils/ # Same as for mcc-codes
-		)
-	endif()
+	if(BUILD_WIN_STANDALONE)
+		# Install iso-codes for Windows
+		if(EMV_VIEWER_USE_RELATIVE_DATA_PATH)
+			find_package(IsoCodes REQUIRED)
+			install(FILES
+				${IsoCodes_JSON_PATH}/iso_639-2.json
+				${IsoCodes_JSON_PATH}/iso_3166-1.json
+				${IsoCodes_JSON_PATH}/iso_4217.json
+				COMPONENT emv_runtime # Same as for mcc-codes
+				DESTINATION ${CMAKE_INSTALL_DATADIR}/emv-utils/ # Same as for mcc-codes
+			)
+		endif()
 
-	# Deploy Qt for Windows
-	include(DeployQt)
-	windeployqt(emv-viewer emv_viewer_runtime)
+		# Deploy Qt for Windows
+		include(DeployQt)
+		windeployqt(emv-viewer emv_viewer_runtime)
 
-	# Deploy runtime libraries for Windows
-	set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT emv_viewer_runtime)
-	include(InstallRequiredSystemLibraries)
-	if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
-		message(STATUS "Required system libraries: ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}")
-	endif()
+		# Deploy runtime libraries for Windows
+		set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT emv_viewer_runtime)
+		include(InstallRequiredSystemLibraries)
+		if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+			message(STATUS "Required system libraries: ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}")
+		endif()
+	endif() # BUILD_WIN_STANDALONE
 endif()
 
 # Install LICENSE.gpl file to UI runtime component

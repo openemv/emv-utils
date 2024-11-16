@@ -146,7 +146,8 @@ jobs:
           -DBUILD_SHARED_LIBS=YES \
           -DFETCH_ARGP=YES \
           -DBUILD_EMV_TOOL=YES \
-          -DBUILD_EMV_VIEWER=YES
+          -DBUILD_EMV_VIEWER=YES \
+          -DBUILD_WIN_STANDALONE=YES
       # CMake will only accept Windows paths if they are environment variables, not CMake command line cache entries
       env:
         CMAKE_PREFIX_PATH: ${{ env.Qt6_DIR }}

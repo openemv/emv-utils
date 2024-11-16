@@ -243,7 +243,11 @@ install(
 	ARCHIVE
 		COMPONENT emv_development
 )
-if(WIN32 AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21")
+if(WIN32 AND BUILD_WIN_STANDALONE)
+	if(${CMAKE_VERSION} VERSION_LESS "3.21")
+		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	endif()
+
 	# Assume that MSYS2/MinGW environments have all DLLs in the same path
 	# as the compiler
 	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
@@ -378,7 +382,11 @@ install(
 	ARCHIVE
 		COMPONENT emv_development
 )
-if(WIN32 AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21")
+if(WIN32 AND BUILD_WIN_STANDALONE)
+	if(${CMAKE_VERSION} VERSION_LESS "3.21")
+		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	endif()
+
 	# Assume that MSYS2/MinGW environments have all DLLs in the same path
 	# as the compiler
 	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)

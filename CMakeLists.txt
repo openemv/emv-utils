@@ -86,6 +86,9 @@ endif()
 include(FindPackageHandleStandardArgs) # Provides find_package() messages
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
+option(BUILD_MACOSX_BUNDLE "Build MacOS bundle containing emv-viewer, emv-decode and emv-tool")
+option(BUILD_WIN_STANDALONE "Build standalone Windows installation that includes external dependencies")
+
 add_subdirectory(src)
 add_subdirectory(tools)
 add_subdirectory(tests)
@@ -382,7 +385,7 @@ if(APPLE AND TARGET emv-viewer AND BUILD_MACOSX_BUNDLE)
 endif()
 
 # Generate NSIS package for Windows if emv-viewer is available
-if(WIN32 AND TARGET emv-viewer)
+if(WIN32 AND TARGET emv-viewer AND BUILD_WIN_STANDALONE)
 	list(APPEND CPACK_GENERATOR "NSIS")
 	# Only package runtime and development components
 	set(CPACK_COMPONENTS_ALL emv_runtime emv_viewer_runtime emv_development)

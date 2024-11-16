@@ -210,6 +210,17 @@ cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_ARGP=YES -DBUILD_EMV_
 cmake --build build --target package
 ```
 
+On Windows, a standalone installation that includes external dependencies can
+also be built using the `BUILD_WIN_STANDALONE` option and packaged using NSIS.
+Assuming `QT_DIR` is already appropriately set to a Qt installation that can
+deploy its own dependencies, this is an example of how a self-contained
+installer can be built for Windows:
+```shell
+rm -Rf build &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DBUILD_SHARED_LIBS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_WIN_STANDALONE=YES &&
+cmake --build build --target package
+```
+
 Usage
 -----
 
