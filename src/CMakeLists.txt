@@ -88,8 +88,10 @@ if(EXISTS ${MCC_JSON_SOURCE_PATH})
 		COMPONENT emv_runtime
 	)
 
-	# Default mcc-codes paths to be used by libraries and applications
-	# The build path is also set for the parent scope to facilitate testing
+	# Default mcc-codes paths to be used by libraries and applications.
+	# The source path is set for the parent scope to facilitate sub-projects.
+	# The build path is also set for the parent scope to facilitate testing.
+	set(MCC_JSON_SOURCE_PATH ${MCC_JSON_SOURCE_PATH} PARENT_SCOPE)
 	set(MCC_JSON_BUILD_PATH ${MCC_JSON_BINARY_DIR}/${MCC_JSON_SOURCE_FILE})
 	set(MCC_JSON_BUILD_PATH ${MCC_JSON_BUILD_PATH} PARENT_SCOPE)
 	set(MCC_JSON_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${EMV_UTILS_INSTALL_MCC_CODES_DIR}/${MCC_JSON_SOURCE_FILE})
@@ -232,6 +234,7 @@ install(
 	TARGETS
 		iso8859
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	RUNTIME_DEPENDENCY_SET iso8859_deps
 	PUBLIC_HEADER
 		DESTINATION "include/iso8859"
 		COMPONENT emv_development
@@ -243,6 +246,26 @@ install(
 	ARCHIVE
 		COMPONENT emv_development
 )
+if(WIN32 AND BUILD_WIN_STANDALONE)
+	if(${CMAKE_VERSION} VERSION_LESS "3.21")
+		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	endif()
+
+	# Assume that MSYS2/MinGW environments have all DLLs in the same path
+	# as the compiler
+	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
+	install(
+		RUNTIME_DEPENDENCY_SET iso8859_deps
+		PRE_EXCLUDE_REGEXES
+			"api-ms-"
+		POST_EXCLUDE_REGEXES
+			"system32"
+		DIRECTORIES
+			${COMPILER_PATH}
+		RUNTIME
+			COMPONENT emv_runtime
+	)
+endif()
 
 # EMV library
 add_library(emv
@@ -350,6 +373,7 @@ install(
 	TARGETS
 		emv_strings
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	RUNTIME_DEPENDENCY_SET emv_strings_deps
 	PUBLIC_HEADER
 		DESTINATION "include/emv"
 		COMPONENT emv_development
@@ -361,3 +385,23 @@ install(
 	ARCHIVE
 		COMPONENT emv_development
 )
+if(WIN32 AND BUILD_WIN_STANDALONE)
+	if(${CMAKE_VERSION} VERSION_LESS "3.21")
+		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	endif()
+
+	# Assume that MSYS2/MinGW environments have all DLLs in the same path
+	# as the compiler
+	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
+	install(
+		RUNTIME_DEPENDENCY_SET emv_strings_deps
+		PRE_EXCLUDE_REGEXES
+			"api-ms-"
+		POST_EXCLUDE_REGEXES
+			"system32"
+		DIRECTORIES
+			${COMPILER_PATH}
+		RUNTIME
+			COMPONENT emv_runtime
+	)
+endif()

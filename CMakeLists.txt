@@ -86,9 +86,51 @@ endif()
 include(FindPackageHandleStandardArgs) # Provides find_package() messages
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
+option(BUILD_MACOSX_BUNDLE "Build MacOS bundle containing emv-viewer, emv-decode and emv-tool")
+option(BUILD_WIN_STANDALONE "Build standalone Windows installation that includes external dependencies")
+
 add_subdirectory(src)
 add_subdirectory(tools)
 add_subdirectory(tests)
+
+# If Qt::Widgets is available, build emv-viewer
+option(BUILD_EMV_VIEWER "Build emv-viewer")
+# See https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html#supporting-older-qt-5-versions
+# Note that CMAKE_DISABLE_FIND_PACKAGE_<PackageName> only applies to the
+# primary package name and not the alternative names and therefore it is
+# necessary to build the list of alternative names to ensure that either Qt5 or
+# Qt6 can be disabled, otherwise CMAKE_DISABLE_FIND_PACKAGE_<PackageName> will
+# be ignored.
+if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt5)
+	list(APPEND Qt_NAMES Qt5)
+endif()
+if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt6)
+	list(APPEND Qt_NAMES Qt6)
+endif()
+if(Qt_NAMES)
+	find_package(QT 5.12 NAMES ${Qt_NAMES} COMPONENTS Widgets)
+	if(QT_FOUND)
+		find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets PATHS ${QT_DIR})
+		find_package_handle_standard_args(Qt${QT_VERSION_MAJOR} CONFIG_MODE)
+		find_package_handle_standard_args(Qt${QT_VERSION_MAJOR}Widgets CONFIG_MODE)
+	else()
+		if(BUILD_EMV_VIEWER)
+			message(FATAL_ERROR "Could NOT find Qt Widgets; required to build emv-viewer")
+		else()
+			message(STATUS "Could NOT find Qt Widgets: skipping emv-viewer build")
+		endif()
+	endif()
+else()
+	if(BUILD_EMV_VIEWER)
+		message(FATAL_ERROR "Both Qt5 and Qt6 are disabled: required to build emv-viewer")
+	else()
+		message(STATUS "Both Qt5 and Qt6 are disabled: skipping emv-viewer build")
+	endif()
+endif()
+if(QT_FOUND)
+	message(STATUS "Adding emv-viewer to build")
+	add_subdirectory(viewer)
+endif()
 
 # Install README and LICENSE files to runtime component
 install(FILES
@@ -244,8 +286,7 @@ if(Doxygen_FOUND)
 	endif()
 endif()
 
-# Configure CPack to generate .tar.gz package
-set(CPACK_GENERATOR "TGZ")
+# Configure CPack package details
 set(CPACK_PACKAGE_VERSION "${EMV_UTILS_VERSION_STRING}")
 set(CPACK_PACKAGE_VENDOR "OpenEMV")
 set(CPACK_PACKAGE_CONTACT "lynch.leon@gmail.com")
@@ -261,13 +302,19 @@ set(CPACK_COMPONENT_EMV_DEVELOPMENT_DISPLAY_NAME "EMV development files")
 set(CPACK_COMPONENT_EMV_DEVELOPMENT_DESCRIPTION "Development files (headers, pkgconfig files, CMake config files, etc) for EMV libraries")
 set(CPACK_COMPONENT_EMV_DOCS_DISPLAY_NAME "Documentation for EMV libraries")
 set(CPACK_COMPONENT_EMV_DOCS_DESCRIPTION ${CPACK_COMPONENT_EMV_DOCS_DISPLAY_NAME})
+set(CPACK_COMPONENT_EMV_VIEWER_RUNTIME_DISPLAY_NAME "EMV Viewer application")
+set(CPACK_COMPONENT_EMV_VIEWER_RUNTIME_DESCRIPTION "Graphical user interface for viewing EMV card data (emv-viewer)")
 if(BUILD_SHARED_LIBS)
 	set(CPACK_COMPONENT_EMV_DEVELOPMENT_DEPENDS emv_runtime)
+	set(CPACK_COMPONENT_EMV_VIEWER_RUNTIME_DEPENDS emv_runtime)
 endif()
 
 # NOTE: for monolithic packages, uncomment the line below or specify it when
 # invoking CMake
 #set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+
+# Always generate at least a .tar.gz package
+set(CPACK_GENERATOR "TGZ")
 
 # Generate Debian/Ubuntu packages if dpkg is available
 find_package(dpkg) # Optional for building Debian/Ubuntu packages
@@ -322,6 +369,52 @@ if(rpmbuild_FOUND)
 	# Generate package dependency list
 	set(CPACK_RPM_PACKAGE_REQUIRES "iso-codes") # Ensure that iso-codes package is a dependency
 	# NOTE: RPM generator automatically detects library dependencies
+endif()
+
+# Generate DragNDrop package for MacOS if emv-viewer is available
+if(APPLE AND TARGET emv-viewer AND BUILD_MACOSX_BUNDLE)
+	list(APPEND CPACK_GENERATOR "DragNDrop")
+	# Only package emv-viewer bundle (which includes ancillary files for MacOS)
+	set(CPACK_COMPONENTS_ALL emv_viewer_bundle)
+	# Use emv-viewer license file
+	set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/viewer/LICENSE.gpl")
+	set(CPACK_DMG_SLA_USE_RESOURCE_FILE_LICENSE ON)
+	# Use script to setup DMG interface
+	set(CPACK_DMG_DS_STORE_SETUP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/macos/emv_utils_dmg_setup.scpt")
+	set(CPACK_DMG_BACKGROUND_IMAGE "${CMAKE_CURRENT_SOURCE_DIR}/macos/openemv_dmg_bg.tif")
+endif()
+
+# Generate NSIS package for Windows if emv-viewer is available
+if(WIN32 AND TARGET emv-viewer AND BUILD_WIN_STANDALONE)
+	list(APPEND CPACK_GENERATOR "NSIS")
+	# Only package runtime and development components
+	set(CPACK_COMPONENTS_ALL emv_runtime emv_viewer_runtime emv_development)
+	# Use emv-viewer license file
+	set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/viewer/LICENSE.gpl")
+	# Set installer branding icon
+	set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/viewer/icons\\openemv_emv_utils.bmp") # CMake's own installer uses a backslash for the last slash due to a bug in NSIS
+	# Set installer and uninstaller application icons
+	set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}/viewer/icons\\openemv_emv_utils.ico") # CMake's own installer uses a backslash for the last slash due to a bug in NSIS
+	set(CPACK_NSIS_MUI_UNIICON "${CMAKE_CURRENT_SOURCE_DIR}/viewer/icons\\openemv_emv_utils.ico") # CMake's own installer uses a backslash for the last slash due to a bug in NSIS
+	# Set display name used by Control Panel
+	set(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_VENDOR} ${CMAKE_PROJECT_NAME} ${CPACK_PACKAGE_VERSION}")
+	# Set name used by installer application
+	set(CPACK_NSIS_PACKAGE_NAME "${CPACK_PACKAGE_VENDOR} ${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}")
+	# Set project URL
+	set(CPACK_NSIS_URL_INFO_ABOUT "${CMAKE_PROJECT_HOMEPAGE_URL}")
+	# Install into vendor/package-version directory
+	set(CPACK_NSIS_INSTALL_ROOT "C:\\${CPACK_PACKAGE_VENDOR}")
+	set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}")
+	# Set display name used by Start Menu
+	set(CPACK_PACKAGE_EXECUTABLES "emv-viewer" "EMV Viewer")
+	# Set desktop link to emv-viewer
+	set(CPACK_CREATE_DESKTOP_LINKS emv-viewer)
+	# Set package file name based on architecture
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CPACK_PACKAGE_FILE_NAME ${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-win64-setup)
+	elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+		set(CPACK_PACKAGE_FILE_NAME ${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-win32-setup)
+	endif()
 endif()
 
 include(CPack)

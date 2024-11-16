@@ -28,7 +28,7 @@ Installation
 * For Ubuntu 20.04 LTS (Focal), 22.04 LTS (Jammy), or 24.04 LTS (Noble) install
   the appropriate
   [release package](https://github.com/openemv/emv-utils/releases)
-* For Fedora 39 or Fedora 40, install the appropriate Fedora
+* For Fedora 40 or Fedora 41, install the appropriate Fedora
   [release package](https://github.com/openemv/emv-utils/releases)
 * For Gentoo, use the
   [OpenEMV overlay](https://github.com/openemv/openemv-overlay), set the
@@ -64,11 +64,17 @@ Dependencies
   [PCSCLite](https://pcsclite.apdu.fr/) on Linux/MacOS. Use the
   `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built and avoid the
   dependency on PC/SC.
+* `emv-viewer` can _optionally_ be built if [Qt](https://www.qt.io/) (see
+  [Qt](#qt) for details) is available at build-time. If it is not available,
+  `emv-viewer` will not be built. Use the `BUILD_EMV_VIEWER` option to ensure
+  that `emv-viewer` will be built.
 * [Doxygen](https://github.com/doxygen/doxygen) can _optionally_ be used to
   generate API documentation if it is available; see
   [Documentation](#documentation)
 * [bash-completion](https://github.com/scop/bash-completion) can _optionally_
   be used to generate bash completion for `emv-decode` and `emv-tool`
+* [NSIS](https://nsis.sourceforge.io) can _optionally_ be used to generate a
+  Windows installer for this project
 
 This project also makes use of sub-projects that must be provided as git
 submodules using `git clone --recurse-submodules`:
@@ -162,6 +168,20 @@ at build time using the CMake `ISO8859_IMPL` option. It allows these values:
 * `simple`: Only supports ISO 8859-1, has no dependencies and doesn't require
   C++.
 
+Qt
+--
+
+This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.7.x (although it
+may be possible to use other versions of Qt) when building the `emv-viewer`
+application. However, on some platforms it may be necessary to use the `QT_DIR`
+option (and not the `Qt5_DIR` nor `Qt6_DIR` options) or `CMAKE_PREFIX_PATH`
+option to specify the exact Qt installation to be used. For Qt6 it may also be
+necessary for the Qt tools to be available in the executable PATH regardless of
+the `QT_DIR` option.
+
+If the Qt installation does not provide universal binaries for MacOS, it will
+not be possible to build `emv-viewer` as a universal binary for MacOS.
+
 MacOS / Windows
 ---------------
 
@@ -178,6 +198,27 @@ built from scratch for MacOS:
 rm -Rf build &&
 cmake -B build -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_ARGP=YES &&
 cmake --build build
+```
+
+On MacOS, a bundle can also be built using the `BUILD_MACOSX_BUNDLE` option and
+packaged as a DMG installer. Assuming `QT_DIR` is already appropriately set,
+this is an example of how a self-contained, static, native bundle and installer
+can be built from scratch for MacOS:
+```shell
+rm -Rf build &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_MACOSX_BUNDLE=YES &&
+cmake --build build --target package
+```
+
+On Windows, a standalone installation that includes external dependencies can
+also be built using the `BUILD_WIN_STANDALONE` option and packaged using NSIS.
+Assuming `QT_DIR` is already appropriately set to a Qt installation that can
+deploy its own dependencies, this is an example of how a self-contained
+installer can be built for Windows:
+```shell
+rm -Rf build &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DBUILD_SHARED_LIBS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_WIN_STANDALONE=YES &&
+cmake --build build --target package
 ```
 
 Usage
@@ -249,8 +290,12 @@ License
 
 Copyright 2021-2024 [Leon Lynch](https://github.com/leonlynch).
 
-This project is licensed under the terms of the LGPL v2.1 license. See
-[LICENSE](https://github.com/openemv/emv-utils/blob/master/LICENSE) file.
+This project is licensed under the terms of the LGPL v2.1 license with the
+exception of `emv-viewer` which is licensed under the terms of the GPL v3
+license.
+See [LICENSE](https://github.com/openemv/emv-utils/blob/master/LICENSE) and
+[LICENSE.gpl](https://github.com/openemv/emv-utils/blob/master/viewer/LICENSE.gpl)
+files.
 
 This project includes [mcc-codes](https://github.com/greggles/mcc-codes) as a
 git submodule and it is licensed under The Unlicense license. See

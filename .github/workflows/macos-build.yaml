@@ -15,10 +15,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO }
-          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite", fetch_deps: NO, build_emv_tool: YES }
-          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO }
-          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "pcsclite", fetch_deps: YES, build_emv_tool: YES }
+          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} (${{ matrix.osx_arch }}) build (${{ matrix.lib_type}}/${{ matrix.build_type }}/${{ matrix.deps }})
     runs-on: ${{ matrix.os }}
@@ -40,16 +42,112 @@ jobs:
         brew install pcsc-lite
         echo "PKG_CONFIG_PATH=$(brew --prefix pcsc-lite)/lib/pkgconfig" >> $GITHUB_ENV
 
+    - name: Install Qt5 using brew
+      # Homebrew doesn't support universal binaries so only install Qt for arch-specific builds
+      if: contains(matrix.deps, 'qt5')
+      run: |
+        brew install qt@5
+        echo "QT_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+
+    - name: Install Qt6 using brew
+      # Homebrew doesn't support universal binaries so only install Qt for arch-specific builds
+      if: contains(matrix.deps, 'qt6')
+      run: |
+        brew install qt@6
+        echo "QT_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
+
     - name: Checkout
       uses: actions/checkout@v4
       with:
         submodules: recursive
 
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}" -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} -DFETCH_ARGP=${{ matrix.fetch_deps }} -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }}
+      run: |
+        cmake -B build \
+          -DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}" \
+          -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
+          -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+          -DFETCH_ARGP=${{ matrix.fetch_deps }} \
+          -DBUILD_EMV_DECODE=YES \
+          -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
+          -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
       run: cmake --build build
 
     - name: Test
       run: ctest --test-dir build --output-on-failure
+
+  build-macos-release:
+    name: MacOS 13 (release)
+    runs-on: macos-13
+
+    steps:
+    - name: Install dependencies
+      run: |
+        brew install boost
+        brew install iso-codes
+        brew install json-c
+        brew install pcsc-lite
+        echo "PKG_CONFIG_PATH=$(brew --prefix pcsc-lite)/lib/pkgconfig" >> $GITHUB_ENV
+        brew install qt@5
+        echo "QT_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    - name: Get version from git tag
+      run: echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> $GITHUB_ENV
+
+    - name: Prepare keychain
+      env:
+        OPENEMV_MACOS_CERT_BASE64: ${{ secrets.OPENEMV_MACOS_CERT_BASE64 }}
+        OPENEMV_MACOS_CERT_PWD: ${{ secrets.OPENEMV_MACOS_CERT_PWD }}
+        KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      run: scripts/prepare_macos_keychain.sh
+
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+          -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+          -DFETCH_ARGP=YES \
+          -DBUILD_EMV_DECODE=YES \
+          -DBUILD_EMV_TOOL=YES \
+          -DBUILD_EMV_VIEWER=YES \
+          -DBUILD_MACOSX_BUNDLE=YES \
+          -DCPACK_COMMAND_HDIUTIL="/usr/bin/sudo /usr/bin/hdiutil" \
+          -DSIGN_MACOSX_BUNDLE=openemv.org
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure
+
+    - name: Package
+      run: cmake --build build --target package
+
+    - name: Clean up keychain
+      if: ${{ always() }}
+      run: scripts/cleanup_macos_keychain.sh
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: emv-utils-${{ env.GIT_DESCRIBE }}-macos
+        path: |
+            build/emv-utils-*.tar.gz
+            build/emv-utils-*.dmg
+        if-no-files-found: error
+
+    - name: Upload build directory if failed
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: emv-utils-${{ env.GIT_DESCRIBE }}-macos-build
+        path: ./
+        if-no-files-found: error

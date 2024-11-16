@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+	<qresource>
+		<file>icons/openemv_emv_utils_512x512.png</file>
+		<file>icons/openemv_emv_utils_256x256.png</file>
+	</qresource>
+</RCC>

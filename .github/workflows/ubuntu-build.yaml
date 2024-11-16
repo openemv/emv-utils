@@ -15,11 +15,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "none", iso8859: "simple", build_emv_tool: NO }
-          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "iconv", iso8859: "iconv", build_emv_tool: NO }
-          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "boost/pcsclite", iso8859: "boost", build_emv_tool: YES }
-          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "iconv/pcsclite", iso8859: "iconv", build_emv_tool: YES }
-          - { name: "Ubuntu 24.04", os: ubuntu-24.04, deps: "iconv/pcsclite", iso8859: "iconv", build_emv_tool: YES }
+          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "none", iso8859: "simple", build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "iconv", iso8859: "iconv", build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "boost/qt", iso8859: "boost", build_emv_tool: NO, build_emv_viewer: YES }
+          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "boost/pcsclite", iso8859: "boost", build_emv_tool: YES, build_emv_viewer: NO }
+          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "iconv/pcsclite", iso8859: "iconv", build_emv_tool: YES, build_emv_viewer: NO }
+          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "iconv/qt", iso8859: "iconv", build_emv_tool: NO, build_emv_viewer: YES }
+          - { name: "Ubuntu 24.04", os: ubuntu-24.04, deps: "iconv/pcsclite/qt", iso8859: "iconv", build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
     runs-on: ${{ matrix.os }}
@@ -34,6 +36,10 @@ jobs:
       if: contains(matrix.deps, 'pcsclite')
       run: sudo apt-get install -y libpcsclite-dev
 
+    - name: Install Qt5
+      if: contains(matrix.deps, 'qt')
+      run: sudo apt-get install -y qtbase5-dev
+
     - name: Checkout
       uses: actions/checkout@v4
       with:
@@ -41,7 +47,13 @@ jobs:
     - run: git describe --always --dirty
 
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE="Debug" -DISO8859_IMPL=${{ matrix.iso8859 }} -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }}
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE="Debug" \
+          -DISO8859_IMPL=${{ matrix.iso8859 }} \
+          -DBUILD_EMV_DECODE=YES \
+          -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
+          -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
       run: cmake --build build
@@ -65,7 +77,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev doxygen
+        sudo apt-get install -y libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev doxygen qtbase5-dev
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -81,7 +93,17 @@ jobs:
       # intended Ubuntu release. The ppa1 component indicates that this is not
       # an official Ubuntu package. The release name component indicates that
       # this is for the specific Ubuntu release that has that name.
-      run: cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=YES -DBUILD_DOCS=YES -DCPACK_COMPONENTS_GROUPING=ALL_COMPONENTS_IN_ONE -DCPACK_DEBIAN_PACKAGE_RELEASE="0ubuntu1~ppa1~${{ matrix.ubuntu_release_name }}1"
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+          -DCMAKE_INSTALL_PREFIX=/usr \
+          -DBUILD_SHARED_LIBS=YES \
+          -DBUILD_DOCS=YES \
+          -DBUILD_EMV_DECODE=YES \
+          -DBUILD_EMV_TOOL=YES \
+          -DBUILD_EMV_VIEWER=YES \
+          -DCPACK_COMPONENTS_GROUPING=ALL_COMPONENTS_IN_ONE \
+          -DCPACK_DEBIAN_PACKAGE_RELEASE="0ubuntu1~ppa1~${{ matrix.ubuntu_release_name }}1"
 
     - name: Build
       run: cmake --build build
