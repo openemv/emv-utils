@@ -18,7 +18,7 @@ fi
 LICENSE="LGPL-2.1"
 SLOT="0"
 KEYWORDS="~amd64 ~x86"
-IUSE="+pcsc-lite doc test"
+IUSE="+pcsc-lite qt5 qt6 doc test"
 RESTRICT="!test? ( test )"
 
 BDEPEND="
@@ -30,6 +30,14 @@ RDEPEND="
 	app-text/iso-codes
 	dev-libs/json-c
 	pcsc-lite? ( sys-apps/pcsc-lite )
+	qt5? (
+		dev-qt/qtcore:5
+		dev-qt/qtgui:5
+		dev-qt/qtwidgets:5
+	)
+	qt6? (
+		dev-qt/qtbase:6[gui,widgets]
+	)
 "
 DEPEND="
 	${RDEPEND}
@@ -37,15 +45,27 @@ DEPEND="
 
 src_prepare() {
 	cmake_src_prepare
+
+	# Remove dirty suffix because Gentoo modifies CMakeLists.txt
+	sed -i -e 's/--dirty//' CMakeLists.txt || die "Failed to remove dirty suffix"
 }
 
 src_configure() {
+	# NOTE:
+	# https://wiki.gentoo.org/wiki/Project:Qt/Policies states that when an
+	# application optionally supports one of two Qt versions, it is allowed for
+	# both qt5 and qt6 to be enabled and, if so, qt5 should be preferred.
 	local mycmakeargs=(
 		$(cmake_use_find_package pcsc-lite PCSCLite)
 		-DBUILD_EMV_TOOL=$(usex pcsc-lite)
+		$(cmake_use_find_package qt5 Qt5)
+		$(cmake_use_find_package qt6 Qt6)
 		-DBUILD_DOCS=$(usex doc)
 		-DBUILD_TESTING=$(usex test)
 	)
+	if use qt5 || use qt6; then
+		mycmakeargs+=( -DBUILD_EMV_VIEWER=YES )
+	fi
 
 	cmake_src_configure
 }
