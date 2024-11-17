@@ -392,7 +392,7 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	}
 }
 
-void print_emv_tlv(const struct emv_tlv_t* tlv, const char* prefix, unsigned int depth)
+static void print_emv_tlv_internal(const struct emv_tlv_t* tlv, const char* prefix, unsigned int depth)
 {
 	struct emv_tlv_info_t info;
 	char value_str[2048];
@@ -464,7 +464,7 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
 		struct emv_tlv_t emv_tlv;
 		emv_tlv.ber = tlv;
-		print_emv_tlv(&emv_tlv, prefix, depth);
+		print_emv_tlv_internal(&emv_tlv, prefix, depth);
 	}
 
 	if (r < 0) {
@@ -472,12 +472,17 @@ void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	}
 }
 
+void print_emv_tlv(const struct emv_tlv_t* tlv)
+{
+	print_emv_tlv_internal(tlv, "  ", 0);
+}
+
 void print_emv_tlv_list(const struct emv_tlv_list_t* list)
 {
 	const struct emv_tlv_t* tlv;
 
 	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
-		print_emv_tlv(tlv, "  ", 1);
+		print_emv_tlv_internal(tlv, "  ", 1);
 	}
 }
 
