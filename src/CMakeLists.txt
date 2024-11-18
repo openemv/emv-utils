@@ -208,7 +208,7 @@ if(ISO8859_IMPL STREQUAL "boost")
 
 	# The EMV_UTILS_PACKAGE_DEPENDENCIES variable is set for the parent scope to
 	# facilitate the generation of CMake package configuration files.
-	list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "Boost COMPONENTS locale")
+	list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "Boost COMPONENTS locale CONFIG")
 	set(EMV_UTILS_PACKAGE_DEPENDENCIES ${EMV_UTILS_PACKAGE_DEPENDENCIES} PARENT_SCOPE)
 endif()
 if(ISO8859_IMPL STREQUAL "iconv")
