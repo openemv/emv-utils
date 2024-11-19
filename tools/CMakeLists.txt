@@ -740,6 +740,80 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_9F27_test3_regex}
 	)
 
+	add_test(NAME emv_decode_padding_test1
+		COMMAND emv-decode --ber 701870105F2A0208409F1A0208409F15025999123456789ABCDED002DEADFEDC --ignore-padding
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_padding_test1_regex
+		"^70 : \\[24\\][\r\n]"
+		"  70 : \\[16\\][\r\n]"
+		"    5F2A : \\[2\\] 08 40[\r\n]"
+		"    9F1A : \\[2\\] 08 40[\r\n]"
+		"    9F15 : \\[2\\] 59 99[\r\n]"
+		"    Padding : \\[1\\] 12[\r\n]"
+		"  Padding : \\[6\\] 34 56 78 9A BC DE[\r\n]"
+		"D0 : \\[2\\] DE AD[\r\n]"
+		"Padding : \\[2\\] FE DC[\r\n]$"
+	)
+	set_tests_properties(emv_decode_padding_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_padding_test1_regex}
+	)
+
+	add_test(NAME emv_decode_padding_test2
+		COMMAND emv-decode --ber 701870105F2A0208409F1A0208409F15025999123456789ABCDED002DEADFEDC
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_padding_test2_regex
+		"^70 : \\[24\\][\r\n]"
+		"  70 : \\[16\\][\r\n]"
+		"    5F2A : \\[2\\] 08 40[\r\n]"
+		"    9F1A : \\[2\\] 08 40[\r\n]"
+		"    9F15 : \\[2\\] 59 99[\r\n]"
+		"BER decoding error -11 at offset 19\\; remaining invalid data: 12 34 56 78 9A BC DE D0 02 DE AD FE DC[\r\n]$"
+	)
+	set_tests_properties(emv_decode_padding_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_padding_test2_regex}
+	)
+
+	add_test(NAME emv_decode_padding_test3
+		COMMAND emv-decode --tlv 701870105F2A0208409F1A0208409F15025999123456789ABCDED002DEADFEDC --ignore-padding
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_padding_test3_regex
+		"^70 \\| EMV Data Template : \\[24\\][\r\n]"
+		"  70 \\| EMV Data Template : \\[16\\][\r\n]"
+		"    5F2A \\| Transaction Currency Code : \\[2\\] 08 40 \\(US Dollar\\)[\r\n]"
+		"    9F1A \\| Terminal Country Code : \\[2\\] 08 40 \\(United States\\)[\r\n]"
+		"    9F15 \\| Merchant Category Code \\(MCC\\) : \\[2\\] 59 99 \\(Miscellaneous and Specialty Retail Stores\\)[\r\n]"
+		"    Padding : \\[1\\] 12[\r\n]"
+		"  Padding : \\[6\\] 34 56 78 9A BC DE[\r\n]"
+		"D0 : \\[2\\] DE AD[\r\n]"
+		"Padding : \\[2\\] FE DC[\r\n]$"
+	)
+	set_tests_properties(emv_decode_padding_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_padding_test3_regex}
+	)
+
+	add_test(NAME emv_decode_padding_test4
+		COMMAND emv-decode --tlv 701870105F2A0208409F1A0208409F15025999123456789ABCDED002DEADFEDC
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_padding_test4_regex
+		"^70 \\| EMV Data Template : \\[24\\][\r\n]"
+		"  70 \\| EMV Data Template : \\[16\\][\r\n]"
+		"    5F2A \\| Transaction Currency Code : \\[2\\] 08 40 \\(US Dollar\\)[\r\n]"
+		"    9F1A \\| Terminal Country Code : \\[2\\] 08 40 \\(United States\\)[\r\n]"
+		"    9F15 \\| Merchant Category Code \\(MCC\\) : \\[2\\] 59 99 \\(Miscellaneous and Specialty Retail Stores\\)[\r\n]"
+		"BER decoding error -11 at offset 19\\; remaining invalid data: 12 34 56 78 9A BC DE D0 02 DE AD FE DC[\r\n]$"
+	)
+	set_tests_properties(emv_decode_padding_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_padding_test4_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

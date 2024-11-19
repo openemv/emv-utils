@@ -27,6 +27,7 @@
 #include "iso8859.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -88,11 +89,13 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ISO8859_13,
 	EMV_DECODE_ISO8859_14,
 	EMV_DECODE_ISO8859_15,
+	EMV_DECODE_IGNORE_PADDING,
 	EMV_DECODE_VERSION,
 	EMV_DECODE_OVERRIDE_ISOCODES_PATH,
 	EMV_DECODE_OVERRIDE_MCC_JSON,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
+static bool ignore_padding = false;
 
 // Testing parameters
 static char* isocodes_path = NULL;
@@ -165,6 +168,8 @@ static struct argp_option argp_options[] = {
 	{ "iso8859-13", EMV_DECODE_ISO8859_13, NULL, OPTION_HIDDEN },
 	{ "iso8859-14", EMV_DECODE_ISO8859_14, NULL, OPTION_HIDDEN },
 	{ "iso8859-15", EMV_DECODE_ISO8859_15, NULL, OPTION_HIDDEN },
+
+	{ "ignore-padding", EMV_DECODE_IGNORE_PADDING, NULL, 0, "Ignore invalid data if the input aligns with either the DES or AES cipher block size and invalid data is less than the cipher block size. Only applies to --ber and --tlv" },
 
 	{ "version", EMV_DECODE_VERSION, NULL, 0, "Display emv-utils version" },
 
@@ -303,6 +308,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				printf("Unknown\n");
 			}
 			exit(EXIT_SUCCESS);
+			return 0;
+		}
+
+		case EMV_DECODE_IGNORE_PADDING: {
+			ignore_padding = true;
 			return 0;
 		}
 
@@ -462,12 +472,12 @@ int main(int argc, char** argv)
 		}
 
 		case EMV_DECODE_BER: {
-			print_ber_buf(data, data_len, "  ", 0);
+			print_ber_buf(data, data_len, "  ", 0, ignore_padding);
 			break;
 		}
 
 		case EMV_DECODE_TLV: {
-			print_emv_buf(data, data_len, "  ", 0);
+			print_emv_buf(data, data_len, "  ", 0, ignore_padding);
 			break;
 		}
 
@@ -896,6 +906,7 @@ int main(int argc, char** argv)
 		}
 
 		case EMV_DECODE_ISO8859_X:
+		case EMV_DECODE_IGNORE_PADDING:
 		case EMV_DECODE_VERSION:
 		case EMV_DECODE_OVERRIDE_ISOCODES_PATH:
 		case EMV_DECODE_OVERRIDE_MCC_JSON:

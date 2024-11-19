@@ -23,6 +23,7 @@
 #define PRINT_HELPERS_H
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "emv_debug.h"
@@ -98,8 +99,15 @@ void print_sw1sw2(uint8_t SW1, uint8_t SW2);
  * @param len Length of BER encoded data in bytes
  * @param prefix Recursion prefix to print before every string
  * @param depth Depth of current recursion
+ * @param ignore_padding Ignore invalid data if it is likely DES or AES padding
  */
-void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+void print_ber_buf(
+	const void* ptr,
+	size_t len,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+);
 
 /**
  * Print EMV TLV data
@@ -107,8 +115,15 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
  * @param len Length of EMV TLV data in bytes
  * @param prefix Recursion prefix to print before every string
  * @param depth Depth of current recursion
+ * @param ignore_padding Ignore invalid data if it is likely DES or AES padding
  */
-void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+void print_emv_buf(
+	const void* ptr,
+	size_t len,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+);
 
 /**
  * Print EMV TLV field

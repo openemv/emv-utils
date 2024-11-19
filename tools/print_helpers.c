@@ -33,6 +33,7 @@
 #include "emv_debug.h"
 #include "emv_strings.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -326,9 +327,25 @@ void print_sw1sw2(uint8_t SW1, uint8_t SW2)
 	printf("SW1SW2: %02X%02X (%s)\n", SW1, SW2, s);
 }
 
-void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth)
+/**
+ * Print BER data (internal)
+ * @param ptr BER encoded data
+ * @param len Length of BER encoded data in bytes
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ * @param ignore_padding Ignore invalid data if it is likely DES or AES padding
+ * @return Number of bytes consumed. Less than zero for error.
+ */
+static int print_ber_buf_internal(
+	const void* ptr,
+	size_t len,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+)
 {
 	int r;
+	size_t valid_bytes = 0;
 	struct iso8825_ber_itr_t itr;
 	struct iso8825_tlv_t tlv;
 	char str[1024];
@@ -336,7 +353,7 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	r = iso8825_ber_itr_init(ptr, len, &itr);
 	if (r) {
 		printf("Failed to initialise BER iterator\n");
-		return;
+		return -1;
 	}
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
@@ -348,24 +365,49 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 		printf("%02X : [%u]", tlv.tag, tlv.length);
 
 		if (iso8825_ber_is_constructed(&tlv)) {
+			// If the field is constructed, only consider the tag and length
+			// to be valid until the value has been parsed
+			valid_bytes += (r - tlv.length);
+
 			printf("\n");
-			print_ber_buf(tlv.value, tlv.length, prefix, depth + 1);
+			r = print_ber_buf_internal(
+				tlv.value,
+				tlv.length,
+				prefix,
+				depth + 1,
+				ignore_padding
+			);
+			if (r < 0) {
+				// Return here instead of breaking out to avoid repeated
+				// processing of the error by recursive callers
+				return r;
+			}
+			valid_bytes += r;
+			if (r < tlv.length) {
+				// If only part of the constructed field was valid, return here
+				// to avoid further processing of the data
+				return valid_bytes;
+			}
+
 		} else {
-			printf(" ");
+			// If the field is not constructed, consider all of the bytes to
+			// be valid BER encoded data
+			valid_bytes += r;
+
 			for (size_t i = 0; i < tlv.length; ++i) {
-				printf("%s%02X", i ? " " : "", tlv.value[i]);
+				printf(" %02X", tlv.value[i]);
 			}
 
 			if (iso8825_ber_is_string(&tlv)) {
-				if (tlv.length >= sizeof(str)) {
+				if (tlv.length < sizeof(str)) {
+					// Print as-is and let the console figure out the encoding
+					memcpy(str, tlv.value, tlv.length);
+					str[tlv.length] = 0;
+					printf(" \"%s\"", str);
+				} else {
 					// String too long
-					break;
+					printf(" \"...\"");
 				}
-
-				// Print as-is and let the console figure out the encoding
-				memcpy(str, tlv.value, tlv.length);
-				str[tlv.length] = 0;
-				printf(" \"%s\"", str);
 
 			} else if (tlv.tag == ASN1_OBJECT_IDENTIFIER) {
 				struct iso8825_oid_t oid;
@@ -388,11 +430,250 @@ void print_ber_buf(const void* ptr, size_t len, const char* prefix, unsigned int
 	}
 
 	if (r < 0) {
-		printf("BER decoding error %d\n", r);
+		// Determine whether invalid data is padding
+		if (ignore_padding &&
+			valid_bytes < len &&
+			(
+				((len & 0x7) == 0 && len - valid_bytes < 8) ||
+				((len & 0xF) == 0 && len - valid_bytes < 15)
+			)
+		) {
+			for (unsigned int i = 0; i < depth; ++i) {
+				printf("%s", prefix ? prefix : "");
+			}
+
+			printf("Padding : [%zu]", len - valid_bytes);
+			for (size_t i = valid_bytes; i < len; ++i) {
+				printf(" %02X", *((uint8_t*)ptr + i));
+			}
+			printf("\n");
+
+			// If the remaining bytes appear to be padding, consider these
+			// bytes to be valid
+			valid_bytes = len;
+
+		} else {
+			printf("BER decoding error %d", r); // Caller to print newline
+		}
+	}
+
+	return valid_bytes;
+}
+
+void print_ber_buf(
+	const void* ptr,
+	size_t len,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+)
+{
+	int r;
+
+	r = print_ber_buf_internal(
+		ptr,
+		len,
+		prefix,
+		depth,
+		ignore_padding
+	);
+	if (r < 0) {
+		printf("BER decoding failed\n");
+	}
+	if (r < len) {
+		printf(" at offset %d; remaining invalid data:", r);
+		for (size_t i = r; i < len; ++i) {
+			printf(" %02X", *((uint8_t*)ptr + i));
+		}
+		printf("\n");
 	}
 }
 
-static void print_emv_tlv_internal(const struct emv_tlv_t* tlv, const char* prefix, unsigned int depth)
+/**
+ * Print EMV TLV data (internal)
+ * @param ptr EMV TLV data
+ * @param len Length of EMV TLV data in bytes
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ * @param ignore_padding Ignore invalid data if it is likely DES or AES padding
+ * @return Number of bytes consumed. Less than zero for error.
+ */
+static int print_emv_buf_internal(
+	const void* ptr,
+	size_t len,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+)
+{
+	int r;
+	size_t valid_bytes = 0;
+	struct iso8825_ber_itr_t itr;
+	struct iso8825_tlv_t tlv;
+
+	r = iso8825_ber_itr_init(ptr, len, &itr);
+	if (r) {
+		printf("Failed to initialise BER iterator\n");
+		return -1;
+	}
+
+	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+
+		struct emv_tlv_t emv_tlv;
+		struct emv_tlv_info_t info;
+		char value_str[2048];
+
+		emv_tlv.ber = tlv;
+		emv_tlv_get_info(&emv_tlv, &info, value_str, sizeof(value_str));
+
+		for (unsigned int i = 0; i < depth; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+
+		if (info.tag_name) {
+			printf("%02X | %s : [%u]", tlv.tag, info.tag_name, tlv.length);
+		} else {
+			printf("%02X : [%u]", tlv.tag, tlv.length);
+		}
+
+		if (iso8825_ber_is_constructed(&tlv)) {
+			// If the field is constructed, only consider the tag and length
+			// to be valid until the value has been parsed
+			valid_bytes += (r - tlv.length);
+
+			printf("\n");
+			r = print_emv_buf_internal(
+				tlv.value,
+				tlv.length,
+				prefix,
+				depth + 1,
+				ignore_padding
+			);
+			if (r < 0) {
+				// Return here instead of breaking out to avoid repeated
+				// processing of the error by recursive callers
+				return r;
+			}
+			valid_bytes += r;
+			if (r < tlv.length) {
+				// If only part of the constructed field was valid, return here
+				// to avoid further processing of the data
+				return valid_bytes;
+			}
+
+		} else {
+			// If the field is not constructed, consider all of the bytes to
+			// be valid BER encoded data
+			valid_bytes += r;
+
+			// Print value bytes
+			for (size_t i = 0; i < tlv.length; ++i) {
+				printf(" %02X", tlv.value[i]);
+			}
+
+			// If the value string is empty or the value string is a list, end this
+			// line and continue on the next line. This implementation assumes that
+			// Data Object List (DOL) fields or Tag List fields will allways have
+			// an empty value string.
+			if (!value_str[0] || str_is_list(value_str)) {
+				printf("\n");
+
+				if (str_is_list(value_str)) {
+					print_str_list(value_str, "\n", prefix, depth + 1, "- ", "\n");
+				}
+				if (info.format == EMV_FORMAT_DOL) {
+					print_emv_dol(tlv.value, tlv.length, prefix, depth + 1);
+				}
+				if (info.format == EMV_FORMAT_TAG_LIST) {
+					print_emv_tag_list(tlv.value, tlv.length, prefix, depth + 1);
+				}
+			} else if (value_str[0]) {
+				// Use quotes for strings and parentheses for everything else
+				if (info.format == EMV_FORMAT_A ||
+					info.format == EMV_FORMAT_AN ||
+					info.format == EMV_FORMAT_ANS
+				) {
+					printf(" \"%s\"\n", value_str);
+				} else {
+					printf(" (%s)\n", value_str);
+				}
+			}
+		}
+	}
+
+	if (r < 0) {
+		// Determine whether invalid data is padding
+		if (ignore_padding &&
+			valid_bytes < len &&
+			(
+				((len & 0x7) == 0 && len - valid_bytes < 8) ||
+				((len & 0xF) == 0 && len - valid_bytes < 15)
+			)
+		) {
+			for (unsigned int i = 0; i < depth; ++i) {
+				printf("%s", prefix ? prefix : "");
+			}
+
+			printf("Padding : [%zu]", len - valid_bytes);
+			for (size_t i = valid_bytes; i < len; ++i) {
+				printf(" %02X", *((uint8_t*)ptr + i));
+			}
+			printf("\n");
+
+			// If the remaining bytes appear to be padding, consider these
+			// bytes to be valid
+			valid_bytes = len;
+
+		} else {
+			printf("BER decoding error %d", r); // Caller to print newline
+		}
+	}
+
+	return valid_bytes;
+}
+
+void print_emv_buf(
+	const void* ptr,
+	size_t len,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+)
+{
+	int r;
+
+	r = print_emv_buf_internal(
+		ptr,
+		len,
+		prefix,
+		depth,
+		ignore_padding
+	);
+	if (r < 0) {
+		printf("BER decoding failed\n");
+	}
+	if (r < len) {
+		printf(" at offset %d; remaining invalid data:", r);
+		for (size_t i = r; i < len; ++i) {
+			printf(" %02X", *((uint8_t*)ptr + i));
+		}
+		printf("\n");
+	}
+}
+
+/**
+ * Print EMV TLV field (internal)
+ * @param tlv EMV TLV field
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ * @param ignore_padding Ignore invalid data if it is likely DES or AES padding
+ */
+static void print_emv_tlv_internal(
+	const struct emv_tlv_t* tlv,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+)
 {
 	struct emv_tlv_info_t info;
 	char value_str[2048];
@@ -411,12 +692,18 @@ static void print_emv_tlv_internal(const struct emv_tlv_t* tlv, const char* pref
 
 	if (iso8825_ber_is_constructed(&tlv->ber)) {
 		printf("\n");
-		print_emv_buf(tlv->value, tlv->length, prefix, depth + 1);
+
+		print_emv_buf(
+			tlv->value,
+			tlv->length,
+			prefix, depth + 1,
+			ignore_padding
+		);
+
 	} else {
 		// Print value bytes
-		printf(" ");
 		for (size_t i = 0; i < tlv->length; ++i) {
-			printf("%s%02X", i ? " " : "", tlv->value[i]);
+			printf(" %02X", tlv->value[i]);
 		}
 
 		// If the value string is empty or the value string is a list, end this
@@ -449,32 +736,9 @@ static void print_emv_tlv_internal(const struct emv_tlv_t* tlv, const char* pref
 	}
 }
 
-void print_emv_buf(const void* ptr, size_t len, const char* prefix, unsigned int depth)
-{
-	int r;
-	struct iso8825_ber_itr_t itr;
-	struct iso8825_tlv_t tlv;
-
-	r = iso8825_ber_itr_init(ptr, len, &itr);
-	if (r) {
-		printf("Failed to initialise BER iterator\n");
-		return;
-	}
-
-	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
-		struct emv_tlv_t emv_tlv;
-		emv_tlv.ber = tlv;
-		print_emv_tlv_internal(&emv_tlv, prefix, depth);
-	}
-
-	if (r < 0) {
-		printf("BER decoding error %d\n", r);
-	}
-}
-
 void print_emv_tlv(const struct emv_tlv_t* tlv)
 {
-	print_emv_tlv_internal(tlv, "  ", 0);
+	print_emv_tlv_internal(tlv, "  ", 0, false);
 }
 
 void print_emv_tlv_list(const struct emv_tlv_list_t* list)
@@ -482,7 +746,7 @@ void print_emv_tlv_list(const struct emv_tlv_list_t* list)
 	const struct emv_tlv_t* tlv;
 
 	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
-		print_emv_tlv_internal(tlv, "  ", 1);
+		print_emv_tlv_internal(tlv, "  ", 1, false);
 	}
 }
 
@@ -590,7 +854,7 @@ static void print_emv_debug_internal(
 		switch (debug_type) {
 			case EMV_DEBUG_TYPE_TLV:
 				print_buf(str, buf, buf_len);
-				print_emv_buf(buf, buf_len, "  ", 1);
+				print_emv_buf(buf, buf_len, "  ", 1, false);
 				return;
 
 			case EMV_DEBUG_TYPE_ATR:
