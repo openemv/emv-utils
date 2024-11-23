@@ -41,6 +41,14 @@ public:
 		bool autoExpand = true
 	);
 
+	EmvTreeItem(
+		QTreeWidgetItem* parent,
+		unsigned int srcOffset,
+		unsigned int srcLength,
+		QString str,
+		const void* value
+	);
+
 	unsigned int srcOffset() const { return m_srcOffset; }
 	unsigned int srcLength() const { return m_srcLength; }
 	QString tagName() const { return m_tagName; }

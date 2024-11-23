@@ -37,6 +37,11 @@
 // Helper functions
 static bool valueStrIsList(const QByteArray& str);
 static QString buildSimpleFieldString(
+	QString str,
+	qsizetype length,
+	const std::uint8_t* value
+);
+static QString buildSimpleFieldString(
 	unsigned int tag,
 	qsizetype length,
 	const std::uint8_t* value = nullptr
@@ -89,6 +94,25 @@ EmvTreeItem::EmvTreeItem(
 		autoExpand = true;
 	}
 	setExpanded(autoExpand);
+}
+
+EmvTreeItem::EmvTreeItem(
+	QTreeWidgetItem* parent,
+	unsigned int srcOffset,
+	unsigned int srcLength,
+	QString str,
+	const void* value
+)
+: QTreeWidgetItem(parent, EmvTreeItemType),
+  m_srcOffset(srcOffset),
+  m_srcLength(srcLength),
+  m_constructed(false)
+{
+	m_simpleFieldStr = m_decodedFieldStr =
+		buildSimpleFieldString(str, srcLength, static_cast<const uint8_t*>(value));
+
+	// Render the widget according to the current state
+	render(false);
 }
 
 void EmvTreeItem::deleteChildren()
@@ -182,6 +206,29 @@ static bool valueStrIsList(const QByteArray& str)
 
 	// If the last character is a newline, assume that it is a string list
 	return str[qstrnlen(str.constData(), str.size()) - 1] == '\n';
+}
+
+static QString buildSimpleFieldString(
+	QString str,
+	qsizetype length,
+	const std::uint8_t* value
+)
+{
+	if (value) {
+		return
+			str +
+			QString::asprintf(" : [%zu] ", static_cast<std::size_t>(length)) +
+			// Create an uppercase hex string, with spaces, from the
+			// field's value bytes
+			QByteArray::fromRawData(
+				reinterpret_cast<const char*>(value),
+				length
+			).toHex(' ').toUpper().constData();
+	} else {
+		return
+			str +
+			QString::asprintf(" : [%zu]", static_cast<std::size_t>(length));
+	}
 }
 
 static QString buildSimpleFieldString(

@@ -26,6 +26,7 @@
 class EmvTreeView : public QTreeWidget
 {
 	Q_OBJECT
+	Q_PROPERTY(bool ignorePadding READ ignorePadding WRITE setIgnorePadding)
 	Q_PROPERTY(bool decodeFields READ decodeFields WRITE setDecodeFields)
 
 public:
@@ -33,12 +34,15 @@ public:
 
 public slots:
 	unsigned int populateItems(const QByteArray& data);
+	void setIgnorePadding(bool enabled) { m_ignorePadding = enabled; }
 	void setDecodeFields(bool enabled);
 
 public:
+	bool ignorePadding() const { return m_ignorePadding; }
 	bool decodeFields() const { return m_decodeFields; }
 
 private:
+	bool m_ignorePadding = false;
 	bool m_decodeFields = true;
 };
 
