@@ -8,7 +8,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(emv-utils
-	VERSION 0.1.0
+	VERSION 0.2.0
 	DESCRIPTION "EMV libraries and tools"
 	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
 	LANGUAGES C CXX
