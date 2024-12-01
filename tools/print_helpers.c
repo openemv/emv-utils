@@ -479,6 +479,7 @@ void print_ber_buf(
 	);
 	if (r < 0) {
 		printf("BER decoding failed\n");
+		return;
 	}
 	if (r < len) {
 		printf(" at offset %d; remaining invalid data:", r);
@@ -651,6 +652,7 @@ void print_emv_buf(
 	);
 	if (r < 0) {
 		printf("BER decoding failed\n");
+		return;
 	}
 	if (r < len) {
 		printf(" at offset %d; remaining invalid data:", r);
