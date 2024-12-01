@@ -1,9 +1,9 @@
 /**
  * @file iso8825_ber.h
  * @brief Basic Encoding Rules (BER) implementation
- *        (see ISO/IEC 8825-1 or ITU-T Rec X.690 07/2002)
+ *        (see ISO/IEC 8825-1:2021 or Rec. ITU-T X.690 02/2021)
  *
- * Copyright 2021 Leon Lynch
+ * Copyright 2021, 2024 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,28 +30,28 @@
 
 __BEGIN_DECLS
 
-// Encoding of tag class (see ISO 8825-1:2003, 8.1.2, table 1)
+// Encoding of tag class (see ISO 8825-1:2021, 8.1.2, table 1)
 #define ISO8825_BER_CLASS_MASK                  (0xC0) ///< BER tag mask for class bits
 #define ISO8825_BER_CLASS_UNIVERSAL             (0x00) ///< BER class: universal
 #define ISO8825_BER_CLASS_APPLICATION           (0x40) ///< BER class: application
 #define ISO8825_BER_CLASS_CONTEXT               (0x80) ///< BER class: context-specific
 #define ISO8825_BER_CLASS_PRIVATE               (0xC0) ///< BER class: private
 
-// Primitive/constructed encoding (see ISO 8825-1:2003, 8.1.2.5)
+// Primitive/constructed encoding (see ISO 8825-1:2021, 8.1.2.5)
 #define ISO8825_BER_CONSTRUCTED                 (0x20) ///< BER primitive/constructed bit
 
-// Tag number encoding (see ISO 8825-1:2003, 8.1.2)
+// Tag number encoding (see ISO 8825-1:2021, 8.1.2)
 #define ISO8825_BER_TAG_NUMBER_MASK             (0x1F) ///< BER tag mask for tag number
 #define ISO8825_BER_TAG_HIGH_FORM               (0x1F) ///< BER high tag number form; for tag numbers >= 31
 #define ISO8825_BER_TAG_HIGH_FORM_MORE          (0x80) ///< BER high tag number form: more octets to follow
 #define ISO8825_BER_TAG_HIGH_FORM_NUMBER_MASK   (0x7F) ///< BER high tag number form: next 7 bits of tag number
 
-// Length encoding (see ISO 8825-1:2003, 8.1.3)
+// Length encoding (see ISO 8825-1:2021, 8.1.3)
 #define ISO8825_BER_LEN_INDEFINITE_FORM         (0x80) ///< BER indefinite length form value
 #define ISO8825_BER_LEN_LONG_FORM               (0x80) ///< BER definite long length form bit; for length values > 127
 #define ISO8825_BER_LEN_LONG_FORM_COUNT_MASK    (0x7F) ///< BER definite long length form mask: number of length octets
 
-// Universal ASN.1 types
+// Universal ASN.1 types (see ISO 8824-1:2021, 8.4)
 #define ASN1_EOC                                (0x00) ///< ASN.1 End-of-content
 #define ASN1_BOOLEAN                            (0x01) ///< ASN.1 Boolean type
 #define ASN1_INTEGER                            (0x02) ///< ASN.1 Integer type
@@ -66,37 +66,47 @@ __BEGIN_DECLS
 #define ASN1_EMBEDDED_PDV                       (0x0B) ///< ASN.1 Embedded PDV type
 #define ASN1_UTF8STRING                         (0x0C) ///< ASN.1 UTF-8 string type
 #define ASN1_RELATIVE_OBJECT_IDENTIFIER         (0x0D) ///< ASN.1 Relative object identifier type
+#define ASN1_TIME                               (0x0E) ///< ASN.1 Time type
 #define ASN1_SEQUENCE                           (0x10) ///< ASN.1 Sequence and Sequence-of types
 #define ASN1_SET                                (0x11) ///< ASN.1 Set and Set-of types
 #define ASN1_NUMERICSTRING                      (0x12) ///< ASN.1 Numeric string type
 #define ASN1_PRINTABLESTRING                    (0x13) ///< ASN.1 Printable string type
-#define ASN1_T61STRING                          (0x14) ///< ASN.1 T61 / Teletex string type
+#define ASN1_TELETEXSTRING                      (0x14) ///< ASN.1 Teletex (T61) string type
 #define ASN1_VIDEOTEXSTRING                     (0x15) ///< ASN.1 Videotex string type
 #define ASN1_IA5STRING                          (0x16) ///< ASN.1 IA5 (ISO 646) string type
 #define ASN1_UTCTIME                            (0x17) ///< ASN.1 UTC time type
-#define ASN1_GENERALIZEDTIME                    (0x18) ///< ASN.1 Generalised time type
+#define ASN1_GENERALIZEDTIME                    (0x18) ///< ASN.1 Generalized time type
 #define ASN1_GRAPHICSTRING                      (0x19) ///< ASN.1 Graphic string type
-#define ASN1_ISO646STRING                       (0x1A) ///< ASN.1 ISO 646 string type
+#define ASN1_VISIBLESTRING                      (0x1A) ///< ASN.1 Visible (ISO 646) string type
 #define ASN1_GENERALSTRING                      (0x1B) ///< ASN.1 General string type
 #define ASN1_UNIVERSALSTRING                    (0x1C) ///< ASN.1 Universal string type
+#define ASN1_CHARACTERSTRING                    (0x1D) ///< ASN.1 Unrestricted character string type
 #define ASN1_BMPSTRING                          (0x1E) ///< ASN.1 Basic Multilingual Plane (BMP) string type
+#define ASN1_DATE                               (0x1F) ///< ASN.1 Date type
+#define ASN1_TIME_OF_DAY                        (0x20) ///< ASN.1 Time-of-day type
+#define ASN1_DATE_TIME                          (0x21) ///< ASN.1 Date-Time type
+#define ASN1_DURATION                           (0x22) ///< ASN.1 Duration type
+#define ASN1_OID_IRI                            (0x23) ///< ASN.1 Object Identifier (OID) Internationalized Resource Identifier (IRI)
+#define ASN1_RELATIVE_OID_IRI                   (0x24) ///< ASN.1 Relative Object Identifier (OID) Internationalized Resource Identifier (IRI)
 
-// ASN.1 object identifier top-level authorities (see ISO 8824-1:2003, Annex D)
+// ASN.1 object identifier top-level authorities (see ISO 9834-1:2012, Annex A.2)
 #define ASN1_OID_ITU_T                          (0) ///< ASN.1 ITU-T
 #define ASN1_OID_ISO                            (1) ///< ASN.1 ISO
 #define ASN1_OID_JOINT                          (2) ///< Joint ISO/IEC and ITU-T
 
-// ASN.1 object identifier arcs for ITU-T
+// ASN.1 object identifier arcs for ITU-T (see ISO 9834-1:2012, Annex A.3)
 #define ASN1_OID_ITU_T_RECOMMENDED              (0) ///< ASN.1 ITU-T arc for ITU-T and CCITT recommendations
 #define ASN1_OID_ITU_T_QUESTION                 (1) ///< ASN.1 ITU-T arc for ITU-T Study Groups
 #define ASN1_OID_ITU_T_ADMINISTRATION           (2) ///< ASN.1 ITU-T arc for ITU-T X.121 Data Country Codes (DCCs)
 #define ASN1_OID_ITU_T_NETWORK_OPERATOR         (3) ///< ASN.1 ITU-T arc for ITU-T X.121 Data Network Identification Code (DNICs)
 #define ASN1_OID_ITU_T_IDENTIFIED_ORG           (4) ///< ASN.1 ITU-T arc for ITU-T Telecommunication Standardization Bureau (TSB) identified organisations
+#define ASN1_OID_ITU_R_RECOMMENDATION           (5) ///< ASN.1 ITU-T arc for ITU-R Recommendations
 
-// ASN.1 object identifier arcs for ISO
+// ASN.1 object identifier arcs for ISO (see ISO 9834-1:2012, Annex A.4)
 #define ASN1_OID_ISO_STANDARD                   (0) ///< ASN.1 ISO arc for ISO standards
-#define ASN1_OID_ISO_MEMBER_BODY                (1) ///< ASN.1 ISO arc for ISO National Bodies
-#define ASN1_OID_ISO_IDENTIFIED_ORG             (2) ///< ASN.1 ISO arc for ISO identified organisations (ISO 6523)
+#define ASN1_OID_ISO_REGISTRATION_AUTHORITY     (1) ///< ASN.1 ISO arc for ISO standards for operation of a Registration Authority
+#define ASN1_OID_ISO_MEMBER_BODY                (2) ///< ASN.1 ISO arc for ISO National Bodies
+#define ASN1_OID_ISO_IDENTIFIED_ORG             (3) ///< ASN.1 ISO arc for ISO identified organisations (ISO 6523)
 
 // ASN.1 object identifier arcs for Joint ISO/IEC and ITU-T directory services (interesting ones only)
 #define ASN1_OID_JOINT_DS                       (5) ///< ASN.1 joint-iso-itu-t directory services
