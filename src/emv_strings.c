@@ -25,6 +25,7 @@
 #include "emv_fields.h"
 #include "isocodes_lookup.h"
 #include "mcc_lookup.h"
+#include "iso8825_strings.h"
 #include "iso7816_apdu.h"
 #include "iso7816_strings.h"
 
@@ -1242,9 +1243,32 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
-		default:
+		default: {
+			// If it is not a known EMV field, attempt to decode it as an
+			// ASN.1 field
+			struct iso8825_tlv_info_t iso8825_info;
+			r = iso8825_tlv_get_info(
+				&tlv->ber,
+				&iso8825_info,
+				value_str,
+				value_str_len
+			);
+			if (iso8825_info.tag_name) {
+				// Known ASN.1 field
+				info->tag_name = iso8825_info.tag_name;
+
+				// Even if known field, value parsing may still have failed
+				info->format = EMV_FORMAT_B;
+				return r;
+			}
+
+			// Unknown field
 			info->format = EMV_FORMAT_B;
+			if (value_str && value_str_len) {
+				value_str[0] = 0; // Default to empty value string
+			}
 			return 1;
+		}
 	}
 }
 
