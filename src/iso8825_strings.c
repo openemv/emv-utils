@@ -220,6 +220,35 @@ static int iso8825_asn1_real_get_string(
 	return 1;
 }
 
+static int iso8825_asn1_value_get_8bit_string(
+	const struct iso8825_tlv_t* tlv,
+	char* str,
+	size_t str_len
+)
+{
+	if (!tlv || !tlv->value) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (str_len < tlv->length + 1) {
+		// Insufficient space in string buffer; truncate instead of
+		// providing incomplete string
+		str[0] = 0;
+		return 0;
+	}
+
+	// NOTE: This implementation intentionally does not distinguish between the
+	// different 8-bit encodings supported by the various ASN.1 string types.
+	strncpy(str, (const char*)tlv->value, tlv->length);
+	str[tlv->length] = 0;
+	return 0;
+}
+
 int iso8825_tlv_get_info(
 	const struct iso8825_tlv_t* tlv,
 	struct iso8825_tlv_info_t* info,
@@ -279,7 +308,7 @@ int iso8825_tlv_get_info(
 
 		case ASN1_OBJECT_DESCRIPTOR:
 			info->tag_name = "ASN.1 Object descriptor";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_EXTERNAL:
 			info->tag_name = "ASN.1 External";
@@ -300,7 +329,7 @@ int iso8825_tlv_get_info(
 
 		case ASN1_UTF8STRING:
 			info->tag_name = "ASN.1 UTF-8 string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_RELATIVE_OBJECT_IDENTIFIER:
 			info->tag_name = "ASN.1 Relative object identifier";
@@ -308,7 +337,7 @@ int iso8825_tlv_get_info(
 
 		case ASN1_TIME:
 			info->tag_name = "ASN.1 Time";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_SEQUENCE:
 			info->tag_name = "ASN.1 Sequence";
@@ -320,79 +349,86 @@ int iso8825_tlv_get_info(
 
 		case ASN1_NUMERICSTRING:
 			info->tag_name = "ASN.1 Numeric string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_PRINTABLESTRING:
 			info->tag_name = "ASN.1 Printable string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_TELETEXSTRING:
 			info->tag_name = "ASN.1 Teletex (T61) string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_VIDEOTEXSTRING:
 			info->tag_name = "ASN.1 Videotex string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_IA5STRING:
 			info->tag_name = "ASN.1 IA5 (ISO 646) string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_UTCTIME:
 			info->tag_name = "ASN.1 UTC time";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_GENERALIZEDTIME:
 			info->tag_name = "ASN.1 Generalized time";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_GRAPHICSTRING:
 			info->tag_name = "ASN.1 Graphic string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_VISIBLESTRING:
 			info->tag_name = "ASN.1 Visible (ISO 646) string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_GENERALSTRING:
 			info->tag_name = "ASN.1 General string";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_UNIVERSALSTRING:
 			info->tag_name = "ASN.1 Universal string";
+			// Uses 4-octet canonical form (UTF-32) of ISO 10646
+			// See ISO 8825-1:2021, 8.23.7
 			return 0;
 
 		case ASN1_CHARACTERSTRING:
 			info->tag_name = "ASN.1 Unrestricted character string";
+			// Constructed type that provides the syntax identification as well
+			// as the character string value(s)
+			// See ISO 8824-1:2021, 44.5
 			return 0;
 
 		case ASN1_BMPSTRING:
 			info->tag_name = "ASN.1 Basic Multilingual Plane (BMP) string";
+			// Uses 2-octet canonical form (UTF-16) of ISO 10646
+			// See ISO 8825-1:2021, 8.23.8
 			return 0;
 
 		case ASN1_DATE:
 			info->tag_name = "ASN.1 Date";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_TIME_OF_DAY:
 			info->tag_name = "ASN.1 Time-of-day";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_DATE_TIME:
 			info->tag_name = "ASN.1 Date-Time";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_DURATION:
 			info->tag_name = "ASN.1 Duration";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_OID_IRI:
 			info->tag_name = "ASN.1 Object Identifier (OID) Internationalized Resource Identifier (IRI)";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		case ASN1_RELATIVE_OID_IRI:
 			info->tag_name = "ASN.1 Relative Object Identifier (OID) Internationalized Resource Identifier (IRI)";
-			return 0;
+			return iso8825_asn1_value_get_8bit_string(tlv, value_str, value_str_len);
 
 		default:
 			return 1;

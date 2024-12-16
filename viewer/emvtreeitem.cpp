@@ -47,7 +47,7 @@ static QString buildSimpleFieldString(
 	const std::uint8_t* value = nullptr
 );
 static QString buildDecodedFieldString(
-	unsigned int tag,
+	const struct iso8825_tlv_t* tlv,
 	const struct emv_tlv_info_t& info,
 	const QByteArray& valueStr
 );
@@ -171,7 +171,7 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv, bool decode)
 		m_tagDescription = info.tag_desc;
 	}
 	m_constructed = iso8825_ber_is_constructed(tlv);
-	m_decodedFieldStr = buildDecodedFieldString(tlv->tag, info, valueStr);
+	m_decodedFieldStr = buildDecodedFieldString(tlv, info, valueStr);
 
 	if (m_constructed) {
 		// Add field length but omit raw value bytes from field strings for
@@ -254,17 +254,18 @@ static QString buildSimpleFieldString(
 }
 
 static QString buildDecodedFieldString(
-	unsigned int tag,
+	const struct iso8825_tlv_t* tlv,
 	const struct emv_tlv_info_t& info,
 	const QByteArray& valueStr
 )
 {
 	if (info.tag_name) {
-		QString fieldStr = QString::asprintf("%02X | %s", tag, info.tag_name);;
+		QString fieldStr = QString::asprintf("%02X | %s", tlv->tag, info.tag_name);;
 		if (!valueStrIsList(valueStr) && valueStr[0]) {
 			if (info.format == EMV_FORMAT_A ||
 				info.format == EMV_FORMAT_AN ||
-				info.format == EMV_FORMAT_ANS
+				info.format == EMV_FORMAT_ANS ||
+				iso8825_ber_is_string(tlv)
 			) {
 				fieldStr += QStringLiteral(" : \"") +
 					valueStr.constData() +
@@ -276,7 +277,7 @@ static QString buildDecodedFieldString(
 		return fieldStr;
 
 	} else {
-		return QString::asprintf("%02X", tag);
+		return QString::asprintf("%02X", tlv->tag);
 	}
 }
 

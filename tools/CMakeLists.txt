@@ -815,11 +815,11 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 
 	add_test(NAME emv_decode_asn1_test
-		COMMAND emv-decode --tlv 30400101000101FF0203FFFFFF02037FFFFF05000900090140090141090142090143090380FC01090580FE5555550908032B312E30652D330A03FFFFFE0A037FFFFE
+		COMMAND emv-decode --tlv 30470101000101FF0203FFFFFF02037FFFFF05000900090140090141090142090143090380FC01090580FE5555550908032B312E30652D330A03FFFFFE0A037FFFFE1A054A6F6E6573
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_asn1_test_regex
-		"^30 \\| ASN.1 Sequence : \\[64\\][\r\n]"
+		"^30 \\| ASN.1 Sequence : \\[71\\][\r\n]"
 		"  01 \\| ASN.1 Boolean : \\[1\\] 00 \\(False\\)[\r\n]"
 		"  01 \\| ASN.1 Boolean : \\[1\\] FF \\(True\\)[\r\n]"
 		"  02 \\| ASN.1 Integer : \\[3\\] FF FF FF \\(-1\\)[\r\n]"
@@ -834,7 +834,8 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"  09 \\| ASN.1 Real : \\[5\\] 80 FE 55 55 55 \\(0x555555 x 2\\^-2\\)[\r\n]"
 		"  09 \\| ASN.1 Real : \\[8\\] 03 2B 31 2E 30 65 2D 33 \\(\\+1\\.0e-3\\)[\r\n]"
 		"  0A \\| ASN.1 Enumerated : \\[3\\] FF FF FE \\(-2\\)[\r\n]"
-		"  0A \\| ASN.1 Enumerated : \\[3\\] 7F FF FE \\(8388606\\)[\r\n]$"
+		"  0A \\| ASN.1 Enumerated : \\[3\\] 7F FF FE \\(8388606\\)[\r\n]"
+		"  1A \\| ASN.1 Visible \\(ISO 646\\) string : \\[5\\] 4A 6F 6E 65 73 \"Jones\"[\r\n]$" # See ISO 8825-1:2021, 8.23.5.4
 	)
 	set_tests_properties(emv_decode_asn1_test
 		PROPERTIES

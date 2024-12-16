@@ -26,6 +26,7 @@
 #include "iso7816_strings.h"
 
 #include "iso8825_ber.h"
+#include "iso8825_strings.h"
 
 #include "emv_tlv.h"
 #include "emv_dol.h"
@@ -592,7 +593,8 @@ static int print_emv_buf_internal(
 				// Use quotes for strings and parentheses for everything else
 				if (info.format == EMV_FORMAT_A ||
 					info.format == EMV_FORMAT_AN ||
-					info.format == EMV_FORMAT_ANS
+					info.format == EMV_FORMAT_ANS ||
+					iso8825_ber_is_string(&tlv)
 				) {
 					printf(" \"%s\"\n", value_str);
 				} else {
@@ -728,7 +730,8 @@ static void print_emv_tlv_internal(
 			// Use quotes for strings and parentheses for everything else
 			if (info.format == EMV_FORMAT_A ||
 				info.format == EMV_FORMAT_AN ||
-				info.format == EMV_FORMAT_ANS
+				info.format == EMV_FORMAT_ANS ||
+				iso8825_ber_is_string(&tlv->ber)
 			) {
 				printf(" \"%s\"\n", value_str);
 			} else {
