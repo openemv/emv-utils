@@ -36,6 +36,7 @@ __BEGIN_DECLS
  */
 struct iso8825_tlv_info_t {
 	const char* tag_name;       ///< Tag name, if available. Otherwise NULL.
+	const char* tag_desc;       ///< Tag description, if available. Otherwise NULL.
 };
 
 /**

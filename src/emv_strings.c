@@ -1256,6 +1256,7 @@ int emv_tlv_get_info(
 			if (iso8825_info.tag_name) {
 				// Known ASN.1 field
 				info->tag_name = iso8825_info.tag_name;
+				info->tag_desc = iso8825_info.tag_desc;
 
 				// Even if known field, value parsing may still have failed
 				info->format = EMV_FORMAT_B;
