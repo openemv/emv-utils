@@ -193,7 +193,7 @@ int iso8825_ber_itr_init(const void* ptr, size_t len, struct iso8825_ber_itr_t* 
 int iso8825_ber_itr_next(struct iso8825_ber_itr_t* itr, struct iso8825_tlv_t* tlv);
 
 /**
- * Decode BER object identifier
+ * Decode BER object identifier (OID)
  * @param ptr BER encoded object identifer
  * @param len Length of BER encoded object identifer in bytes
  * @param oid Decoded OID output

@@ -279,31 +279,15 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
 {
 	const uint8_t* buf = ptr;
 
-	memset(oid, 0, sizeof(*oid));
-
 	if (!ptr || !oid || !len) {
 		return -1;
 	}
+	memset(oid, 0, sizeof(*oid));
 
 	if (len >= sizeof(oid->value)) {
 		// OID too long
 		return -2;
 	}
-
-	// See ISO 8825-1:2021, 8.19.4
-	if (buf[0] < 40) { // ITU-T
-		oid->value[0] = ASN1_OID_ITU_T;
-		oid->value[1] = buf[0];
-	} else if (buf[0] < 80) { // ISO
-		oid->value[0] = ASN1_OID_ISO;
-		oid->value[1] = buf[0] - 40;
-	} else { // joint-iso-itu-t
-		oid->value[0] = ASN1_OID_JOINT;
-		oid->value[1] = buf[0] - 80;
-	}
-	oid->length = 2;
-	++buf;
-	--len;
 
 	// See ISO 8825-1:2021, 8.19
 	while (len && oid->length < sizeof(oid->value)) {
@@ -327,8 +311,32 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
 		}
 
 		// Store subidentifier
-		oid->value[oid->length] = subid;
-		++oid->length;
+		if (oid->length == 0) {
+			// First subidentifier is derived from the first two identifier
+			// components
+			// See ISO 8825-1:2021, 8.19.4
+			if (subid < 40) { // ITU-T
+				oid->value[0] = ASN1_OID_ITU_T;
+				oid->value[1] = subid;
+			} else if (subid < 80) { // ISO
+				oid->value[0] = ASN1_OID_ISO;
+				oid->value[1] = subid - 40;
+			} else { // joint-iso-itu-t
+				oid->value[0] = ASN1_OID_JOINT;
+				oid->value[1] = subid - 80;
+			}
+			oid->length = 2;
+		} else {
+			// Other subidentifier
+			oid->value[oid->length] = subid;
+			++oid->length;
+		}
+	}
+
+	// Confirm that entire OID was decoded
+	if (len) {
+		// OID too long
+		return -3;
 	}
 
 	return 0;
