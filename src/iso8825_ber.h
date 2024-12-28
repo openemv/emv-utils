@@ -184,6 +184,12 @@ struct iso8825_oid_t {
 	uint32_t value[10];         ///< List of component values
 };
 
+/// ASN.1 RELATIVE-OID
+struct iso8825_rel_oid_t {
+	unsigned int length;        ///< Number of component values (arc length)
+	uint32_t value[10];         ///< List of component values
+};
+
 /**
  * Decode BER tag octets
  * @param ptr BER encoded data
@@ -251,6 +257,15 @@ int iso8825_ber_itr_next(struct iso8825_ber_itr_t* itr, struct iso8825_tlv_t* tl
  * @return Zero for success. Less than zero for error.
  */
 int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oid);
+
+/**
+ * Decode BER relative object identifier (RELATIVE-OID)
+ * @param ptr BER encoded object identifer
+ * @param len Length of BER encoded object identifer in bytes
+ * @param rel_oid Decoded RELATIVE-OID output
+ * @return Zero for success. Less than zero for error.
+ */
+int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_oid_t* rel_oid);
 
 __END_DECLS
 

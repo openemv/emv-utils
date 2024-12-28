@@ -341,3 +341,52 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
 
 	return 0;
 }
+
+int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_oid_t* rel_oid)
+{
+	const uint8_t* buf = ptr;
+
+	if (!ptr || !rel_oid || !len) {
+		return -1;
+	}
+	memset(rel_oid, 0, sizeof(*rel_oid));
+
+	if (len > sizeof(rel_oid->value)) {
+		// RELATIVE-OID too long
+		return -2;
+	}
+
+	// See ISO 8825-1:2021, 8.20
+	while (len && rel_oid->length < sizeof(rel_oid->value)) {
+		uint32_t subid = 0;
+
+		// Decode multibyte subidentifier
+		while (len) {
+			// Determine whether it is the last octet of the subidentifier
+			// See ISO 8825-1:2021, 8.20.2
+			bool last_octet = !(*buf & 0x80); // TODO: use define
+
+			// Extract the next 7 bits of the subidentifier
+			// See ISO 8825-1:2021, 8.20.2
+			subid <<= 7;
+			subid |= *buf & 0x7f; // TODO: use define
+			++buf;
+			--len;
+
+			if (last_octet)
+				break;
+		}
+
+		// Store subidentifier
+		rel_oid->value[rel_oid->length] = subid;
+		++rel_oid->length;
+	}
+
+	// Confirm that entire RELATIVE-OID was decoded
+	if (len) {
+		// RELATIVE-OID too long
+		return -3;
+	}
+
+	return 0;
+}

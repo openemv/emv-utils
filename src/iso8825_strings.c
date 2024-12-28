@@ -406,6 +406,49 @@ static int iso8825_asn1_oid_get_string(
 	return 0;
 }
 
+static int iso8825_asn1_rel_oid_get_string(
+	const struct iso8825_tlv_t* tlv,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct iso8825_rel_oid_t rel_oid;
+
+	if (!tlv || !tlv->value || !tlv->length) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	r = iso8825_ber_rel_oid_decode(tlv->value, tlv->length, &rel_oid);
+	if (r) {
+		return 1;
+	}
+
+	for (unsigned int i = 0; i < rel_oid.length; ++i) {
+		r = snprintf(str, str_len, ".%u", rel_oid.value[i]);
+		if (r < 0) {
+			// Unknown error
+			str[0] = 0;
+			return -3;
+		}
+		if (r >= str_len) {
+			// Insufficient space in string buffer; truncate instead of
+			// providing incomplete numeric RELATIVE-OID
+			str[0] = 0;
+			return 0;
+		}
+		str += r;
+		str_len -= r;
+	}
+
+	return 0;
+}
+
 int iso8825_tlv_get_info(
 	const struct iso8825_tlv_t* tlv,
 	struct iso8825_tlv_info_t* info,
@@ -545,7 +588,7 @@ int iso8825_tlv_get_info(
 				"identify a series of arcs relative to known object "
 				"identifier in the International Object Identifier tree, as "
 				"specified by the ITU-T X.660 / ISO 9834 series.";
-			return 0;
+			return iso8825_asn1_rel_oid_get_string(tlv, value_str, value_str_len);
 
 		case ASN1_TIME:
 			info->tag_name = "ASN.1 Time";
