@@ -113,6 +113,57 @@ __BEGIN_DECLS
 #define ASN1_OID_JOINT_DS_ATTR_TYPE             (4) ///< ASN.1 joint-iso-itu-t directory services attribyte type
 #define ASN1_OID_JOINT_DS_OBJ_CLASS             (6) ///< ASN.1 joint-iso-itu-t directory services object class
 
+// ASN.1 object identifiers provided by ISO 9797
+#define ASN1_OID_cbcmac { 1, 0, 9797, 1, 3, 1 } ///< ASN.1 OID for ISO 9797-1:2011 MAC Algorithm 1, also known as CBC-MAC
+#define ASN1_OID_retailmac { 1, 0, 9797, 1, 3, 3 } ///< ASN.1 OID for ISO 9797-1:2011 MAC Algorithm 3, also known as ANSI X9.19 Retail MAC
+#define ASN1_OID_cmac { 1, 0, 9797, 1, 3, 5 } ///< ASN.1 OID for ISO 9797-1:2011 MAC Algorithm 5, also known as CMAC
+#define ASN1_OID_hmac { 1, 0, 9797, 2, 2 } ///< ASN.1 OID for ISO 9797-2:2011 MAC Algorithm 2, also known as HMAC
+
+// ASN.1 object identifiers provided by ANSI X9.62 / X9.142
+#define ASN1_OID_ecPublicKey { 1, 2, 840, 10045, 2, 1 } ///< ASN.1 OID for ANSI X9.62 Elliptic curve public key
+#define ASN1_OID_prime256v1 { 1, 2, 840, 10045, 3, 1, 7 } ///< ASN.1 OID for ANSI X9.62 Elliptic curve prime256v1 / secp256r1 / NIST P-256
+
+// ASN.1 object identifiers provided by PKCS#1 v2.2 (RFC 8017) and PKCS#9 v2.0 (RFC 2985)
+#define ASN1_OID_rsaEncryption { 1, 2, 840, 113549, 1, 1, 1 } ///< ASN.1 OID for PKCS#1 v2.2 RSA
+#define ASN1_OID_sha1WithRSAEncryption { 1, 2, 840, 113549, 1, 1, 5 } ///< ASN.1 OID for PKCS#1 v2.2 SHA1 with RSA
+#define ASN1_OID_sha256WithRSAEncryption { 1, 2, 840, 113549, 1, 1, 11 } ///< ASN.1 OID for PKCS#1 v2.2 SHA256 with RSA
+#define ASN1_OID_emailAddress { 1, 2, 840, 113549, 1, 9, 1 } ///< ASN.1 OID for PKCS#9 v2.0 email address
+
+// ASN.1 object identifiers provided by ANSI X9.24-3:2017, 6.1.2
+#define ASN1_OID_dukpt_aes128 { 1, 3, 133, 16, 840, 9, 24, 1, 1 } ///< ASN.1 OID for ANSI X9.24-3:2017 AES-128 transaction key
+#define ASN1_OID_dukpt_aes192 { 1, 3, 133, 16, 840, 9, 24, 1, 2 } ///< ASN.1 OID for ANSI 2X9.24-3:2017 AES-192 transaction key
+#define ASN1_OID_dukpt_aes256 { 1, 3, 133, 16, 840, 9, 24, 1, 3 } ///< ASN.1 OID for ANSI X9.24-3:2017 AES-256 transaction key
+#define ASN1_OID_dukpt_tdes2 { 1, 3, 133, 16, 840, 9, 24, 1, 4 } ///< ASN.1 OID for ANSI X9.24-3:2017 TDES2 transaction key
+#define ASN1_OID_dukpt_tdes3 { 1, 3, 133, 16, 840, 9, 24, 1, 5 } ///< ASN.1 OID for ANSI X9.24-3:2017 TDES3 transaction key
+
+// ASN.1 object identifiers provided by Rec. ITU-T X.520 Annex A
+#define ASN1_OID_commonName { 2, 5, 4, 3 } ///< ASN.1 OID for ITU-T X.520 commonName
+#define ASN1_OID_surname { 2, 5, 4, 4 } ///< ASN.1 OID for ITU-T X.520 surname
+#define ASN1_OID_serialNumber { 2, 5, 4, 5 } ///< ASN.1 OID for ITU-T X.520 serialNumber
+#define ASN1_OID_countryName { 2, 5, 4, 6 } ///< ASN.1 OID for ITU-T X.520 countryName
+#define ASN1_OID_localityName { 2, 5, 4, 7 } ///< ASN.1 OID for ITU-T X.520 localityName
+#define ASN1_OID_stateOrProvinceName { 2, 5, 4, 8 } ///< ASN.1 OID for ITU-T X.520 stateOrProvinceName
+#define ASN1_OID_streetAddress { 2, 5, 4, 9 } ///< ASN.1 OID for ITU-T X.520 streetAddress
+#define ASN1_OID_organizationName { 2, 5, 4, 10 } ///< ASN.1 OID for ITU-T X.520 organizationName
+#define ASN1_OID_organizationalUnitName { 2, 5, 4, 11 } ///< ASN.1 OID for ITU-T X.520 organizationalUnitName
+#define ASN1_OID_title { 2, 5, 4, 12 } ///< ASN.1 OID for ITU-T X.520 title
+#define ASN1_OID_description { 2, 5, 4, 13 } ///< ASN.1 OID for ITU-T X.520 description
+#define ASN1_OID_postalAddress { 2, 5, 4, 16 } ///< ASN.1 OID for ITU-T X.520 postalAddress
+#define ASN1_OID_postalCode { 2, 5, 4, 17 } ///< ASN.1 OID for ITU-T X.520 postalCode
+#define ASN1_OID_postOfficeBox { 2, 5, 4, 18 } ///< ASN.1 OID for ITU-T X.520 postOfficeBox
+#define ASN1_OID_telephoneNumber { 2, 5, 4, 20 } ///< ASN.1 OID for ITU-T X.520 telephoneNumber
+#define ASN1_OID_name { 2, 5, 4, 41 } ///< ASN.1 OID for ITU-T X.520 name
+#define ASN1_OID_givenName { 2, 5, 4, 42 } ///< ASN.1 OID for ITU-T X.520 givenName
+#define ASN1_OID_initials { 2, 5, 4, 43 } ///< ASN.1 OID for ITU-T X.520 initials
+#define ASN1_OID_uniqueIdentifier { 2, 5, 4, 45 } ///< ASN.1 OID for ITU-T X.520 uniqueIdentifier
+#define ASN1_OID_url { 2, 5, 4, 87 } ///< ASN.1 OID for ITU-T X.520 url
+
+/// Macro used to compute ASN.1 OID arc length by name
+#define ASN1_OID_ARC_LEN(name) (sizeof((uint32_t[])ASN1_OID_##name) / sizeof((uint32_t[])ASN1_OID_##name[0]))
+
+/// Macro used to create initializer list for @ref iso8825_oid_t
+#define ASN1_OID(name) { ASN1_OID_ARC_LEN(name), ASN1_OID_##name }
+
 /// ISO 8825 TLV field
 struct iso8825_tlv_t {
 	unsigned int tag;                           ///< BER encoded tag, including class, primitive/structured bit, and tag number
@@ -129,8 +180,8 @@ struct iso8825_ber_itr_t {
 
 /// ASN.1 OID
 struct iso8825_oid_t {
-	uint32_t value[10];
-	unsigned int length;
+	unsigned int length;        ///< Number of component values (arc length)
+	uint32_t value[10];         ///< List of component values
 };
 
 /**

@@ -249,6 +249,163 @@ static int iso8825_asn1_value_get_8bit_string(
 	return 0;
 }
 
+struct iso8825_oid_name_t {
+	struct iso8825_oid_t oid;
+	const char* name;
+};
+#define ASN1_OID_NAME(name) { ASN1_OID(name), #name }
+
+static const struct iso8825_oid_name_t oid_list[] = {
+	// ISO 9797
+	ASN1_OID_NAME(cbcmac), // 1.0.9797.1.3.1
+	ASN1_OID_NAME(retailmac), // 1.0.9797.1.3.3
+	ASN1_OID_NAME(cmac), // 1.0.9797.1.3.5
+	ASN1_OID_NAME(hmac), // 1.0.9797.2.2
+
+	// ANSI X9.62 / X9.142
+	ASN1_OID_NAME(ecPublicKey), // 1.2.840.10045.2.1
+	ASN1_OID_NAME(prime256v1), // 1.2.840.10045.3.1.7
+
+	// PKCS#1 v2.2 and PKCS#9 v2.0
+	ASN1_OID_NAME(rsaEncryption), // 1.2.840.113549.1.1.1
+	ASN1_OID_NAME(sha1WithRSAEncryption), // 1.2.840.113549.1.1.5
+	ASN1_OID_NAME(sha256WithRSAEncryption), // 1.2.840.113549.1.1.11
+	ASN1_OID_NAME(emailAddress), // 1.2.840.113549.1.9.1
+
+	// ANSI X9.24
+	ASN1_OID_NAME(dukpt_aes128), // 1.3.133.16.840.9.24.1.1
+	ASN1_OID_NAME(dukpt_aes192), // 1.3.133.16.840.9.24.1.2
+	ASN1_OID_NAME(dukpt_aes256), // 1.3.133.16.840.9.24.1.3
+	ASN1_OID_NAME(dukpt_tdes2), // 1.3.133.16.840.9.24.1.4
+	ASN1_OID_NAME(dukpt_tdes3), // 1.3.133.16.840.9.24.1.5
+
+	// ITU-T X.520
+	ASN1_OID_NAME(commonName), // 2.5.4.3
+	ASN1_OID_NAME(surname), // 2.5.4.4
+	ASN1_OID_NAME(serialNumber), // 2.5.4.5
+	ASN1_OID_NAME(countryName), // 2.5.4.6
+	ASN1_OID_NAME(localityName), // 2.5.4.7
+	ASN1_OID_NAME(stateOrProvinceName), // 2.5.4.8
+	ASN1_OID_NAME(streetAddress), // 2.5.4.
+	ASN1_OID_NAME(organizationName), // 2.5.4.10
+	ASN1_OID_NAME(organizationalUnitName), // 2.5.4.11
+	ASN1_OID_NAME(title), // 2.5.4.12
+	ASN1_OID_NAME(description), // 2.5.4.13
+	ASN1_OID_NAME(postalAddress), // 2.5.4.16
+	ASN1_OID_NAME(postalCode), // 2.5.4.17
+	ASN1_OID_NAME(postOfficeBox), // 2.5.4.18
+	ASN1_OID_NAME(telephoneNumber), // 2.5.4.20
+	ASN1_OID_NAME(name), // 2.5.4.41
+	ASN1_OID_NAME(givenName), // 2.5.4.42
+	ASN1_OID_NAME(initials), // 2.5.4.43
+	ASN1_OID_NAME(uniqueIdentifier), // 2.5.4.45
+	ASN1_OID_NAME(url), // 2.5.4.87
+};
+
+static int iso8825_oid_get_name(
+	const struct iso8825_oid_t* oid,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+
+	if (!oid || !oid->length) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+	str[0] = 0;
+
+	for (size_t i = 0; i < sizeof(oid_list) / sizeof(oid_list[0]); ++i) {
+		if (oid->length == oid_list[i].oid.length &&
+			memcmp(
+				oid->value,
+				oid_list[i].oid.value,
+				oid_list[i].oid.length * sizeof(oid_list[i].oid.value[0])
+			) == 0
+		) {
+			r = snprintf(str, str_len, "%s", oid_list[i].name);
+			if (r < 0) {
+				// Unknown error
+				str[0] = 0;
+				return -2;
+			}
+			if (r >= str_len) {
+				// Insufficient space in string buffer; truncate instead of
+				// providing incomplete alphanumeric identifier
+				str[0] = 0;
+				return 0;
+			}
+
+			// Return number of characters written
+			return r;
+		}
+	}
+
+	// OID name not found
+	return 0;
+}
+
+static int iso8825_asn1_oid_get_string(
+	const struct iso8825_tlv_t* tlv,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct iso8825_oid_t oid;
+
+	if (!tlv || !tlv->value || !tlv->length) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	r = iso8825_ber_oid_decode(tlv->value, tlv->length, &oid);
+	if (r) {
+		return 1;
+	}
+
+	for (unsigned int i = 0; i < oid.length; ++i) {
+		r = snprintf(str, str_len, "%s%u", i ? ".": "", oid.value[i]);
+		if (r < 0) {
+			// Unknown error
+			str[0] = 0;
+			return -2;
+		}
+		if (r >= str_len) {
+			// Insufficient space in string buffer; truncate instead of
+			// providing incomplete numeric OID
+			str[0] = 0;
+			return 0;
+		}
+		str += r;
+		str_len -= r;
+	}
+
+	if (str_len > 10) { // Assume that OID names would need at least 8 chars
+		r = iso8825_oid_get_name(&oid, str + 1, str_len - 1);
+		if (r < 0) {
+			// Unknown error; terminate at current position
+			*str = 0;
+			return -3;
+		}
+		if (r > 0) {
+			// OID name found; add preceding space
+			*str = ' ';
+		}
+	}
+
+	return 0;
+}
+
 int iso8825_tlv_get_info(
 	const struct iso8825_tlv_t* tlv,
 	struct iso8825_tlv_info_t* info,
@@ -331,7 +488,7 @@ int iso8825_tlv_get_info(
 				"identify a series of arcs leading from the root to a node of "
 				"the International Object Identifier tree, as specified by "
 				"the ITU-T X.660 / ISO 9834 series.";
-			return 0;
+			return iso8825_asn1_oid_get_string(tlv, value_str, value_str_len);
 
 		case ASN1_OBJECT_DESCRIPTOR:
 			info->tag_name = "ASN.1 Object descriptor";
