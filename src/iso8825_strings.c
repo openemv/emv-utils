@@ -2,7 +2,7 @@
  * @file iso8825_strings.c
  * @brief ISO/IEC 8825 string helper functions
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -350,6 +350,56 @@ static int iso8825_oid_get_name(
 	return 0;
 }
 
+static int iso8825_oid_get_string(
+	const struct iso8825_oid_t* oid,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+
+	if (!oid || !oid->length) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	for (unsigned int i = 0; i < oid->length; ++i) {
+		r = snprintf(str, str_len, "%s%u", i ? ".": "", oid->value[i]);
+		if (r < 0) {
+			// Unknown error
+			str[0] = 0;
+			return -2;
+		}
+		if (r >= str_len) {
+			// Insufficient space in string buffer; truncate instead of
+			// providing incomplete numeric OID
+			str[0] = 0;
+			return 0;
+		}
+		str += r;
+		str_len -= r;
+	}
+
+	if (str_len > 10) { // Assume that OID names would need at least 8 chars
+		r = iso8825_oid_get_name(oid, str + 1, str_len - 1);
+		if (r < 0) {
+			// Unknown error; terminate at current position
+			*str = 0;
+			return -3;
+		}
+		if (r > 0) {
+			// OID name found; add preceding space
+			*str = ' ';
+		}
+	}
+
+	return 0;
+}
+
 static int iso8825_asn1_oid_get_string(
 	const struct iso8825_tlv_t* tlv,
 	char* str,
@@ -373,37 +423,7 @@ static int iso8825_asn1_oid_get_string(
 		return 1;
 	}
 
-	for (unsigned int i = 0; i < oid.length; ++i) {
-		r = snprintf(str, str_len, "%s%u", i ? ".": "", oid.value[i]);
-		if (r < 0) {
-			// Unknown error
-			str[0] = 0;
-			return -2;
-		}
-		if (r >= str_len) {
-			// Insufficient space in string buffer; truncate instead of
-			// providing incomplete numeric OID
-			str[0] = 0;
-			return 0;
-		}
-		str += r;
-		str_len -= r;
-	}
-
-	if (str_len > 10) { // Assume that OID names would need at least 8 chars
-		r = iso8825_oid_get_name(&oid, str + 1, str_len - 1);
-		if (r < 0) {
-			// Unknown error; terminate at current position
-			*str = 0;
-			return -3;
-		}
-		if (r > 0) {
-			// OID name found; add preceding space
-			*str = ' ';
-		}
-	}
-
-	return 0;
+	return iso8825_oid_get_string(&oid, str, str_len);
 }
 
 static int iso8825_asn1_rel_oid_get_string(
@@ -445,6 +465,64 @@ static int iso8825_asn1_rel_oid_get_string(
 		str += r;
 		str_len -= r;
 	}
+
+	return 0;
+}
+
+static int iso8825_asn1_value_sequence_get_string(
+	const struct iso8825_tlv_t* tlv,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct iso8825_oid_t oid;
+	size_t oid_str_len;
+
+	if (!tlv || !tlv->value || !tlv->length) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+	if (str_len < 20) {
+		// Assume that object description would need at least 19 chars
+		return 0;
+	}
+
+	// Attempt to decode sequence field as ASN.1 object
+	r = iso8825_ber_asn1_object_decode(tlv, &oid);
+	if (r < 0) {
+		// Decoding error
+		return -2;
+	}
+	if (r == 0) {
+		// Not an ASN.1 object; nothing further to do
+		return 0;
+	}
+	r = iso8825_oid_get_string(&oid, str, str_len);
+	if (r) {
+		// Unknown error
+		str[0] = 0;
+		return -3;
+	}
+	oid_str_len = strlen(str);
+
+	// Build ASN.1 object value string
+	static const char prefix[] = "ASN.1 Object (";
+	const size_t prefix_len = strlen(prefix);
+	if (str_len < oid_str_len + prefix_len + 1 + 1) { // + ")" + NULL
+		// Insufficient space in string buffer; truncate instead of providing
+		// incomplete value string
+		str[0] = 0;
+		return 0;
+	}
+	memmove(str + prefix_len, str, oid_str_len + 1); // Move NULL as well
+	memcpy(str, prefix, prefix_len);
+	str[prefix_len + oid_str_len] = ')';
+	str[prefix_len + oid_str_len + 1] = 0;
 
 	return 0;
 }
@@ -601,7 +679,7 @@ int iso8825_tlv_get_info(
 				"Constructed value consisting of an ordered list of component "
 				"values of the types listed in the ASN.1 definition of the "
 				"sequence type.";
-			return 0;
+			return iso8825_asn1_value_sequence_get_string(tlv, value_str, value_str_len);
 
 		case ASN1_SET:
 			info->tag_name = "ASN.1 Set";

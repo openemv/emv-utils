@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -814,11 +814,12 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_padding_test4_regex}
 	)
 
-	add_test(NAME emv_decode_asn1_test
+	# Test decoding of various ASN.1 types
+	add_test(NAME emv_decode_asn1_test1
 		COMMAND emv-decode --tlv 305D0101000101FF0203FFFFFF02037FFFFF0500060388370306092A864886F70D01010B0900090140090141090142090143090380FC01090580FE5555550908032B312E30652D330A03FFFFFE0A037FFFFE0D04C27B03021A054A6F6E6573
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
-	string(CONCAT emv_decode_asn1_test_regex
+	string(CONCAT emv_decode_asn1_test1_regex
 		"^30 \\| ASN.1 Sequence : \\[93\\][\r\n]"
 		"  01 \\| ASN.1 Boolean : \\[1\\] 00 \\(False\\)[\r\n]"
 		"  01 \\| ASN.1 Boolean : \\[1\\] FF \\(True\\)[\r\n]"
@@ -840,9 +841,45 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"  0D \\| ASN.1 Relative object identifier : \\[4\\] C2 7B 03 02 \\(\\.8571\\.3\\.2\\)[\r\n]" # See ISO 8825-1:2021, 8.20.5
 		"  1A \\| ASN.1 Visible \\(ISO 646\\) string : \\[5\\] 4A 6F 6E 65 73 \"Jones\"[\r\n]$" # See ISO 8825-1:2021, 8.23.5.4
 	)
-	set_tests_properties(emv_decode_asn1_test
+	set_tests_properties(emv_decode_asn1_test1
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION ${emv_decode_asn1_test_regex}
+			PASS_REGULAR_EXPRESSION ${emv_decode_asn1_test1_regex}
+	)
+
+	# Test decoding of ASN.1 objects as BER
+	add_test(NAME emv_decode_asn1_test2
+		COMMAND emv-decode --ber 301206035504030C0B6F70656E656D762E6F7267300D06092A864886F70D01010B0500
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_asn1_test2_regex
+		"^30 : \\[18\\][\r\n]"
+		"  06 : \\[3\\] 55 04 03 {2 5 4 3}[\r\n]"
+		"  0C : \\[11\\] 6F 70 65 6E 65 6D 76 2E 6F 72 67 \"openemv\\.org\"[\r\n]"
+		"30 : \\[13\\][\r\n]"
+		"  06 : \\[9\\] 2A 86 48 86 F7 0D 01 01 0B {1 2 840 113549 1 1 11}[\r\n]"
+		"  05 : \\[0\\][\r\n]$"
+	)
+	set_tests_properties(emv_decode_asn1_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_asn1_test2_regex}
+	)
+
+	# Test fancy decoding of ASN.1 objects
+	add_test(NAME emv_decode_asn1_test3
+		COMMAND emv-decode --tlv 301206035504030C0B6F70656E656D762E6F7267300D06092A864886F70D01010B0500
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_asn1_test3_regex
+		"^30 \\| ASN.1 Object \\(2\\.5\\.4\\.3 commonName\\) : \\[18\\][\r\n]"
+		"  06 \\| ASN.1 Object Identifier \\(OID\\) : \\[3\\] 55 04 03 \\(2\\.5\\.4\\.3 commonName\\)[\r\n]"
+		"  0C \\| ASN.1 UTF-8 string : \\[11\\] 6F 70 65 6E 65 6D 76 2E 6F 72 67 \"openemv\\.org\"[\r\n]"
+		"30 \\| ASN.1 Object \\(1\\.2\\.840\\.113549\\.1\\.1\\.11 sha256WithRSAEncryption\\) : \\[13\\][\r\n]"
+		"  06 \\| ASN.1 Object Identifier \\(OID\\) : \\[9\\] 2A 86 48 86 F7 0D 01 01 0B \\(1\\.2\\.840\\.113549\\.1\\.1\\.11 sha256WithRSAEncryption\\)[\r\n]"
+		"  05 \\| ASN.1 Null : \\[0\\][\r\n]$"
+	)
+	set_tests_properties(emv_decode_asn1_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_asn1_test3_regex}
 	)
 
 	if(WIN32)

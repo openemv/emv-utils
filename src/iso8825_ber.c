@@ -3,7 +3,7 @@
  * @brief Basic Encoding Rules (BER) implementation
  *        (see ISO/IEC 8825-1:2021 or Rec. ITU-T X.690 02/2021)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -389,4 +389,78 @@ int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_o
 	}
 
 	return 0;
+}
+
+int iso8825_ber_asn1_object_decode(
+	const struct iso8825_tlv_t* tlv,
+	struct iso8825_oid_t* oid
+)
+{
+	int r;
+	struct iso8825_tlv_t oid_tlv;
+	struct iso8825_tlv_t other_tlv;
+	unsigned int offset;
+
+	if (!tlv || !tlv->length || !tlv->value) {
+		return -1;
+	}
+
+	if (tlv->tag != (ISO8825_BER_CONSTRUCTED | ASN1_SEQUENCE)) {
+		// Type is not a constructed sequence field
+		return 0;
+	}
+	if (tlv->length < 6) { // OID TLV of 4 bytes + other TLV of 2 bytes
+		// Length too short to contain OID subfield and another subfield
+		return 0;
+	}
+	if (tlv->value[0] != ASN1_OBJECT_IDENTIFIER) {
+		// First subfield is not an OID
+		return 0;
+	}
+
+	// Decode first subfield
+	r = iso8825_ber_decode(tlv->value, tlv->length, &oid_tlv);
+	if (r < 0) {
+		// BER decoding error
+		return -2;
+	}
+	if (r > tlv->length) {
+		// Unknown BER decoding anomaly
+		return -3;
+	}
+	if (oid_tlv.tag != ASN1_OBJECT_IDENTIFIER) {
+		// First subfield is not an OID
+		return 0;
+	}
+	if (r == tlv->length) {
+		// Constructed field only contains single subfield
+		return 0;
+	}
+	// Remember offset of second field
+	offset = r;
+
+	// Decode second subfield
+	r = iso8825_ber_decode(tlv->value + r, tlv->length, &other_tlv);
+	if (r < 0) {
+		// BER decoding error
+		return -4;
+	}
+	if (r > tlv->length) {
+		// Unknown BER decoding anomaly
+		return -5;
+	}
+	if (r == 0) {
+		// No second subfield
+		return 0;
+	}
+
+	if (oid) {
+		r = iso8825_ber_oid_decode(oid_tlv.value, oid_tlv.length, oid);
+		if (r) {
+			// OID decoding error
+			return -6;
+		}
+	}
+
+	return offset;
 }

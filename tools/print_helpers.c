@@ -2,7 +2,7 @@
  * @file print_helpers.c
  * @brief Helper functions for command line output
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -532,7 +532,11 @@ static int print_emv_buf_internal(
 			printf("%s", prefix ? prefix : "");
 		}
 
-		if (info.tag_name) {
+		if (iso8825_ber_is_constructed(&tlv) && value_str[0]) {
+			// Assume that a constructed field with a value string is an object
+			// of some kind
+			printf("%02X | %s : [%u]", tlv.tag, value_str, tlv.length);
+		} else if (info.tag_name) {
 			printf("%02X | %s : [%u]", tlv.tag, info.tag_name, tlv.length);
 		} else {
 			printf("%02X : [%u]", tlv.tag, tlv.length);

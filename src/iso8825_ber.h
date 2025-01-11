@@ -3,7 +3,7 @@
  * @brief Basic Encoding Rules (BER) implementation
  *        (see ISO/IEC 8825-1:2021 or Rec. ITU-T X.690 02/2021)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -266,6 +266,26 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
  * @return Zero for success. Less than zero for error.
  */
 int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_oid_t* rel_oid);
+
+/**
+ * Decode TLV field as ASN.1 object and provide decoded object identifier (OID).
+ *
+ * This implementation considers a TLV field to be an ASN.1 object when:
+ * - BER tag class is @ref ISO8825_BER_CLASS_UNIVERSAL
+ * - BER tag number is @ref ASN1_SEQUENCE
+ * - BER field is constructed (@ref ISO8825_BER_CONSTRUCTED)
+ * - BER field contains more than one subfield
+ * - BER tag of first subfield is @ref ASN1_OBJECT_IDENTIFIER
+ *
+ * @param tlv Decoded TLV structure
+ * @param oid Decoded OID output. NULL to ignore.
+ * @return Less than zero for error. Greater than zero for offset of first
+ *         field after OID in ASN.1 object. Zero if not ASN.1 object.
+ */
+int iso8825_ber_asn1_object_decode(
+	const struct iso8825_tlv_t* tlv,
+	struct iso8825_oid_t* oid
+);
 
 __END_DECLS
 
