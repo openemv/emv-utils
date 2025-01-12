@@ -871,10 +871,8 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 	string(CONCAT emv_decode_asn1_test3_regex
 		"^30 \\| ASN.1 Object \\(2\\.5\\.4\\.3 commonName\\) : \\[18\\][\r\n]"
-		"  06 \\| ASN.1 Object Identifier \\(OID\\) : \\[3\\] 55 04 03 \\(2\\.5\\.4\\.3 commonName\\)[\r\n]"
 		"  0C \\| ASN.1 UTF-8 string : \\[11\\] 6F 70 65 6E 65 6D 76 2E 6F 72 67 \"openemv\\.org\"[\r\n]"
 		"30 \\| ASN.1 Object \\(1\\.2\\.840\\.113549\\.1\\.1\\.11 sha256WithRSAEncryption\\) : \\[13\\][\r\n]"
-		"  06 \\| ASN.1 Object Identifier \\(OID\\) : \\[9\\] 2A 86 48 86 F7 0D 01 01 0B \\(1\\.2\\.840\\.113549\\.1\\.1\\.11 sha256WithRSAEncryption\\)[\r\n]"
 		"  05 \\| ASN.1 Null : \\[0\\][\r\n]$"
 	)
 	set_tests_properties(emv_decode_asn1_test3
