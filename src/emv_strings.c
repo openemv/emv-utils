@@ -2,7 +2,7 @@
  * @file emv_strings.c
  * @brief EMV string helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -1117,8 +1117,55 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
 
-		case EMV_TAG_9F66_TTQ:
-			if (tlv->length == 4) {
+		case 0x9F63: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F63_PUNATC_TRACK1 && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 2 defines 9F63 as PUNATC(Track1) with a length of
+				// 6 bytes
+				info->tag_name = "PUNATC(Track1)";
+				info->tag_desc =
+					"Indicates to the Kernel the positions in the "
+					"discretionary data field of Track 1 Data where the "
+					"Unpredictable Number (Numeric) digits and Application "
+					"Transaction Counter (ATC) digits have to be copied.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == VISA_TAG_9F63_OFFLINE_COUNTER_INITIAL_VALUE && // Helps IDE find this case statement
+				tlv->length == 1
+			) {
+				// Kernel 3 (VCPS) defines 9F63 as Offline Counter Initial
+				// Value with a length of 1 byte
+				info->tag_name = "Offline Counter Initial Value";
+				info->tag_desc =
+					"Contains the initial value of the Consecutive "
+					"Transaction Counter International (CTCI).";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == UNIONPAY_TAG_9F63_PRODUCT_IDENTIFICATION_INFORMATION && // Helps IDE find this case statement
+				tlv->length == 16
+			) {
+				// Kernel 7 defines 9F63 as Product Identification Information
+				// without specifying the length or description, but unverified
+				// internet sources indicate the length to be 16 bytes
+				info->tag_name = "Product Identification Information";
+				info->tag_desc = info->tag_name;
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F66: // Used for different purposes by different kernels
+			if (tlv->tag == EMV_TAG_9F66_TTQ && // Helps IDE find this case statement
+				tlv->length == 4
+			) {
 				// Entry Point kernel as well as kernel 3, 6 and 7 define 9F66
 				// as TTQ with a length of 4 bytes
 				info->tag_name = "Terminal Transaction Qualifiers (TTQ)";
@@ -1129,6 +1176,55 @@ int emv_tlv_get_info(
 					"for different purposes.";
 				info->format = EMV_FORMAT_B;
 				return emv_ttq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			if (tlv->tag == MASTERCARD_TAG_9F66_PUNATC_TRACK2 && // Helps IDE find this case statement
+				tlv->length == 2
+			) {
+				// Kernel 2 defines 9F66 as PUNATC(Track2) with a length of
+				// 2 bytes
+				info->tag_name = "PUNATC(Track2)";
+				info->tag_desc =
+					"Indicates to the Kernel the positions in the "
+					"discretionary data field of Track 2 Data where the "
+					"Unpredictable Number (Numeric) digits and Application "
+					"Transaction Counter (ATC) digits have to be copied.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F6B: // Used for different purposes by different kernels
+			if (tlv->tag == VISA_TAG_9F6B_CARD_CVM_LIMIT && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 3 (VCPS) defines 9F6B as Card CVM Limit with a length
+				// of 6 bytes
+				info->tag_name = "Card CVM Limit";
+				info->tag_desc =
+					"Visa proprietary data element indicating that for "
+					"domestic contactless transactions where this value is "
+					"exceeded, a CVM is required by the card.";
+				info->format = EMV_FORMAT_N;
+				return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
+			}
+
+			if (tlv->tag == MASTERCARD_TAG_9F6B_TRACK2_DATA && // Helps IDE find this case statement
+				tlv->length > 6 && tlv->length <= 19
+			) {
+				// Kernel 2 defines 9F6B as Track 2 Data with a length of up to
+				// 19 bytes. Assume that it is more than 6 bytes because it
+				// would be unreasonable for track2 to be shorter than that.
+				info->tag_name = "Track 2 Data";
+				info->tag_desc =
+					"Contains the data objects of the track 2 according to "
+					"ISO/IEC 7813, excluding start sentinel, end sentinel and "
+					"Longitudinal Redundancy Check (LRC)";
+				info->format = EMV_FORMAT_VAR;
+				return emv_track2_equivalent_data_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
 			// Same as default case
@@ -1143,8 +1239,23 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return emv_ctq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
-		case AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES:
-			if (tlv->length == 1) {
+		case 0x9F6D: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F6D_MAG_APPLICATION_VERSION_NUMBER && // Helps IDE find this case statement
+				tlv->length == 2
+			) {
+				// Kernel 2 defines 9F6D as Mag-stripe Application Version
+				// Number (Reader) with a length of 2 bytes
+				info->tag_name = "Mag-stripe Application Version Number (Reader)";
+				info->tag_desc =
+					"Version number assigned by the payment system for the "
+					"specific Mag-stripe Mode functionality of the Kernel.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES &&
+				tlv->length == 1
+			) {
 				// Kernel 4 defines 9F6D as Contactless Reader Capabilities
 				// with a length of 1 byte
 				info->tag_name = "Contactless Reader Capabilities";

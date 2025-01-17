@@ -5,7 +5,7 @@
  * @remark See EMV 4.4 Book 3, Annex A
  * @remark See ISO 7816-4:2005, 5.2.4
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -403,15 +403,43 @@ __BEGIN_DECLS
 /// EMV tag 9F4E Merchant Name and Location
 #define EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION                 (0x9F4E)
 
+/// Mastercard tag 9F63 PUNATC(Track1). Template 70.
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.127
+#define MASTERCARD_TAG_9F63_PUNATC_TRACK1                       (0x9F63)
+
+/// Visa tag 9F63 Offline Counter Initial Value
+/// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define VISA_TAG_9F63_OFFLINE_COUNTER_INITIAL_VALUE             (0x9F63)
+
+/// UnionPay tag 9F63 Product Identification Information
+/// @remark See EMV Contactless Book C-7 v2.11, Annex C
+#define UNIONPAY_TAG_9F63_PRODUCT_IDENTIFICATION_INFORMATION    (0x9F63)
+
 /// EMV tag 9F66 Terminal Transaction Qualifiers (TTQ)
 /// @remark See EMV Contactless Book A v2.10, 5.7, Table 5-4
 #define EMV_TAG_9F66_TTQ                                        (0x9F66)
+
+/// Mastercard tag 9F66 PUNATC(Track2). Template 70.
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.128
+#define MASTERCARD_TAG_9F66_PUNATC_TRACK2                       (0x9F66)
+
+/// Mastercard tag 9F6B Track 2 Data. Template 70.
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.169
+#define MASTERCARD_TAG_9F6B_TRACK2_DATA                         (0x9F6B)
+
+/// Visa tag 9F6B Card CVM Limit
+/// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+#define VISA_TAG_9F6B_CARD_CVM_LIMIT                            (0x9F6B)
 
 /// EMV tag 9F6C Card Transaction Qualifiers (CTQ)
 /// @remark See EMV Contactless Book C-3 v2.10, Annex A.2
 /// @remark See EMV Contactless Book C-7 v2.9, Annex A
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define EMV_TAG_9F6C_CTQ                                        (0x9F6C)
+
+/// Mastercard tag 9F6D Mag-stripe Application Version Number (Reader)
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.91
+#define MASTERCARD_TAG_9F6D_MAG_APPLICATION_VERSION_NUMBER      (0x9F6D)
 
 /// Amex tag 9F6D Contactless Reader Capabilities
 /// @remark See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
