@@ -5122,8 +5122,8 @@ int emv_ctq_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Card Transaction Qualifiers (field 9F6C) byte 1
-	// See EMV Contactless Book C-3 v2.10, Annex A.2
-	// See EMV Contactless Book C-7 v2.9, Annex A
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-7 v2.11, Annex A
 	if (ctq[0] & EMV_CTQ_ONLINE_PIN_REQUIRED) {
 		emv_str_list_add(&itr, "Online PIN Required");
 	}
@@ -5151,8 +5151,8 @@ int emv_ctq_get_string_list(
 	}
 
 	// Card Transaction Qualifiers (field 9F6C) byte 2
-	// See EMV Contactless Book C-3 v2.10, Annex A.2
-	// See EMV Contactless Book C-7 v2.9, Annex A
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-7 v2.11, Annex A
 	if (ctq[1] & EMV_CTQ_CDCVM_PERFORMED) {
 		emv_str_list_add(&itr, "Consumer Device CVM Performed");
 	}

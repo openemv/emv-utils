@@ -432,8 +432,8 @@ __BEGIN_DECLS
 #define VISA_TAG_9F6B_CARD_CVM_LIMIT                            (0x9F6B)
 
 /// EMV tag 9F6C Card Transaction Qualifiers (CTQ)
-/// @remark See EMV Contactless Book C-3 v2.10, Annex A.2
-/// @remark See EMV Contactless Book C-7 v2.9, Annex A
+/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+/// @remark See EMV Contactless Book C-7 v2.11, Annex A
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define EMV_TAG_9F6C_CTQ                                        (0x9F6C)
 

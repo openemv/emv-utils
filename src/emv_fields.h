@@ -667,8 +667,8 @@ enum emv_iad_format_t {
 #define EMV_TTQ_BYTE4_RFU                                       (0x7F) ///< Terminal Transaction Qualifiers: RFU
 
 // Card Transaction Qualifiers (field 9F6C) byte 1
-// See EMV Contactless Book C-3 v2.10, Annex A.2
-// See EMV Contactless Book C-7 v2.9, Annex A
+// See EMV Contactless Book C-3 v2.11, Annex A.2
+// See EMV Contactless Book C-7 v2.11, Annex A
 // See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define EMV_CTQ_ONLINE_PIN_REQUIRED                             (0x80) ///< Card Transaction Qualifiers: Online PIN Required
 #define EMV_CTQ_SIGNATURE_REQUIRED                              (0x40) ///< Card Transaction Qualifiers: Signature Required
@@ -680,8 +680,8 @@ enum emv_iad_format_t {
 #define EMV_CTQ_ATM_NOT_VALID                                   (0x01) ///< Card Transaction Qualifiers: Not valid for contactless ATM transactions
 
 // Card Transaction Qualifiers (field 9F6C) byte 2
-// See EMV Contactless Book C-3 v2.10, Annex A.2
-// See EMV Contactless Book C-7 v2.9, Annex A
+// See EMV Contactless Book C-3 v2.11, Annex A.2
+// See EMV Contactless Book C-7 v2.11, Annex A
 #define EMV_CTQ_CDCVM_PERFORMED                                 (0x80) ///< Card Transaction Qualifiers: Consumer Device CVM Performed
 #define EMV_CTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED              (0x40) ///< Card Transaction Qualifiers: Card supports Issuer Update Processing at the POS
 #define EMV_CTQ_BYTE2_RFU                                       (0x3F) ///< Card Transaction Qualifiers: RFU
