@@ -442,7 +442,7 @@ __BEGIN_DECLS
 #define MASTERCARD_TAG_9F6D_MAG_APPLICATION_VERSION_NUMBER      (0x9F6D)
 
 /// Amex tag 9F6D Contactless Reader Capabilities
-/// @remark See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
+/// @remark See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
 #define AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES           (0x9F6D)
 
 /// Mastercard tag 9F6E Third Party Data. Template BF0C or 70.

@@ -5178,7 +5178,7 @@ int emv_amex_cl_reader_caps_get_string(
 	}
 
 	// Amex Contactless Reader Capabilities (field 9F6D)
-	// See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
+	// See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
 	switch (cl_reader_caps & AMEX_CL_READER_CAPS_MASK) {
 		case AMEX_CL_READER_CAPS_DEPRECATED:
 			strncpy(str, "Deprecated", str_len - 1);
@@ -5186,27 +5186,27 @@ int emv_amex_cl_reader_caps_get_string(
 			return 0;
 
 		case AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED:
-			strncpy(str, "Mag-stripe CVM Not Required", str_len - 1);
+			strncpy(str, "Contactless Mag-stripe CVM Not Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED:
-			strncpy(str, "Mag-stripe CVM Required", str_len - 1);
+			strncpy(str, "Contactless Mag-stripe CVM Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED:
-			strncpy(str, "Deprecated - EMV and Mag-stripe", str_len - 1);
+			strncpy(str, "Deprecated - Contactless EMV and Mag-stripe", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED:
-			strncpy(str, "EMV and Mag-stripe CVM Not Required", str_len - 1);
+			strncpy(str, "Contactless EMV and Mag-stripe CVM Not Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED:
-			strncpy(str, "EMV and Mag-stripe CVM Required", str_len - 1);
+			strncpy(str, "Contactless EMV and Mag-stripe CVM Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 

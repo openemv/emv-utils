@@ -687,14 +687,14 @@ enum emv_iad_format_t {
 #define EMV_CTQ_BYTE2_RFU                                       (0x3F) ///< Card Transaction Qualifiers: RFU
 
 // Amex Contactless Reader Capabilities (field 9F6D)
-// See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
+// See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
 #define AMEX_CL_READER_CAPS_MASK                                (0xC8) ///< Contactless Reader Capabilities mask to distinguish from Terminal Type bits
 #define AMEX_CL_READER_CAPS_DEPRECATED                          (0x00) ///< Contactless Reader Capabilities: Deprecated
-#define AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED          (0x40) ///< Contactless Reader Capabilities: Mag-stripe CVM Not Required
-#define AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED              (0x48) ///< Contactless Reader Capabilities: Mag-stripe CVM Required
-#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED            (0x80) ///< Contactless Reader Capabilities: Deprecated - EMV and Mag-stripe
-#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED          (0xC0) ///< Contactless Reader Capabilities: EMV and Mag-stripe CVM Not Required
-#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED              (0xC8) ///< Contactless Reader Capabilities: EMV and Mag-stripe CVM Required
+#define AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED          (0x40) ///< Contactless Reader Capabilities: Contactless Mag-stripe CVM Not Required
+#define AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED              (0x48) ///< Contactless Reader Capabilities: Contactless Mag-stripe CVM Required
+#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED            (0x80) ///< Contactless Reader Capabilities: Deprecated - Contactless EMV and Mag-stripe
+#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED          (0xC0) ///< Contactless Reader Capabilities: Contactless EMV and Mag-stripe CVM Not Required
+#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED              (0xC8) ///< Contactless Reader Capabilities: Contactless EMV and Mag-stripe CVM Required
 
 // Visa Form Factor Indicator (field 9F6E) byte 1
 // See EMV Contactless Book C-3 v2.10, Annex A.2
