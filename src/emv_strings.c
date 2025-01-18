@@ -4976,7 +4976,7 @@ int emv_ttq_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 1
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
 	if (ttq[0] & EMV_TTQ_MAGSTRIPE_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Mag-stripe mode supported");
 	} else {
@@ -5017,7 +5017,8 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 2
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
 	if (ttq[1] & EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED) {
 		emv_str_list_add(&itr, "Online cryptogram required");
 	} else {
@@ -5033,13 +5034,26 @@ int emv_ttq_get_string_list(
 	} else {
 		emv_str_list_add(&itr, "(Contact Chip) Offline PIN not supported");
 	}
+	if (ttq[1] & EMV_TTQ_FAST_MODE_SUPPORTED) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Fast Mode supported");
+	}
+	if (ttq[1] & EMV_TTQ_TRANSIT_TERMINAL) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Transit terminal");
+	}
 	if (ttq[1] & EMV_TTQ_BYTE2_RFU) {
 		emv_str_list_add(&itr, "RFU");
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 3
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-	// See EMV Contactless Book C-6 v2.6, Annex D.11
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+	// See EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16 (NOTE: for byte 3 bit 4)
 	if (ttq[2] & EMV_TTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED) {
 		emv_str_list_add(&itr, "Issuer Update Processing supported");
 	} else {
@@ -5050,10 +5064,16 @@ int emv_ttq_get_string_list(
 	} else {
 		emv_str_list_add(&itr, "Consumer Device CVM not supported");
 	}
+	if (ttq[2] & EMV_TTQ_CDCVM_FOR_TRANSIT_MCC_SUPPORTED) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Consumer Device CVM for transit MCC supported");
+	}
 	if (ttq[2] & EMV_TTQ_CDCVM_REQUIRED) {
-		// NOTE: Only EMV Contactless Book C-6 v2.6, Annex D.11 defines this
-		// bit and it avoids confusion for other kernels if no string is
-		// provided when this bit is unset
+		// NOTE: Only EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
 		emv_str_list_add(&itr, "Consumer Device CVM required");
 	}
 	if (ttq[2] & EMV_TTQ_BYTE3_RFU) {
@@ -5061,10 +5081,10 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 4
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-	// See EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1
 	if (ttq[3] & EMV_TTQ_FDDA_V1_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1 does not
+		// NOTE: EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1 does not
 		// specify a string when this bit is not set and it avoids confusion
 		// for other kernels if no string is provided when this bit is unset
 		emv_str_list_add(&itr, "fDDA v1.0 Supported");

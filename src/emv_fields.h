@@ -2,7 +2,7 @@
  * @file emv_fields.h
  * @brief EMV field definitions and helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -628,9 +628,9 @@ enum emv_iad_format_t {
 #define EMV_TRMD_BYTE4_RFU                                      (0x3F) ///< Terminal Risk Management Data: RFU
 
 // Terminal Transaction Qualifiers (field 9F66) byte 1
-// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-// See EMV Contactless Book C-3 v2.10, Annex A.2
-// See EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1 (NOTE: byte 1 bit 7 is defined for proprietary use and ignored below)
+// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+// See EMV Contactless Book C-3 v2.11, Annex A.2
+// See EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1 (NOTE: byte 1 bit 7 is defined for proprietary use and ignored below)
 #define EMV_TTQ_MAGSTRIPE_MODE_SUPPORTED                        (0x80) ///< Terminal Transaction Qualifiers: Mag-stripe mode supported
 #define EMV_TTQ_BYTE1_RFU                                       (0x40) ///< Terminal Transaction Qualifiers: RFU
 #define EMV_TTQ_EMV_MODE_SUPPORTED                              (0x20) ///< Terminal Transaction Qualifiers: EMV mode supported
@@ -641,23 +641,28 @@ enum emv_iad_format_t {
 #define EMV_TTQ_ODA_FOR_ONLINE_AUTH_SUPPORTED                   (0x01) ///< Terminal Transaction Qualifiers: Offline Data Authentication for Online Authorizations supported
 
 // Terminal Transaction Qualifiers (field 9F66) byte 2
-// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
 #define EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED                      (0x80) ///< Terminal Transaction Qualifiers: Online cryptogram required
 #define EMV_TTQ_CVM_REQUIRED                                    (0x40) ///< Terminal Transaction Qualifiers: CVM required
 #define EMV_TTQ_OFFLINE_PIN_SUPPORTED                           (0x20) ///< Terminal Transaction Qualifiers: (Contact Chip) Offline PIN supported
-#define EMV_TTQ_BYTE2_RFU                                       (0x1F) ///< Terminal Transaction Qualifiers: RFU
+#define EMV_TTQ_FAST_MODE_SUPPORTED                             (0x08) ///< Terminal Transaction Qualifiers: Fast Mode Supported
+#define EMV_TTQ_TRANSIT_TERMINAL                                (0x04) ///< Terminal Transaction Qualifiers: Transit Terminal
+#define EMV_TTQ_BYTE2_RFU                                       (0x13) ///< Terminal Transaction Qualifiers: RFU
 
 // Terminal Transaction Qualifiers (field 9F66) byte 3
-// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-// See EMV Contactless Book C-6 v2.6, Annex D.11
+// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+// See EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16 (NOTE: for byte 3 bit 4)
 #define EMV_TTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED              (0x80) ///< Terminal Transaction Qualifiers: Issuer Update Processing supported
 #define EMV_TTQ_CDCVM_SUPPORTED                                 (0x40) ///< Terminal Transaction Qualifiers: Consumer Device CVM supported
+#define EMV_TTQ_CDCVM_FOR_TRANSIT_MCC_SUPPORTED                 (0x20) ///< Terminal Transaction Qualifiers: Consumer Device CVM for transit MCC supported
 #define EMV_TTQ_CDCVM_REQUIRED                                  (0x08) ///< Terminal Transaction Qualifiers: Consumer Device CVM required
 #define EMV_TTQ_BYTE3_RFU                                       (0x37) ///< Terminal Transaction Qualifiers: RFU
 
 // Terminal Transaction Qualifiers (field 9F66) byte 4
-// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-// See EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1
+// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+// See EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1
 #define EMV_TTQ_FDDA_V1_SUPPORTED                               (0x80) ///< Terminal Transaction Qualifiers: fDDA v1.0 Supported
 #define EMV_TTQ_BYTE4_RFU                                       (0x7F) ///< Terminal Transaction Qualifiers: RFU
 

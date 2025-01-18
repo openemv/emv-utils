@@ -416,7 +416,7 @@ __BEGIN_DECLS
 #define UNIONPAY_TAG_9F63_PRODUCT_IDENTIFICATION_INFORMATION    (0x9F63)
 
 /// EMV tag 9F66 Terminal Transaction Qualifiers (TTQ)
-/// @remark See EMV Contactless Book A v2.10, 5.7, Table 5-4
+/// @remark See EMV Contactless Book A v2.11, 5.7, Table 5-4
 #define EMV_TAG_9F66_TTQ                                        (0x9F66)
 
 /// Mastercard tag 9F66 PUNATC(Track2). Template 70.
