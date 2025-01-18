@@ -456,7 +456,7 @@ __BEGIN_DECLS
 #define VISA_TAG_9F6E_FORM_FACTOR_INDICATOR                     (0x9F6E)
 
 /// Amex tag 9F6E Enhanced Contactless Reader Capabilities
-/// @remark See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+/// @remark See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 #define AMEX_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES  (0x9F6E)
 
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.

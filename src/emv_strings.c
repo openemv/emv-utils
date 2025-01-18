@@ -5598,7 +5598,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_CONTACT_SUPPORTED) {
 		emv_str_list_add(&itr, "Contact mode supported");
 	}
@@ -5622,7 +5622,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[1] & AMEX_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED) {
 		emv_str_list_add(&itr, "Mobile CVM supported");
 	}
@@ -5640,7 +5640,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[2] & AMEX_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER) {
 		emv_str_list_add(&itr, "Reader is offline only");
 	}
@@ -5652,7 +5652,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM) {
 		emv_str_list_add(&itr, "Terminal exempt from No CVM checks");
 	}
@@ -5668,7 +5668,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	switch (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_MASK) {
 		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_22_23: emv_str_list_add(&itr, "C-4 kernel version 2.2 - 2.3"); break;
 		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26: emv_str_list_add(&itr, "C-4 kernel version 2.4 - 2.6"); break;
-		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7"); break;
+		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7 or later"); break;
 		default: emv_str_list_add(&itr, "C-4 kernel version unknown"); break;
 	}
 

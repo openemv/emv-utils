@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -459,7 +459,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"  - Online PIN supported[\r\n]"
 		"  - Plaintext Offline PIN supported[\r\n]"
 		"  - CVM Required[\r\n]"
-		"  - C-4 kernel version 2.7[\r\n]"
+		"  - C-4 kernel version 2.7 or later[\r\n]"
 	)
 	set_tests_properties(emv_decode_9F6E_test4
 		PROPERTIES
