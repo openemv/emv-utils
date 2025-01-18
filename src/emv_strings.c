@@ -1291,7 +1291,7 @@ int emv_tlv_get_info(
 					"The Third Party data object may be used to carry "
 					"specific product information to be optionally used by "
 					"the terminal in processing transactions.";
-				info->format = EMV_FORMAT_B;
+				info->format = EMV_FORMAT_VAR;
 				return emv_mastercard_third_party_data_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
@@ -5307,8 +5307,8 @@ int emv_mastercard_third_party_data_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Mastercard Third Party Data (field 9F6E)
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.171
-	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 12
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.165
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 14
 	tpd_ptr = tpd;
 
 	// First two byte are the ISO 3166-1 numeric country code
@@ -5385,13 +5385,13 @@ int emv_mastercard_third_party_data_get_string_list(
 	}
 
 	// Decode Mastercard Product Extension
-	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 13
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 15
 	if (is_product_extension) {
 		// Extract Product Identifier
 		uint16_t product_identifier = (tpd_ptr[0] << 8) + tpd_ptr[1];
 		if (product_identifier == 0x0001) {
 			// Product Extension for Fleet Cards
-			// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 14
+			// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 16
 			emv_str_list_add(&itr, "Product Identifier: Fleet Card");
 
 			// Product Extension for Fleet Cards has length 8
@@ -5440,7 +5440,7 @@ int emv_mastercard_third_party_data_get_string_list(
 
 		if (product_identifier == 0x0002) {
 			// Product Extension for Transit
-			// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 15
+			// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 17
 			emv_str_list_add(&itr, "Product Identifier: Transit");
 
 			// Product Extension for Transit has length 5

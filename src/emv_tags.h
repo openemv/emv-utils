@@ -446,8 +446,8 @@ __BEGIN_DECLS
 #define AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES           (0x9F6D)
 
 /// Mastercard tag 9F6E Third Party Data. Template BF0C or 70.
-/// @remark See EMV Contactless Book C-2 v2.10, Annex A.1.171
-/// @remark See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 12
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.165
+/// @remark See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 14
 #define MASTERCARD_TAG_9F6E_THIRD_PARTY_DATA                    (0x9F6E)
 
 /// Visa tag 9F6E Form Factor Indicator (FFI)
