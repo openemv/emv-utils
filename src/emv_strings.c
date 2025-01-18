@@ -2760,7 +2760,7 @@ int emv_aip_get_string_list(
 
 	// Application Interchange Profile (field 82) byte 1
 	// See EMV 4.4 Book 3, Annex C1, Table 41
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.16
 	if (aip[0] & EMV_AIP_XDA_SUPPORTED) {
 		emv_str_list_add(&itr, "Extended Data Authentication (XDA) is supported");
 	}
@@ -2787,8 +2787,8 @@ int emv_aip_get_string_list(
 	}
 
 	// Application Interchange Profile (field 82) byte 2
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
-	// See EMV Contactless Book C-3 v2.10, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.16
+	// See EMV Contactless Book C-3 v2.11, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
 	if (aip[1] & EMV_AIP_EMV_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Contactless EMV mode is supported");
 	}

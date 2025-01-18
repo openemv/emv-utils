@@ -170,7 +170,7 @@ __BEGIN_DECLS
 
 // Application Interchange Profile (field 82) byte 1
 // See EMV 4.4 Book 3, Annex C1, Table 41
-// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+// See EMV Contactless Book C-2 v2.11, Annex A.1.16
 #define EMV_AIP_XDA_SUPPORTED                                   (0x80) ///< Application Interchange Profile: Extended Data Authentication (XDA) is supported
 #define EMV_AIP_SDA_SUPPORTED                                   (0x40) ///< Application Interchange Profile: Static Data Authentication (SDA) is supported
 #define EMV_AIP_DDA_SUPPORTED                                   (0x20) ///< Application Interchange Profile: Dynamic Data Authentication (DDA) is supported
@@ -181,8 +181,8 @@ __BEGIN_DECLS
 #define EMV_AIP_CDA_SUPPORTED                                   (0x01) ///< Application Interchange Profile: Combined DDA/Application Cryptogram Generation (CDA) is supported
 
 // Application Interchange Profile (field 82) byte 2
-// See EMV Contactless Book C-2 v2.10, Annex A.1.16
-// See EMV Contactless Book C-3 v2.10, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
+// See EMV Contactless Book C-2 v2.11, Annex A.1.16
+// See EMV Contactless Book C-3 v2.11, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
 #define EMV_AIP_EMV_MODE_SUPPORTED                              (0x80) ///< Application Interchange Profile: Contactless EMV mode is supported
 #define EMV_AIP_MOBILE_PHONE                                    (0x40) ///< Application Interchange Profile: Mobile phone
 #define EMV_AIP_CONTACTLESS_TXN                                 (0x20) ///< Application Interchange Profile: Contactless transaction
