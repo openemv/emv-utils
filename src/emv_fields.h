@@ -167,6 +167,7 @@ __BEGIN_DECLS
 // See https://www.emvco.com/registered-ids/
 #define EMV_ASRPD_ECSG                                          (0x0001) ///< European Cards Stakeholders Group
 #define EMV_ASRPD_TCEA                                          (0x0003) ///< Technical Cooperation ep2 Association
+#define EMV_ASRPD_UGSI                                          (0x0005) ///< Universal Global Scientific Industrial
 
 // Application Interchange Profile (field 82) byte 1
 // See EMV 4.4 Book 3, Annex C1, Table 41

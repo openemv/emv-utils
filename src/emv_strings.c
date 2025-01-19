@@ -2774,25 +2774,56 @@ int emv_asrpd_get_string_list(
 			return 2;
 		}
 
-		asrpd_id = (asrpd[0] << 8) + asrpd[1];
-		switch (asrpd_id) {
-			case EMV_ASRPD_ECSG:
-				emv_str_list_add(&itr, "European Cards Stakeholders Group");
-				break;
-
-			case EMV_ASRPD_TCEA:
-				emv_str_list_add(&itr, "Technical Cooperation ep2 Association");
-				break;
-
-			default:
-				emv_str_list_add(&itr, "Unknown ASRPD identifier");
-		}
+		// Extract entry ID
+		asrpd_id = (((uint16_t)asrpd[0]) << 8) + asrpd[1];
 
 		// Validate entry length
 		asrpd_entry_len = 2 + 1 + asrpd[2];
 		if (asrpd_entry_len > asrpd_len) {
 			// Invalid ASRPD length
 			return 3;
+		}
+
+		// Decode ASRPD entry
+		switch (asrpd_id) {
+			case EMV_ASRPD_ECSG:
+				emv_str_list_add(&itr, "European Cards Stakeholders Group");
+				if (asrpd[2] == 0) {
+					// No data
+					break;
+				}
+				// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Application Selection Registered Proprietary Data
+				switch (asrpd[3]) {
+					case 0x01: emv_str_list_add(&itr, "Debit"); break;
+					case 0x02: emv_str_list_add(&itr, "Credit"); break;
+					case 0x03: emv_str_list_add(&itr, "Commercial"); break;
+					case 0x04: emv_str_list_add(&itr, "Prepaid"); break;
+					default: emv_str_list_add(&itr, "Unknown product type"); break;
+				}
+				break;
+
+			case EMV_ASRPD_TCEA:
+				emv_str_list_add(&itr, "Technical Cooperation ep2 Association");
+				if (asrpd[2] == 0) {
+					// No data
+					break;
+				}
+				// See Technical Cooperation ep2, March 24, 2020 (V.2.0)
+				switch (asrpd[3]) {
+					case 0x01: emv_str_list_add(&itr, "Debit"); break;
+					case 0x02: emv_str_list_add(&itr, "Credit"); break;
+					case 0x03: emv_str_list_add(&itr, "Commercial"); break;
+					case 0x04: emv_str_list_add(&itr, "Pre-paid"); break;
+					default: emv_str_list_add(&itr, "Unknown product type"); break;
+				}
+				break;
+
+			case EMV_ASRPD_UGSI:
+				emv_str_list_add(&itr, "Universal Global Scientific Industrial");
+				break;
+
+			default:
+				emv_str_list_add(&itr, "Unknown ASRPD identifier");
 		}
 
 		// Advance
