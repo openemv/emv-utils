@@ -1117,6 +1117,39 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
 
+		case 0x9F5D: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION && // Helps IDE find this case statement
+				tlv->length == 3
+			) {
+				// Kernel 2 defines 9F5D as Application Capabilities
+				// Information with a length of 3 bytes
+				info->tag_name = "Application Capabilities Information";
+				info->tag_desc =
+					"Lists a number of card features beyond regular payment.";
+				info->format = EMV_FORMAT_B;
+				return emv_mastercard_app_caps_info_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			if (tlv->tag == VISA_TAG_9F5D_AOSA && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 3 defines 9F5D as Available Offline Spending Amount
+				// (AOSA) with a length of 6 bytes
+				info->tag_name = "Available Offline Spending Amount (AOSA)";
+				info->tag_desc =
+					"Kernel 3 proprietary data element indicating the "
+					"remaining amount available to be spent offline. The AOSA "
+					"is a calculated field used to allow the reader to "
+					"provide on a receipt or display the amount of offline "
+					"spend that is available on the card.";
+				info->format = EMV_FORMAT_N;
+				return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
 		case 0x9F63: // Used for different purposes by different kernels
 			if (tlv->tag == MASTERCARD_TAG_9F63_PUNATC_TRACK1 && // Helps IDE find this case statement
 				tlv->length == 6
@@ -1340,6 +1373,38 @@ int emv_tlv_get_info(
 					"(dynamic data) around CVM";
 				info->format = EMV_FORMAT_B;
 				return emv_amex_enh_cl_reader_caps_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F7C: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F7C_MERCHANT_CUSTOM_DATA && // Helps IDE find this case statement
+				tlv->length == 20
+			) {
+				// Kernel 2 defines 9F7C as Merchant Custom Data with a length
+				// of 20 bytes
+				info->tag_name = "Merchant Custom Data";
+				info->tag_desc =
+					"Proprietary merchant data that may be requested by the "
+					"card.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == VISA_TAG_9F7C_CUSTOMER_EXCLUSIVE_DATA && // Helps IDE find this case statement
+				tlv->length <= 32
+			) {
+				// Kernel 3 defines 9F7C as Customer Exclusive Data (CED) with
+				// a length of up to 32 bytes. Note that this implementation
+				// cannot distinguish it from kernel 2's definition when the
+				// provided field has a length of 20 bytes.
+				info->tag_name = "Customer Exclusive Data (CED)";
+				info->tag_desc =
+					"Contains data for transmission to the issuer.";
+				info->format = EMV_FORMAT_VAR;
+				return 0;
 			}
 
 			// Same as default case
@@ -4945,6 +5010,127 @@ int emv_terminal_risk_management_data_get_string_list(
 		trmd[4] || trmd[5] || trmd[6] || trmd[7]
 	) {
 		emv_str_list_add(&itr, "RFU");
+	}
+
+	return 0;
+}
+
+int emv_mastercard_app_caps_info_get_string_list(
+	const uint8_t* aci,
+	size_t aci_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!aci || !aci_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (aci_len != 3) {
+		// Mastercard Application Capabilities Information (field 9F5D) must be 3 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 1
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	switch (aci[0] & MASTERCARD_ACI_VERSION_MASK) {
+		case MASTERCARD_ACI_VERSION_0:
+			emv_str_list_add(&itr, "Application Capabilities Information: Version 0");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Application Capabilities Information: Unknown version %u",
+				(aci[0] & MASTERCARD_ACI_VERSION_MASK) >> MASTERCARD_ACI_VERSION_SHIFT
+			);
+			break;
+	}
+	switch (aci[0] & MASTERCARD_ACI_DATA_STORAGE_VERSION_MASK) {
+		case MASTERCARD_ACI_DATA_STORAGE_NOT_SUPPORTED:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage not supported");
+			break;
+
+		case MASTERCARD_ACI_DATA_STORAGE_VERSION_1:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage Version 1");
+			break;
+
+		case MASTERCARD_ACI_DATA_STORAGE_VERSION_2:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage Version 2");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Application Capabilities Information: Unknown Data Storage Version %u",
+				(aci[0] & MASTERCARD_ACI_DATA_STORAGE_VERSION_MASK)
+			);
+			break;
+	}
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 2
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	if (aci[1] & MASTERCARD_ACI_BYTE2_RFU) {
+		emv_str_list_add(&itr, "Application Capabilities Information: RFU");
+	}
+	if (aci[1] & MASTERCARD_ACI_FIELD_OFF_DETECTION_SUPPORTED) {
+		emv_str_list_add(&itr, "Application Capabilities Information: Support for field off detection");
+	} else {
+		emv_str_list_add(&itr, "Application Capabilities Information: Field off detection not supported");
+	}
+	if (aci[1] & MASTERCARD_ACI_CDA_TC_ARQC_AAC) {
+		emv_str_list_add(&itr, "Application Capabilities Information: CDA supported over TC, ARQC and AAC");
+	} else {
+		emv_str_list_add(&itr, "Application Capabilities Information: CDA supported as in EMV");
+	}
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 3
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	switch (aci[2]) {
+		case MASTERCARD_ACI_SDS_UNDEFINED:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: Undefined SDS configuration");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_32:
+			emv_str_list_add(&itr, "tandalone Data Storage (SDS) Scheme: All 10 tags 32 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_48:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 48 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_64:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 64 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_96:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 96 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_128:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 128 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_160:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 160 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_192:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 192 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_32:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All All SDS tags 32 bytes except '9F78' which is 64 bytes");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: Unknown SDS configuration");
+			break;
 	}
 
 	return 0;

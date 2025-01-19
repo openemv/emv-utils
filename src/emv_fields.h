@@ -627,6 +627,34 @@ enum emv_iad_format_t {
 #define EMV_TRMD_BYTE4_SCA_EXEMPT                               (0x40) ///< Terminal Risk Management Data: SCA exempt
 #define EMV_TRMD_BYTE4_RFU                                      (0x3F) ///< Terminal Risk Management Data: RFU
 
+// Mastercard Application Capabilities Information (field 9F5D) byte 1
+// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+#define MASTERCARD_ACI_VERSION_MASK                             (0xF0) ///< Application Capabilities Information mask for Version number
+#define MASTERCARD_ACI_VERSION_SHIFT                            (4) ///< Application Capabilities Information shift for Version number
+#define MASTERCARD_ACI_VERSION_0                                (0x00) ///< Application Capabilities Information: Version 0
+#define MASTERCARD_ACI_DATA_STORAGE_VERSION_MASK                (0x0F) ///< Application Capabilities Information mask for Data Storage Version Number
+#define MASTERCARD_ACI_DATA_STORAGE_NOT_SUPPORTED               (0x00) ///< Application Capabilities Information: Data Storage not supported
+#define MASTERCARD_ACI_DATA_STORAGE_VERSION_1                   (0x01) ///< Application Capabilities Information: Data Storage Version 1
+#define MASTERCARD_ACI_DATA_STORAGE_VERSION_2                   (0x02) ///< Application Capabilities Information: Data Storage Version 2
+
+// Mastercard Application Capabilities Information (field 9F5D) byte 2
+// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+#define MASTERCARD_ACI_BYTE2_RFU                                (0xFA) ///< Application Capabilities Information: RFU
+#define MASTERCARD_ACI_FIELD_OFF_DETECTION_SUPPORTED            (0x04) ///< Application Capabilities Information: Support for field off detection
+#define MASTERCARD_ACI_CDA_TC_ARQC_AAC                          (0x01) ///< Application Capabilities Information: CDA supported over TC, ARQC and AAC
+
+// Mastercard Application Capabilities Information (field 9F5D) byte 3
+// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+#define MASTERCARD_ACI_SDS_UNDEFINED                            (0x00) ///< Standalone Data Storage (SDS) Scheme: Undefined SDS configuration
+#define MASTERCARD_ACI_SDS_10_32                                (0x01) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 32 bytes
+#define MASTERCARD_ACI_SDS_10_48                                (0x02) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 48 bytes
+#define MASTERCARD_ACI_SDS_10_64                                (0x03) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 64 bytes
+#define MASTERCARD_ACI_SDS_10_96                                (0x04) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 96 bytes
+#define MASTERCARD_ACI_SDS_10_128                               (0x05) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 128 bytes
+#define MASTERCARD_ACI_SDS_10_160                               (0x06) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 160 bytes
+#define MASTERCARD_ACI_SDS_10_192                               (0x07) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 192 bytes
+#define MASTERCARD_ACI_SDS_32                                   (0x08) ///< Standalone Data Storage (SDS) Scheme: All All SDS tags 32 bytes except '9F78' which is 64 bytes
+
 // Terminal Transaction Qualifiers (field 9F66) byte 1
 // See EMV Contactless Book A v2.11, 5.7, Table 5-4
 // See EMV Contactless Book C-3 v2.11, Annex A.2

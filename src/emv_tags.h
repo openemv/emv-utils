@@ -403,6 +403,14 @@ __BEGIN_DECLS
 /// EMV tag 9F4E Merchant Name and Location
 #define EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION                 (0x9F4E)
 
+/// Mastercard tag 9F5D Application Capabilities Information. Template BF0C.
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.9
+#define MASTERCARD_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION (0x9F5D)
+
+/// Visa tag 9F5D Available Offline Spending Amount (AOSA)
+/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+#define VISA_TAG_9F5D_AOSA                                      (0x9F5D)
+
 /// Mastercard tag 9F63 PUNATC(Track1). Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.127
 #define MASTERCARD_TAG_9F63_PUNATC_TRACK1                       (0x9F63)
@@ -458,6 +466,14 @@ __BEGIN_DECLS
 /// Amex tag 9F6E Enhanced Contactless Reader Capabilities
 /// @remark See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 #define AMEX_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES  (0x9F6E)
+
+/// Mastercard tag 9F7C Merchant Custom Data
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.98
+#define MASTERCARD_TAG_9F7C_MERCHANT_CUSTOM_DATA                (0x9F7C)
+
+/// Visa tag 9F7C Customer Exclusive Data (CED)
+/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+#define VISA_TAG_9F7C_CUSTOMER_EXCLUSIVE_DATA                   (0x9F7C)
 
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.
 #define EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA              (0xBF0C)

@@ -2,7 +2,7 @@
  * @file emv_strings.h
  * @brief EMV string helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -611,6 +611,22 @@ int emv_iad_get_string_list(
 int emv_terminal_risk_management_data_get_string_list(
 	const uint8_t* trmd,
 	size_t trmd_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Mastercard Application Capabilities Information (field 9F5D)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param aci Application Capabilities Information field. Must be 3 bytes.
+ * @param aci_len Length of Application Capabilities Information field. Must be 3 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_mastercard_app_caps_info_get_string_list(
+	const uint8_t* aci,
+	size_t aci_len,
 	char* str,
 	size_t str_len
 );
