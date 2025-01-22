@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.cpp
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -116,6 +116,11 @@ void EmvViewerMainWindow::loadSettings()
 		// Favour tree view child if no saved state available
 		splitterBottom->setSizes({99999, 1});
 	}
+
+	// Load input data
+	if (rememberCheckBox->isChecked()) {
+		dataEdit->setPlainText(settings.value(dataEdit->objectName()).toString());
+	}
 }
 
 void EmvViewerMainWindow::saveSettings() const
@@ -142,6 +147,10 @@ void EmvViewerMainWindow::saveSettings() const
 	settings.setValue(QStringLiteral("splitterState"), splitter->saveState());
 	settings.setValue(QStringLiteral("splitterBottomState"), splitterBottom->saveState());
 
+	// Save input data
+	if (rememberCheckBox->isChecked()) {
+		settings.setValue(dataEdit->objectName(), dataEdit->toPlainText());
+	}
 
 	settings.sync();
 }
