@@ -23,10 +23,11 @@
 #include "emvtreeview.h"
 #include "emvtreeitem.h"
 
-#include <QtCore/QStringLiteral>
-#include <QtCore/QString>
 #include <QtCore/QByteArray>
+#include <QtCore/QList>
 #include <QtCore/QSettings>
+#include <QtCore/QString>
+#include <QtCore/QStringLiteral>
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
@@ -85,6 +86,7 @@ void EmvViewerMainWindow::closeEvent(QCloseEvent* event)
 {
 	// Save current UI values
 	saveSettings();
+	event->accept();
 }
 
 void EmvViewerMainWindow::loadSettings()
@@ -107,9 +109,8 @@ void EmvViewerMainWindow::loadSettings()
 		check_box->setCheckState(state);
 	}
 
-	// Load window and splitter states from settings
+	// Load window and bottom splitter states from settings
 	restoreGeometry(settings.value(QStringLiteral("geometry")).toByteArray());
-	splitter->restoreState(settings.value(QStringLiteral("splitterState")).toByteArray());
 	if (settings.contains(QStringLiteral("splitterBottomState"))) {
 		splitterBottom->restoreState(settings.value(QStringLiteral("splitterBottomState")).toByteArray());
 	} else {
@@ -117,9 +118,13 @@ void EmvViewerMainWindow::loadSettings()
 		splitterBottom->setSizes({99999, 1});
 	}
 
-	// Load input data
+	// Load input data and main splitter state
 	if (rememberCheckBox->isChecked()) {
 		dataEdit->setPlainText(settings.value(dataEdit->objectName()).toString());
+		splitter->restoreState(settings.value(QStringLiteral("splitterState")).toByteArray());
+	} else {
+		// Favour bottom child if no saved state available
+		splitter->setSizes({1, 99999});
 	}
 }
 
@@ -142,14 +147,14 @@ void EmvViewerMainWindow::saveSettings() const
 		settings.setValue(check_box->objectName(), check_box->checkState());
 	}
 
-	// Save window and splitter states
+	// Save window and bottom splitter states
 	settings.setValue(QStringLiteral("geometry"), saveGeometry());
-	settings.setValue(QStringLiteral("splitterState"), splitter->saveState());
 	settings.setValue(QStringLiteral("splitterBottomState"), splitterBottom->saveState());
 
-	// Save input data
+	// Save input data and main splitter state
 	if (rememberCheckBox->isChecked()) {
 		settings.setValue(dataEdit->objectName(), dataEdit->toPlainText());
+		settings.setValue(QStringLiteral("splitterState"), splitter->saveState());
 	}
 
 	settings.sync();
