@@ -30,9 +30,19 @@
 
 #include <iostream>
 
+#ifdef _WIN32
+// For _setmode
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 static QString readHexStringFromStdin()
 {
 	QByteArray data;
+
+#ifdef _WIN32
+	_setmode(_fileno(stdin), _O_BINARY);
+#endif
 
 	while(!std::cin.eof()) {
 		char buf[1024];
