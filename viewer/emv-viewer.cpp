@@ -28,7 +28,8 @@
 #include "emv_strings.h"
 #include "emv-viewer-mainwindow.h"
 
-#include <iostream>
+#include <cstddef>
+#include <cstdio>
 
 #ifdef _WIN32
 // For _setmode
@@ -44,13 +45,20 @@ static QString readHexStringFromStdin()
 	_setmode(_fileno(stdin), _O_BINARY);
 #endif
 
-	while(!std::cin.eof()) {
+	// Read stdin using std::fread() instead of std::cin to avoid conflicts
+	// between different C++ runtimes when packaging for Windows.
+	do {
 		char buf[1024];
-		std::streamsize len;
-		std::cin.read(buf, sizeof(buf));
-		len = std::cin.gcount();
+		std::size_t len;
+
+		// Read next block
+		len = std::fread(buf, 1, sizeof(buf), stdin);
+		if (std::ferror(stdin)) {
+			break;
+		}
+
 		data.append(buf, len);
-	}
+	} while (!std::feof(stdin));
 
 	// Convert binary data to uppercase hex string
 	return data.toHex().toUpper().constData();
