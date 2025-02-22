@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2024 Leon Lynch
+# Copyright 2024-2025 Leon Lynch
 #
 # This file is licensed under the terms of the GPL v3 license.
 # See LICENSE.gpl file.
@@ -8,7 +8,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(emv-viewer
-	VERSION 0.2.0
+	VERSION 0.2.1
 	DESCRIPTION "EMV Viewer using Qt"
 	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
 	LANGUAGES CXX

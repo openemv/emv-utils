@@ -165,7 +165,7 @@ void EmvViewerMainWindow::displayLegal()
 	// Display copyright, license and disclaimer notice
 	descriptionText->clear();
 	descriptionText->appendHtml(QStringLiteral(
-		"Copyright 2021-2024 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
+		"Copyright 2021-2025 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
 		"<a href='https://github.com/openemv/emv-utils'>This program</a> is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.<br/>"
 		"<a href='https://github.com/openemv/emv-utils'>This program</a> is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.<br/>"
 		"See <a href='https://raw.githubusercontent.com/openemv/emv-utils/master/viewer/LICENSE.gpl'>LICENSE.gpl</a> file for more details.<br/><br/>"
