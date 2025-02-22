@@ -2,7 +2,7 @@
  * @file mcc_lookup.cpp
  * @brief ISO 18245 Merchant Category Code (MCC) lookup helper functions
  *
- * Copyright 2023 Leon Lynch
+ * Copyright 2023, 2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -186,7 +186,7 @@ int mcc_init(const char* path)
 	// Parse JSON file and build MCC list
 	json_root = json_object_from_file(filename.c_str());
 	if (!json_root) {
-		std::fprintf(stderr, "%s\n", json_util_get_last_err());
+		std::fprintf(stderr, "%s", json_util_get_last_err());
 		return 1;
 	}
 	result = build_mcc_list(json_root);
