@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -277,6 +277,7 @@ add_library(emv
 	emv_ttl.c
 	emv_app.c
 	emv_tal.c
+	emv_capk.c
 )
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv.h
@@ -288,6 +289,7 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_ttl.h
 	emv_app.h
 	emv_tal.h
+	emv_capk.h
 )
 set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::emv ALIAS emv)
