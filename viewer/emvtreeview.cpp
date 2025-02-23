@@ -65,8 +65,8 @@ static bool parseData(
 			// If the field is constructed, only consider the tag and length
 			// to be valid until the value has been parsed. The fields inside
 			// the value will be added when they are parsed.
-			validBytes += (r - tlv.length);
-			*totalValidBytes += (r - tlv.length);
+			validBytes += (fieldLength - tlv.length);
+			*totalValidBytes += (fieldLength - tlv.length);
 
 			// Recursively parse constructed fields
 			bool valid;
@@ -87,11 +87,26 @@ static bool parseData(
 			}
 			validBytes += tlv.length;
 
+			// Attempt to decode field as ASN.1 object
+			r = iso8825_ber_asn1_object_decode(&tlv, NULL);
+			if (r > 0) {
+				// For ASN.1 objects, hide the OID (first child) because its
+				// value string is already reflected in the value string of the
+				// current ASN.1 object.
+				if (item->child(0) &&
+					item->child(0)->type() == EmvTreeItemType
+				) {
+					EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item->child(0));
+					etItem->setHideWhenDecoded(true);
+					etItem->render(decode);
+				}
+			}
+
 		} else {
 			// If the field is not constructed, consider all of the bytes to
 			// be valid BER encoded data
-			validBytes += r;
-			*totalValidBytes += r;
+			validBytes += fieldLength;
+			*totalValidBytes += fieldLength;
 		}
 	}
 	if (r < 0) {

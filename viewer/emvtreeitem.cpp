@@ -86,7 +86,8 @@ EmvTreeItem::EmvTreeItem(
 )
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
-  m_srcLength(srcLength)
+  m_srcLength(srcLength),
+  m_hideWhenDecoded(false)
 {
 	setTlv(tlv, decode);
 	if (m_constructed) {
@@ -106,7 +107,8 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
-  m_constructed(false)
+  m_constructed(false),
+  m_hideWhenDecoded(false)
 {
 	m_simpleFieldStr = m_decodedFieldStr =
 		buildSimpleFieldString(str, srcLength, static_cast<const uint8_t*>(value));
@@ -129,6 +131,7 @@ void EmvTreeItem::render(bool showDecoded)
 {
 	if (showDecoded) {
 		setText(0, m_decodedFieldStr);
+		setHidden(m_hideWhenDecoded);
 
 		// Make decoded values visible
 		if (!m_constructed) {
@@ -139,6 +142,7 @@ void EmvTreeItem::render(bool showDecoded)
 
 	} else {
 		setText(0, m_simpleFieldStr);
+		setHidden(false);
 
 		// Hide decoded values
 		if (!m_constructed) {
@@ -259,8 +263,12 @@ static QString buildDecodedFieldString(
 	const QByteArray& valueStr
 )
 {
-	if (info.tag_name) {
-		QString fieldStr = QString::asprintf("%02X | %s", tlv->tag, info.tag_name);;
+	if (iso8825_ber_is_constructed(tlv) && valueStr[0]) {
+		// Assume that a constructed field with a value string is an object
+		// of some kind
+		return QString::asprintf("%02X | %s", tlv->tag, valueStr.constData());
+	} else if (info.tag_name) {
+		QString fieldStr = QString::asprintf("%02X | %s", tlv->tag, info.tag_name);
 		if (!valueStrIsList(valueStr) && valueStr[0]) {
 			if (info.format == EMV_FORMAT_A ||
 				info.format == EMV_FORMAT_AN ||

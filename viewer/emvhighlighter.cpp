@@ -80,6 +80,7 @@ static bool parseBerData(
 	}
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+		unsigned int fieldLength = r;
 
 		// Notify caller of tag
 		tagFunc(*totalValidBytes, tlv.tag);
@@ -88,8 +89,8 @@ static bool parseBerData(
 			// If the field is constructed, only consider the tag and length
 			// to be valid until the value has been parsed. The fields inside
 			// the value will be added when they are parsed.
-			validBytes += (r - tlv.length);
-			*totalValidBytes += (r - tlv.length);
+			validBytes += (fieldLength - tlv.length);
+			*totalValidBytes += (fieldLength - tlv.length);
 
 			// Recursively parse constructed fields
 			bool valid;
@@ -113,8 +114,8 @@ static bool parseBerData(
 		} else {
 			// If the field is not constructed, consider all of the bytes to
 			// be valid BER encoded data
-			validBytes += r;
-			*totalValidBytes += r;
+			validBytes += fieldLength;
+			*totalValidBytes += fieldLength;
 		}
 	}
 	if (r < 0) {

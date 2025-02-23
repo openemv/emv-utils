@@ -54,6 +54,9 @@ public:
 	QString tagName() const { return m_tagName; }
 	QString tagDescription() const { return m_tagDescription; }
 
+	bool hideWhenDecoded() const { return m_hideWhenDecoded; }
+	void setHideWhenDecoded(bool enabled) { m_hideWhenDecoded = enabled; }
+
 private:
 	void deleteChildren();
 
@@ -69,6 +72,7 @@ private:
 	bool m_constructed;
 	QString m_simpleFieldStr;
 	QString m_decodedFieldStr;
+	bool m_hideWhenDecoded;
 };
 
 #endif
