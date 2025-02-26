@@ -1,3 +1,6 @@
 [submodule "mcc-codes"]
 	path = mcc-codes
 	url = https://github.com/greggles/mcc-codes.git
+[submodule "crypto"]
+	path = crypto
+	url = https://github.com/openemv/crypto.git

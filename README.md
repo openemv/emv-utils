@@ -78,6 +78,7 @@ Dependencies
 
 This project also makes use of sub-projects that must be provided as git
 submodules using `git clone --recurse-submodules`:
+* [OpenEMV common crypto abstraction](https://github.com/openemv/crypto)
 * [mcc-codes](https://github.com/greggles/mcc-codes)
 
 Build
@@ -297,8 +298,12 @@ See [LICENSE](https://github.com/openemv/emv-utils/blob/master/LICENSE) and
 [LICENSE.gpl](https://github.com/openemv/emv-utils/blob/master/viewer/LICENSE.gpl)
 files.
 
+This project includes [crypto](https://github.com/openemv/crypto) as a git
+submodule and it is licensed under the terms of the MIT license. See
+[LICENSE](https://github.com/openemv/crypto/blob/master/LICENSE) file.
+
 This project includes [mcc-codes](https://github.com/greggles/mcc-codes) as a
-git submodule and it is licensed under The Unlicense license. See
+git submodule and it is licensed under the terms of The Unlicense license. See
 [LICENSE](https://github.com/greggles/mcc-codes/blob/main/LICENSE.txt) file.
 
 > [!NOTE]

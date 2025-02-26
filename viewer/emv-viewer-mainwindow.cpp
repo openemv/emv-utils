@@ -171,6 +171,7 @@ void EmvViewerMainWindow::displayLegal()
 		"See <a href='https://raw.githubusercontent.com/openemv/emv-utils/master/viewer/LICENSE.gpl'>LICENSE.gpl</a> file for more details.<br/><br/>"
 		"<a href='https://github.com/openemv/emv-utils'>This program</a> uses various libraries including:<br/>"
 		"- <a href='https://github.com/openemv/emv-utils'>emv-utils</a> (licensed under <a href='https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html'>LGPL v2.1</a>)<br/>"
+		"- <a href='https://github.com/Mbed-TLS/mbedtls'>MbedTLS</a> (licensed under <a href='http://www.apache.org/licenses/LICENSE-2.0'>Apache License v2</a>)<br/>"
 		"- <a href='https://www.qt.io'>Qt</a> (licensed under <a href='https://www.gnu.org/licenses/lgpl-3.0.html'>LGPL v3</a>)<br/>"
 		"<br/>"
 		"EMV\xAE is a registered trademark in the U.S. and other countries and an unregistered trademark elsewhere. The EMV trademark is owned by EMVCo, LLC. "
