@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -32,9 +32,13 @@ jobs:
         brew install iso-codes
         brew install json-c
 
-    - name: Install argp-standalone using brew
+    - name: Install MbedTLS and argp-standalone using brew
+      # Homebrew doesn't support universal binaries so only install dependencies for arch-specific builds
       if: ${{ matrix.fetch_deps == 'NO' }}
-      run: brew install argp-standalone
+      run: |
+        brew install mbedtls
+        brew install argp-standalone
+        echo "CMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES" >> $GITHUB_ENV
 
     - name: Install PCSCLite using brew
       if: contains(matrix.deps, 'pcsclite')
@@ -67,6 +71,8 @@ jobs:
           -DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}" \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
           -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+          -DFETCH_MBEDTLS=${{ matrix.fetch_deps }} \
+          -DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=${{ env.CMAKE_REQUIRE_FIND_PACKAGE_MbedTLS }} \
           -DFETCH_ARGP=${{ matrix.fetch_deps }} \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
@@ -114,6 +120,7 @@ jobs:
         cmake -B build \
           -DCMAKE_OSX_ARCHITECTURES="x86_64" \
           -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+          -DFETCH_MBEDTLS=YES \
           -DFETCH_ARGP=YES \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=YES \

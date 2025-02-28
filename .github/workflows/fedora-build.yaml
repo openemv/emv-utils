@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -25,7 +25,7 @@ jobs:
 
     steps:
     - name: Install build tools and dependencies
-      run: sudo dnf -y install git cmake gcc g++ boost-devel iso-codes-devel json-c-devel
+      run: sudo dnf -y install git cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel
 
     - name: Install PCSCLite
       if: contains(matrix.deps, 'pcsclite')
@@ -77,7 +77,7 @@ jobs:
     steps:
     - name: Install build tools and dependencies
       run: |
-        sudo dnf -y install git gh cmake gcc g++ boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion doxygen rpm-build qt5-qtbase-devel
+        sudo dnf -y install git gh cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion doxygen rpm-build qt5-qtbase-devel
 
     - name: Checkout
       uses: actions/checkout@v4
