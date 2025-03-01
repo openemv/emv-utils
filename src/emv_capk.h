@@ -67,11 +67,20 @@ struct emv_capk_itr_t {
 };
 
 /**
+ * Initialise and verify integrity of Certificate Authority Public Key (CAPK)
+ * data
+ *
+ * @return Zero for success. Non-zero for error.
+ */
+int emv_capk_init(void);
+
+/**
  * Lookup Certificate Authority Public Key (CAPK)
  *
  * @param rid Registered Application Provider Identifier (RID). Must be 5 bytes.
- * @param index CAPK index
- * @return Pointer to Certificate Authority Public Key (CAPK). Do NOT free. NULL if not found.
+ * @param index Index of Certificate Authority Public Key (CAPK)
+ * @return Pointer to Certificate Authority Public Key (CAPK). Do NOT free.
+ *         NULL if not found or invalid.
  */
 const struct emv_capk_t* emv_capk_lookup(const uint8_t* rid, uint8_t index);
 
@@ -85,8 +94,10 @@ int emv_capk_itr_init(struct emv_capk_itr_t* itr);
 
 /**
  * Retrieve next Certificate Authority Public Key (CAPK) and advance iterator
+ *
  * @param itr Certificate Authority Public Key (CAPK) iterator
- * @return Pointer to Certificate Authority Public Key (CAPK). Do NOT free. NULL for end of list.
+ * @return Pointer to Certificate Authority Public Key (CAPK). Do NOT free.
+ *         NULL for end of list.
  */
 const struct emv_capk_t* emv_capk_itr_next(struct emv_capk_itr_t* itr);
 
