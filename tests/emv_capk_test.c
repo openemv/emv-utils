@@ -20,6 +20,7 @@
  */
 
 #include "emv_capk.h"
+#include "emv_fields.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -77,7 +78,7 @@ static const struct emv_capk_t capk_lookup_tests[] = {
 	{
 		(uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03 },
 		0x92,
-		EMV_CAPK_HASH_SHA1,
+		EMV_PKEY_HASH_SHA1,
 		visa_92_modulus,
 		sizeof(visa_92_modulus),
 		visa_92_exponent,
@@ -89,7 +90,7 @@ static const struct emv_capk_t capk_lookup_tests[] = {
 	{
 		(uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 },
 		0x10,
-		EMV_CAPK_HASH_SHA1,
+		EMV_PKEY_HASH_SHA1,
 		amex_10_modulus,
 		sizeof(amex_10_modulus),
 		amex_10_exponent,

@@ -31,20 +31,6 @@ __BEGIN_DECLS
 #define EMV_CAPK_RID_LEN (5) ///< Length of Registered Application Provider Identifier (RID) in bytes
 
 /**
- * @name Certificate Authority Public Key (CAPK) hash algorithms
- * @remark See EMV 4.4 Book 2, Annex B2.3, Table 47
- * @anchor capk-hash-values
- */
-/// @{
-#define EMV_CAPK_HASH_SHA1      (0x01) ///< SHA-1
-#define EMV_CAPK_HASH_SHA256    (0x02) ///< SHA-256
-#define EMV_CAPK_HASH_SHA512    (0x03) ///< SHA-512
-#define EMV_CAPK_HASH_SHA3_256  (0x04) ///< SHA-3 256
-#define EMV_CAPK_HASH_SHA3_512  (0x05) ///< SHA-3 512
-#define EMV_CAPK_HASH_SM3       (0x80) ///< SM3
-/// @}
-
-/**
  * Certificate Authority Public Key (CAPK)
  * @remark See EMV 4.4 Book 2, 11.2.2, Table 30
  * @remark See EMV 4.4 Book 2, 11.2.2, Table 31
@@ -52,7 +38,7 @@ __BEGIN_DECLS
 struct emv_capk_t {
 	const uint8_t* rid; ///< Registered Application Provider Identifier (RID). Must be 5 bytes. See @ref EMV_CAPK_RID_LEN.
 	uint8_t index; ///< CAPK index
-	uint8_t hash_id; ///< Hash algorithm indicator. See @ref capk-hash-values "Certificate Authority Public Key (CAPK) hash algorithms"
+	uint8_t hash_id; ///< Hash algorithm indicator. See @ref emv-pkey-hash-values "EMV public key hash algorithms"
 	const void* modulus; ///< CAPK modulus
 	size_t modulus_len; ///< Length of CAPK modulus in bytes
 	const void* exponent; ///< CAPK exponent

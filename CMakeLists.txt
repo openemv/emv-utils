@@ -85,10 +85,12 @@ endif()
 
 # Allow parent scope to provide crypto targets when not building shared libs
 if(EMV_UTILS_IS_TOP_LEVEL OR BUILD_SHARED_LIBS)
-	list(APPEND CRYPTO_TESTS crypto_sha)
+	list(APPEND CRYPTO_TESTS crypto_sha crypto_rsa)
 	add_subdirectory(crypto)
 	add_subdirectory(crypto/test)
-elseif (NOT TARGET crypto_sha)
+elseif (NOT TARGET crypto_sha OR
+	NOT TARGET crypto_rsa OR
+	NOT TARGET crypto_mem)
 	message(FATAL_ERROR "Parent project must provide crypto libraries for static builds")
 endif()
 

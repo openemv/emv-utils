@@ -278,6 +278,7 @@ add_library(emv
 	emv_app.c
 	emv_tal.c
 	emv_capk.c
+	emv_rsa.c
 )
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv.h
@@ -290,6 +291,7 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_app.h
 	emv_tal.h
 	emv_capk.h
+	emv_rsa.h
 )
 set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::emv ALIAS emv)
@@ -301,6 +303,8 @@ target_link_libraries(emv
 		iso7816
 		iso8859
 		crypto_sha
+		crypto_rsa
+		crypto_mem
 )
 # The EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV variables are set
 # for the parent scope to facilitate the generation of pkgconfig files.
@@ -324,6 +328,8 @@ install(
 	TARGETS
 		emv
 		crypto_sha
+		crypto_rsa
+		crypto_mem
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/emv"

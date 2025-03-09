@@ -22,6 +22,8 @@
 #ifndef EMV_CAPK_STATIC_DATA_H
 #define EMV_CAPK_STATIC_DATA_H
 
+#include "emv_fields.h"
+
 #include <sys/cdefs.h>
 #include <stdint.h>
 
@@ -642,7 +644,7 @@ static const uint8_t amex_CA_hash[] = {
 { \
 	prefix##_rid, \
 	0x##index, \
-	EMV_CAPK_HASH_SHA1, \
+	EMV_PKEY_HASH_SHA1, \
 	prefix##_##index##_modulus, \
 	sizeof(prefix##_##index##_modulus), \
 	prefix##_##index##_exponent, \
