@@ -234,7 +234,6 @@ install(
 	TARGETS
 		iso8859
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
-	RUNTIME_DEPENDENCY_SET iso8859_deps
 	PUBLIC_HEADER
 		DESTINATION "include/iso8859"
 		COMPONENT emv_development
@@ -254,6 +253,11 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 	# Assume that MSYS2/MinGW environments have all DLLs in the same path
 	# as the compiler
 	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
+	install(
+		TARGETS
+			iso8859
+		RUNTIME_DEPENDENCY_SET iso8859_deps
+	)
 	install(
 		RUNTIME_DEPENDENCY_SET iso8859_deps
 		PRE_EXCLUDE_REGEXES
@@ -373,7 +377,6 @@ install(
 	TARGETS
 		emv_strings
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
-	RUNTIME_DEPENDENCY_SET emv_strings_deps
 	PUBLIC_HEADER
 		DESTINATION "include/emv"
 		COMPONENT emv_development
@@ -393,6 +396,11 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 	# Assume that MSYS2/MinGW environments have all DLLs in the same path
 	# as the compiler
 	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
+	install(
+		TARGETS
+			emv_strings
+		RUNTIME_DEPENDENCY_SET emv_strings_deps
+	)
 	install(
 		RUNTIME_DEPENDENCY_SET emv_strings_deps
 		PRE_EXCLUDE_REGEXES
