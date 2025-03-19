@@ -49,6 +49,15 @@ struct emv_rsa_issuer_cert_t {
 	uint8_t body[(1984 / 8) - 36 + 20 + 1];
 } __attribute__((packed));
 
+// See EMV 4.4 Book 2, 5.4, table 7
+struct emv_rsa_decrypted_ssad_t {
+	uint8_t header;
+	uint8_t format;
+	uint8_t hash_id;
+	uint8_t data_auth_code[2];
+	uint8_t body[(1984 / 8) - 26 + 20 + 1];
+} __attribute__((packed));
+
 int emv_rsa_retrieve_issuer_pkey(
 	const uint8_t* issuer_cert,
 	size_t issuer_cert_len,
@@ -291,4 +300,75 @@ exit:
 	// Cleanse decrypted certificate because it contains up to 8 PAN digits
 	crypto_cleanse(&cert, sizeof(cert));
 	return r;
+}
+
+int emv_rsa_retrieve_ssad(
+	const uint8_t* ssad,
+	size_t ssad_len,
+	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	struct emv_rsa_ssad_t* data
+)
+{
+	int r;
+	struct emv_rsa_decrypted_ssad_t decrypted_ssad;
+	const size_t ssad_meta_len = offsetof(struct emv_rsa_decrypted_ssad_t, body);
+	size_t ssad_pad_len;
+	const size_t ssad_hash_len = 20;
+
+	if (!ssad || !ssad_len || !issuer_pkey || !data) {
+		return -1;
+	}
+	memset(data, 0, sizeof(*data));
+
+	// Ensure that key and signature sizes match
+	// See EMV 4.4 Book 2, 5.4, step 1
+	if (issuer_pkey->modulus_len != ssad_len ||
+		issuer_pkey->modulus_len > sizeof(decrypted_ssad)
+	) {
+		// Unsuitable issuer public key modulus length
+		return -2;
+	}
+
+	// Decrypt Signed Static Application Data (field 93)
+	// See EMV 4.4 Book 2, 5.4, step 2
+	r = crypto_rsa_mod_exp(
+		issuer_pkey->modulus,
+		issuer_pkey->modulus_len,
+		issuer_pkey->exponent,
+		issuer_pkey->exponent_len,
+		ssad,
+		&decrypted_ssad
+	);
+	if (r) {
+		return -3;
+	}
+	ssad_pad_len = ssad_len - ssad_meta_len - ssad_hash_len - 1;
+
+	// Validate various data fields
+	// See EMV 4.4 Book 2, 5.4, step 2 - 4
+	// See EMV 4.4 Book 2, 5.4, table 7
+	if (
+		// Step 2
+		decrypted_ssad.body[ssad_pad_len + ssad_hash_len] != 0xBC ||
+		// Step 3
+		decrypted_ssad.header != 0x6A ||
+		// Step 4
+		decrypted_ssad.format != EMV_RSA_FORMAT_SSAD
+	) {
+		// Incorrect issuer public key
+		return -4;
+	}
+	// See EMV 4.4 Book 2, 5.4, step 6
+	if (decrypted_ssad.hash_id != EMV_PKEY_HASH_SHA1) {
+		// Unsupported hash algorithm indicator
+		return -5;
+	}
+
+	// Populate output
+	data->format = decrypted_ssad.format;
+	data->hash_id = decrypted_ssad.hash_id;
+	memcpy(data->data_auth_code, decrypted_ssad.data_auth_code, sizeof(data->data_auth_code));
+	memcpy(data->hash, decrypted_ssad.body + ssad_pad_len, sizeof(data->hash));
+
+	return 0;
 }

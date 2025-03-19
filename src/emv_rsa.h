@@ -39,6 +39,7 @@ struct emv_capk_t;
  */
 /// @{
 #define EMV_RSA_FORMAT_ISSUER_CERT              (0x02) ///< Issuer Public Key Certificate format
+#define EMV_RSA_FORMAT_SSAD                     (0x03) ///< Signed Static Application Data format
 /// @}
 
 /**
@@ -62,6 +63,17 @@ struct emv_rsa_issuer_pkey_t {
 	uint8_t exponent_len; ///< Public key exponent length in bytes
 	uint8_t modulus[1984 / 8]; ///< Public key modulus
 	uint8_t exponent[3]; ///< Public key exponent
+};
+
+/**
+ * Retrieved Signed Static Application Data
+ * @remark See EMV 4.4 Book 2, 5.4, Table 7
+ */
+struct emv_rsa_ssad_t {
+	uint8_t format; ///< Signed Data Format. Must be @ref EMV_RSA_FORMAT_SSAD.
+	uint8_t hash_id; ///< Hash algorithm indicator. Must be @ref EMV_PKEY_HASH_SHA1.
+	uint8_t data_auth_code[2]; ///< Data authentication code
+	uint8_t hash[20]; ///< Hash used for Static Data Authentication (SDA)
 };
 
 /**
@@ -101,6 +113,30 @@ int emv_rsa_retrieve_issuer_pkey(
 	const struct emv_capk_t* capk,
 	const struct emv_tlv_list_t* icc,
 	struct emv_rsa_issuer_pkey_t* pkey
+);
+
+/**
+ * Retrieve Signed Static Application Data
+ * @remark See EMV 4.4 Book 2, 5.4
+ *
+ * This function will only perform decryption and validate the data header,
+ * trailer, format and hash algorithm indicator to confirm that decryption
+ * succeeded with the appropriate issuer public key. This function will not
+ * validate the hash.
+ *
+ * @param ssad Signed Static Application Data (field 93)
+ * @param ssad_len Length of Signed Static Application Data in bytes
+ * @param issuer_pkey Issuer public key
+ * @param data Retrieved Signed Static Application Data output
+ *
+ * @return Zero if retrieved and validated.
+ * @return Less than zero for error.
+ */
+int emv_rsa_retrieve_ssad(
+	const uint8_t* ssad,
+	size_t ssad_len,
+	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	struct emv_rsa_ssad_t* data
 );
 
 __END_DECLS
