@@ -40,6 +40,7 @@ struct emv_capk_t;
 /// @{
 #define EMV_RSA_FORMAT_ISSUER_CERT              (0x02) ///< Issuer Public Key Certificate format
 #define EMV_RSA_FORMAT_SSAD                     (0x03) ///< Signed Static Application Data format
+#define EMV_RSA_FORMAT_ICC_CERT                 (0x04) ///< ICC Public Key Certificate format
 /// @}
 
 /**
@@ -74,6 +75,30 @@ struct emv_rsa_ssad_t {
 	uint8_t hash_id; ///< Hash algorithm indicator. Must be @ref EMV_PKEY_HASH_SHA1.
 	uint8_t data_auth_code[2]; ///< Data authentication code
 	uint8_t hash[20]; ///< Hash used for Static Data Authentication (SDA)
+};
+
+/**
+ * ICC public key
+ * @remark See EMV 4.4 Book 2, 6.4, Table 14
+ *
+ * This structure is intended to represent the complete and validated Issuer
+ * Public Key created from the combination of these fields:
+ * - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE
+ * - @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER
+ * - @ref EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT
+ */
+struct emv_rsa_icc_pkey_t {
+	uint8_t format; ///< Certificate Format. Must be @ref EMV_RSA_FORMAT_ICC_CERT.
+	uint8_t pan[10]; ///< Application PAN (padded to the right with hex 'F's).
+	uint8_t cert_exp[2]; ///< Certificate Expiration Date (MMYY)
+	uint8_t cert_sn[3]; ///< Binary number unique to this certificate
+	uint8_t hash_id; ///< Hash algorithm indicator. Must be @ref EMV_PKEY_HASH_SHA1.
+	uint8_t alg_id; ///< Public key algorithm indicator. Must be @ref EMV_PKEY_SIG_RSA_SHA1.
+	uint8_t modulus_len; ///< Public key modulus length in bytes
+	uint8_t exponent_len; ///< Public key exponent length in bytes
+	uint8_t modulus[1984 / 8]; ///< Public key modulus
+	uint8_t exponent[3]; ///< Public key exponent
+	uint8_t hash[20]; ///< Hash used for Dynamic Data Authentication (DDA)
 };
 
 /**
@@ -137,6 +162,45 @@ int emv_rsa_retrieve_ssad(
 	size_t ssad_len,
 	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
 	struct emv_rsa_ssad_t* data
+);
+
+/**
+ * Retrieve ICC public key
+ * @remark See EMV 4.4 Book 2, 6.4
+ *
+ * The following optional fields can be provided in @p icc and contribute to
+ * ICC public key retrieval:
+ * - @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER will be used to obtain the
+ *   complete modulus of the ICC public key.
+ * - @ref EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT will be used to obtain the
+ *   exponent of the ICC public key.
+ * - @ref EMV_TAG_5A_APPLICATION_PAN will be used to validate the application
+ *   PAN of the ICC public key.
+ *
+ * This function will perform decryption and validate the data header, trailer,
+ * format, hash algorithm indicator and public key algorithm indicator to
+ * confirm that decryption succeeded with the appropriate issuer public key.
+ * If sufficient fields are present then the full ICC public key will be
+ * retrieved. This function will not validate the certificate hash.
+ *
+ * @param icc_cert ICC Public Key Certificate (field 9F46)
+ * @param icc_cert_len Length ICC Public Key Certificate in bytes
+ * @param issuer_pkey Issuer public key
+ * @param icc ICC data used during ICC public key retrieval and validation.
+ *            NULL to ignore.
+ * @param pkey ICC public key output
+ *
+ * @return Zero if retrieved and validated.
+ * @return Less than zero for error.
+ * @return Greater than zero if decryption succeeded but full ICC public key
+ *         retrieval or validation failed.
+ */
+int emv_rsa_retrieve_icc_pkey(
+	const uint8_t* icc_cert,
+	size_t icc_cert_len,
+	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	const struct emv_tlv_list_t* icc,
+	struct emv_rsa_icc_pkey_t* pkey
 );
 
 __END_DECLS

@@ -58,6 +58,22 @@ struct emv_rsa_decrypted_ssad_t {
 	uint8_t body[(1984 / 8) - 26 + 20 + 1];
 } __attribute__((packed));
 
+// See EMV 4.4 Book 2, 6.4, table 14
+struct emv_rsa_icc_cert_t {
+	uint8_t header;
+	uint8_t format;
+	uint8_t pan[10];
+	uint8_t cert_exp[2];
+	uint8_t cert_sn[3];
+	uint8_t hash_id;
+	uint8_t alg_id;
+	uint8_t modulus_len;
+	uint8_t exponent_len;
+	// Body of ICC public key consisting of leftmost digits of public key,
+	// hash result, and trailer
+	uint8_t body[(1984 / 8) - 42 + 20 + 1];
+} __attribute__((packed));
+
 int emv_rsa_retrieve_issuer_pkey(
 	const uint8_t* issuer_cert,
 	size_t issuer_cert_len,
@@ -371,4 +387,182 @@ int emv_rsa_retrieve_ssad(
 	memcpy(data->hash, decrypted_ssad.body + ssad_pad_len, sizeof(data->hash));
 
 	return 0;
+}
+
+int emv_rsa_retrieve_icc_pkey(
+	const uint8_t* icc_cert,
+	size_t icc_cert_len,
+	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	const struct emv_tlv_list_t* icc,
+	struct emv_rsa_icc_pkey_t* pkey
+)
+{
+	int r;
+	struct emv_rsa_icc_cert_t cert;
+	const size_t cert_meta_len = offsetof(struct emv_rsa_icc_cert_t, body);
+	size_t cert_modulus_len;
+	const size_t cert_hash_len = 20;
+	const struct emv_tlv_t* remainder_tlv;
+	const struct emv_tlv_t* exponent_tlv;
+	const struct emv_tlv_t* pan_tlv;
+
+	if (!icc_cert || !icc_cert_len || !issuer_pkey || !pkey) {
+		return -1;
+	}
+	memset(pkey, 0, sizeof(*pkey));
+
+	// Ensure that key sizes match
+	// See EMV 4.4 Book 2, 6.4, step 1
+	if (issuer_pkey->modulus_len != icc_cert_len ||
+		issuer_pkey->modulus_len > sizeof(cert)
+	) {
+		// Unsuitable issuer public key modulus length
+		return -2;
+	}
+
+	// Ensure that ICC public key is at least 512-bit
+	if (icc_cert_len < cert_meta_len + (512 / 8) + cert_hash_len + 1) {
+		// Unsuitable ICC public key modulus length
+		return -3;
+	}
+
+	// Decrypt ICC Public Key Certificate (field 9F46)
+	// See EMV 4.4 Book 2, 6.4, step 2
+	r = crypto_rsa_mod_exp(
+		issuer_pkey->modulus,
+		issuer_pkey->modulus_len,
+		issuer_pkey->exponent,
+		issuer_pkey->exponent_len,
+		icc_cert,
+		&cert
+	);
+	if (r) {
+		r = -4;
+		goto exit;
+	}
+	cert_modulus_len = icc_cert_len - cert_meta_len - cert_hash_len - 1;
+
+	// Validate various certificate fields
+	// See EMV 4.4 Book 2, 6.4, step 2 - 4
+	// See EMV 4.4 Book 2, 6.4, table 14
+	if (
+		// Step 2
+		cert.body[cert_modulus_len + cert_hash_len] != 0xBC ||
+		// Step 3
+		cert.header != 0x6A ||
+		// Step 4
+		cert.format != EMV_RSA_FORMAT_ICC_CERT ||
+		// Sanity check
+		cert.modulus_len > sizeof(pkey->modulus) ||
+		cert.exponent_len > sizeof(pkey->exponent)
+	) {
+		// Incorrect issuer public key
+		r = -5;
+		goto exit;
+	}
+	// See EMV 4.4 Book 2, 6.4, step 6
+	if (cert.hash_id != EMV_PKEY_HASH_SHA1) {
+		// Unsupported hash algorithm indicator
+		r = -6;
+		goto exit;
+	}
+	// See EMV 4.4 Book 2, 6.4, step 10
+	if (cert.alg_id != EMV_PKEY_SIG_RSA_SHA1) {
+		// Unsupported public key algorithm indicator
+		r = -7;
+		goto exit;
+	}
+
+	// Populate available ICC public key fields because decryption has
+	// succeeded.
+	pkey->format = cert.format;
+	memcpy(pkey->pan, cert.pan, sizeof(pkey->pan));
+	memcpy(pkey->cert_exp, cert.cert_exp, sizeof(pkey->cert_exp));
+	memcpy(pkey->cert_sn, cert.cert_sn, sizeof(pkey->cert_sn));
+	pkey->hash_id = cert.hash_id;
+	pkey->alg_id = cert.alg_id;
+	pkey->modulus_len = cert.modulus_len;
+	pkey->exponent_len = cert.exponent_len;
+	memcpy(pkey->hash, cert.body + cert_modulus_len, sizeof(pkey->hash));
+
+	if (!icc) {
+		// Optional fields not available. Full certificate retrieval not
+		// possible.
+		r = 1;
+		goto exit;
+	}
+
+	// Populate ICC public key modulus
+	// NOTE: Remainder is optional if length is zero
+	// See EMV 4.4 Book 2, 6.4, step 11
+	// See EMV 4.4 Book 3, 7.2, footnote 5
+	remainder_tlv = emv_tlv_list_find_const(icc, EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER);
+	if (cert.modulus_len > cert_modulus_len) {
+		if (!remainder_tlv) {
+			// Remainder not available. Modulus retrieval not posssible.
+			r = 2;
+			goto exit;
+		}
+		if (cert.modulus_len != cert_modulus_len + remainder_tlv->length) {
+			// Invalid remainder length. Modulus retrieval not posssible.
+			r = 3;
+			goto exit;
+		}
+		memcpy(pkey->modulus, cert.body, cert_modulus_len);
+		memcpy(pkey->modulus + cert_modulus_len, remainder_tlv->value, remainder_tlv->length);
+	} else {
+		memcpy(pkey->modulus, cert.body, cert.modulus_len);
+	}
+
+	// Populate ICC public key exponent
+	// See EMV 4.4 Book 3, 7.2, table 30
+	exponent_tlv = emv_tlv_list_find_const(icc, EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT);
+	if (!exponent_tlv || !exponent_tlv->length) {
+		// Exponent not available. Full certificate retrieval not possible.
+		r = 4;
+		goto exit;
+	}
+	if (exponent_tlv->length != pkey->exponent_len) {
+		// Invalid exponent length. Full certificate retrieval not possible.
+		r = 5;
+		goto exit;
+	}
+	memcpy(pkey->exponent, exponent_tlv->value, exponent_tlv->length);
+
+	// Validate PAN
+	// See EMV 4.4 Book 2, 6.4, step 8
+	pan_tlv = emv_tlv_list_find_const(icc, EMV_TAG_5A_APPLICATION_PAN);
+	if (!pan_tlv || pan_tlv->length < 6) {
+		// PAN not available or not valid. PAN validation not possible.
+		r = 6;
+		goto exit;
+	}
+	for (size_t i = 0; i < sizeof(pkey->pan); ++i) {
+		if (pkey->pan[i] == 0xFF) {
+			// Skip padding
+			continue;
+		}
+		if ((pkey->pan[i] & 0x0F) == 0x0F) {
+			// Only compare first nibble of byte
+			if ((pkey->pan[i] & 0xF0) != (pan_tlv->value[i] & 0xF0)) {
+				// PAN is invalid
+				r = 7;
+				goto exit;
+			}
+		}
+		if (pkey->pan[i] != pan_tlv->value[i]) {
+			// PAN is invalid
+			r = 8;
+			goto exit;
+		}
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	// Cleanse decrypted certificate because it contains the PAN
+	crypto_cleanse(&cert, sizeof(cert));
+	return r;
 }
