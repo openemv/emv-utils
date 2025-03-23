@@ -2,7 +2,7 @@
  * @file emv_tal.c
  * @brief EMV Terminal Application Layer (TAL)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -670,9 +670,8 @@ int emv_tal_get_processing_options(
 			r = EMV_TAL_ERROR_INTERNAL;
 			goto exit;
 		}
-	}
 
-	if (gpo_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
+	} else if (gpo_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// GPO response format 2
 		// See EMV 4.4 Book 3, 6.5.8.4
 
@@ -693,6 +692,11 @@ int emv_tal_get_processing_options(
 				goto exit;
 			}
 		}
+
+	} else {
+		emv_debug_error("Invalid GPO response format");
+		r = EMV_TAL_ERROR_GPO_PARSE_FAILED;
+		goto exit;
 	}
 
 	// Populate AIP pointer
