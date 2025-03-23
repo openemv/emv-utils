@@ -762,7 +762,7 @@ static int emv_tal_read_sfi_records(
 		uint8_t record[EMV_RAPDU_DATA_MAX];
 		size_t record_len = sizeof(record);
 		uint16_t sw1sw2;
-		struct iso8825_tlv_t record_template;
+		bool record_oda = false;
 
 		// READ RECORD
 		// See EMV 4.4 Book 3, 10.2
@@ -783,19 +783,32 @@ static int emv_tal_read_sfi_records(
 			return EMV_TAL_ERROR_READ_RECORD_FAILED;
 		}
 
+		// Determine whether record is intended for offline data authentication
+		if (!oda_record_invalid &&
+			afl_entry->oda_record_count &&
+			record_number - afl_entry->first_record < afl_entry->oda_record_count
+		) {
+			record_oda = true;
+		}
+
 		// The records for SFIs 1 - 10 must be encoded as field 70 and the
 		// records for SFIs beyond that range are outside of EMV except for the
 		// card Transaction Log
 		// See EMV 4.4 Book 3, 5.3.2.2
 		// See EMV 4.4 Book 3, 6.5.11.4
+		// See EMV 4.4 Book 3, 7.1
 
-		// The records read for offline data authentication must be encoded as
-		// field 70. If not, then offline data authentication will be
-		// considered to have been performed but failed
+		// The records intended for offline data authentication must be encoded
+		// as field 70. If not, then offline data authentication will be
+		// considered to have been performed but failed.
 		// See EMV 4.4 Book 3, 10.3 (page 98)
 
 		// Therefore, any record that is not encoded as field 70 should not be
-		// parsed for EMV fields and invalidates offline data authentication.
+		// parsed for EMV fields, and if that record is also intended for
+		// offline data authentication then further offline data authentication
+		// will be invalidated. However, this implementation chooses to parse
+		// proprietary records with an SFI outside 1 - 10 that are encoded as
+		// field 70.
 		if (record[0] != EMV_TAG_70_DATA_TEMPLATE) {
 			if (afl_entry->sfi >= 1 && afl_entry->sfi <= 10) {
 				// Invalid record for SFIs 1 - 10
@@ -804,15 +817,23 @@ static int emv_tal_read_sfi_records(
 				return EMV_TAL_ERROR_READ_RECORD_INVALID;
 			}
 
-			// Although offline data authentication is no longer possible,
-			// reading of records may continue
-			// See EMV 4.4 Book 3, 10.3 (page 98)
-			emv_debug_error("Offline data authentication not possible due to invalid record");
-			oda_record_invalid = true;
+			if (record_oda) {
+				// See EMV 4.4 Book 3, 10.3 (page 98)
+				emv_debug_error("Offline data authentication not possible due to proprietary record");
+				oda_record_invalid = true;
+			}
+
+			// This implementation chooses to continue reading records if a
+			// proprietary record has an SFI outside 1 - 10 and is not encoded
+			// as field 70, although it will not be parsed for EMV fields.
+			emv_debug_info("Skip proprietary record");
 			continue;
 		}
 
 		if (afl_entry->sfi >= 1 && afl_entry->sfi <= 10) {
+			struct iso8825_tlv_t record_template;
+			size_t record_template_len;
+
 			// Record should contain a single record template for SFIs 1 - 10
 			// See EMV 4.4 Book 3, 6.5.11.4
 			r = iso8825_ber_decode(record, record_len, &record_template);
@@ -824,26 +845,27 @@ static int emv_tal_read_sfi_records(
 				emv_debug_error("Failed to parse record template");
 				return EMV_TAL_ERROR_READ_RECORD_INVALID;
 			}
+			record_template_len = r;
 			if (record_template.tag != EMV_TAG_70_DATA_TEMPLATE) {
 				// Invalid record template for SFIs 1 - 10
 				// See EMV 4.4 Book 3, 6.5.11.4
 				emv_debug_error("Invalid record template tag 0x%02X", record_template.tag);
 				return EMV_TAL_ERROR_READ_RECORD_INVALID;
 			}
-			if (record_template.length + 3 < record_len) { // 3 bytes for ID and 2-byte length
+			if (record_template_len != record_len) {
 				// Record should contain a single record template without
 				// additional data after it
 				// See EMV 4.4 Book 3, 6.5.11.4
-				emv_debug_error("Invalid record template length %u", record_template.length);
+				emv_debug_error("Invalid record template total length %zu; expected %zu", record_template_len, record_len);
 				return EMV_TAL_ERROR_READ_RECORD_INVALID;
 			}
 
-			if (!oda_record_invalid) {
+			if (record_oda) {
 				emv_debug_info("Record template content used for offline data authentication");
 				// TODO: Compute offline data authentication here for SFIs 1 - 10
 			}
 		} else {
-			if (!oda_record_invalid) {
+			if (record_oda) {
 				emv_debug_info("Record used verbatim for offline data authentication");
 				// TODO: Compute offline data authentication here for SFIs 11 - 30
 			}
