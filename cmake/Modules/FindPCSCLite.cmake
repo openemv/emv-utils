@@ -18,19 +18,25 @@
 
 # Use PkgConfig to find PCSCLite
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(PC_PCSCLite QUIET libpcsclite)
+pkg_check_modules(PC_PCSCLite QUIET IMPORTED_TARGET libpcsclite)
 
-find_path(PCSCLite_INCLUDE_DIR
-	NAMES pcsclite.h winscard.h
-	PATHS ${PC_PCSCLite_INCLUDE_DIRS}
-	NO_CMAKE_SYSTEM_PATH # Ignore Apple's PCSC Framework
-)
-
-find_library(PCSCLite_LIBRARY
-	NAMES pcsclite
-	PATHS ${PC_PCSCLite_LIBRARY_DIRS}
-	NO_CMAKE_SYSTEM_PATH # Ignore Apple's PCSC Framework
-)
+if(TARGET PkgConfig::PC_PCSCLite)
+	# Use imported target to populate variables
+	get_target_property(PCSCLite_INCLUDE_DIR PkgConfig::PC_PCSCLite INTERFACE_INCLUDE_DIRECTORIES)
+	get_target_property(PCSCLite_LIBRARY PkgConfig::PC_PCSCLite INTERFACE_LINK_LIBRARIES)
+else()
+	# Otherwise find the files manually
+	find_path(PCSCLite_INCLUDE_DIR
+		NAMES pcsclite.h winscard.h
+		PATHS ${PC_PCSCLite_INCLUDE_DIRS}
+		NO_CMAKE_SYSTEM_PATH # Ignore Apple's PCSC Framework
+	)
+	find_library(PCSCLite_LIBRARY
+		NAMES pcsclite
+		PATHS ${PC_PCSCLite_LIBRARY_DIRS}
+		NO_CMAKE_SYSTEM_PATH # Ignore Apple's PCSC Framework
+	)
+endif()
 
 set(PCSCLite_VERSION ${PC_PCSCLite_VERSION})
 

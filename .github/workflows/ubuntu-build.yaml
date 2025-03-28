@@ -15,10 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "none", iso8859: "simple", build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "iconv", iso8859: "iconv", build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "boost/qt", iso8859: "boost", build_emv_tool: NO, build_emv_viewer: YES }
-          - { name: "Ubuntu 20.04", os: ubuntu-20.04, deps: "boost/pcsclite", iso8859: "boost", build_emv_tool: YES, build_emv_viewer: NO }
+          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "none", iso8859: "simple", build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "boost/pcsclite", iso8859: "boost", build_emv_tool: YES, build_emv_viewer: NO }
+          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "boost/qt", iso8859: "boost", build_emv_tool: NO, build_emv_viewer: YES }
           - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "iconv/pcsclite", iso8859: "iconv", build_emv_tool: YES, build_emv_viewer: NO }
           - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "iconv/qt", iso8859: "iconv", build_emv_tool: NO, build_emv_viewer: YES }
           - { name: "Ubuntu 24.04", os: ubuntu-24.04, deps: "iconv/pcsclite/qt", iso8859: "iconv", build_emv_tool: YES, build_emv_viewer: YES }
@@ -61,12 +60,84 @@ jobs:
     - name: Test
       run: ctest --test-dir build --output-on-failure
 
+  build-ubuntu-legacy-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Ubuntu 20.04", os: ubuntu-20.04, container: "ubuntu:20.04", ubuntu_release_name: "focal" }
+
+    name: ${{ matrix.name }} build (release)
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container }}
+
+    steps:
+    - name: Prepare container
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y git build-essential cmake pkg-config file
+
+    - name: Install dependencies
+      run: |
+        apt-get install -y libmbedtls-dev libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev bash-completion doxygen qtbase5-dev
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+
+    # Container user doesn't match runner user
+    # Github has only fixed https://github.com/actions/checkout/issues/760
+    # not https://github.com/actions/checkout/issues/766
+    - name: Configure Git
+      if: ${{ matrix.container != null }}
+      run: |
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        git describe --always --dirty
+
+    - name: Get version from git tag
+      run: echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> $GITHUB_ENV
+
+    - name: Configure CMake
+      # CPACK_DEBIAN_PACKAGE_RELEASE augments the package version for the
+      # intended Ubuntu release. The ppa1 component indicates that this is not
+      # an official Ubuntu package. The release name component indicates that
+      # this is for the specific Ubuntu release that has that name.
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+          -DCMAKE_INSTALL_PREFIX=/usr \
+          -DBUILD_SHARED_LIBS=YES \
+          -DBUILD_DOCS=YES \
+          -DBUILD_EMV_DECODE=YES \
+          -DBUILD_EMV_TOOL=YES \
+          -DBUILD_EMV_VIEWER=YES \
+          -DCPACK_COMPONENTS_GROUPING=ALL_COMPONENTS_IN_ONE \
+          -DCPACK_DEBIAN_PACKAGE_RELEASE="0ubuntu1~ppa1~${{ matrix.ubuntu_release_name }}1"
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: cmake --build build --target test
+
+    - name: Package
+      run: cmake --build build --target package
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: emv-utils-${{ env.GIT_DESCRIBE }}-${{ matrix.os }}
+        path: build/emv-utils_*.deb
+        if-no-files-found: error
+
   build-ubuntu-release:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: "Ubuntu 20.04", os: ubuntu-20.04, ubuntu_release_name: "focal" }
           - { name: "Ubuntu 22.04", os: ubuntu-22.04, ubuntu_release_name: "jammy" }
           - { name: "Ubuntu 24.04", os: ubuntu-24.04, ubuntu_release_name: "noble" }
 
