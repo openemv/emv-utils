@@ -2,7 +2,7 @@
  * @file emv-decode.c
  * @brief Simple EMV decoding tool
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -33,6 +33,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <argp.h>
+
+#ifdef _WIN32
+// For _setmode
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 // Helper functions
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
@@ -388,6 +394,10 @@ static void* load_from_file(FILE* file, size_t* len)
 		*len = 0;
 		return NULL;
 	}
+
+#ifdef _WIN32
+	_setmode(_fileno(file), _O_BINARY);
+#endif
 
 	do {
 		// Grow buffer

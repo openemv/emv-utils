@@ -2,7 +2,7 @@
  * @file emv_strings.c
  * @brief EMV string helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -1118,8 +1118,88 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
 
-		case EMV_TAG_9F66_TTQ:
-			if (tlv->length == 4) {
+		case 0x9F5D: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION && // Helps IDE find this case statement
+				tlv->length == 3
+			) {
+				// Kernel 2 defines 9F5D as Application Capabilities
+				// Information with a length of 3 bytes
+				info->tag_name = "Application Capabilities Information";
+				info->tag_desc =
+					"Lists a number of card features beyond regular payment.";
+				info->format = EMV_FORMAT_B;
+				return emv_mastercard_app_caps_info_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			if (tlv->tag == VISA_TAG_9F5D_AOSA && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 3 defines 9F5D as Available Offline Spending Amount
+				// (AOSA) with a length of 6 bytes
+				info->tag_name = "Available Offline Spending Amount (AOSA)";
+				info->tag_desc =
+					"Kernel 3 proprietary data element indicating the "
+					"remaining amount available to be spent offline. The AOSA "
+					"is a calculated field used to allow the reader to "
+					"provide on a receipt or display the amount of offline "
+					"spend that is available on the card.";
+				info->format = EMV_FORMAT_N;
+				return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F63: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F63_PUNATC_TRACK1 && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 2 defines 9F63 as PUNATC(Track1) with a length of
+				// 6 bytes
+				info->tag_name = "PUNATC(Track1)";
+				info->tag_desc =
+					"Indicates to the Kernel the positions in the "
+					"discretionary data field of Track 1 Data where the "
+					"Unpredictable Number (Numeric) digits and Application "
+					"Transaction Counter (ATC) digits have to be copied.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == VISA_TAG_9F63_OFFLINE_COUNTER_INITIAL_VALUE && // Helps IDE find this case statement
+				tlv->length == 1
+			) {
+				// Kernel 3 (VCPS) defines 9F63 as Offline Counter Initial
+				// Value with a length of 1 byte
+				info->tag_name = "Offline Counter Initial Value";
+				info->tag_desc =
+					"Contains the initial value of the Consecutive "
+					"Transaction Counter International (CTCI).";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == UNIONPAY_TAG_9F63_PRODUCT_IDENTIFICATION_INFORMATION && // Helps IDE find this case statement
+				tlv->length == 16
+			) {
+				// Kernel 7 defines 9F63 as Product Identification Information
+				// without specifying the length or description, but unverified
+				// internet sources indicate the length to be 16 bytes
+				info->tag_name = "Product Identification Information";
+				info->tag_desc = info->tag_name;
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F66: // Used for different purposes by different kernels
+			if (tlv->tag == EMV_TAG_9F66_TTQ && // Helps IDE find this case statement
+				tlv->length == 4
+			) {
 				// Entry Point kernel as well as kernel 3, 6 and 7 define 9F66
 				// as TTQ with a length of 4 bytes
 				info->tag_name = "Terminal Transaction Qualifiers (TTQ)";
@@ -1130,6 +1210,55 @@ int emv_tlv_get_info(
 					"for different purposes.";
 				info->format = EMV_FORMAT_B;
 				return emv_ttq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			if (tlv->tag == MASTERCARD_TAG_9F66_PUNATC_TRACK2 && // Helps IDE find this case statement
+				tlv->length == 2
+			) {
+				// Kernel 2 defines 9F66 as PUNATC(Track2) with a length of
+				// 2 bytes
+				info->tag_name = "PUNATC(Track2)";
+				info->tag_desc =
+					"Indicates to the Kernel the positions in the "
+					"discretionary data field of Track 2 Data where the "
+					"Unpredictable Number (Numeric) digits and Application "
+					"Transaction Counter (ATC) digits have to be copied.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F6B: // Used for different purposes by different kernels
+			if (tlv->tag == VISA_TAG_9F6B_CARD_CVM_LIMIT && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 3 (VCPS) defines 9F6B as Card CVM Limit with a length
+				// of 6 bytes
+				info->tag_name = "Card CVM Limit";
+				info->tag_desc =
+					"Visa proprietary data element indicating that for "
+					"domestic contactless transactions where this value is "
+					"exceeded, a CVM is required by the card.";
+				info->format = EMV_FORMAT_N;
+				return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
+			}
+
+			if (tlv->tag == MASTERCARD_TAG_9F6B_TRACK2_DATA && // Helps IDE find this case statement
+				tlv->length > 6 && tlv->length <= 19
+			) {
+				// Kernel 2 defines 9F6B as Track 2 Data with a length of up to
+				// 19 bytes. Assume that it is more than 6 bytes because it
+				// would be unreasonable for track2 to be shorter than that.
+				info->tag_name = "Track 2 Data";
+				info->tag_desc =
+					"Contains the data objects of the track 2 according to "
+					"ISO/IEC 7813, excluding start sentinel, end sentinel and "
+					"Longitudinal Redundancy Check (LRC)";
+				info->format = EMV_FORMAT_VAR;
+				return emv_track2_equivalent_data_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
 			// Same as default case
@@ -1144,8 +1273,23 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return emv_ctq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
-		case AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES:
-			if (tlv->length == 1) {
+		case 0x9F6D: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F6D_MAG_APPLICATION_VERSION_NUMBER && // Helps IDE find this case statement
+				tlv->length == 2
+			) {
+				// Kernel 2 defines 9F6D as Mag-stripe Application Version
+				// Number (Reader) with a length of 2 bytes
+				info->tag_name = "Mag-stripe Application Version Number (Reader)";
+				info->tag_desc =
+					"Version number assigned by the payment system for the "
+					"specific Mag-stripe Mode functionality of the Kernel.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES &&
+				tlv->length == 1
+			) {
 				// Kernel 4 defines 9F6D as Contactless Reader Capabilities
 				// with a length of 1 byte
 				info->tag_name = "Contactless Reader Capabilities";
@@ -1181,7 +1325,7 @@ int emv_tlv_get_info(
 					"The Third Party data object may be used to carry "
 					"specific product information to be optionally used by "
 					"the terminal in processing transactions.";
-				info->format = EMV_FORMAT_B;
+				info->format = EMV_FORMAT_VAR;
 				return emv_mastercard_third_party_data_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
@@ -1230,6 +1374,38 @@ int emv_tlv_get_info(
 					"(dynamic data) around CVM";
 				info->format = EMV_FORMAT_B;
 				return emv_amex_enh_cl_reader_caps_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F7C: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F7C_MERCHANT_CUSTOM_DATA && // Helps IDE find this case statement
+				tlv->length == 20
+			) {
+				// Kernel 2 defines 9F7C as Merchant Custom Data with a length
+				// of 20 bytes
+				info->tag_name = "Merchant Custom Data";
+				info->tag_desc =
+					"Proprietary merchant data that may be requested by the "
+					"card.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == VISA_TAG_9F7C_CUSTOMER_EXCLUSIVE_DATA && // Helps IDE find this case statement
+				tlv->length <= 32
+			) {
+				// Kernel 3 defines 9F7C as Customer Exclusive Data (CED) with
+				// a length of up to 32 bytes. Note that this implementation
+				// cannot distinguish it from kernel 2's definition when the
+				// provided field has a length of 20 bytes.
+				info->tag_name = "Customer Exclusive Data (CED)";
+				info->tag_desc =
+					"Contains data for transmission to the issuer.";
+				info->format = EMV_FORMAT_VAR;
+				return 0;
 			}
 
 			// Same as default case
@@ -2623,25 +2799,56 @@ int emv_asrpd_get_string_list(
 			return 2;
 		}
 
-		asrpd_id = (asrpd[0] << 8) + asrpd[1];
-		switch (asrpd_id) {
-			case EMV_ASRPD_ECSG:
-				emv_str_list_add(&itr, "European Cards Stakeholders Group");
-				break;
-
-			case EMV_ASRPD_TCEA:
-				emv_str_list_add(&itr, "Technical Cooperation ep2 Association");
-				break;
-
-			default:
-				emv_str_list_add(&itr, "Unknown ASRPD identifier");
-		}
+		// Extract entry ID
+		asrpd_id = (((uint16_t)asrpd[0]) << 8) + asrpd[1];
 
 		// Validate entry length
 		asrpd_entry_len = 2 + 1 + asrpd[2];
 		if (asrpd_entry_len > asrpd_len) {
 			// Invalid ASRPD length
 			return 3;
+		}
+
+		// Decode ASRPD entry
+		switch (asrpd_id) {
+			case EMV_ASRPD_ECSG:
+				emv_str_list_add(&itr, "European Cards Stakeholders Group");
+				if (asrpd[2] == 0) {
+					// No data
+					break;
+				}
+				// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Application Selection Registered Proprietary Data
+				switch (asrpd[3]) {
+					case 0x01: emv_str_list_add(&itr, "Debit"); break;
+					case 0x02: emv_str_list_add(&itr, "Credit"); break;
+					case 0x03: emv_str_list_add(&itr, "Commercial"); break;
+					case 0x04: emv_str_list_add(&itr, "Prepaid"); break;
+					default: emv_str_list_add(&itr, "Unknown product type"); break;
+				}
+				break;
+
+			case EMV_ASRPD_TCEA:
+				emv_str_list_add(&itr, "Technical Cooperation ep2 Association");
+				if (asrpd[2] == 0) {
+					// No data
+					break;
+				}
+				// See Technical Cooperation ep2, March 24, 2020 (V.2.0)
+				switch (asrpd[3]) {
+					case 0x01: emv_str_list_add(&itr, "Debit"); break;
+					case 0x02: emv_str_list_add(&itr, "Credit"); break;
+					case 0x03: emv_str_list_add(&itr, "Commercial"); break;
+					case 0x04: emv_str_list_add(&itr, "Pre-paid"); break;
+					default: emv_str_list_add(&itr, "Unknown product type"); break;
+				}
+				break;
+
+			case EMV_ASRPD_UGSI:
+				emv_str_list_add(&itr, "Universal Global Scientific Industrial");
+				break;
+
+			default:
+				emv_str_list_add(&itr, "Unknown ASRPD identifier");
 		}
 
 		// Advance
@@ -2674,7 +2881,7 @@ int emv_aip_get_string_list(
 
 	// Application Interchange Profile (field 82) byte 1
 	// See EMV 4.4 Book 3, Annex C1, Table 41
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.16
 	if (aip[0] & EMV_AIP_XDA_SUPPORTED) {
 		emv_str_list_add(&itr, "Extended Data Authentication (XDA) is supported");
 	}
@@ -2701,8 +2908,8 @@ int emv_aip_get_string_list(
 	}
 
 	// Application Interchange Profile (field 82) byte 2
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
-	// See EMV Contactless Book C-3 v2.10, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.16
+	// See EMV Contactless Book C-3 v2.11, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
 	if (aip[1] & EMV_AIP_EMV_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Contactless EMV mode is supported");
 	}
@@ -4864,6 +5071,127 @@ int emv_terminal_risk_management_data_get_string_list(
 	return 0;
 }
 
+int emv_mastercard_app_caps_info_get_string_list(
+	const uint8_t* aci,
+	size_t aci_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!aci || !aci_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (aci_len != 3) {
+		// Mastercard Application Capabilities Information (field 9F5D) must be 3 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 1
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	switch (aci[0] & MASTERCARD_ACI_VERSION_MASK) {
+		case MASTERCARD_ACI_VERSION_0:
+			emv_str_list_add(&itr, "Application Capabilities Information: Version 0");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Application Capabilities Information: Unknown version %u",
+				(aci[0] & MASTERCARD_ACI_VERSION_MASK) >> MASTERCARD_ACI_VERSION_SHIFT
+			);
+			break;
+	}
+	switch (aci[0] & MASTERCARD_ACI_DATA_STORAGE_VERSION_MASK) {
+		case MASTERCARD_ACI_DATA_STORAGE_NOT_SUPPORTED:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage not supported");
+			break;
+
+		case MASTERCARD_ACI_DATA_STORAGE_VERSION_1:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage Version 1");
+			break;
+
+		case MASTERCARD_ACI_DATA_STORAGE_VERSION_2:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage Version 2");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Application Capabilities Information: Unknown Data Storage Version %u",
+				(aci[0] & MASTERCARD_ACI_DATA_STORAGE_VERSION_MASK)
+			);
+			break;
+	}
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 2
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	if (aci[1] & MASTERCARD_ACI_BYTE2_RFU) {
+		emv_str_list_add(&itr, "Application Capabilities Information: RFU");
+	}
+	if (aci[1] & MASTERCARD_ACI_FIELD_OFF_DETECTION_SUPPORTED) {
+		emv_str_list_add(&itr, "Application Capabilities Information: Support for field off detection");
+	} else {
+		emv_str_list_add(&itr, "Application Capabilities Information: Field off detection not supported");
+	}
+	if (aci[1] & MASTERCARD_ACI_CDA_TC_ARQC_AAC) {
+		emv_str_list_add(&itr, "Application Capabilities Information: CDA supported over TC, ARQC and AAC");
+	} else {
+		emv_str_list_add(&itr, "Application Capabilities Information: CDA supported as in EMV");
+	}
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 3
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	switch (aci[2]) {
+		case MASTERCARD_ACI_SDS_UNDEFINED:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: Undefined SDS configuration");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_32:
+			emv_str_list_add(&itr, "tandalone Data Storage (SDS) Scheme: All 10 tags 32 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_48:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 48 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_64:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 64 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_96:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 96 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_128:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 128 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_160:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 160 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_192:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 192 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_32:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All All SDS tags 32 bytes except '9F78' which is 64 bytes");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: Unknown SDS configuration");
+			break;
+	}
+
+	return 0;
+}
+
 int emv_ttq_get_string_list(
 	const uint8_t* ttq,
 	size_t ttq_len,
@@ -4890,7 +5218,7 @@ int emv_ttq_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 1
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
 	if (ttq[0] & EMV_TTQ_MAGSTRIPE_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Mag-stripe mode supported");
 	} else {
@@ -4931,7 +5259,8 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 2
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
 	if (ttq[1] & EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED) {
 		emv_str_list_add(&itr, "Online cryptogram required");
 	} else {
@@ -4947,13 +5276,26 @@ int emv_ttq_get_string_list(
 	} else {
 		emv_str_list_add(&itr, "(Contact Chip) Offline PIN not supported");
 	}
+	if (ttq[1] & EMV_TTQ_FAST_MODE_SUPPORTED) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Fast Mode supported");
+	}
+	if (ttq[1] & EMV_TTQ_TRANSIT_TERMINAL) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Transit terminal");
+	}
 	if (ttq[1] & EMV_TTQ_BYTE2_RFU) {
 		emv_str_list_add(&itr, "RFU");
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 3
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-	// See EMV Contactless Book C-6 v2.6, Annex D.11
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+	// See EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16 (NOTE: for byte 3 bit 4)
 	if (ttq[2] & EMV_TTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED) {
 		emv_str_list_add(&itr, "Issuer Update Processing supported");
 	} else {
@@ -4964,10 +5306,16 @@ int emv_ttq_get_string_list(
 	} else {
 		emv_str_list_add(&itr, "Consumer Device CVM not supported");
 	}
+	if (ttq[2] & EMV_TTQ_CDCVM_FOR_TRANSIT_MCC_SUPPORTED) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Consumer Device CVM for transit MCC supported");
+	}
 	if (ttq[2] & EMV_TTQ_CDCVM_REQUIRED) {
-		// NOTE: Only EMV Contactless Book C-6 v2.6, Annex D.11 defines this
-		// bit and it avoids confusion for other kernels if no string is
-		// provided when this bit is unset
+		// NOTE: Only EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
 		emv_str_list_add(&itr, "Consumer Device CVM required");
 	}
 	if (ttq[2] & EMV_TTQ_BYTE3_RFU) {
@@ -4975,10 +5323,10 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 4
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-	// See EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1
 	if (ttq[3] & EMV_TTQ_FDDA_V1_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1 does not
+		// NOTE: EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1 does not
 		// specify a string when this bit is not set and it avoids confusion
 		// for other kernels if no string is provided when this bit is unset
 		emv_str_list_add(&itr, "fDDA v1.0 Supported");
@@ -5016,8 +5364,8 @@ int emv_ctq_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Card Transaction Qualifiers (field 9F6C) byte 1
-	// See EMV Contactless Book C-3 v2.10, Annex A.2
-	// See EMV Contactless Book C-7 v2.9, Annex A
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-7 v2.11, Annex A
 	if (ctq[0] & EMV_CTQ_ONLINE_PIN_REQUIRED) {
 		emv_str_list_add(&itr, "Online PIN Required");
 	}
@@ -5045,8 +5393,8 @@ int emv_ctq_get_string_list(
 	}
 
 	// Card Transaction Qualifiers (field 9F6C) byte 2
-	// See EMV Contactless Book C-3 v2.10, Annex A.2
-	// See EMV Contactless Book C-7 v2.9, Annex A
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-7 v2.11, Annex A
 	if (ctq[1] & EMV_CTQ_CDCVM_PERFORMED) {
 		emv_str_list_add(&itr, "Consumer Device CVM Performed");
 	}
@@ -5072,7 +5420,7 @@ int emv_amex_cl_reader_caps_get_string(
 	}
 
 	// Amex Contactless Reader Capabilities (field 9F6D)
-	// See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
+	// See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
 	switch (cl_reader_caps & AMEX_CL_READER_CAPS_MASK) {
 		case AMEX_CL_READER_CAPS_DEPRECATED:
 			strncpy(str, "Deprecated", str_len - 1);
@@ -5080,27 +5428,27 @@ int emv_amex_cl_reader_caps_get_string(
 			return 0;
 
 		case AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED:
-			strncpy(str, "Mag-stripe CVM Not Required", str_len - 1);
+			strncpy(str, "Contactless Mag-stripe CVM Not Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED:
-			strncpy(str, "Mag-stripe CVM Required", str_len - 1);
+			strncpy(str, "Contactless Mag-stripe CVM Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED:
-			strncpy(str, "Deprecated - EMV and Mag-stripe", str_len - 1);
+			strncpy(str, "Deprecated - Contactless EMV and Mag-stripe", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED:
-			strncpy(str, "EMV and Mag-stripe CVM Not Required", str_len - 1);
+			strncpy(str, "Contactless EMV and Mag-stripe CVM Not Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED:
-			strncpy(str, "EMV and Mag-stripe CVM Required", str_len - 1);
+			strncpy(str, "Contactless EMV and Mag-stripe CVM Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
@@ -5201,8 +5549,8 @@ int emv_mastercard_third_party_data_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Mastercard Third Party Data (field 9F6E)
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.171
-	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 12
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.165
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 14
 	tpd_ptr = tpd;
 
 	// First two byte are the ISO 3166-1 numeric country code
@@ -5279,13 +5627,13 @@ int emv_mastercard_third_party_data_get_string_list(
 	}
 
 	// Decode Mastercard Product Extension
-	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 13
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 15
 	if (is_product_extension) {
 		// Extract Product Identifier
 		uint16_t product_identifier = (tpd_ptr[0] << 8) + tpd_ptr[1];
 		if (product_identifier == 0x0001) {
 			// Product Extension for Fleet Cards
-			// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 14
+			// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 16
 			emv_str_list_add(&itr, "Product Identifier: Fleet Card");
 
 			// Product Extension for Fleet Cards has length 8
@@ -5334,7 +5682,7 @@ int emv_mastercard_third_party_data_get_string_list(
 
 		if (product_identifier == 0x0002) {
 			// Product Extension for Transit
-			// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 15
+			// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 17
 			emv_str_list_add(&itr, "Product Identifier: Transit");
 
 			// Product Extension for Transit has length 5
@@ -5492,7 +5840,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_CONTACT_SUPPORTED) {
 		emv_str_list_add(&itr, "Contact mode supported");
 	}
@@ -5516,7 +5864,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[1] & AMEX_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED) {
 		emv_str_list_add(&itr, "Mobile CVM supported");
 	}
@@ -5534,7 +5882,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[2] & AMEX_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER) {
 		emv_str_list_add(&itr, "Reader is offline only");
 	}
@@ -5546,7 +5894,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM) {
 		emv_str_list_add(&itr, "Terminal exempt from No CVM checks");
 	}
@@ -5562,7 +5910,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	switch (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_MASK) {
 		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_22_23: emv_str_list_add(&itr, "C-4 kernel version 2.2 - 2.3"); break;
 		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26: emv_str_list_add(&itr, "C-4 kernel version 2.4 - 2.6"); break;
-		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7"); break;
+		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7 or later"); break;
 		default: emv_str_list_add(&itr, "C-4 kernel version unknown"); break;
 	}
 

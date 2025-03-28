@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.cpp
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,10 +23,11 @@
 #include "emvtreeview.h"
 #include "emvtreeitem.h"
 
-#include <QtCore/QStringLiteral>
-#include <QtCore/QString>
 #include <QtCore/QByteArray>
+#include <QtCore/QList>
 #include <QtCore/QSettings>
+#include <QtCore/QString>
+#include <QtCore/QStringLiteral>
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
@@ -85,6 +86,7 @@ void EmvViewerMainWindow::closeEvent(QCloseEvent* event)
 {
 	// Save current UI values
 	saveSettings();
+	event->accept();
 }
 
 void EmvViewerMainWindow::loadSettings()
@@ -107,14 +109,22 @@ void EmvViewerMainWindow::loadSettings()
 		check_box->setCheckState(state);
 	}
 
-	// Load window and splitter states from settings
+	// Load window and bottom splitter states from settings
 	restoreGeometry(settings.value(QStringLiteral("geometry")).toByteArray());
-	splitter->restoreState(settings.value(QStringLiteral("splitterState")).toByteArray());
 	if (settings.contains(QStringLiteral("splitterBottomState"))) {
 		splitterBottom->restoreState(settings.value(QStringLiteral("splitterBottomState")).toByteArray());
 	} else {
 		// Favour tree view child if no saved state available
 		splitterBottom->setSizes({99999, 1});
+	}
+
+	// Load input data and main splitter state
+	if (rememberCheckBox->isChecked()) {
+		dataEdit->setPlainText(settings.value(dataEdit->objectName()).toString());
+		splitter->restoreState(settings.value(QStringLiteral("splitterState")).toByteArray());
+	} else {
+		// Favour bottom child if no saved state available
+		splitter->setSizes({1, 99999});
 	}
 }
 
@@ -137,11 +147,15 @@ void EmvViewerMainWindow::saveSettings() const
 		settings.setValue(check_box->objectName(), check_box->checkState());
 	}
 
-	// Save window and splitter states
+	// Save window and bottom splitter states
 	settings.setValue(QStringLiteral("geometry"), saveGeometry());
-	settings.setValue(QStringLiteral("splitterState"), splitter->saveState());
 	settings.setValue(QStringLiteral("splitterBottomState"), splitterBottom->saveState());
 
+	// Save input data and main splitter state
+	if (rememberCheckBox->isChecked()) {
+		settings.setValue(dataEdit->objectName(), dataEdit->toPlainText());
+		settings.setValue(QStringLiteral("splitterState"), splitter->saveState());
+	}
 
 	settings.sync();
 }
@@ -151,7 +165,7 @@ void EmvViewerMainWindow::displayLegal()
 	// Display copyright, license and disclaimer notice
 	descriptionText->clear();
 	descriptionText->appendHtml(QStringLiteral(
-		"Copyright 2021-2024 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
+		"Copyright 2021-2025 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
 		"<a href='https://github.com/openemv/emv-utils'>This program</a> is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.<br/>"
 		"<a href='https://github.com/openemv/emv-utils'>This program</a> is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.<br/>"
 		"See <a href='https://raw.githubusercontent.com/openemv/emv-utils/master/viewer/LICENSE.gpl'>LICENSE.gpl</a> file for more details.<br/><br/>"

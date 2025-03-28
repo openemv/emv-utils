@@ -393,6 +393,24 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_5F2D_test3_regex}
 	)
 
+	add_test(NAME emv_decode_9F0A_test1
+		COMMAND emv-decode --tlv 9F0A04000101029F0A030001019F0A050003020400
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F0A_test1_regex
+		"^9F0A \\| Application Selection Registered Proprietary Data \\(ASRPD\\) : \\[4\\] 00 01 01 02[\r\n]"
+		"  - European Cards Stakeholders Group[\r\n]"
+		"  - Credit[\r\n]"
+		"9F0A \\| Application Selection Registered Proprietary Data \\(ASRPD\\) : \\[3\\] 00 01 01[\r\n]" # No decoding because it is malformed
+		"9F0A \\| Application Selection Registered Proprietary Data \\(ASRPD\\) : \\[5\\] 00 03 02 04 00[\r\n]"
+		"  - Technical Cooperation ep2 Association[\r\n]"
+		"  - Pre-paid[\r\n]$"
+	)
+	set_tests_properties(emv_decode_9F0A_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F0A_test1_regex}
+	)
+
 	add_test(NAME emv_decode_9F6E_test1
 		COMMAND emv-decode --tlv 9F6E0E0528000332310001010840000000
 			--mcc-json ${MCC_JSON_BUILD_PATH}
@@ -459,7 +477,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"  - Online PIN supported[\r\n]"
 		"  - Plaintext Offline PIN supported[\r\n]"
 		"  - CVM Required[\r\n]"
-		"  - C-4 kernel version 2.7[\r\n]"
+		"  - C-4 kernel version 2.7 or later[\r\n]"
 	)
 	set_tests_properties(emv_decode_9F6E_test4
 		PROPERTIES

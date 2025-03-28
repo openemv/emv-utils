@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2021-2024 Leon Lynch
+# Copyright 2021-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -8,7 +8,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(emv-utils
-	VERSION 0.2.0
+	VERSION 0.2.1
 	DESCRIPTION "EMV libraries and tools"
 	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
 	LANGUAGES C CXX
