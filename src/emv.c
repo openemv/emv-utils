@@ -2,7 +2,7 @@
  * @file emv.c
  * @brief High level EMV library interface
  *
- * Copyright 2023-2024 Leon Lynch
+ * Copyright 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,6 +25,7 @@
 #include "emv_app.h"
 #include "emv_dol.h"
 #include "emv_tags.h"
+#include "emv_oda.h"
 
 #include "iso7816.h"
 
@@ -73,6 +74,7 @@ int emv_ctx_reset(struct emv_ctx_t* ctx)
 	emv_tlv_list_clear(&ctx->terminal);
 	emv_app_free(ctx->selected_app);
 	ctx->selected_app = NULL;
+	emv_oda_clear(&ctx->oda);
 
 	return 0;
 }
@@ -724,8 +726,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
-	// Process Application File Locator (AFL)
-	// See EMV 4.4 Book 3, 10.2
+	// Application File Locator (AFL) is required to read application records
 	afl = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (!afl) {
 		// AFL not found; terminate session
@@ -733,7 +734,35 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		emv_debug_error("AFL not found");
 		return EMV_OUTCOME_CARD_ERROR;
 	}
-	r = emv_tal_read_afl_records(ctx->ttl, afl->value, afl->length, &record_data);
+
+	// Initialise Offline Data Authentication (ODA) to ensure that it is ready
+	// when reading application records
+	r = emv_oda_init(&ctx->oda, afl->value, afl->length);
+	if (r) {
+		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
+
+		if (r == EMV_ODA_ERROR_INTERNAL ||
+			r == EMV_ODA_ERROR_INVALID_PARAMETER
+		) {
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		} else {
+			// All other ODA errors are card errors
+			emv_debug_error("Invalid ICC data during ODA initialisation");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+
+	// Process Application File Locator (AFL)
+	// See EMV 4.4 Book 3, 10.2
+	r = emv_tal_read_afl_records(
+		ctx->ttl,
+		afl->value,
+		afl->length,
+		&record_data,
+		&ctx->oda
+	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_read_afl_records() failed; r=%d", r);
 		if (r < 0) {
@@ -743,12 +772,12 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 			} else {
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
-			goto exit;
+			goto error;
 		}
 		if (r != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
 			emv_debug_error("Failed to read application data");
 			r = EMV_OUTCOME_CARD_ERROR;
-			goto exit;
+			goto error;
 		}
 		// Continue regardless of offline data authentication failure
 		// See EMV 4.4 Book 3, 10.3 (page 98)
@@ -759,7 +788,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		// See EMV 4.4 Book 3, 10.2
 		emv_debug_error("Application data contains redundant fields");
 		r = EMV_OUTCOME_CARD_ERROR;
-		goto exit;
+		goto error;
 	}
 
 	for (const struct emv_tlv_t* tlv = record_data.front; tlv != NULL; tlv = tlv->next) {
@@ -783,7 +812,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		// See EMV 4.4 Book 3, 10.2
 		emv_debug_error("Mandatory field not found");
 		r = EMV_OUTCOME_CARD_ERROR;
-		goto exit;
+		goto error;
 	}
 
 	r = emv_tlv_list_append(&ctx->icc, &record_data);
@@ -793,7 +822,53 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		// Internal error; terminate session
 		emv_debug_error("Internal error");
 		r = EMV_TAL_ERROR_INTERNAL;
-		goto exit;
+		goto error;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+error:
+	emv_oda_clear(&ctx->oda);
+exit:
+	emv_tlv_list_clear(&record_data);
+	return r;
+}
+
+int emv_offline_data_authentication(struct emv_ctx_t* ctx)
+{
+	int r;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = emv_oda_apply(
+		&ctx->oda,
+		&ctx->config,
+		&ctx->icc,
+		&ctx->terminal
+	);
+	if (r) {
+		if (r < 0) {
+			emv_debug_trace_msg("emv_oda_apply() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		// Otherwise session may continue although offline data authentication
+		// was not possible or has failed.
+		if (r == EMV_ODA_NO_SUPPORTED_METHOD) {
+			emv_debug_info("Offline data authentication was not performed");
+		} else {
+			emv_debug_error("Offline data authentication failed");
+		}
 	}
 
 	// Success
@@ -801,6 +876,6 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 	goto exit;
 
 exit:
-	emv_tlv_list_clear(&record_data);
+	emv_oda_clear(&ctx->oda);
 	return r;
 }

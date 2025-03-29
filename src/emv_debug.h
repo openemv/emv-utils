@@ -2,7 +2,7 @@
  * @file emv_debug.h
  * @brief EMV debug implementation
  *
- * Copyright 2021, 2023 Leon Lynch
+ * Copyright 2021, 2023, 2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -32,8 +32,9 @@ enum emv_debug_source_t {
 	EMV_DEBUG_SOURCE_NONE = 0x00,               ///< Source: None. Can be passed to @ref emv_debug_init().
 	EMV_DEBUG_SOURCE_TTL = 0x01,                ///< Source: Terminal Transport Layer (TTL)
 	EMV_DEBUG_SOURCE_TAL = 0x02,                ///< Source: Terminal Application Layer (TAL)
-	EMV_DEBUG_SOURCE_EMV = 0x04,                ///< Source: EMV kernel
-	EMV_DEBUG_SOURCE_APP = 0x08,                ///< Source: Application
+	EMV_DEBUG_SOURCE_ODA = 0x04,                ///< Source: Offline Data Authentication (ODA)
+	EMV_DEBUG_SOURCE_EMV = 0x40,                ///< Source: EMV kernel
+	EMV_DEBUG_SOURCE_APP = 0x80,                ///< Source: Application
 	EMV_DEBUG_SOURCE_ALL = 0xFF,                ///< Source: All. Can be passed to @ref emv_debug_init().
 };
 

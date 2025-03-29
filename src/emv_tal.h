@@ -2,7 +2,7 @@
  * @file emv_tal.h
  * @brief EMV Terminal Application Layer (TAL)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,7 +34,8 @@ struct emv_app_list_t;
 struct emv_app_t;
 struct emv_tlv_list_t;
 struct emv_tlv_t;
-struct emv_afl_entry_t;
+struct emv_oda_ctx_t;
+
 
 /**
  * EMV Terminal Application Layer (TAL) errors.
@@ -183,6 +184,7 @@ int emv_tal_get_processing_options(
  * @param afl Application File Locator (AFL) field. Must be multiples of 4 bytes.
  * @param afl_len Length of Application File Locator (AFL) field. Must be multiples of 4 bytes.
  * @param list List to which decoded EMV TLV fields will be appended
+ * @param oda Offline Data Authentication (ODA) context. NULL to skip ODA processing.
  *
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
@@ -197,7 +199,8 @@ int emv_tal_read_afl_records(
 	struct emv_ttl_t* ttl,
 	const uint8_t* afl,
 	size_t afl_len,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 );
 
 __END_DECLS

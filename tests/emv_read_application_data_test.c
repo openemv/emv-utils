@@ -2,7 +2,7 @@
  * @file emv_read_application_data_test.c
  * @brief Unit tests for EMV Read Application Data
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -305,7 +305,8 @@ int main(void)
 		emv.ttl,
 		test2_afl,
 		sizeof(test2_afl),
-		&emv.icc
+		&emv.icc,
+		NULL
 	);
 	if (r != EMV_TAL_ERROR_AFL_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_AFL_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -340,7 +341,8 @@ int main(void)
 		emv.ttl,
 		test3_afl,
 		sizeof(test3_afl),
-		&emv.icc
+		&emv.icc,
+		NULL
 	);
 	if (r != EMV_TAL_ERROR_READ_RECORD_FAILED) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_READ_RECORD_FAILED; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -375,7 +377,8 @@ int main(void)
 		emv.ttl,
 		test4_afl,
 		sizeof(test4_afl),
-		&emv.icc
+		&emv.icc,
+		NULL
 	);
 	if (r != EMV_TAL_ERROR_READ_RECORD_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_READ_RECORD_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -410,7 +413,8 @@ int main(void)
 		emv.ttl,
 		test5_afl,
 		sizeof(test5_afl),
-		&emv.icc
+		&emv.icc,
+		NULL
 	);
 	if (r != EMV_TAL_ERROR_READ_RECORD_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_READ_RECORD_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -445,7 +449,8 @@ int main(void)
 		emv.ttl,
 		test6_afl,
 		sizeof(test6_afl),
-		&emv.icc
+		&emv.icc,
+		NULL
 	);
 	if (r != EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -480,7 +485,8 @@ int main(void)
 		emv.ttl,
 		test7_afl,
 		sizeof(test7_afl),
-		&emv.icc
+		&emv.icc,
+		NULL
 	);
 	if (r != EMV_TAL_ERROR_AFL_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_ERROR_AFL_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
@@ -575,7 +581,8 @@ int main(void)
 		emv.ttl,
 		test10_afl,
 		sizeof(test10_afl),
-		&emv.icc
+		&emv.icc,
+		NULL
 	);
 	if (r != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
 		fprintf(stderr, "emv_tal_read_afl_records() did not return EMV_TAL_RESULT_ODA_RECORD_INVALID; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));

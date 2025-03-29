@@ -2,7 +2,7 @@
  * @file emv.h
  * @brief High level EMV library interface
  *
- * Copyright 2023-2024 Leon Lynch
+ * Copyright 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,6 +23,7 @@
 #define EMV_H
 
 #include "emv_tlv.h"
+#include "emv_oda.h"
 
 #include <sys/cdefs.h>
 #include <stddef.h>
@@ -107,17 +108,30 @@ struct emv_ctx_t {
 	/**
 	 * @brief Integrated Circuit Card (ICC) data for current application.
 	 *
-	 * Populated by @ref emv_initiate_application_processing() and
-	 * @ref emv_read_application_data().
+	 * Populated and used by:
+	 * - @ref emv_initiate_application_processing()
+	 * - @ref emv_read_application_data()
+	 * - @ref emv_offline_data_authentication()
 	 */
 	struct emv_tlv_list_t icc;
 
 	/**
-	 * @brief Terminal data for the current transaction.
+	 * @brief Terminal data for current transaction.
 	 *
-	 * Populated by @ref emv_initiate_application_processing().
+	 * Populated and used by:
+	 * - @ref emv_initiate_application_processing()
+	 * - @ref emv_offline_data_authentication()
 	 */
 	struct emv_tlv_list_t terminal;
+
+	/**
+	 * @brief Offline Data Authentication (ODA) context.
+	 *
+	 * Populated and used by:
+	 * - @ref emv_read_application_data()
+	 * - @ref emv_offline_data_authentication()
+	 */
+	struct emv_oda_ctx_t oda;
 };
 
 /**
@@ -307,8 +321,12 @@ int emv_initiate_application_processing(
  * redundant TLV fields provided by the application records, and checking for
  * the mandatory fields.
  *
- * @note Upon success, this function will append the application data to the
- *       ICC data list
+ * While reading the application records, this function will also concatenate
+ * the data required for Offline Data Authentication (ODA) and update
+ * @ref emv_ctx_t.oda accordingly.
+ *
+ * @note Upon success, this function will append the application data to
+ *       @ref emv_ctx_t.icc
  *
  * @remark See EMV 4.4 Book 3, 10.2
  *
@@ -319,6 +337,27 @@ int emv_initiate_application_processing(
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_read_application_data(struct emv_ctx_t* ctx);
+
+/**
+ * Perform Offline Data Authentication (ODA) by selecting and applying the
+ * appropriate ODA method.
+ *
+ * The ODA method is selected based on card support indicated by
+ * @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE and terminal support
+ * indicated by @ref EMV_TAG_9F33_TERMINAL_CAPABILITIES. This function will
+ * update @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION based on the selected
+ * method and update @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS based on the
+ * outcome.
+ *
+ * @remark See EMV 4.4 Book 3, 10.3
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_offline_data_authentication(struct emv_ctx_t* ctx);
 
 __END_DECLS
 

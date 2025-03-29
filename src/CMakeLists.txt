@@ -283,6 +283,7 @@ add_library(emv
 	emv_tal.c
 	emv_capk.c
 	emv_rsa.c
+	emv_oda.c
 )
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv.h
@@ -296,6 +297,7 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_tal.h
 	emv_capk.h
 	emv_rsa.h
+	emv_oda.h
 )
 set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::emv ALIAS emv)

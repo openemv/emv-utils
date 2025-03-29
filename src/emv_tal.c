@@ -25,6 +25,7 @@
 #include "emv_fields.h"
 #include "emv_tlv.h"
 #include "emv_app.h"
+#include "emv_oda.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_TAL
 #include "emv_debug.h"
@@ -45,7 +46,8 @@ static int emv_tal_parse_aef_record(
 static int emv_tal_read_sfi_records(
 	struct emv_ttl_t* ttl,
 	const struct emv_afl_entry_t* afl_entry,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 );
 
 int emv_tal_read_pse(
@@ -747,7 +749,8 @@ exit:
 static int emv_tal_read_sfi_records(
 	struct emv_ttl_t* ttl,
 	const struct emv_afl_entry_t* afl_entry,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 )
 {
 	int r;
@@ -862,12 +865,31 @@ static int emv_tal_read_sfi_records(
 
 			if (record_oda) {
 				emv_debug_info("Record template content used for offline data authentication");
-				// TODO: Compute offline data authentication here for SFIs 1 - 10
+
+				if (oda) {
+					// For SFIs 1 - 10, use record template content for ODA
+					// See EMV 4.4 Book 3, 10.3 (page 98)
+					r = emv_oda_append_record(oda, record_template.value, record_template.length);
+					if (r) {
+						emv_debug_trace_msg("emv_oda_append_record() failed; r=%d", r);
+						// emv_oda_append_record() also prints error
+						oda_record_invalid = true;
+					}
+				}
 			}
 		} else {
 			if (record_oda) {
 				emv_debug_info("Record used verbatim for offline data authentication");
-				// TODO: Compute offline data authentication here for SFIs 11 - 30
+				if (oda) {
+					// For SFIs 11 - 30, use record verbatim for ODA
+					// See EMV 4.4 Book 3, 10.3 (page 98)
+					r = emv_oda_append_record(oda, record, record_len);
+					if (r) {
+						emv_debug_trace_msg("emv_oda_append_record() failed; r=%d", r);
+						// emv_oda_append_record() also prints error
+						oda_record_invalid = true;
+					}
+				}
 			}
 		}
 
@@ -908,7 +930,8 @@ int emv_tal_read_afl_records(
 	struct emv_ttl_t* ttl,
 	const uint8_t* afl,
 	size_t afl_len,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 )
 {
 	int r;
@@ -938,7 +961,7 @@ int emv_tal_read_afl_records(
 	}
 
 	while ((r = emv_afl_itr_next(&afl_itr, &afl_entry)) > 0) {
-		r = emv_tal_read_sfi_records(ttl, &afl_entry, list);
+		r = emv_tal_read_sfi_records(ttl, &afl_entry, list, oda);
 		if (r) {
 			emv_debug_trace_msg("emv_tal_read_sfi_records() failed; r=%d", r);
 			if (r == EMV_TAL_RESULT_ODA_RECORD_INVALID) {
