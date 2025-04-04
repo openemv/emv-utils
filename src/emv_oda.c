@@ -24,11 +24,14 @@
 #include "emv_tags.h"
 #include "emv_fields.h"
 #include "emv_ttl.h"
+#include "emv_capk.h"
+#include "emv_rsa.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_ODA
 #include "emv_debug.h"
 
 #include "crypto_mem.h"
+#include "crypto_sha.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -216,9 +219,7 @@ int emv_oda_apply(
 	if (term_caps->value[2] & EMV_TERM_CAPS_SECURITY_SDA &&
 		aip->value[0] & EMV_AIP_SDA_SUPPORTED
 	) {
-		emv_debug_error("SDA selected but not implemented");
-		ctx->tvr->value[0] |= EMV_TVR_SDA_FAILED;
-		return EMV_ODA_ERROR_INTERNAL;
+		return emv_oda_apply_sda(ctx, icc, terminal);
 	}
 
 	// No supported ODA method
@@ -230,4 +231,299 @@ int emv_oda_apply(
 	emv_debug_info("No supported offline data authentication method");
 	ctx->tvr->value[0] |= EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED;
 	return EMV_ODA_NO_SUPPORTED_METHOD;
+}
+
+int emv_oda_apply_sda(
+	struct emv_oda_ctx_t* ctx,
+	struct emv_tlv_list_t* icc,
+	struct emv_tlv_list_t* terminal
+)
+{
+	int r;
+	const struct emv_tlv_t* capk_index;
+	const struct emv_tlv_t* ipk_cert;
+	const struct emv_tlv_t* ipk_exp;
+	const struct emv_tlv_t* enc_ssad;
+	const struct emv_tlv_t* sdatl;
+	const struct emv_tlv_t* aip = NULL;
+	const struct emv_capk_t* capk;
+	struct emv_rsa_issuer_pkey_t ipk;
+	struct emv_rsa_ssad_t ssad;
+	crypto_sha1_ctx_t sha1_ctx = NULL;
+	uint8_t hash[SHA1_SIZE];
+
+	if (!ctx || !icc || !terminal) {
+		emv_debug_trace_msg("ctx=%p, icc=%p, terminal=%p",
+			ctx, icc, terminal
+		);
+		emv_debug_error("Invalid parameter");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->aid || !ctx->tvr || !ctx->tsi) {
+		emv_debug_trace_msg("aid=%p, tvr=%p, tsi=%p",
+			ctx->aid, ctx->tvr, ctx->tsi
+		);
+		emv_debug_error("Invalid context variable");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+
+	// Indicate that SDA is selected and performed, but assume that it has
+	// failed until the related steps have succeeded
+	emv_debug_info("Select Static Data Authentication (SDA)");
+	ctx->tvr->value[0] |=
+		EMV_TVR_SDA_SELECTED |
+		EMV_TVR_SDA_FAILED |
+		EMV_TVR_ICC_DATA_MISSING;
+	ctx->tsi->value[0] |= EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED;
+
+	// Mandatory data objects for SDA
+	// See EMV 4.4 Book 2, 5.1.1, table 4
+	// See EMV 4.4 Book 3, 7.2, table 29
+	// Although Issuer Public Key Remainder (field 92) is mandatory, it
+	// will not always be used. As such, this implementation does not
+	// enforce its presence.
+	capk_index = emv_tlv_list_find_const(icc, EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX);
+	ipk_cert = emv_tlv_list_find_const(icc, EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE);
+	ipk_exp = emv_tlv_list_find_const(icc, EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT);
+	enc_ssad = emv_tlv_list_find_const(icc, EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA);
+	if (!capk_index || capk_index->length != 1 ||
+		!ipk_cert ||
+		!ipk_exp ||
+		!enc_ssad
+	) {
+		emv_debug_trace_msg("capk_index=%p, ipk_cert=%p, ipk_exp=%p, enc_ssad=%p",
+			capk_index, ipk_cert, ipk_exp, enc_ssad
+		);
+		emv_debug_error("Mandatory data object missing for SDA");
+		// EMV_TVR_SDA_FAILED and EMV_TVR_ICC_DATA_MISSING already set in TVR
+		return EMV_ODA_ICC_DATA_MISSING;
+	}
+	ctx->tvr->value[0] &= ~EMV_TVR_ICC_DATA_MISSING;
+
+	// Validate Static Data Authentication Tag List (field 9F4A), if present
+	// See EMV 4.4 Book 2, 5.1.1
+	// See EMV 4.4 Book 3, 10.3 (page 98)
+	sdatl = emv_tlv_list_find_const(icc, EMV_TAG_9F4A_SDA_TAG_LIST);
+	if (sdatl) {
+		if (sdatl->length != 1 || sdatl->value[0] != EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE) {
+			emv_debug_trace_data("9F4A", sdatl->value, sdatl->length);
+			emv_debug_error("Invalid SDA tag list");
+			// EMV_TVR_SDA_FAILED already set in TVR
+			return EMV_ODA_SDA_FAILED;
+		}
+
+		aip = emv_tlv_list_find_const(icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+		if (!aip) {
+			emv_debug_error("AIP not found");
+			// EMV_TVR_SDA_FAILED already set in TVR
+			return EMV_ODA_SDA_FAILED;
+		}
+	}
+
+	// Retrieve Certificate Authority Public Key (CAPK)
+	// See EMV 4.4 Book 2, 5.2
+	capk = emv_capk_lookup(ctx->aid->value, capk_index->value[0]);
+	if (!capk) {
+		emv_debug_error(
+			"CAPK %02X%02X%02X%02X%02X #%02X not found",
+			ctx->aid->value[0],
+			ctx->aid->value[1],
+			ctx->aid->value[2],
+			ctx->aid->value[3],
+			ctx->aid->value[4],
+			capk_index->value[0]
+		);
+		// EMV_TVR_SDA_FAILED already set in TVR
+		return EMV_ODA_SDA_FAILED;
+	}
+
+	// Retrieve issuer public key
+	// See EMV 4.4 Book 2, 5.3
+	r = emv_rsa_retrieve_issuer_pkey(
+		ipk_cert->value,
+		ipk_cert->length,
+		capk,
+		icc,
+		&ipk
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_rsa_retrieve_issuer_pkey() failed; r=%d", r);
+		emv_debug_error("Failed to retrieve issuer public key");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_SDA_FAILED;
+		goto exit;
+	}
+
+	// Retrieve Signed Static Application Data (SSAD)
+	// See EMV 4.4 Book 2, 5.4
+	r = emv_rsa_retrieve_ssad(
+		enc_ssad->value,
+		enc_ssad->length,
+		&ipk,
+		&ssad
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_rsa_retrieve_ssad() failed; r=%d", r);
+		emv_debug_error("Failed to retrieve Signed Static Application Data");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_SDA_FAILED;
+		goto exit;
+	}
+
+	// Compute hash
+	// See EMV 4.4 Book 2, 5.4, step 5 - 6
+	r = crypto_sha1_init(&sha1_ctx);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+	r = crypto_sha1_update(
+		&sha1_ctx,
+		&ssad.format,
+		sizeof(ssad.format)
+	);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+	r = crypto_sha1_update(
+		&sha1_ctx,
+		&ssad.hash_id,
+		sizeof(ssad.hash_id)
+	);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+	r = crypto_sha1_update(
+		&sha1_ctx,
+		&ssad.data_auth_code,
+		sizeof(ssad.data_auth_code)
+	);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+	for (size_t i = 0; i < ipk.modulus_len - 26; ++i) {
+		uint8_t pad = 0xBB;
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			&pad,
+			sizeof(pad)
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			// EMV_TVR_SDA_FAILED already set in TVR
+			r = EMV_ODA_ERROR_INTERNAL;
+			goto exit;
+		}
+	}
+	if (ctx->buf && ctx->buf_len) {
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			ctx->buf,
+			ctx->buf_len
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			// EMV_TVR_SDA_FAILED already set in TVR
+			r = EMV_ODA_ERROR_INTERNAL;
+			goto exit;
+		}
+	}
+	if (sdatl && aip) {
+		// Static Data Authentication Tag List (field 9F4A) was validated
+		// earlier in this function
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			aip->value,
+			aip->length
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			// EMV_TVR_SDA_FAILED already set in TVR
+			r = EMV_ODA_ERROR_INTERNAL;
+			goto exit;
+		}
+	}
+	r = crypto_sha1_finish(&sha1_ctx, hash);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_finish() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Verify hash
+	// See EMV 4.4 Book 2, 5.4, step 7
+	emv_debug_trace_data("SDA hash", hash, sizeof(hash));
+	emv_debug_trace_data("SSAD hash", ssad.hash, sizeof(ssad.hash));
+	if (memcmp(hash, ssad.hash, sizeof(ssad.hash)) != 0) {
+		emv_debug_error("Invalid hash");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_SDA_FAILED;
+		goto exit;
+	}
+	emv_debug_info("Valid hash");
+
+	// Create Certification Authority Public Key (CAPK) Index - terminal (field 9F22)
+	r = emv_tlv_list_push(
+		terminal,
+		EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX,
+		1,
+		capk_index->value,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Create Data Authentication Code (field 9F45)
+	// See EMV 4.4 Book 2, 5.4 (page 48)
+	r = emv_tlv_list_push(
+		icc,
+		EMV_TAG_9F45_DATA_AUTHENTICATION_CODE,
+		sizeof(ssad.data_auth_code),
+		ssad.data_auth_code,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_SDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Successful SDA processing
+	emv_debug_info("Static Data Authentication (SDA) succeeded");
+	ctx->tvr->value[0] &= ~EMV_TVR_SDA_FAILED;
+	r = 0;
+	goto exit;
+
+exit:
+	crypto_sha1_free(&sha1_ctx);
+	// Cleanse issuer public key because it contains up to 8 PAN digits
+	crypto_cleanse(&ipk, sizeof(ipk));
+	return r;
 }

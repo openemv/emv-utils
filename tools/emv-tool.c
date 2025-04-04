@@ -596,8 +596,8 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	// Terminal Capabilities:
 	// - Card Data Input Capability: IC with Contacts
 	// - CVM Capability: Plaintext offline PIN, Enciphered online PIN, Signature, Enciphered offline PIN, No CVM
-	// - Security Capability: None
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, 0x00}, 0);
+	// - Security Capability: SDA
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, 0x80}, 0);
 
 	// Merchant attended, offline with online capability
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){ 0x22 }, 0);

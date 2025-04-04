@@ -51,6 +51,8 @@ enum emv_oda_error_t {
  */
 enum emv_oda_result_t {
 	EMV_ODA_NO_SUPPORTED_METHOD = 1, ///< No supported ODA method
+	EMV_ODA_ICC_DATA_MISSING, ///< Mandatory ICC data required by ODA method is missing
+	EMV_ODA_SDA_FAILED, ///< Static Data Authentication (SDA) failed
 };
 
 /**
@@ -142,6 +144,46 @@ int emv_oda_append_record(
 int emv_oda_apply(
 	struct emv_oda_ctx_t* ctx,
 	const struct emv_tlv_list_t* config,
+	struct emv_tlv_list_t* icc,
+	struct emv_tlv_list_t* terminal
+);
+
+/**
+ * Apply Static Data Authentication (SDA).
+ * @remark See EMV 4.4 Book 2, 5
+ *
+ * @note This function is intended to be used by @ref emv_oda_apply() and
+ *       should only be used directly for use cases beyond EMV requirements.
+ *       If in doubt, always use @ref emv_oda_apply() instead.
+ *
+ * This function requires:
+ * - @p icc must contain these fields:
+ *   - @ref EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX
+ *   - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
+ *   - @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER (may be absent if empty)
+ *   - @ref EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA
+ *   - @ref EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT
+ * - @p terminal must contain these fields:
+ *   - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
+ *   - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
+ *   - @ref EMV_TAG_9F06_AID
+ *
+ * Upon success, this function will update @p terminal to append
+ * @ref EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX and update @p icc
+ * to append @ref EMV_TAG_9F45_DATA_AUTHENTICATION_CODE.
+ *
+ * @param ctx Offline Data Authentication (ODA) context
+ * @param icc ICC data for current application
+ * @param terminal Terminal data for the current transaction
+ *
+ * @return Zero for success.
+ * @return Less than zero for error. See @ref emv_oda_error_t
+ * @return Greater than zero indicates that static data authentication is
+ *         either not possible or has failed, but that the terminal may
+ *         continue the card session. See @ref emv_oda_result_t
+ */
+int emv_oda_apply_sda(
+	struct emv_oda_ctx_t* ctx,
 	struct emv_tlv_list_t* icc,
 	struct emv_tlv_list_t* terminal
 );
