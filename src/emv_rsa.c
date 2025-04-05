@@ -20,10 +20,14 @@
  */
 
 #include "emv_rsa.h"
+#include "emv_oda.h"
 #include "emv_fields.h"
 #include "emv_capk.h"
 #include "emv_tlv.h"
 #include "emv_tags.h"
+
+#define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_ODA
+#include "emv_debug.h"
 
 #include "crypto_rsa.h"
 #include "crypto_sha.h"
@@ -216,31 +220,24 @@ int emv_rsa_retrieve_issuer_pkey(
 	}
 	memcpy(pkey->exponent, exponent_tlv->value, exponent_tlv->length);
 
+	// Compute hash
 	// See EMV 4.4 Book 2, 5.3, step 5 - 6
 	r = crypto_sha1_init(&sha1_ctx);
 	if (r) {
-		// Internal error
+		emv_debug_trace_msg("crypto_sha1_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
 		r = -8;
 		goto exit;
 	}
 	r = crypto_sha1_update(
 		&sha1_ctx,
 		&cert.format,
-		cert_meta_len - offsetof(struct emv_rsa_issuer_cert_t, format)
+		cert_meta_len + cert_modulus_len - offsetof(struct emv_rsa_issuer_cert_t, format)
 	);
 	if (r) {
-		// Internal error
+		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+		emv_debug_error("Internal error");
 		r = -9;
-		goto exit;
-	}
-	r = crypto_sha1_update(
-		&sha1_ctx,
-		cert.body,
-		cert_modulus_len // Use data as-is, including padding
-	);
-	if (r) {
-		// Internal error
-		r = -10;
 		goto exit;
 	}
 	if (remainder_tlv) {
@@ -250,7 +247,8 @@ int emv_rsa_retrieve_issuer_pkey(
 			remainder_tlv->length
 		);
 		if (r) {
-			// Internal error
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
 			r = -11;
 			goto exit;
 		}
@@ -261,17 +259,20 @@ int emv_rsa_retrieve_issuer_pkey(
 		exponent_tlv->length
 	);
 	if (r) {
-		// Internal error
+		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+		emv_debug_error("Internal error");
 		r = -12;
 		goto exit;
 	}
 	r = crypto_sha1_finish(&sha1_ctx, hash);
 	if (r) {
-		// Internal error
+		emv_debug_trace_msg("crypto_sha1_finish() failed; r=%d", r);
+		emv_debug_error("Internal error");
 		r = -13;
 		goto exit;
 	}
 
+	// Validate hash
 	// See EMV 4.4 Book 2, 5.3, step 7
 	if (memcmp(hash, cert.body + cert_modulus_len, cert_hash_len) != 0) {
 		// Certificate hash validation failed
@@ -322,6 +323,7 @@ int emv_rsa_retrieve_ssad(
 	const uint8_t* ssad,
 	size_t ssad_len,
 	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	const struct emv_oda_ctx_t* oda,
 	struct emv_rsa_ssad_t* data
 )
 {
@@ -330,6 +332,8 @@ int emv_rsa_retrieve_ssad(
 	const size_t ssad_meta_len = offsetof(struct emv_rsa_decrypted_ssad_t, body);
 	size_t ssad_pad_len;
 	const size_t ssad_hash_len = 20;
+	crypto_sha1_ctx_t sha1_ctx = NULL;
+	uint8_t hash[SHA1_SIZE];
 
 	if (!ssad || !ssad_len || !issuer_pkey || !data) {
 		return -1;
@@ -386,7 +390,71 @@ int emv_rsa_retrieve_ssad(
 	memcpy(data->data_auth_code, decrypted_ssad.data_auth_code, sizeof(data->data_auth_code));
 	memcpy(data->hash, decrypted_ssad.body + ssad_pad_len, sizeof(data->hash));
 
-	return 0;
+	if (!oda) {
+		// Optional Offline Data Authentication (ODA) context not available.
+		// Hash validation not possible.
+		r = 1;
+		goto exit;
+	}
+
+	// Compute hash
+	// See EMV 4.4 Book 2, 5.4, step 5 - 6
+	r = crypto_sha1_init(&sha1_ctx);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = -6;
+		goto exit;
+	}
+	r = crypto_sha1_update(
+		&sha1_ctx,
+		&decrypted_ssad.format,
+		ssad_meta_len + ssad_pad_len - offsetof(struct emv_rsa_decrypted_ssad_t, format)
+	);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = -7;
+		goto exit;
+	}
+	if (oda->buf && oda->buf_len) {
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			oda->buf,
+			oda->buf_len
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			r = -8;
+			goto exit;
+		}
+	}
+	r = crypto_sha1_finish(&sha1_ctx, hash);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_finish() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = -9;
+		goto exit;
+	}
+
+	// Verify hash
+	// See EMV 4.4 Book 2, 5.4, step 7
+	emv_debug_trace_data("Computed hash", hash, sizeof(hash));
+	emv_debug_trace_data("SSAD obj hash", data->hash, sizeof(data->hash));
+	if (memcmp(hash, data->hash, sizeof(data->hash)) != 0) {
+		emv_debug_error("Invalid hash");
+		r = 2;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	crypto_sha1_free(&sha1_ctx);
+	return r;
 }
 
 int emv_rsa_retrieve_icc_pkey(
@@ -394,6 +462,7 @@ int emv_rsa_retrieve_icc_pkey(
 	size_t icc_cert_len,
 	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
 	const struct emv_tlv_list_t* icc,
+	const struct emv_oda_ctx_t* oda,
 	struct emv_rsa_icc_pkey_t* pkey
 )
 {
@@ -405,6 +474,8 @@ int emv_rsa_retrieve_icc_pkey(
 	const struct emv_tlv_t* remainder_tlv;
 	const struct emv_tlv_t* exponent_tlv;
 	const struct emv_tlv_t* pan_tlv;
+	crypto_sha1_ctx_t sha1_ctx = NULL;
+	uint8_t hash[SHA1_SIZE];
 
 	if (!icc_cert || !icc_cert_len || !issuer_pkey || !pkey) {
 		return -1;
@@ -557,11 +628,94 @@ int emv_rsa_retrieve_icc_pkey(
 		}
 	}
 
+	if (!oda) {
+		// Optional Offline Data Authentication (ODA) context not available.
+		// Hash validation not possible.
+		r = 9;
+		goto exit;
+	}
+
+	// Compute hash
+	// See EMV 4.4 Book 2, 6.4, step 5 - 6
+	r = crypto_sha1_init(&sha1_ctx);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = -8;
+		goto exit;
+	}
+	r = crypto_sha1_update(
+		&sha1_ctx,
+		&cert.format,
+		cert_meta_len + cert_modulus_len - offsetof(struct emv_rsa_icc_cert_t, format)
+	);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = -9;
+		goto exit;
+	}
+	if (remainder_tlv) {
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			remainder_tlv->value,
+			remainder_tlv->length
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			r = -10;
+			goto exit;
+		}
+	}
+	r = crypto_sha1_update(
+		&sha1_ctx,
+		exponent_tlv->value,
+		exponent_tlv->length
+	);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = -11;
+		goto exit;
+	}
+	if (oda->buf && oda->buf_len) {
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			oda->buf,
+			oda->buf_len
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			r = -12;
+			goto exit;
+		}
+	}
+	r = crypto_sha1_finish(&sha1_ctx, hash);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_finish() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = -13;
+		goto exit;
+	}
+
+	// Verify hash
+	// See EMV 4.4 Book 2, 6.4, step 7
+	emv_debug_trace_data("Computed hash", hash, sizeof(hash));
+	emv_debug_trace_data("ICC cert hash", pkey->hash, sizeof(pkey->hash));
+	if (memcmp(hash, pkey->hash, sizeof(pkey->hash)) != 0) {
+		emv_debug_error("Invalid hash");
+		r = 10;
+		goto exit;
+	}
+
 	// Success
 	r = 0;
 	goto exit;
 
 exit:
+	crypto_sha1_free(&sha1_ctx);
 	// Cleanse decrypted certificate because it contains the PAN
 	crypto_cleanse(&cert, sizeof(cert));
 	return r;

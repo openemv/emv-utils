@@ -29,8 +29,9 @@
 __BEGIN_DECLS
 
 // Forward declarations
-struct emv_tlv_list_t;
 struct emv_capk_t;
+struct emv_tlv_list_t;
+struct emv_oda_ctx_t;
 
 /**
  * @name EMV RSA formats
@@ -102,7 +103,7 @@ struct emv_rsa_icc_pkey_t {
 };
 
 /**
- * Retrieve issuer public key and optionally validate certificate hash
+ * Retrieve issuer public key and optionally validate certificate hash.
  * @remark See EMV 4.4 Book 2, 5.3
  *
  * The following optional fields can be provided in @p icc and contribute to
@@ -141,31 +142,38 @@ int emv_rsa_retrieve_issuer_pkey(
 );
 
 /**
- * Retrieve Signed Static Application Data
+ * Retrieve Signed Static Application Data (SSAD) and optionally validate the
+ * hash.
  * @remark See EMV 4.4 Book 2, 5.4
  *
- * This function will only perform decryption and validate the data header,
- * trailer, format and hash algorithm indicator to confirm that decryption
- * succeeded with the appropriate issuer public key. This function will not
- * validate the hash.
+ * This function will perform decryption and validate the data header, trailer,
+ * format and hash algorithm indicator to confirm that decryption succeeded
+ * with the appropriate issuer public key. If the initialised and populated
+ * Offline Data Authentication (ODA) context is provided, this function will
+ * also validate the hash.
  *
  * @param ssad Signed Static Application Data (field 93)
  * @param ssad_len Length of Signed Static Application Data in bytes
  * @param issuer_pkey Issuer public key
+ * @param oda Offline Data Authentication (ODA) context used during hash
+ *            validation. NULL to ignore.
  * @param data Retrieved Signed Static Application Data output
  *
  * @return Zero if retrieved and validated.
  * @return Less than zero for error.
+ * @return Greater than zero if decryption succeeded but hash validation was
+ *         not possible or failed.
  */
 int emv_rsa_retrieve_ssad(
 	const uint8_t* ssad,
 	size_t ssad_len,
 	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	const struct emv_oda_ctx_t* oda,
 	struct emv_rsa_ssad_t* data
 );
 
 /**
- * Retrieve ICC public key
+ * Retrieve ICC public key and optionally validate certificate hash.
  * @remark See EMV 4.4 Book 2, 6.4
  *
  * The following optional fields can be provided in @p icc and contribute to
@@ -180,26 +188,31 @@ int emv_rsa_retrieve_ssad(
  * This function will perform decryption and validate the data header, trailer,
  * format, hash algorithm indicator and public key algorithm indicator to
  * confirm that decryption succeeded with the appropriate issuer public key.
- * If sufficient fields are present then the full ICC public key will be
- * retrieved. This function will not validate the certificate hash.
+ * If sufficient ICC fields are present then the full ICC public key will be
+ * retrieved. If the full ICC public has been retrieved, and the initialised
+ * and populated Offline Data Authentication (ODA) context is provided, this
+ * function will also validate the hash.
  *
  * @param icc_cert ICC Public Key Certificate (field 9F46)
  * @param icc_cert_len Length ICC Public Key Certificate in bytes
  * @param issuer_pkey Issuer public key
  * @param icc ICC data used during ICC public key retrieval and validation.
  *            NULL to ignore.
+ * @param oda Offline Data Authentication (ODA) context used during hash
+ *            validation. NULL to ignore.
  * @param pkey ICC public key output
  *
  * @return Zero if retrieved and validated.
  * @return Less than zero for error.
  * @return Greater than zero if decryption succeeded but full ICC public key
- *         retrieval or validation failed.
+ *         retrieval or hash validation not possible or failed.
  */
 int emv_rsa_retrieve_icc_pkey(
 	const uint8_t* icc_cert,
 	size_t icc_cert_len,
 	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
 	const struct emv_tlv_list_t* icc,
+	const struct emv_oda_ctx_t* oda,
 	struct emv_rsa_icc_pkey_t* pkey
 );
 

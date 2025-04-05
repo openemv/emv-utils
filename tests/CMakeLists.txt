@@ -55,7 +55,7 @@ if (BUILD_TESTING)
 	add_test(emv_capk_test emv_capk_test)
 
 	add_executable(emv_rsa_test emv_rsa_test.c)
-	target_link_libraries(emv_rsa_test PRIVATE emv)
+	target_link_libraries(emv_rsa_test PRIVATE print_helpers emv)
 	add_test(emv_rsa_test emv_rsa_test)
 
 	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c)

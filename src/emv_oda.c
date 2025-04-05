@@ -31,7 +31,6 @@
 #include "emv_debug.h"
 
 #include "crypto_mem.h"
-#include "crypto_sha.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -78,8 +77,11 @@ int emv_oda_init(
 	}
 
 	// Allocate enough space for the total number of full length records
-	// that are intended for offline data authentication
-	ctx->buf = malloc(EMV_RAPDU_DATA_MAX * oda_record_count);
+	// that are intended for offline data authentication, as well as the
+	// encoded AIP, AID (terminal) and PDOL. Assume that the encoded fields
+	// cannot exceed two R-APDU responses in total.
+	// See EMV 4.4 Book 3, 10.3 (page 98)
+	ctx->buf = malloc(EMV_RAPDU_DATA_MAX * (oda_record_count + 2));
 	if (!ctx->buf) {
 		emv_debug_error("Failed to allocate ODA buffer");
 		return EMV_ODA_ERROR_INTERNAL;
@@ -245,12 +247,9 @@ int emv_oda_apply_sda(
 	const struct emv_tlv_t* ipk_exp;
 	const struct emv_tlv_t* enc_ssad;
 	const struct emv_tlv_t* sdatl;
-	const struct emv_tlv_t* aip = NULL;
 	const struct emv_capk_t* capk;
 	struct emv_rsa_issuer_pkey_t ipk;
 	struct emv_rsa_ssad_t ssad;
-	crypto_sha1_ctx_t sha1_ctx = NULL;
-	uint8_t hash[SHA1_SIZE];
 
 	if (!ctx || !icc || !terminal) {
 		emv_debug_trace_msg("ctx=%p, icc=%p, terminal=%p",
@@ -305,6 +304,8 @@ int emv_oda_apply_sda(
 	// See EMV 4.4 Book 3, 10.3 (page 98)
 	sdatl = emv_tlv_list_find_const(icc, EMV_TAG_9F4A_SDA_TAG_LIST);
 	if (sdatl) {
+		const struct emv_tlv_t* aip;
+
 		if (sdatl->length != 1 || sdatl->value[0] != EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE) {
 			emv_debug_trace_data("9F4A", sdatl->value, sdatl->length);
 			emv_debug_error("Invalid SDA tag list");
@@ -317,6 +318,17 @@ int emv_oda_apply_sda(
 			emv_debug_error("AIP not found");
 			// EMV_TVR_SDA_FAILED already set in TVR
 			return EMV_ODA_SDA_FAILED;
+		}
+
+		// Append AIP to ODA record data
+		// See EMV 4.4 Book 2, 5.4, step 5
+		// See EMV 4.4 Book 3, 10.3 (page 98)
+		r = emv_oda_append_record(ctx, aip->value, aip->length);
+		if (r) {
+			emv_debug_trace_msg("emv_oda_append_record() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			// EMV_TVR_SDA_FAILED already set in TVR
+			return EMV_ODA_ERROR_INTERNAL;
 		}
 	}
 
@@ -360,127 +372,21 @@ int emv_oda_apply_sda(
 		enc_ssad->value,
 		enc_ssad->length,
 		&ipk,
+		ctx,
 		&ssad
 	);
 	if (r) {
 		emv_debug_trace_msg("emv_rsa_retrieve_ssad() failed; r=%d", r);
-		emv_debug_error("Failed to retrieve Signed Static Application Data");
+		if (r < 0) {
+			emv_debug_error("Failed to retrieve Signed Static Application Data");
+		} else {
+			emv_debug_error("Failed to validate Signed Static Application Data hash");
+		}
 		// EMV_TVR_SDA_FAILED already set in TVR
 		r = EMV_ODA_SDA_FAILED;
 		goto exit;
 	}
-
-	// Compute hash
-	// See EMV 4.4 Book 2, 5.4, step 5 - 6
-	r = crypto_sha1_init(&sha1_ctx);
-	if (r) {
-		emv_debug_trace_msg("crypto_sha1_init() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		// EMV_TVR_SDA_FAILED already set in TVR
-		r = EMV_ODA_ERROR_INTERNAL;
-		goto exit;
-	}
-	r = crypto_sha1_update(
-		&sha1_ctx,
-		&ssad.format,
-		sizeof(ssad.format)
-	);
-	if (r) {
-		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		// EMV_TVR_SDA_FAILED already set in TVR
-		r = EMV_ODA_ERROR_INTERNAL;
-		goto exit;
-	}
-	r = crypto_sha1_update(
-		&sha1_ctx,
-		&ssad.hash_id,
-		sizeof(ssad.hash_id)
-	);
-	if (r) {
-		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		// EMV_TVR_SDA_FAILED already set in TVR
-		r = EMV_ODA_ERROR_INTERNAL;
-		goto exit;
-	}
-	r = crypto_sha1_update(
-		&sha1_ctx,
-		&ssad.data_auth_code,
-		sizeof(ssad.data_auth_code)
-	);
-	if (r) {
-		emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		// EMV_TVR_SDA_FAILED already set in TVR
-		r = EMV_ODA_ERROR_INTERNAL;
-		goto exit;
-	}
-	for (size_t i = 0; i < ipk.modulus_len - 26; ++i) {
-		uint8_t pad = 0xBB;
-		r = crypto_sha1_update(
-			&sha1_ctx,
-			&pad,
-			sizeof(pad)
-		);
-		if (r) {
-			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
-			emv_debug_error("Internal error");
-			// EMV_TVR_SDA_FAILED already set in TVR
-			r = EMV_ODA_ERROR_INTERNAL;
-			goto exit;
-		}
-	}
-	if (ctx->buf && ctx->buf_len) {
-		r = crypto_sha1_update(
-			&sha1_ctx,
-			ctx->buf,
-			ctx->buf_len
-		);
-		if (r) {
-			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
-			emv_debug_error("Internal error");
-			// EMV_TVR_SDA_FAILED already set in TVR
-			r = EMV_ODA_ERROR_INTERNAL;
-			goto exit;
-		}
-	}
-	if (sdatl && aip) {
-		// Static Data Authentication Tag List (field 9F4A) was validated
-		// earlier in this function
-		r = crypto_sha1_update(
-			&sha1_ctx,
-			aip->value,
-			aip->length
-		);
-		if (r) {
-			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
-			emv_debug_error("Internal error");
-			// EMV_TVR_SDA_FAILED already set in TVR
-			r = EMV_ODA_ERROR_INTERNAL;
-			goto exit;
-		}
-	}
-	r = crypto_sha1_finish(&sha1_ctx, hash);
-	if (r) {
-		emv_debug_trace_msg("crypto_sha1_finish() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		// EMV_TVR_SDA_FAILED already set in TVR
-		r = EMV_ODA_ERROR_INTERNAL;
-		goto exit;
-	}
-
-	// Verify hash
-	// See EMV 4.4 Book 2, 5.4, step 7
-	emv_debug_trace_data("SDA hash", hash, sizeof(hash));
-	emv_debug_trace_data("SSAD hash", ssad.hash, sizeof(ssad.hash));
-	if (memcmp(hash, ssad.hash, sizeof(ssad.hash)) != 0) {
-		emv_debug_error("Invalid hash");
-		// EMV_TVR_SDA_FAILED already set in TVR
-		r = EMV_ODA_SDA_FAILED;
-		goto exit;
-	}
-	emv_debug_info("Valid hash");
+	emv_debug_info("Valid Signed Static Application Data hash");
 
 	// Create Certification Authority Public Key (CAPK) Index - terminal (field 9F22)
 	r = emv_tlv_list_push(
@@ -522,7 +428,6 @@ int emv_oda_apply_sda(
 	goto exit;
 
 exit:
-	crypto_sha1_free(&sha1_ctx);
 	// Cleanse issuer public key because it contains up to 8 PAN digits
 	crypto_cleanse(&ipk, sizeof(ipk));
 	return r;

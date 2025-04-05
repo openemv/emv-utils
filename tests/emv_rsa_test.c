@@ -30,6 +30,9 @@
 #include <stdio.h>
 #include <string.h>
 
+// For debug output
+#include "print_helpers.h"
+
 // Invalid ICC data used for certificate retrieval
 static const struct emv_tlv_t invalid_icc_data[] = {
 	{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x47, 0x61, 0x73, 0x90, 0x01, 0x01, 0x01, 0x19 }, 0 }}, NULL },
@@ -253,16 +256,6 @@ static const struct emv_rsa_icc_pkey_t full_icc_pkey_verify = {
 	},
 };
 
-static void print_buf(const char* buf_name, const void* buf, size_t length)
-{
-	const uint8_t* ptr = buf;
-	printf("%s: ", buf_name);
-	for (size_t i = 0; i < length; i++) {
-		printf("%02X", ptr[i]);
-	}
-	printf("\n");
-}
-
 static int populate_tlv_list(
 	const struct emv_tlv_t* tlv_array,
 	size_t tlv_array_count,
@@ -291,6 +284,13 @@ int main(void)
 	struct emv_rsa_issuer_pkey_t ipk;
 	struct emv_rsa_ssad_t data;
 	struct emv_rsa_icc_pkey_t icc_pkey;
+
+	// Enable debug output
+	r = emv_debug_init(EMV_DEBUG_SOURCE_ALL, EMV_DEBUG_ALL, &print_emv_debug);
+	if (r) {
+		fprintf(stderr, "emv_debug_init() failed; r=%d\n", r);
+		return 1;
+	}
 
 	r = emv_capk_init();
 	if (r) {
@@ -416,6 +416,7 @@ int main(void)
 		invalid_ssad,
 		sizeof(invalid_ssad),
 		&ipk,
+		NULL,
 		&data
 	);
 	if (r >= 0) {
@@ -430,9 +431,10 @@ int main(void)
 		valid_ssad,
 		sizeof(valid_ssad),
 		&ipk,
+		NULL,
 		&data
 	);
-	if (r) {
+	if (r != 1) {
 		fprintf(stderr, "emv_rsa_retrieve_ssad() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
@@ -452,6 +454,7 @@ int main(void)
 		sizeof(invalid_icc_cert),
 		&ipk,
 		NULL,
+		NULL,
 		&icc_pkey
 	);
 	if (r >= 0) {
@@ -466,6 +469,7 @@ int main(void)
 		valid_icc_cert,
 		sizeof(valid_icc_cert),
 		&ipk,
+		NULL,
 		NULL,
 		&icc_pkey
 	);
@@ -489,9 +493,10 @@ int main(void)
 		sizeof(valid_icc_cert),
 		&ipk,
 		&valid_icc,
+		NULL,
 		&icc_pkey
 	);
-	if (r) {
+	if (r != 9) {
 		fprintf(stderr, "emv_rsa_retrieve_icc_pkey() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
