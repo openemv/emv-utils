@@ -159,7 +159,7 @@ int emv_oda_apply(
 	term_caps = emv_tlv_list_find_const(config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
 	if (!term_caps) {
 		emv_debug_error("Terminal Capabilities not found");
-		return EMV_ODA_ERROR_INVALID_PARAMETER;
+		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
 	}
 	aip = emv_tlv_list_find_const(icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 	if (!aip) {
@@ -169,17 +169,17 @@ int emv_oda_apply(
 	ctx->aid = emv_tlv_list_find_const(terminal, EMV_TAG_9F06_AID);
 	if (!ctx->aid) {
 		emv_debug_error("AID not found");
-		return EMV_ODA_ERROR_INVALID_PARAMETER;
+		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
 	}
 	ctx->tvr = emv_tlv_list_find_const(terminal, EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS);
 	if (!ctx->tvr) {
 		emv_debug_error("TVR not found");
-		return EMV_ODA_ERROR_INVALID_PARAMETER;
+		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
 	}
 	ctx->tsi = emv_tlv_list_find_const(terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
 	if (!ctx->tsi) {
 		emv_debug_error("TSI not found");
-		return EMV_ODA_ERROR_INVALID_PARAMETER;
+		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
 	}
 
 	// Determine whether Extended Data Authentication (XDA) is supported by

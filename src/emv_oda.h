@@ -41,6 +41,7 @@ enum emv_oda_error_t {
 	EMV_ODA_ERROR_INTERNAL = -1, ///< Internal error
 	EMV_ODA_ERROR_INVALID_PARAMETER = -2, ///< Invalid function parameter
 	EMV_ODA_ERROR_AFL_INVALID = -3, ///< Application File Locator (AFL) is invalid
+	EMV_ODA_ERROR_TERMINAL_DATA_MISSING = -4, ///< Mandatory terminal data required by ODA method is missing
 };
 
 /**
