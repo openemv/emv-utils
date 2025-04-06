@@ -210,9 +210,7 @@ int emv_oda_apply(
 	if (term_caps->value[2] & EMV_TERM_CAPS_SECURITY_DDA &&
 		aip->value[0] & EMV_AIP_DDA_SUPPORTED
 	) {
-		emv_debug_error("DDA selected but not implemented");
-		ctx->tvr->value[0] |= EMV_TVR_DDA_FAILED;
-		return EMV_ODA_ERROR_INTERNAL;
+		return emv_oda_apply_dda(ctx, icc, terminal);
 	}
 
 	// Determine whether Static Data Authentication (SDA) is supported by both
@@ -428,6 +426,196 @@ int emv_oda_apply_sda(
 	goto exit;
 
 exit:
+	// Cleanse issuer public key because it contains up to 8 PAN digits
+	crypto_cleanse(&ipk, sizeof(ipk));
+	return r;
+}
+
+int emv_oda_apply_dda(
+	struct emv_oda_ctx_t* ctx,
+	const struct emv_tlv_list_t* icc,
+	struct emv_tlv_list_t* terminal
+)
+{
+	int r;
+	const struct emv_tlv_t* capk_index;
+	const struct emv_tlv_t* ipk_cert;
+	const struct emv_tlv_t* ipk_exp;
+	const struct emv_tlv_t* icc_cert;
+	const struct emv_tlv_t* icc_exp;
+	const struct emv_tlv_t* sdatl;
+	const struct emv_capk_t* capk;
+	struct emv_rsa_issuer_pkey_t ipk;
+	struct emv_rsa_icc_pkey_t icc_pkey;
+
+	if (!ctx || !icc || !terminal) {
+		emv_debug_trace_msg("ctx=%p, icc=%p, terminal=%p",
+			ctx, icc, terminal
+		);
+		emv_debug_error("Invalid parameter");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->aid || !ctx->tvr || !ctx->tsi) {
+		emv_debug_trace_msg("aid=%p, tvr=%p, tsi=%p",
+			ctx->aid, ctx->tvr, ctx->tsi
+		);
+		emv_debug_error("Invalid context variable");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+
+	// Assume that DDA has failed until the related steps have succeeded
+	emv_debug_info("Select Dynamic Data Authentication (DDA)");
+	ctx->tvr->value[0] |=
+		EMV_TVR_DDA_FAILED |
+		EMV_TVR_ICC_DATA_MISSING;
+	ctx->tsi->value[0] |= EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED;
+
+	// Mandatory data objects for DDA
+	// See EMV 4.4 Book 2, 6.1.1, table 12
+	// See EMV 4.4 Book 3, 7.2, table 30
+	// Although Issuer Public Key Remainder (field 92) and ICC Public Key
+	// Remainder (field 9F48) are mandatory, they will not always be used. As
+	// such, this implementation does not enforce its presence.
+	capk_index = emv_tlv_list_find_const(icc, EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX);
+	ipk_cert = emv_tlv_list_find_const(icc, EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE);
+	ipk_exp = emv_tlv_list_find_const(icc, EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT);
+	icc_cert = emv_tlv_list_find_const(icc, EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE);
+	icc_exp = emv_tlv_list_find_const(icc, EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT);
+	if (!capk_index || capk_index->length != 1 ||
+		!ipk_cert ||
+		!ipk_exp ||
+		!icc_cert ||
+		!icc_exp
+	) {
+		emv_debug_trace_msg(
+			"capk_index=%p, ipk_cert=%p, ipk_exp=%p, icc_cert=%p, icc_exp=%p",
+			capk_index, ipk_cert, ipk_exp, icc_cert, icc_exp
+		);
+		emv_debug_error("Mandatory data object missing for DDA");
+		// EMV_TVR_DDA_FAILED and EMV_TVR_ICC_DATA_MISSING already set in TVR
+		return EMV_ODA_ICC_DATA_MISSING;
+	}
+	ctx->tvr->value[0] &= ~EMV_TVR_ICC_DATA_MISSING;
+
+	// Validate Static Data Authentication Tag List (field 9F4A), if present
+	// See EMV 4.4 Book 2, 6.1.1
+	// See EMV 4.4 Book 3, 10.3 (page 98)
+	sdatl = emv_tlv_list_find_const(icc, EMV_TAG_9F4A_SDA_TAG_LIST);
+	if (sdatl) {
+		const struct emv_tlv_t* aip;
+
+		if (sdatl->length != 1 || sdatl->value[0] != EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE) {
+			emv_debug_trace_data("9F4A", sdatl->value, sdatl->length);
+			emv_debug_error("Invalid SDA tag list");
+			// EMV_TVR_DDA_FAILED already set in TVR
+			return EMV_ODA_DDA_FAILED;
+		}
+
+		aip = emv_tlv_list_find_const(icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+		if (!aip) {
+			emv_debug_error("AIP not found");
+			// EMV_TVR_DDA_FAILED already set in TVR
+			return EMV_ODA_DDA_FAILED;
+		}
+
+		// Append AIP to ODA record data
+		// See EMV 4.4 Book 2, 6.4, step 5
+		// See EMV 4.4 Book 3, 10.3 (page 98)
+		r = emv_oda_append_record(ctx, aip->value, aip->length);
+		if (r) {
+			emv_debug_trace_msg("emv_oda_append_record() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			// EMV_TVR_SDA_FAILED already set in TVR
+			return EMV_ODA_ERROR_INTERNAL;
+		}
+	}
+
+	// Retrieve Certificate Authority Public Key (CAPK)
+	// See EMV 4.4 Book 2, 6.2
+	capk = emv_capk_lookup(ctx->aid->value, capk_index->value[0]);
+	if (!capk) {
+		emv_debug_error(
+			"CAPK %02X%02X%02X%02X%02X #%02X not found",
+			ctx->aid->value[0],
+			ctx->aid->value[1],
+			ctx->aid->value[2],
+			ctx->aid->value[3],
+			ctx->aid->value[4],
+			capk_index->value[0]
+		);
+		// EMV_TVR_DDA_FAILED already set in TVR
+		return EMV_ODA_DDA_FAILED;
+	}
+
+	// Retrieve issuer public key
+	// See EMV 4.4 Book 2, 6.3
+	r = emv_rsa_retrieve_issuer_pkey(
+		ipk_cert->value,
+		ipk_cert->length,
+		capk,
+		icc,
+		&ipk
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_rsa_retrieve_issuer_pkey() failed; r=%d", r);
+		emv_debug_error("Failed to retrieve issuer public key");
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_DDA_FAILED;
+		goto exit;
+	}
+
+	// Retrieve ICC public key
+	// See EMV 4.4 Book 2, 6.4
+	r = emv_rsa_retrieve_icc_pkey(
+		icc_cert->value,
+		icc_cert->length,
+		&ipk,
+		icc,
+		ctx,
+		&icc_pkey
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_rsa_retrieve_icc_pkey() failed; r=%d", r);
+		if (r < 0) {
+			emv_debug_error("Failed to retrieve ICC public key");
+		} else {
+			emv_debug_error("Failed to validate ICC certificate hash");
+		}
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_DDA_FAILED;
+		goto exit;
+	}
+	emv_debug_info("Valid ICC certificate hash");
+
+	// Create Certification Authority Public Key (CAPK) Index - terminal (field 9F22)
+	r = emv_tlv_list_push(
+		terminal,
+		EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX,
+		1,
+		capk_index->value,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// TODO: Process DDOL
+	// TODO: INTERNAL AUTHENTICATE
+	// TODO: Process SDAD
+
+	// Successful DDA processing
+	emv_debug_info("Dynamic Data Authentication (DDA) succeeded");
+	ctx->tvr->value[0] &= ~EMV_TVR_DDA_FAILED;
+	r = 0;
+	goto exit;
+
+exit:
+	// Cleanse ICC public key because it contains the PAN
+	crypto_cleanse(&icc_pkey, sizeof(icc_pkey));
 	// Cleanse issuer public key because it contains up to 8 PAN digits
 	crypto_cleanse(&ipk, sizeof(ipk));
 	return r;

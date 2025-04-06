@@ -53,6 +53,7 @@ enum emv_oda_result_t {
 	EMV_ODA_NO_SUPPORTED_METHOD = 1, ///< No supported ODA method
 	EMV_ODA_ICC_DATA_MISSING, ///< Mandatory ICC data required by ODA method is missing
 	EMV_ODA_SDA_FAILED, ///< Static Data Authentication (SDA) failed
+	EMV_ODA_DDA_FAILED, ///< Dynamic Data Authentication (DDA) failed
 };
 
 /**
@@ -185,6 +186,47 @@ int emv_oda_apply(
 int emv_oda_apply_sda(
 	struct emv_oda_ctx_t* ctx,
 	struct emv_tlv_list_t* icc,
+	struct emv_tlv_list_t* terminal
+);
+
+/**
+ * Apply Dynamic Data Authentication (DDA).
+ * @remark See EMV 4.4 Book 2, 6.5
+ *
+ * @note This function is intended to be used by @ref emv_oda_apply() and
+ *       should only be used directly for use cases beyond EMV requirements.
+ *       If in doubt, always use @ref emv_oda_apply() instead.
+ *
+ * This function requires:
+ * - @p icc must contain these fields:
+ *   - @ref EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX
+ *   - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
+ *   - @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER (may be absent if empty)
+ *   - @ref EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT
+ *   - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE
+ *   - @ref EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT
+ *   - @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER (may be absent if empty)
+ * - @p terminal must contain these fields:
+ *   - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
+ *   - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
+ *   - @ref EMV_TAG_9F06_AID
+ *
+ * @param ctx Offline Data Authentication (ODA) context
+ * @param icc ICC data for current application
+ * @param terminal Terminal data for the current transaction
+ *
+ * Upon success, this function will update @p terminal to append
+ * @ref EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX.
+ *
+ * @return Zero for success.
+ * @return Less than zero for error. See @ref emv_oda_error_t
+ * @return Greater than zero indicates that dynamic data authentication is
+ *         either not possible or has failed, but that the terminal may
+ *         continue the card session. See @ref emv_oda_result_t
+ */
+int emv_oda_apply_dda(
+	struct emv_oda_ctx_t* ctx,
+	const struct emv_tlv_list_t* icc,
 	struct emv_tlv_list_t* terminal
 );
 
