@@ -352,7 +352,7 @@ int emv_tlv_get_info(
 			return 0;
 
 		case EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA:
-			info->tag_name = "Signed Static Application Data";
+			info->tag_name = "Signed Static Application Data (SSAD)";
 			info->tag_desc =
 				"Digital signature on critical application "
 				"parameters for SDA";
@@ -374,6 +374,22 @@ int emv_tlv_get_info(
 				"Status of the different functions as seen from the terminal";
 			info->format = EMV_FORMAT_B;
 			return emv_tvr_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_97_TDOL:
+			info->tag_name = "Transaction Certificate Data Object List (TDOL)";
+			info->tag_desc =
+				"List of data objects (tag and length) to be used by the "
+				"terminal in generating the TC Hash Value";
+			info->format = EMV_FORMAT_DOL;
+			return 0;
+
+		case EMV_TAG_98_TC_HASH:
+			info->tag_name = "Transaction Certificate (TC) Hash Value";
+			info->tag_desc =
+				"Result of a hash function using input created from the list "
+				"of data objects specified in the TDOL";
+			info->format = EMV_FORMAT_B;
+			return 0;
 
 		case EMV_TAG_9A_TRANSACTION_DATE:
 			info->tag_name = "Transaction Date";
@@ -833,7 +849,7 @@ int emv_tlv_get_info(
 			return emv_time_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX:
-			info->tag_name = "Certification Authority Public Key (CAPK) Index";
+			info->tag_name = "Certification Authority Public Key (CAPK) Index - terminal";
 			info->tag_desc =
 				"Identifies the certification authority's public key in "
 				"conjunction with the RID";
@@ -1092,6 +1108,14 @@ int emv_tlv_get_info(
 				"specification whose value fields are to be included in the "
 				"Signed Static or Dynamic Application Data";
 			info->format = EMV_FORMAT_TAG_LIST;
+			return 0;
+
+		case EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA:
+			info->tag_name = "Signed Dynamic Application Data (SDAD)";
+			info->tag_desc =
+				"Digital signature on critical application "
+				"parameters for DDA or CDA";
+			info->format = EMV_FORMAT_B;
 			return 0;
 
 		case EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER:

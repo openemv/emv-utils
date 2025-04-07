@@ -134,7 +134,7 @@ __BEGIN_DECLS
 /// EMV tag 92 Issuer Public Key Remainder. Template 70 or 77.
 #define EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER                  (0x92)
 
-/// EMV tag 93 Signed Static Application Data. Template 70 or 77.
+/// EMV tag 93 Signed Static Application Data (SSAD). Template 70 or 77.
 #define EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA               (0x93)
 
 /// EMV tag 94 Application File Locator (AFL). Template 77 or 80.
@@ -142,6 +142,12 @@ __BEGIN_DECLS
 
 /// EMV tag 95 Terminal Verification Results (TVR)
 #define EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS                (0x95)
+
+/// EMV tag 97 Transaction Certificate Data Object List (TDOL). Template 70 or 77.
+#define EMV_TAG_97_TDOL                                         (0x97)
+
+/// EMV tag 98 Transaction Certificate (TC) Hash Value
+#define EMV_TAG_98_TC_HASH                                      (0x98)
 
 /// EMV tag 9A Transaction Date
 #define EMV_TAG_9A_TRANSACTION_DATE                             (0x9A)
@@ -307,7 +313,7 @@ __BEGIN_DECLS
 /// EMV tag 9F21 Transaction Time
 #define EMV_TAG_9F21_TRANSACTION_TIME                           (0x9F21)
 
-/// EMV tag 9F22 Certification Authority Public Key (CAPK) Index
+/// EMV tag 9F22 Certification Authority Public Key (CAPK) Index - terminal
 #define EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX   (0x9F22)
 
 /// EMV tag 9F23 Upper Consecutive Offline Limit. Template 70 or 77.
@@ -393,6 +399,9 @@ __BEGIN_DECLS
 
 /// EMV tag 9F4A Static Data Authentication (SDA) Tag List. Template 70 or 77.
 #define EMV_TAG_9F4A_SDA_TAG_LIST                               (0x9F4A)
+
+/// EMV tag 9F4B Signed Dynamic Application Data (SDAD). Template 77 or 80.
+#define EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA            (0x9F4B)
 
 /// EMV tag 9F4C Integrated Circuit Card (ICC) Dynamic Number
 #define EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER                         (0x9F4C)
