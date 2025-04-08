@@ -32,6 +32,9 @@
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
 
+#include "crypto_mem.h"
+#include "crypto_rand.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -495,6 +498,7 @@ int emv_initiate_application_processing(
 )
 {
 	int r;
+	uint8_t un[4];
 	const struct emv_tlv_list_t* sources[3];
 	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
 	const struct emv_tlv_t* pdol;
@@ -580,6 +584,25 @@ int emv_initiate_application_processing(
 		(uint8_t[]){ 0x00, 0x00, 0x00, 0x00, 0x00 },
 		0
 	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Unpredictable Number (field 9F37)
+	// See EMV 4.4 Book 4, 6.5.6
+	crypto_rand(un, sizeof(un));
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9F37_UNPREDICTABLE_NUMBER,
+		sizeof(un),
+		un,
+		0
+	);
+	crypto_cleanse(un, sizeof(un));
 	if (r) {
 		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
 

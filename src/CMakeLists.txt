@@ -308,9 +308,10 @@ target_link_libraries(emv
 	PRIVATE
 		iso7816
 		iso8859
+		crypto_mem
+		crypto_rand
 		crypto_sha
 		crypto_rsa
-		crypto_mem
 )
 # The EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV variables are set
 # for the parent scope to facilitate the generation of pkgconfig files.
@@ -333,9 +334,10 @@ target_include_directories(emv
 install(
 	TARGETS
 		emv
+		crypto_mem
+		crypto_rand
 		crypto_sha
 		crypto_rsa
-		crypto_mem
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/emv"
