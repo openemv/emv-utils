@@ -869,12 +869,7 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
-	r = emv_oda_apply(
-		&ctx->oda,
-		&ctx->config,
-		&ctx->icc,
-		&ctx->terminal
-	);
+	r = emv_oda_apply(ctx);
 	if (r) {
 		if (r < 0) {
 			emv_debug_trace_msg("emv_oda_apply() failed; r=%d", r);

@@ -30,7 +30,7 @@ __BEGIN_DECLS
 
 // Forward declarations
 struct emv_tlv_t;
-struct emv_tlv_list_t;
+struct emv_ctx_t;
 
 /**
  * EMV Offline Data Authentication (ODA) errors.
@@ -118,23 +118,22 @@ int emv_oda_append_record(
  * @remark See EMV 4.4 Book 3, 10.3
  *
  * This function requires:
- * - @p config must contain @ref EMV_TAG_9F33_TERMINAL_CAPABILITIES
- * - @p icc must contain @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE as
- *   well as all of the fields required by the selected ODA method
- * - @p terminal must contain these fields:
+ * - @ref emv_ctx_t.config must contain
+ *   @ref EMV_TAG_9F33_TERMINAL_CAPABILITIES
+ * - @ref emv_ctx_t.icc must contain
+ *   @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE as well as all of the
+ *   fields required by the selected ODA method
+ * - @ref emv_ctx_t.terminal must contain these fields:
  *   - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
  *   - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
  *   - @ref EMV_TAG_9F06_AID
  *
- * This function will also add fields to @p icc and @p terminal based on the
- * selected ODA method and reflect the outcome by updating the values of
- * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS and
- * @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION.
+ * This function will also add fields to @ref emv_ctx_t.icc and
+ * @ref emv_ctx_t.terminal based on the selected ODA method and update the
+ * values of @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS and
+ * @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION to reflect the outcome.
  *
- * @param ctx Offline Data Authentication (ODA) context
- * @param config Terminal configuration
- * @param icc ICC data for current application
- * @param terminal Terminal data for the current transaction
+ * @param ctx EMV processing context
  *
  * @return Zero for success.
  * @return Less than zero indicates that the terminal should terminate the
@@ -143,12 +142,7 @@ int emv_oda_append_record(
  *         either not possible or has failed, but that the terminal may
  *         continue the card session. See @ref emv_oda_result_t
  */
-int emv_oda_apply(
-	struct emv_oda_ctx_t* ctx,
-	const struct emv_tlv_list_t* config,
-	struct emv_tlv_list_t* icc,
-	struct emv_tlv_list_t* terminal
-);
+int emv_oda_apply(struct emv_ctx_t* ctx);
 
 /**
  * Apply Static Data Authentication (SDA).
@@ -159,24 +153,22 @@ int emv_oda_apply(
  *       If in doubt, always use @ref emv_oda_apply() instead.
  *
  * This function requires:
- * - @p icc must contain these fields:
+ * - @ref emv_ctx_t.icc must contain these fields:
  *   - @ref EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX
  *   - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
  *   - @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER (may be absent if empty)
  *   - @ref EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA
  *   - @ref EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT
- * - @p terminal must contain these fields:
+ * - @ref emv_ctx_t.terminal must contain these fields:
  *   - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
  *   - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
  *   - @ref EMV_TAG_9F06_AID
  *
- * Upon success, this function will update @p terminal to append
- * @ref EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX and update @p icc
- * to append @ref EMV_TAG_9F45_DATA_AUTHENTICATION_CODE.
+ * Upon success, this function will update @ref emv_ctx_t.terminal to append
+ * @ref EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX and update
+ * @ref emv_ctx_t.icc to append @ref EMV_TAG_9F45_DATA_AUTHENTICATION_CODE.
  *
- * @param ctx Offline Data Authentication (ODA) context
- * @param icc ICC data for current application
- * @param terminal Terminal data for the current transaction
+ * @param ctx EMV processing context
  *
  * @return Zero for success.
  * @return Less than zero for error. See @ref emv_oda_error_t
@@ -184,11 +176,7 @@ int emv_oda_apply(
  *         either not possible or has failed, but that the terminal may
  *         continue the card session. See @ref emv_oda_result_t
  */
-int emv_oda_apply_sda(
-	struct emv_oda_ctx_t* ctx,
-	struct emv_tlv_list_t* icc,
-	struct emv_tlv_list_t* terminal
-);
+int emv_oda_apply_sda(struct emv_ctx_t* ctx);
 
 /**
  * Apply Dynamic Data Authentication (DDA).
@@ -199,7 +187,7 @@ int emv_oda_apply_sda(
  *       If in doubt, always use @ref emv_oda_apply() instead.
  *
  * This function requires:
- * - @p icc must contain these fields:
+ * - @ref emv_ctx_t.icc must contain these fields:
  *   - @ref EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX
  *   - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
  *   - @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER (may be absent if empty)
@@ -207,17 +195,15 @@ int emv_oda_apply_sda(
  *   - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE
  *   - @ref EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT
  *   - @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER (may be absent if empty)
- * - @p terminal must contain these fields:
+ * - @ref emv_ctx_t.terminal must contain these fields:
  *   - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
  *   - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
  *   - @ref EMV_TAG_9F06_AID
  *
- * @param ctx Offline Data Authentication (ODA) context
- * @param icc ICC data for current application
- * @param terminal Terminal data for the current transaction
- *
- * Upon success, this function will update @p terminal to append
+ * Upon success, this function will update @ref emv_ctx_t.terminal to append
  * @ref EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX.
+ *
+ * @param ctx EMV processing context
  *
  * @return Zero for success.
  * @return Less than zero for error. See @ref emv_oda_error_t
@@ -225,11 +211,7 @@ int emv_oda_apply_sda(
  *         either not possible or has failed, but that the terminal may
  *         continue the card session. See @ref emv_oda_result_t
  */
-int emv_oda_apply_dda(
-	struct emv_oda_ctx_t* ctx,
-	const struct emv_tlv_list_t* icc,
-	struct emv_tlv_list_t* terminal
-);
+int emv_oda_apply_dda(struct emv_ctx_t* ctx);
 
 __END_DECLS
 

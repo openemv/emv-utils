@@ -20,6 +20,7 @@
  */
 
 #include "emv_oda.h"
+#include "emv.h"
 #include "emv_tlv.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
@@ -137,47 +138,40 @@ int emv_oda_append_record(
 	return 0;
 }
 
-int emv_oda_apply(
-	struct emv_oda_ctx_t* ctx,
-	const struct emv_tlv_list_t* config,
-	struct emv_tlv_list_t* icc,
-	struct emv_tlv_list_t* terminal
-)
+int emv_oda_apply(struct emv_ctx_t* ctx)
 {
 	const struct emv_tlv_t* term_caps;
 	const struct emv_tlv_t* aip;
 
-	if (!ctx || !config || !icc || !terminal) {
-		emv_debug_trace_msg("ctx=%p, config=%p, icc=%p, terminal=%p",
-			ctx, config, icc, terminal
-		);
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
 		emv_debug_error("Invalid parameter");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
 
 	// Lookup fields that are required regardless of selected ODA method
-	term_caps = emv_tlv_list_find_const(config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
+	term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
 	if (!term_caps) {
 		emv_debug_error("Terminal Capabilities not found");
 		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
 	}
-	aip = emv_tlv_list_find_const(icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+	aip = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 	if (!aip) {
 		emv_debug_error("AIP not found");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
-	ctx->aid = emv_tlv_list_find_const(terminal, EMV_TAG_9F06_AID);
-	if (!ctx->aid) {
+	ctx->oda.aid = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F06_AID);
+	if (!ctx->oda.aid) {
 		emv_debug_error("AID not found");
 		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
 	}
-	ctx->tvr = emv_tlv_list_find_const(terminal, EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS);
-	if (!ctx->tvr) {
+	ctx->oda.tvr = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS);
+	if (!ctx->oda.tvr) {
 		emv_debug_error("TVR not found");
 		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
 	}
-	ctx->tsi = emv_tlv_list_find_const(terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
-	if (!ctx->tsi) {
+	ctx->oda.tsi = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
+	if (!ctx->oda.tsi) {
 		emv_debug_error("TSI not found");
 		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
 	}
@@ -189,7 +183,7 @@ int emv_oda_apply(
 		aip->value[0] & EMV_AIP_XDA_SUPPORTED
 	) {
 		emv_debug_error("XDA selected but not implemented");
-		ctx->tvr->value[3] |= EMV_TVR_XDA_FAILED;
+		ctx->oda.tvr->value[3] |= EMV_TVR_XDA_FAILED;
 		return EMV_ODA_ERROR_INTERNAL;
 	}
 
@@ -200,7 +194,7 @@ int emv_oda_apply(
 		aip->value[0] & EMV_AIP_CDA_SUPPORTED
 	) {
 		emv_debug_error("CDA selected but not implemented");
-		ctx->tvr->value[0] |= EMV_TVR_CDA_FAILED;
+		ctx->oda.tvr->value[0] |= EMV_TVR_CDA_FAILED;
 		return EMV_ODA_ERROR_INTERNAL;
 	}
 
@@ -210,7 +204,7 @@ int emv_oda_apply(
 	if (term_caps->value[2] & EMV_TERM_CAPS_SECURITY_DDA &&
 		aip->value[0] & EMV_AIP_DDA_SUPPORTED
 	) {
-		return emv_oda_apply_dda(ctx, icc, terminal);
+		return emv_oda_apply_dda(ctx);
 	}
 
 	// Determine whether Static Data Authentication (SDA) is supported by both
@@ -219,7 +213,7 @@ int emv_oda_apply(
 	if (term_caps->value[2] & EMV_TERM_CAPS_SECURITY_SDA &&
 		aip->value[0] & EMV_AIP_SDA_SUPPORTED
 	) {
-		return emv_oda_apply_sda(ctx, icc, terminal);
+		return emv_oda_apply_sda(ctx);
 	}
 
 	// No supported ODA method
@@ -229,15 +223,11 @@ int emv_oda_apply(
 		aip->value[0], aip->value[1]
 	);
 	emv_debug_info("No supported offline data authentication method");
-	ctx->tvr->value[0] |= EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED;
+	ctx->oda.tvr->value[0] |= EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED;
 	return EMV_ODA_NO_SUPPORTED_METHOD;
 }
 
-int emv_oda_apply_sda(
-	struct emv_oda_ctx_t* ctx,
-	struct emv_tlv_list_t* icc,
-	struct emv_tlv_list_t* terminal
-)
+int emv_oda_apply_sda(struct emv_ctx_t* ctx)
 {
 	int r;
 	const struct emv_tlv_t* capk_index;
@@ -249,16 +239,14 @@ int emv_oda_apply_sda(
 	struct emv_rsa_issuer_pkey_t ipk;
 	struct emv_rsa_ssad_t ssad;
 
-	if (!ctx || !icc || !terminal) {
-		emv_debug_trace_msg("ctx=%p, icc=%p, terminal=%p",
-			ctx, icc, terminal
-		);
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
 		emv_debug_error("Invalid parameter");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
-	if (!ctx->aid || !ctx->tvr || !ctx->tsi) {
+	if (!ctx->oda.aid || !ctx->oda.tvr || !ctx->oda.tsi) {
 		emv_debug_trace_msg("aid=%p, tvr=%p, tsi=%p",
-			ctx->aid, ctx->tvr, ctx->tsi
+			ctx->oda.aid, ctx->oda.tvr, ctx->oda.tsi
 		);
 		emv_debug_error("Invalid context variable");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
@@ -267,11 +255,11 @@ int emv_oda_apply_sda(
 	// Indicate that SDA is selected and performed, but assume that it has
 	// failed until the related steps have succeeded
 	emv_debug_info("Select Static Data Authentication (SDA)");
-	ctx->tvr->value[0] |=
+	ctx->oda.tvr->value[0] |=
 		EMV_TVR_SDA_SELECTED |
 		EMV_TVR_SDA_FAILED |
 		EMV_TVR_ICC_DATA_MISSING;
-	ctx->tsi->value[0] |= EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED;
+	ctx->oda.tsi->value[0] |= EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED;
 
 	// Mandatory data objects for SDA
 	// See EMV 4.4 Book 2, 5.1.1, table 4
@@ -279,10 +267,10 @@ int emv_oda_apply_sda(
 	// Although Issuer Public Key Remainder (field 92) is mandatory, it
 	// will not always be used. As such, this implementation does not
 	// enforce its presence.
-	capk_index = emv_tlv_list_find_const(icc, EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX);
-	ipk_cert = emv_tlv_list_find_const(icc, EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE);
-	ipk_exp = emv_tlv_list_find_const(icc, EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT);
-	enc_ssad = emv_tlv_list_find_const(icc, EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA);
+	capk_index = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX);
+	ipk_cert = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE);
+	ipk_exp = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT);
+	enc_ssad = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA);
 	if (!capk_index || capk_index->length != 1 ||
 		!ipk_cert ||
 		!ipk_exp ||
@@ -295,12 +283,12 @@ int emv_oda_apply_sda(
 		// EMV_TVR_SDA_FAILED and EMV_TVR_ICC_DATA_MISSING already set in TVR
 		return EMV_ODA_ICC_DATA_MISSING;
 	}
-	ctx->tvr->value[0] &= ~EMV_TVR_ICC_DATA_MISSING;
+	ctx->oda.tvr->value[0] &= ~EMV_TVR_ICC_DATA_MISSING;
 
 	// Validate Static Data Authentication Tag List (field 9F4A), if present
 	// See EMV 4.4 Book 2, 5.1.1
 	// See EMV 4.4 Book 3, 10.3 (page 98)
-	sdatl = emv_tlv_list_find_const(icc, EMV_TAG_9F4A_SDA_TAG_LIST);
+	sdatl = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F4A_SDA_TAG_LIST);
 	if (sdatl) {
 		const struct emv_tlv_t* aip;
 
@@ -311,7 +299,7 @@ int emv_oda_apply_sda(
 			return EMV_ODA_SDA_FAILED;
 		}
 
-		aip = emv_tlv_list_find_const(icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+		aip = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 		if (!aip) {
 			emv_debug_error("AIP not found");
 			// EMV_TVR_SDA_FAILED already set in TVR
@@ -321,7 +309,7 @@ int emv_oda_apply_sda(
 		// Append AIP to ODA record data
 		// See EMV 4.4 Book 2, 5.4, step 5
 		// See EMV 4.4 Book 3, 10.3 (page 98)
-		r = emv_oda_append_record(ctx, aip->value, aip->length);
+		r = emv_oda_append_record(&ctx->oda, aip->value, aip->length);
 		if (r) {
 			emv_debug_trace_msg("emv_oda_append_record() failed; r=%d", r);
 			emv_debug_error("Internal error");
@@ -332,15 +320,15 @@ int emv_oda_apply_sda(
 
 	// Retrieve Certificate Authority Public Key (CAPK)
 	// See EMV 4.4 Book 2, 5.2
-	capk = emv_capk_lookup(ctx->aid->value, capk_index->value[0]);
+	capk = emv_capk_lookup(ctx->oda.aid->value, capk_index->value[0]);
 	if (!capk) {
 		emv_debug_error(
 			"CAPK %02X%02X%02X%02X%02X #%02X not found",
-			ctx->aid->value[0],
-			ctx->aid->value[1],
-			ctx->aid->value[2],
-			ctx->aid->value[3],
-			ctx->aid->value[4],
+			ctx->oda.aid->value[0],
+			ctx->oda.aid->value[1],
+			ctx->oda.aid->value[2],
+			ctx->oda.aid->value[3],
+			ctx->oda.aid->value[4],
 			capk_index->value[0]
 		);
 		// EMV_TVR_SDA_FAILED already set in TVR
@@ -353,7 +341,7 @@ int emv_oda_apply_sda(
 		ipk_cert->value,
 		ipk_cert->length,
 		capk,
-		icc,
+		&ctx->icc,
 		&ipk
 	);
 	if (r) {
@@ -370,7 +358,7 @@ int emv_oda_apply_sda(
 		enc_ssad->value,
 		enc_ssad->length,
 		&ipk,
-		ctx,
+		&ctx->oda,
 		&ssad
 	);
 	if (r) {
@@ -388,7 +376,7 @@ int emv_oda_apply_sda(
 
 	// Create Certification Authority Public Key (CAPK) Index - terminal (field 9F22)
 	r = emv_tlv_list_push(
-		terminal,
+		&ctx->terminal,
 		EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX,
 		1,
 		capk_index->value,
@@ -405,7 +393,7 @@ int emv_oda_apply_sda(
 	// Create Data Authentication Code (field 9F45)
 	// See EMV 4.4 Book 2, 5.4 (page 48)
 	r = emv_tlv_list_push(
-		icc,
+		&ctx->icc,
 		EMV_TAG_9F45_DATA_AUTHENTICATION_CODE,
 		sizeof(ssad.data_auth_code),
 		ssad.data_auth_code,
@@ -421,7 +409,7 @@ int emv_oda_apply_sda(
 
 	// Successful SDA processing
 	emv_debug_info("Static Data Authentication (SDA) succeeded");
-	ctx->tvr->value[0] &= ~EMV_TVR_SDA_FAILED;
+	ctx->oda.tvr->value[0] &= ~EMV_TVR_SDA_FAILED;
 	r = 0;
 	goto exit;
 
@@ -431,11 +419,7 @@ exit:
 	return r;
 }
 
-int emv_oda_apply_dda(
-	struct emv_oda_ctx_t* ctx,
-	const struct emv_tlv_list_t* icc,
-	struct emv_tlv_list_t* terminal
-)
+int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 {
 	int r;
 	const struct emv_tlv_t* capk_index;
@@ -448,16 +432,14 @@ int emv_oda_apply_dda(
 	struct emv_rsa_issuer_pkey_t ipk;
 	struct emv_rsa_icc_pkey_t icc_pkey;
 
-	if (!ctx || !icc || !terminal) {
-		emv_debug_trace_msg("ctx=%p, icc=%p, terminal=%p",
-			ctx, icc, terminal
-		);
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
 		emv_debug_error("Invalid parameter");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
-	if (!ctx->aid || !ctx->tvr || !ctx->tsi) {
+	if (!ctx->oda.aid || !ctx->oda.tvr || !ctx->oda.tsi) {
 		emv_debug_trace_msg("aid=%p, tvr=%p, tsi=%p",
-			ctx->aid, ctx->tvr, ctx->tsi
+			ctx->oda.aid, ctx->oda.tvr, ctx->oda.tsi
 		);
 		emv_debug_error("Invalid context variable");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
@@ -465,10 +447,10 @@ int emv_oda_apply_dda(
 
 	// Assume that DDA has failed until the related steps have succeeded
 	emv_debug_info("Select Dynamic Data Authentication (DDA)");
-	ctx->tvr->value[0] |=
+	ctx->oda.tvr->value[0] |=
 		EMV_TVR_DDA_FAILED |
 		EMV_TVR_ICC_DATA_MISSING;
-	ctx->tsi->value[0] |= EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED;
+	ctx->oda.tsi->value[0] |= EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED;
 
 	// Mandatory data objects for DDA
 	// See EMV 4.4 Book 2, 6.1.1, table 12
@@ -476,11 +458,11 @@ int emv_oda_apply_dda(
 	// Although Issuer Public Key Remainder (field 92) and ICC Public Key
 	// Remainder (field 9F48) are mandatory, they will not always be used. As
 	// such, this implementation does not enforce its presence.
-	capk_index = emv_tlv_list_find_const(icc, EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX);
-	ipk_cert = emv_tlv_list_find_const(icc, EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE);
-	ipk_exp = emv_tlv_list_find_const(icc, EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT);
-	icc_cert = emv_tlv_list_find_const(icc, EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE);
-	icc_exp = emv_tlv_list_find_const(icc, EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT);
+	capk_index = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX);
+	ipk_cert = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE);
+	ipk_exp = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT);
+	icc_cert = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE);
+	icc_exp = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT);
 	if (!capk_index || capk_index->length != 1 ||
 		!ipk_cert ||
 		!ipk_exp ||
@@ -495,12 +477,12 @@ int emv_oda_apply_dda(
 		// EMV_TVR_DDA_FAILED and EMV_TVR_ICC_DATA_MISSING already set in TVR
 		return EMV_ODA_ICC_DATA_MISSING;
 	}
-	ctx->tvr->value[0] &= ~EMV_TVR_ICC_DATA_MISSING;
+	ctx->oda.tvr->value[0] &= ~EMV_TVR_ICC_DATA_MISSING;
 
 	// Validate Static Data Authentication Tag List (field 9F4A), if present
 	// See EMV 4.4 Book 2, 6.1.1
 	// See EMV 4.4 Book 3, 10.3 (page 98)
-	sdatl = emv_tlv_list_find_const(icc, EMV_TAG_9F4A_SDA_TAG_LIST);
+	sdatl = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F4A_SDA_TAG_LIST);
 	if (sdatl) {
 		const struct emv_tlv_t* aip;
 
@@ -511,7 +493,7 @@ int emv_oda_apply_dda(
 			return EMV_ODA_DDA_FAILED;
 		}
 
-		aip = emv_tlv_list_find_const(icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+		aip = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 		if (!aip) {
 			emv_debug_error("AIP not found");
 			// EMV_TVR_DDA_FAILED already set in TVR
@@ -521,7 +503,7 @@ int emv_oda_apply_dda(
 		// Append AIP to ODA record data
 		// See EMV 4.4 Book 2, 6.4, step 5
 		// See EMV 4.4 Book 3, 10.3 (page 98)
-		r = emv_oda_append_record(ctx, aip->value, aip->length);
+		r = emv_oda_append_record(&ctx->oda, aip->value, aip->length);
 		if (r) {
 			emv_debug_trace_msg("emv_oda_append_record() failed; r=%d", r);
 			emv_debug_error("Internal error");
@@ -532,15 +514,15 @@ int emv_oda_apply_dda(
 
 	// Retrieve Certificate Authority Public Key (CAPK)
 	// See EMV 4.4 Book 2, 6.2
-	capk = emv_capk_lookup(ctx->aid->value, capk_index->value[0]);
+	capk = emv_capk_lookup(ctx->oda.aid->value, capk_index->value[0]);
 	if (!capk) {
 		emv_debug_error(
 			"CAPK %02X%02X%02X%02X%02X #%02X not found",
-			ctx->aid->value[0],
-			ctx->aid->value[1],
-			ctx->aid->value[2],
-			ctx->aid->value[3],
-			ctx->aid->value[4],
+			ctx->oda.aid->value[0],
+			ctx->oda.aid->value[1],
+			ctx->oda.aid->value[2],
+			ctx->oda.aid->value[3],
+			ctx->oda.aid->value[4],
 			capk_index->value[0]
 		);
 		// EMV_TVR_DDA_FAILED already set in TVR
@@ -553,7 +535,7 @@ int emv_oda_apply_dda(
 		ipk_cert->value,
 		ipk_cert->length,
 		capk,
-		icc,
+		&ctx->icc,
 		&ipk
 	);
 	if (r) {
@@ -570,8 +552,8 @@ int emv_oda_apply_dda(
 		icc_cert->value,
 		icc_cert->length,
 		&ipk,
-		icc,
-		ctx,
+		&ctx->icc,
+		&ctx->oda,
 		&icc_pkey
 	);
 	if (r) {
@@ -589,7 +571,7 @@ int emv_oda_apply_dda(
 
 	// Create Certification Authority Public Key (CAPK) Index - terminal (field 9F22)
 	r = emv_tlv_list_push(
-		terminal,
+		&ctx->terminal,
 		EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX,
 		1,
 		capk_index->value,
@@ -609,7 +591,7 @@ int emv_oda_apply_dda(
 
 	// Successful DDA processing
 	emv_debug_info("Dynamic Data Authentication (DDA) succeeded");
-	ctx->tvr->value[0] &= ~EMV_TVR_DDA_FAILED;
+	ctx->oda.tvr->value[0] &= ~EMV_TVR_DDA_FAILED;
 	r = 0;
 	goto exit;
 
