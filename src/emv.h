@@ -132,6 +132,20 @@ struct emv_ctx_t {
 	 * - @ref emv_offline_data_authentication()
 	 */
 	struct emv_oda_ctx_t oda;
+
+	/**
+	 * @brief Various cached fields for internal use
+	 *
+	 * Populated by @ref emv_initiate_application_processing() and used by
+	 * various functions.
+	 * @cond INTERNAL
+	 */
+	const struct emv_tlv_t* aid;
+	const struct emv_tlv_t* tvr;
+	const struct emv_tlv_t* tsi;
+	const struct emv_tlv_t* aip;
+	const struct emv_tlv_t* afl;
+	/// @endcond
 };
 
 /**
@@ -292,12 +306,12 @@ int emv_select_application(
  * - @ref emv_ctx_t.config
  * - @ref emv_ctx_t.terminal
  *
- * @note This functions clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
+ * @note This function clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
  *       and then populates them appropriately. Upon success, the selected
  *       application's TLV data will be moved to @ref emv_ctx_t.icc and the
  *       output of GET PROCESSING OPTIONS will be appended. Upon success,
  *       @ref emv_ctx_t.terminal will be populated with various fields,
- *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE.
+ *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE and @ref EMV_TAG_9F06_AID.
  *
  * @remark See EMV 4.4 Book 3, 10.1
  * @remark See EMV 4.4 Book 4, 6.3.1

@@ -247,6 +247,39 @@ static const struct xpdu_t test11_apdu_list[] = {
 	{ 0 }
 };
 
+static int populate_afl(
+	struct emv_ctx_t* emv,
+	const uint8_t* afl,
+	size_t afl_len
+)
+{
+	int r;
+
+	if (!emv || !afl || !afl_len) {
+		return -1;
+	}
+
+	r = emv_tlv_list_push(
+		&emv->icc,
+		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
+		afl_len,
+		afl,
+		0
+	);
+	if (r) {
+		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		return 1;
+	}
+
+	emv->afl = emv_tlv_list_find_const(&emv->icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	if (!emv->afl) {
+		fprintf(stderr, "emv_tlv_list_find_const(EMV_TAG_94_APPLICATION_FILE_LOCATOR) failed; r=%d", r);
+		return 1;
+	}
+
+	return 0;
+}
+
 int main(void)
 {
 	int r;
@@ -278,7 +311,7 @@ int main(void)
 	printf("\nTest 1: No AFL...\n");
 	r = emv_read_application_data(&emv);
 	if (r != EMV_OUTCOME_CARD_ERROR) {
-		fprintf(stderr, "emv_initiate_application_processing() did not return EMV_OUTCOME_CARD_ERROR; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		fprintf(stderr, "emv_read_application_data() did not return EMV_OUTCOME_CARD_ERROR; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
 		goto exit;
 	}
@@ -286,15 +319,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 2: Malformed AFL...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test2_afl),
-		test2_afl,
-		0
-	);
+	r = populate_afl(&emv, test2_afl, sizeof(test2_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -303,8 +330,8 @@ int main(void)
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
 		emv.ttl,
-		test2_afl,
-		sizeof(test2_afl),
+		emv.afl->value,
+		emv.afl->length,
 		&emv.icc,
 		NULL
 	);
@@ -322,15 +349,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 3: Read Record status 6985...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test3_afl),
-		test3_afl,
-		0
-	);
+	r = populate_afl(&emv, test3_afl, sizeof(test3_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -339,8 +360,8 @@ int main(void)
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
 		emv.ttl,
-		test3_afl,
-		sizeof(test3_afl),
+		emv.afl->value,
+		emv.afl->length,
 		&emv.icc,
 		NULL
 	);
@@ -358,15 +379,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 4: Invalid record template...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test4_afl),
-		test4_afl,
-		0
-	);
+	r = populate_afl(&emv, test4_afl, sizeof(test4_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -375,8 +390,8 @@ int main(void)
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
 		emv.ttl,
-		test4_afl,
-		sizeof(test4_afl),
+		emv.afl->value,
+		emv.afl->length,
 		&emv.icc,
 		NULL
 	);
@@ -394,15 +409,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 5: Record with additional data after template...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test5_afl),
-		test5_afl,
-		0
-	);
+	r = populate_afl(&emv, test5_afl, sizeof(test5_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -411,8 +420,8 @@ int main(void)
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
 		emv.ttl,
-		test5_afl,
-		sizeof(test5_afl),
+		emv.afl->value,
+		emv.afl->length,
 		&emv.icc,
 		NULL
 	);
@@ -430,15 +439,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 6: Record with malformed EMV data...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test6_afl),
-		test6_afl,
-		0
-	);
+	r = populate_afl(&emv, test6_afl, sizeof(test6_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -447,8 +450,8 @@ int main(void)
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
 		emv.ttl,
-		test6_afl,
-		sizeof(test6_afl),
+		emv.afl->value,
+		emv.afl->length,
 		&emv.icc,
 		NULL
 	);
@@ -466,15 +469,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 7: Malformed AFL entry...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test7_afl),
-		test7_afl,
-		0
-	);
+	r = populate_afl(&emv, test7_afl, sizeof(test7_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -483,8 +480,8 @@ int main(void)
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
 		emv.ttl,
-		test7_afl,
-		sizeof(test7_afl),
+		emv.afl->value,
+		emv.afl->length,
 		&emv.icc,
 		NULL
 	);
@@ -502,15 +499,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 8: Redundant EMV field...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test8_afl),
-		test8_afl,
-		0
-	);
+	r = populate_afl(&emv, test8_afl, sizeof(test8_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -532,15 +523,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 9: Mandatory fields missing...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test9_afl),
-		test9_afl,
-		0
-	);
+	r = populate_afl(&emv, test9_afl, sizeof(test9_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -562,15 +547,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 10: Invalid record template for offline data authentication...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test10_afl),
-		test10_afl,
-		0
-	);
+	r = populate_afl(&emv, test10_afl, sizeof(test10_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}
@@ -579,8 +558,8 @@ int main(void)
 	emul_ctx.xpdu_current = NULL;
 	r = emv_tal_read_afl_records(
 		emv.ttl,
-		test10_afl,
-		sizeof(test10_afl),
+		emv.afl->value,
+		emv.afl->length,
 		&emv.icc,
 		NULL
 	);
@@ -598,15 +577,9 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 11: Normal processing...\n");
-	r = emv_tlv_list_push(
-		&emv.icc,
-		EMV_TAG_94_APPLICATION_FILE_LOCATOR,
-		sizeof(test11_afl),
-		test11_afl,
-		0
-	);
+	r = populate_afl(&emv, test11_afl, sizeof(test11_afl));
 	if (r) {
-		fprintf(stderr, "emv_tlv_list_push() failed; r=%d", r);
+		fprintf(stderr, "populate_afl() failed; r=%d", r);
 		r = 1;
 		goto exit;
 	}

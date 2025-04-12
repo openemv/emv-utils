@@ -79,6 +79,12 @@ int emv_ctx_reset(struct emv_ctx_t* ctx)
 	ctx->selected_app = NULL;
 	emv_oda_clear(&ctx->oda);
 
+	ctx->aid = NULL;
+	ctx->tvr = NULL;
+	ctx->tsi = NULL;
+	ctx->aip = NULL;
+	ctx->afl = NULL;
+
 	return 0;
 }
 
@@ -611,6 +617,23 @@ int emv_initiate_application_processing(
 		return EMV_ERROR_INTERNAL;
 	}
 
+	// Cache various terminal fields
+	ctx->aid = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F06_AID);
+	if (!ctx->aid) {
+		emv_debug_error("AID not found");
+		return EMV_ERROR_INTERNAL;
+	}
+	ctx->tvr = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS);
+	if (!ctx->tvr) {
+		emv_debug_error("TVR not found");
+		return EMV_ERROR_INTERNAL;
+	}
+	ctx->tsi = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
+	if (!ctx->tsi) {
+		emv_debug_error("TSI not found");
+		return EMV_ERROR_INTERNAL;
+	}
+
 	// Prepare ordered data source list
 	sources[0] = &ctx->params;
 	sources[1] = &ctx->config;
@@ -678,7 +701,14 @@ int emv_initiate_application_processing(
 		gpo_data_len = 0;
 	}
 
-	r = emv_tal_get_processing_options(ctx->ttl, gpo_data, gpo_data_len, &gpo_output, NULL, NULL);
+	r = emv_tal_get_processing_options(
+		ctx->ttl,
+		gpo_data,
+		gpo_data_len,
+		&gpo_output,
+		&ctx->aip,
+		&ctx->afl
+	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_get_processing_options() failed; r=%d", r);
 		if (r < 0) {
@@ -736,7 +766,6 @@ exit:
 int emv_read_application_data(struct emv_ctx_t* ctx)
 {
 	int r;
-	const struct emv_tlv_t* afl;
 	struct emv_tlv_list_t record_data = EMV_TLV_LIST_INIT;
 	bool found_5F24 = false;
 	bool found_5A = false;
@@ -750,8 +779,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 	}
 
 	// Application File Locator (AFL) is required to read application records
-	afl = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
-	if (!afl) {
+	if (!ctx->afl) {
 		// AFL not found; terminate session
 		// See EMV 4.4 Book 3, 6.5.8.4
 		emv_debug_error("AFL not found");
@@ -760,7 +788,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 
 	// Initialise Offline Data Authentication (ODA) to ensure that it is ready
 	// when reading application records
-	r = emv_oda_init(&ctx->oda, afl->value, afl->length);
+	r = emv_oda_init(&ctx->oda, ctx->afl->value, ctx->afl->length);
 	if (r) {
 		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
 
@@ -781,8 +809,8 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 	// See EMV 4.4 Book 3, 10.2
 	r = emv_tal_read_afl_records(
 		ctx->ttl,
-		afl->value,
-		afl->length,
+		ctx->afl->value,
+		ctx->afl->length,
 		&record_data,
 		&ctx->oda
 	);

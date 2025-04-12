@@ -29,7 +29,6 @@
 __BEGIN_DECLS
 
 // Forward declarations
-struct emv_tlv_t;
 struct emv_ctx_t;
 
 /**
@@ -64,11 +63,6 @@ struct emv_oda_ctx_t {
 	// Buffer for record data
 	uint8_t* buf; ///< Offline Data Authentication (ODA) buffer
 	unsigned int buf_len; ///< Length of Offline Data Authentication (ODA) buffer
-
-	// Cached terminal fields
-	const struct emv_tlv_t* aid;
-	const struct emv_tlv_t* tvr;
-	const struct emv_tlv_t* tsi;
 };
 
 /**
