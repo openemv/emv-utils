@@ -40,7 +40,6 @@ enum emv_oda_error_t {
 	EMV_ODA_ERROR_INTERNAL = -1, ///< Internal error
 	EMV_ODA_ERROR_INVALID_PARAMETER = -2, ///< Invalid function parameter
 	EMV_ODA_ERROR_AFL_INVALID = -3, ///< Application File Locator (AFL) is invalid
-	EMV_ODA_ERROR_TERMINAL_DATA_MISSING = -4, ///< Mandatory terminal data required by ODA method is missing
 };
 
 /**
@@ -128,6 +127,7 @@ int emv_oda_append_record(
  * @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION to reflect the outcome.
  *
  * @param ctx EMV processing context
+ * @param term_caps Terminal Capabilities (field 9F33). Must be 3 bytes.
  *
  * @return Zero for success.
  * @return Less than zero indicates that the terminal should terminate the
@@ -136,7 +136,10 @@ int emv_oda_append_record(
  *         either not possible or has failed, but that the terminal may
  *         continue the card session. See @ref emv_oda_result_t
  */
-int emv_oda_apply(struct emv_ctx_t* ctx);
+int emv_oda_apply(
+	struct emv_ctx_t* ctx,
+	const uint8_t* term_caps
+);
 
 /**
  * Apply Static Data Authentication (SDA).

@@ -138,12 +138,13 @@ int emv_oda_append_record(
 	return 0;
 }
 
-int emv_oda_apply(struct emv_ctx_t* ctx)
+int emv_oda_apply(
+	struct emv_ctx_t* ctx,
+	const uint8_t* term_caps
+)
 {
-	const struct emv_tlv_t* term_caps;
-
-	if (!ctx) {
-		emv_debug_trace_msg("ctx=%p", ctx);
+	if (!ctx || !term_caps) {
+		emv_debug_trace_msg("ctx=%p, term_caps=%p", ctx, term_caps);
 		emv_debug_error("Invalid parameter");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
@@ -155,17 +156,10 @@ int emv_oda_apply(struct emv_ctx_t* ctx)
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
 
-	// Lookup fields that are required regardless of selected ODA method
-	term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
-	if (!term_caps) {
-		emv_debug_error("Terminal Capabilities not found");
-		return EMV_ODA_ERROR_TERMINAL_DATA_MISSING;
-	}
-
 	// Determine whether Extended Data Authentication (XDA) is supported by
 	// both the terminal and the card. If so, apply it.
 	// See EMV 4.4 Book 3, 10.3 (page 96)
-	if (term_caps->value[2] & EMV_TERM_CAPS_SECURITY_XDA &&
+	if (term_caps[2] & EMV_TERM_CAPS_SECURITY_XDA &&
 		ctx->aip->value[0] & EMV_AIP_XDA_SUPPORTED
 	) {
 		emv_debug_error("XDA selected but not implemented");
@@ -176,7 +170,7 @@ int emv_oda_apply(struct emv_ctx_t* ctx)
 	// Determine whether Combined DDA/Application Cryptogram Generation (CDA)
 	// is supported by both the terminal and the card. If so, apply it.
 	// See EMV 4.4 Book 3, 10.3 (page 96)
-	if (term_caps->value[2] & EMV_TERM_CAPS_SECURITY_CDA &&
+	if (term_caps[2] & EMV_TERM_CAPS_SECURITY_CDA &&
 		ctx->aip->value[0] & EMV_AIP_CDA_SUPPORTED
 	) {
 		emv_debug_error("CDA selected but not implemented");
@@ -187,7 +181,7 @@ int emv_oda_apply(struct emv_ctx_t* ctx)
 	// Determine whether Dynamic Data Authentication (DDA) is supported by both
 	// the terminal and the card. If so, apply it.
 	// See EMV 4.4 Book 3, 10.3 (page 96)
-	if (term_caps->value[2] & EMV_TERM_CAPS_SECURITY_DDA &&
+	if (term_caps[2] & EMV_TERM_CAPS_SECURITY_DDA &&
 		ctx->aip->value[0] & EMV_AIP_DDA_SUPPORTED
 	) {
 		return emv_oda_apply_dda(ctx);
@@ -196,7 +190,7 @@ int emv_oda_apply(struct emv_ctx_t* ctx)
 	// Determine whether Static Data Authentication (SDA) is supported by both
 	// the terminal and the card. If so, apply it.
 	// See EMV 4.4 Book 3, 10.3 (page 96)
-	if (term_caps->value[2] & EMV_TERM_CAPS_SECURITY_SDA &&
+	if (term_caps[2] & EMV_TERM_CAPS_SECURITY_SDA &&
 		ctx->aip->value[0] & EMV_AIP_SDA_SUPPORTED
 	) {
 		return emv_oda_apply_sda(ctx);
@@ -205,7 +199,7 @@ int emv_oda_apply(struct emv_ctx_t* ctx)
 	// No supported ODA method
 	// See EMV 4.4 Book 3, 10.3 (page 96)
 	emv_debug_trace_msg("term_caps=%02X%02X%02X, aip=%02X%02x",
-		term_caps->value[0], term_caps->value[1], term_caps->value[2],
+		term_caps[0], term_caps[1], term_caps[2],
 		ctx->aip->value[0], ctx->aip->value[1]
 	);
 	emv_debug_info("No supported offline data authentication method");

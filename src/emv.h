@@ -156,6 +156,7 @@ struct emv_ctx_t {
 enum emv_error_t {
 	EMV_ERROR_INTERNAL = -1, ///< Internal error
 	EMV_ERROR_INVALID_PARAMETER = -2, ///< Invalid function parameter
+	EMV_ERROR_INVALID_CONFIG = -3, ///< Invalid configuration
 };
 
 /**

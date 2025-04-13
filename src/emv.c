@@ -49,6 +49,7 @@ const char* emv_error_get_string(enum emv_error_t error)
 	switch (error) {
 		case EMV_ERROR_INTERNAL: return "Internal error";
 		case EMV_ERROR_INVALID_PARAMETER: return "Invalid function parameter";
+		case EMV_ERROR_INVALID_CONFIG: return "Invalid configuration";
 	}
 
 	return "Unknown error";
@@ -890,6 +891,7 @@ exit:
 int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 {
 	int r;
+	const struct emv_tlv_t* term_caps;
 
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
@@ -897,7 +899,17 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
-	r = emv_oda_apply(ctx);
+	// Ensure mandatory configuration fields are present and have valid length
+	term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
+	if (!term_caps || term_caps->length != 3) {
+		emv_debug_trace_msg("term_caps=%p, term_caps->length=%u",
+			term_caps, term_caps ? term_caps->length : 0);
+		emv_debug_error("Terminal Capabilities (9F33) not found or invalid");
+		r = EMV_ERROR_INVALID_CONFIG;
+		goto exit;
+	}
+
+	r = emv_oda_apply(ctx, term_caps->value);
 	if (r) {
 		if (r < 0) {
 			emv_debug_trace_msg("emv_oda_apply() failed; r=%d", r);
