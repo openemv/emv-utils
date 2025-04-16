@@ -42,6 +42,7 @@ struct emv_oda_ctx_t;
 #define EMV_RSA_FORMAT_ISSUER_CERT              (0x02) ///< Issuer Public Key Certificate format
 #define EMV_RSA_FORMAT_SSAD                     (0x03) ///< Signed Static Application Data format
 #define EMV_RSA_FORMAT_ICC_CERT                 (0x04) ///< ICC Public Key Certificate format
+#define EMV_RSA_FORMAT_SDAD                     (0x05) ///< Signed Dynamic Application Data format
 /// @}
 
 /**
@@ -99,6 +100,18 @@ struct emv_rsa_icc_pkey_t {
 	uint8_t exponent_len; ///< Public key exponent length in bytes
 	uint8_t modulus[1984 / 8]; ///< Public key modulus
 	uint8_t exponent[3]; ///< Public key exponent
+	uint8_t hash[20]; ///< Hash used for ICC public key validation
+};
+
+/**
+ * Retrieved Signed Dynamic Application Data
+ * @remark See EMV 4.4 Book 2, 6.5.2, Table 17
+ */
+struct emv_rsa_sdad_t {
+	uint8_t format; ///< Signed Data Format. Must be @ref EMV_RSA_FORMAT_SDAD.
+	uint8_t hash_id; ///< Hash algorithm indicator. Must be @ref EMV_PKEY_HASH_SHA1.
+	uint8_t icc_dynamic_number_len; ///< Length of ICC Dynamic Number (field 9F4C) in bytes
+	uint8_t icc_dynamic_number[8]; ///< Value of ICC Dynamic Number (field 9F4C)
 	uint8_t hash[20]; ///< Hash used for Dynamic Data Authentication (DDA)
 };
 
@@ -214,6 +227,39 @@ int emv_rsa_retrieve_icc_pkey(
 	const struct emv_tlv_list_t* icc,
 	const struct emv_oda_ctx_t* oda,
 	struct emv_rsa_icc_pkey_t* pkey
+);
+
+/**
+ * Retrieve Signed Dynamic Application Data (SDAD) and optionally validate the
+ * hash.
+ * @remark See EMV 4.4 Book 2, 6.5.2
+ *
+ * This function will perform decryption and validate the data header, trailer,
+ * format and hash algorithm indicator to confirm that decryption succeeded
+ * with the appropriate ICC public key. If the concatenated data according to
+ * the Dynamic Data Authentication Data Object List (DDOL) is provided, this
+ * function will also validate the hash.
+ *
+ * @param sdad Signed Dynamic Application Data (field 9F4B)
+ * @param sdad_len Length of Signed Dynamic Application Data in bytes
+ * @param icc_pkey ICC public key
+ * @param ddol_data Concatenated data according to Dynamic Data Authentication
+ *                  Data Object List (DDOL)
+ * @param ddol_data_len Length of concatenated DDOL data in bytes
+ * @param data Retrieved Signed Dynamic Application Data output
+ *
+ * @return Zero if retrieved and validated.
+ * @return Less than zero for error.
+ * @return Greater than zero if decryption succeeded but hash validation was
+ *         not possible or failed.
+ */
+int emv_rsa_retrieve_sdad(
+	const uint8_t* sdad,
+	size_t sdad_len,
+	const struct emv_rsa_icc_pkey_t* icc_pkey,
+	const void* ddol_data,
+	size_t ddol_data_len,
+	struct emv_rsa_sdad_t* data
 );
 
 __END_DECLS
