@@ -991,3 +991,151 @@ int emv_tal_read_afl_records(
 		return 0;
 	}
 }
+
+int emv_tal_internal_authenticate(
+	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+	uint8_t response[EMV_RAPDU_DATA_MAX];
+	size_t response_len = sizeof(response);
+	uint16_t sw1sw2;
+	struct iso8825_tlv_t response_tlv;
+	struct emv_tlv_list_t response_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* sdad_tlv;
+
+	if (!ttl || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (data && data_len > EMV_CAPDU_DATA_MAX) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (!data && data_len) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// INTERNAL AUTHENTICATE
+	// See EMV 4.4 Book 2, 6.5
+	emv_debug_info_data("INTERNAL AUTHENTICATE", data, data_len);
+	r = emv_ttl_internal_authenticate(ttl, data, data_len, response, &response_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_internal_authenticate() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+	// See EMV 4.4 Book 3, 6.5.9.5
+	if (sw1sw2 != 0x9000) {
+		// Unknown error; terminate session
+		emv_debug_error("SW1SW2=0x%04hX", sw1sw2);
+		return EMV_TAL_ERROR_INT_AUTH_FAILED;
+	}
+
+	emv_debug_info_tlv("INTERNAL AUTHENTICATE response", response, response_len);
+
+	// Determine response format
+	r = iso8825_ber_decode(response, response_len, &response_tlv);
+	if (r <= 0) {
+		emv_debug_trace_msg("iso8825_ber_decode() failed; r=%d", r);
+
+		// Parse error; terminate session
+		// See EMV 4.4 Book 3, 6.5.9.4
+		emv_debug_error("Failed to parse INTERNAL AUTHENTICATE response");
+		return EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED;
+	}
+
+	if (response_tlv.tag == EMV_TAG_80_RESPONSE_MESSAGE_TEMPLATE_FORMAT_1) {
+		// Response format 1
+		// See EMV 4.4 Book 3, 6.5.9.4
+
+		// Validate length
+		// See EMV 4.4 Book 2, 6.5.2, table 17
+		// Assume that ICC public key will not be less than 512-bit and
+		// therefore SDAD must be at least 64 bytes.
+		if (response_tlv.length < 64) {
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.9.4
+			emv_debug_error("Invalid INTERNAL AUTHENTICATE response format 1 length of %u", response_tlv.length);
+			return EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED;
+		}
+
+		// Create Signed Dynamic Application Data (field 9F4B)
+		r = emv_tlv_list_push(
+			&response_list,
+			EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA,
+			response_tlv.length,
+			response_tlv.value,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+	} else if (response_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
+		// Response format 2
+		// See EMV 4.4 Book 3, 6.5.9.4
+
+		r = emv_tlv_parse(response_tlv.value, response_tlv.length, &response_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+			if (r < 0) {
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_TAL_ERROR_INTERNAL;
+				goto exit;
+			}
+			if (r > 0) {
+				// Parse error; terminate session
+				// See EMV 4.4 Book 3, 6.5.9.4
+				emv_debug_error("Failed to parse INTERNAL AUTHENTICATE response format 2");
+				r = EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED;
+				goto exit;
+			}
+		}
+
+	} else {
+		emv_debug_error("Invalid INTERNAL AUTHENTICATE response format");
+		r = EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED;
+		goto exit;
+	}
+
+	// Ensure that Signed Dynamic Application Data (field 9F4B) is present
+	sdad_tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
+	if (!sdad_tlv) {
+		// Mandatory field missing; terminate session
+		// See EMV 4.4 Book 3, 6.5.9.4
+		emv_debug_error("SDAD not found in INTERNAL AUTHENTICATE response");
+		r = EMV_TAL_ERROR_INT_AUTH_FIELD_NOT_FOUND;
+		goto exit;
+	}
+
+	r = emv_tlv_list_append(list, &response_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
+
+	// Successful INTERNAL AUTHENTICATE processing
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&response_list);
+	return r;
+}

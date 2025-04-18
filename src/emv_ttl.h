@@ -2,7 +2,7 @@
  * @file emv_ttl.h
  * @brief EMV Terminal Transport Layer (TTL)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -174,6 +174,27 @@ int emv_ttl_read_record(
  * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
  */
 int emv_ttl_get_processing_options(
+	struct emv_ttl_t* ctx,
+	const void* data,
+	size_t data_len,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+);
+
+/**
+ * INTERNAL AUTHENTICATE (0x88) for current application
+ * @remark EMV 4.4 Book 3, 6.5.9
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param data Authentication-related data
+ * @param data_len Length of authentication-related data in bytes
+ * @param response Response output
+ * @param response_len Length of response output in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_internal_authenticate(
 	struct emv_ttl_t* ctx,
 	const void* data,
 	size_t data_len,
