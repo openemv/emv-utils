@@ -40,6 +40,7 @@ enum emv_oda_error_t {
 	EMV_ODA_ERROR_INTERNAL = -1, ///< Internal error
 	EMV_ODA_ERROR_INVALID_PARAMETER = -2, ///< Invalid function parameter
 	EMV_ODA_ERROR_AFL_INVALID = -3, ///< Application File Locator (AFL) is invalid
+	EMV_ODA_ERROR_INT_AUTH_FAILED = -4, ///< INTERNAL AUTHENTICATE failed
 };
 
 /**
@@ -184,6 +185,8 @@ int emv_oda_apply_sda(struct emv_ctx_t* ctx);
  *       If in doubt, always use @ref emv_oda_apply() instead.
  *
  * This function requires:
+ * - @ref emv_ctx_t.config must contain
+ *   - @ref EMV_TAG_9F49_DDOL (Default DDOL)
  * - @ref emv_ctx_t.icc must contain these fields:
  *   - @ref EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX
  *   - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
@@ -192,13 +195,17 @@ int emv_oda_apply_sda(struct emv_ctx_t* ctx);
  *   - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE
  *   - @ref EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT
  *   - @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER (may be absent if empty)
+ *   - @ref EMV_TAG_9F49_DDOL (may be absent)
  * - @ref emv_ctx_t.terminal must contain these fields:
  *   - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
  *   - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
  *   - @ref EMV_TAG_9F06_AID
+ *   - @ref EMV_TAG_9F37_UNPREDICTABLE_NUMBER
  *
  * Upon success, this function will update @ref emv_ctx_t.terminal to append
- * @ref EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX.
+ * @ref EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX and update
+ * @ref emv_ctx_t.icc to append @ref EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER and
+ * @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA.
  *
  * @param ctx EMV processing context
  *

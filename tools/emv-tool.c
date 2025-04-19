@@ -608,6 +608,9 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	// - Terminal Data Output Capability: Attended print, Attended display, Code table 1 to 10
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES, 5, (uint8_t[]){ 0xFA, 0x00, 0xF0, 0xA3, 0xFF }, 0);
 
+	// Default Dynamic Data Authentication Data Object List (DDOL)
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F49_DDOL, 3, (uint8_t[]){ 0x9F, 0x37, 0x04 }, 0);
+
 	// Supported applications
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, EMV_ASI_EXACT_MATCH); // Visa Electron

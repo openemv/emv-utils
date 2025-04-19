@@ -27,12 +27,15 @@
 #include "emv_ttl.h"
 #include "emv_capk.h"
 #include "emv_rsa.h"
+#include "emv_dol.h"
+#include "emv_tal.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_ODA
 #include "emv_debug.h"
 
 #include "crypto_mem.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -393,6 +396,7 @@ exit:
 int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 {
 	int r;
+	const struct emv_tlv_t* un;
 	const struct emv_tlv_t* capk_index;
 	const struct emv_tlv_t* ipk_cert;
 	const struct emv_tlv_t* ipk_exp;
@@ -402,6 +406,14 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 	const struct emv_capk_t* capk;
 	struct emv_rsa_issuer_pkey_t ipk;
 	struct emv_rsa_icc_pkey_t icc_pkey;
+	const struct emv_tlv_t* ddol;
+	const struct emv_tlv_list_t* sources[3];
+	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+	uint8_t ddol_data_buf[EMV_CAPDU_DATA_MAX];
+	size_t ddol_data_len = sizeof(ddol_data_buf);
+	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* enc_sdad;
+	struct emv_rsa_sdad_t sdad;
 
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
@@ -414,6 +426,14 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 		);
 		emv_debug_error("Invalid context variable");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+
+	un = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F37_UNPREDICTABLE_NUMBER);
+	if (!un) {
+		// Unpredictable Number should have been created by
+		// emv_initiate_application_processing()
+		emv_debug_error("Unpredictable Number not found");
+		return EMV_ODA_ERROR_INTERNAL;
 	}
 
 	// Assume that DDA has failed until the related steps have succeeded
@@ -547,9 +567,159 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 		goto exit;
 	}
 
-	// TODO: Process DDOL
-	// TODO: INTERNAL AUTHENTICATE
-	// TODO: Process SDAD
+	// Prepare DDOL
+	// See EMV 4.4 Book 2, 6.5.1
+	ddol = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F49_DDOL);
+	if (!ddol) {
+		emv_debug_info("Use default Dynamic Data Authentication Data Object List (DDOL)");
+		ddol = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F49_DDOL);
+		if (!ddol) {
+			// Presence of Default DDOL should have been confirmed by
+			// emv_offline_data_authentication(), but if it is missing then
+			// EMV 4.4 Book 2, 6.5.1 consider DDA to have failed and it is not
+			// an internal error like other missing fields.
+			emv_debug_error("Default Dynamic Data Authentication Data Object List (DDOL) not found");
+			// EMV_TVR_DDA_FAILED already set in TVR
+			r = EMV_ODA_DDA_FAILED;
+			goto exit;
+		}
+	}
+
+	// Validate DDOL
+	// See EMV 4.4 Book 2, 6.5.1
+	struct emv_dol_itr_t itr;
+	struct emv_dol_entry_t entry;
+	bool found_9F37 = false;
+	r = emv_dol_itr_init(ddol->value, ddol->length, &itr);
+	if (r) {
+		emv_debug_trace_msg("emv_dol_itr_init() failed; r=%d", r);
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_DDA_FAILED;
+		goto exit;
+	}
+	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
+		if (entry.tag == EMV_TAG_9F37_UNPREDICTABLE_NUMBER) {
+			found_9F37 = true;
+		}
+	}
+	if (r != 0) {
+		emv_debug_trace_msg("emv_dol_itr_next() failed; r=%d", r);
+		emv_debug_error("Invalid Dynamic Data Authentication Data Object List (DDOL)");
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_DDA_FAILED;
+		goto exit;
+	}
+	if (!found_9F37) {
+		emv_debug_error("Dynamic Data Authentication Data Object List (DDOL) does not contain Unpredictable Number (9F37)");
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_DDA_FAILED;
+		goto exit;
+	}
+
+	// Build DDOL data
+	// Favour terminal data for current transaction and do not allow config
+	// to override terminal data nor ICC data
+	// See EMV 4.4 Book 3, 5.4
+	sources[0] = &ctx->terminal;
+	sources[1] = &ctx->icc;
+	sources[2] = &ctx->config;
+	r = emv_dol_build_data(
+		ddol->value,
+		ddol->length,
+		sources,
+		sources_count,
+		ddol_data_buf,
+		&ddol_data_len
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
+		emv_debug_error("Failed to build DDOL data");
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_DDA_FAILED;
+		goto exit;
+	}
+
+	// Authenticate ICC
+	// See EMV 4.4 Book 2, 6.5.1
+	r = emv_tal_internal_authenticate(
+		ctx->ttl,
+		ddol_data_buf,
+		ddol_data_len,
+		&list
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_internal_authenticate() failed; r=%d", r);
+		emv_debug_error("Error during dynamic data authentication");
+		if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+			r = EMV_ODA_ERROR_INTERNAL;
+		} else {
+			r = EMV_ODA_ERROR_INT_AUTH_FAILED;
+		}
+		// Internal errors, parse errors or missing mandatory fields in
+		// INTERNAL AUTHENTICATE response all require the terminal
+		// to terminate the session
+		// See EMV 4.4 Book 3, 6.5.9.4
+		goto exit;
+	}
+	enc_sdad = emv_tlv_list_find_const(&list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
+	if (!enc_sdad) {
+		// Presence of SDAD should have been confirmed by
+		// emv_tal_internal_authenticate()
+		emv_debug_error("SDAD not found in INTERNAL AUTHENTICATE response");
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Retrieve Signed Dynamic Application Data (SDAD)
+	// See EMV 4.4 Book 2, 6.5.2
+	r = emv_rsa_retrieve_sdad(
+		enc_sdad->value,
+		enc_sdad->length,
+		&icc_pkey,
+		ddol_data_buf,
+		ddol_data_len,
+		&sdad
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_rsa_retrieve_sdad() failed; r=%d", r);
+		if (r < 0) {
+			emv_debug_error("Failed to retrieve Signed Dynamic Application Data");
+		} else {
+			emv_debug_error("Failed to validate Signed Dynamic Application Data hash");
+		}
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_DDA_FAILED;
+		goto exit;
+	}
+	emv_debug_info("Valid Signed Dynamic Application Data hash");
+
+	// Append INTERNAL AUTHENTICATE output to ICC data list
+	r = emv_tlv_list_append(&ctx->icc, &list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Create ICC Dynamic Number (field 9F4C)
+	// See EMV 4.4 Book 2, 6.5.2 (page 64)
+	r = emv_tlv_list_push(
+		&ctx->icc,
+		EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER,
+		sdad.icc_dynamic_number_len,
+		sdad.icc_dynamic_number,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		// EMV_TVR_DDA_FAILED already set in TVR
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
 
 	// Successful DDA processing
 	emv_debug_info("Dynamic Data Authentication (DDA) succeeded");

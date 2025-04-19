@@ -892,6 +892,7 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 {
 	int r;
 	const struct emv_tlv_t* term_caps;
+	const struct emv_tlv_t* default_ddol;
 
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
@@ -908,15 +909,25 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 		r = EMV_ERROR_INVALID_CONFIG;
 		goto exit;
 	}
+	default_ddol = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F49_DDOL);
+	if (!default_ddol || default_ddol->length < 2) {
+		emv_debug_trace_msg("default_ddol=%p, default_ddol->length=%u",
+			default_ddol, default_ddol ? default_ddol->length : 0);
+		emv_debug_error("Default DDOL (9F49) not found or invalid");
+		r = EMV_ERROR_INVALID_CONFIG;
+		goto exit;
+	}
 
 	r = emv_oda_apply(ctx, term_caps->value);
 	if (r) {
 		if (r < 0) {
 			emv_debug_trace_msg("emv_oda_apply() failed; r=%d", r);
-
-			// Internal error; terminate session
-			emv_debug_error("Internal error");
-			r = EMV_ERROR_INTERNAL;
+			emv_debug_error("Error during offline data authentication");
+			if (r == EMV_ODA_ERROR_INTERNAL || r == EMV_ODA_ERROR_INVALID_PARAMETER) {
+				r = EMV_ERROR_INTERNAL;
+			} else {
+				r = EMV_OUTCOME_CARD_ERROR;
+			}
 			goto exit;
 		}
 
