@@ -36,7 +36,7 @@
 #include "crypto_mem.h"
 
 #include <stdbool.h>
-#include <stdlib.h>
+#include <stdlib.h> // For malloc() and free()
 #include <string.h>
 
 int emv_oda_init(
@@ -94,7 +94,7 @@ int emv_oda_init(
 	return 0;
 }
 
-int emv_oda_clear(struct emv_oda_ctx_t* ctx)
+int emv_oda_clear_records(struct emv_oda_ctx_t* ctx)
 {
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
@@ -106,6 +106,21 @@ int emv_oda_clear(struct emv_oda_ctx_t* ctx)
 		crypto_cleanse(ctx->buf, ctx->buf_len);
 		free(ctx->buf);
 	}
+	ctx->buf = NULL;
+	ctx->buf_len = 0;
+
+	return 0;
+}
+
+int emv_oda_clear(struct emv_oda_ctx_t* ctx)
+{
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_oda_clear_records(ctx);
 	memset(ctx, 0, sizeof(*ctx));
 
 	return 0;
@@ -165,6 +180,7 @@ int emv_oda_apply(
 	if (term_caps[2] & EMV_TERM_CAPS_SECURITY_XDA &&
 		ctx->aip->value[0] & EMV_AIP_XDA_SUPPORTED
 	) {
+		ctx->oda.method = EMV_ODA_METHOD_XDA;
 		emv_debug_error("XDA selected but not implemented");
 		ctx->tvr->value[3] |= EMV_TVR_XDA_FAILED;
 		return EMV_ODA_ERROR_INTERNAL;
@@ -176,6 +192,7 @@ int emv_oda_apply(
 	if (term_caps[2] & EMV_TERM_CAPS_SECURITY_CDA &&
 		ctx->aip->value[0] & EMV_AIP_CDA_SUPPORTED
 	) {
+		ctx->oda.method = EMV_ODA_METHOD_CDA;
 		return emv_oda_apply_cda(ctx);
 	}
 
@@ -185,6 +202,7 @@ int emv_oda_apply(
 	if (term_caps[2] & EMV_TERM_CAPS_SECURITY_DDA &&
 		ctx->aip->value[0] & EMV_AIP_DDA_SUPPORTED
 	) {
+		ctx->oda.method = EMV_ODA_METHOD_DDA;
 		return emv_oda_apply_dda(ctx);
 	}
 
@@ -194,6 +212,7 @@ int emv_oda_apply(
 	if (term_caps[2] & EMV_TERM_CAPS_SECURITY_SDA &&
 		ctx->aip->value[0] & EMV_AIP_SDA_SUPPORTED
 	) {
+		ctx->oda.method = EMV_ODA_METHOD_SDA;
 		return emv_oda_apply_sda(ctx);
 	}
 
@@ -204,6 +223,7 @@ int emv_oda_apply(
 		ctx->aip->value[0], ctx->aip->value[1]
 	);
 	emv_debug_info("No supported offline data authentication method");
+	ctx->oda.method = EMV_ODA_METHOD_NONE;
 	ctx->tvr->value[0] |= EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED;
 	return EMV_ODA_NO_SUPPORTED_METHOD;
 }

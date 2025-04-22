@@ -945,6 +945,8 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 	goto exit;
 
 exit:
-	emv_oda_clear(&ctx->oda);
+	// Clear only records because they are no longer needed and contain
+	// sensitive card data.
+	emv_oda_clear_records(&ctx->oda);
 	return r;
 }

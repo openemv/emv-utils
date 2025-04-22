@@ -59,12 +59,26 @@ enum emv_oda_result_t {
 };
 
 /**
+ * EMV Offline Data Authentication (ODA) method
+ */
+enum emv_oda_method_t {
+	EMV_ODA_METHOD_NONE = 0,
+	EMV_ODA_METHOD_SDA, ///< Static Data Authentication (SDA)
+	EMV_ODA_METHOD_DDA, ///< Dynamic Data Authentication (DDA)
+	EMV_ODA_METHOD_CDA, ///< Combined DDA/Application Cryptogram Generation (CDA)
+	EMV_ODA_METHOD_XDA, ///< Extended Data Authentication (XDA)
+};
+
+/**
  * EMV Offline Data Authentication (ODA) context
  */
 struct emv_oda_ctx_t {
 	// Buffer for record data
 	uint8_t* buf; ///< Offline Data Authentication (ODA) buffer
 	unsigned int buf_len; ///< Length of Offline Data Authentication (ODA) buffer
+
+	/// Currently selected Offline Data Authentication (ODA) method
+	enum emv_oda_method_t method;
 };
 
 /**
@@ -84,7 +98,21 @@ int emv_oda_init(
 );
 
 /**
- * Clear Offline Data Authentication (ODA) context
+ * Clear and free Offline Data Authentication (ODA) records. This function
+ * is only intended to free memory sooner when these records are no longer
+ * needed, while preserving the other members of the context object, and will
+ * be called by @ref emv_oda_clear() regardless.
+ *
+ * @param ctx Offline Data Authentication (ODA) context
+ *
+ * @return Zero for success.
+ * @return Less than zero for error. See @ref emv_oda_error_t
+ */
+int emv_oda_clear_records(struct emv_oda_ctx_t* ctx);
+
+/**
+ * Clear Offline Data Authentication (ODA) context. This function will also
+ * call @ref emv_oda_clear_records().
  *
  * @param ctx Offline Data Authentication (ODA) context
  *
