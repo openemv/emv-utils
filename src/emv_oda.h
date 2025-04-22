@@ -22,6 +22,8 @@
 #ifndef EMV_ODA_H
 #define EMV_ODA_H
 
+#include "emv_rsa.h"
+
 #include <sys/cdefs.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -79,6 +81,12 @@ struct emv_oda_ctx_t {
 
 	/// Currently selected Offline Data Authentication (ODA) method
 	enum emv_oda_method_t method;
+
+	/**
+	 * Currently retrieved ICC public key for use during processing of
+	 * Combined DDA/Application Cryptogram Generation (CDA)
+	 */
+	struct emv_rsa_icc_pkey_t icc_pkey;
 };
 
 /**

@@ -848,6 +848,7 @@ int emv_oda_apply_cda(struct emv_ctx_t* ctx)
 
 	// Successful CDA processing
 	emv_debug_info("Combined DDA/Application Cryptogram Generation (CDA) applied");
+	ctx->oda.icc_pkey = icc_pkey;
 	ctx->tvr->value[0] &= ~EMV_TVR_CDA_FAILED;
 	ctx->tsi->value[0] &= ~EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED;
 	r = 0;
