@@ -106,13 +106,18 @@ struct emv_rsa_icc_pkey_t {
 /**
  * Retrieved Signed Dynamic Application Data
  * @remark See EMV 4.4 Book 2, 6.5.2, Table 17
+ * @remark See EMV 4.4 Book 2, 6.6.1, Table 19
+ * @remark See EMV 4.4 Book 2, 6.6.2, Table 22
  */
 struct emv_rsa_sdad_t {
 	uint8_t format; ///< Signed Data Format. Must be @ref EMV_RSA_FORMAT_SDAD.
 	uint8_t hash_id; ///< Hash algorithm indicator. Must be @ref EMV_PKEY_HASH_SHA1.
 	uint8_t icc_dynamic_number_len; ///< Length of ICC Dynamic Number (field 9F4C) in bytes
 	uint8_t icc_dynamic_number[8]; ///< Value of ICC Dynamic Number (field 9F4C)
-	uint8_t hash[20]; ///< Hash used for Dynamic Data Authentication (DDA)
+	uint8_t cid; ///< Value of Cryptogram Information Data (field 9F27)
+	uint8_t cryptogram[8]; ///< Value of Application Cryptogram (field 9F26)
+	uint8_t txn_data_hash_code[20]; ///< Transaction Data Hash Code
+	uint8_t hash[20]; ///< Hash used for Signed Dynamic Application Data validation
 };
 
 /**
@@ -233,6 +238,7 @@ int emv_rsa_retrieve_icc_pkey(
  * Retrieve Signed Dynamic Application Data (SDAD) and optionally validate the
  * hash.
  * @remark See EMV 4.4 Book 2, 6.5.2
+ * @remark See EMV 4.4 Book 2, 6.6.2
  *
  * This function will perform decryption and validate the data header, trailer,
  * format and hash algorithm indicator to confirm that decryption succeeded

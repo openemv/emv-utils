@@ -754,6 +754,7 @@ int emv_rsa_retrieve_sdad(
 
 	// Ensure that key and signature sizes match
 	// See EMV 4.4 Book 2, 6.5.2, step 1
+	// See EMV 4.4 Book 2, 6.6.2, step 1
 	if (icc_pkey->modulus_len != sdad_len ||
 		icc_pkey->modulus_len > sizeof(decrypted_sdad)
 	) {
@@ -763,6 +764,7 @@ int emv_rsa_retrieve_sdad(
 
 	// Decrypt Signed Dynamic Application Data (field 9F4B)
 	// See EMV 4.4 Book 2, 6.5.2, step 2
+	// See EMV 4.4 Book 2, 6.6.2, step 2
 	r = crypto_rsa_mod_exp(
 		icc_pkey->modulus,
 		icc_pkey->modulus_len,
@@ -779,6 +781,9 @@ int emv_rsa_retrieve_sdad(
 	// Validate various data fields
 	// See EMV 4.4 Book 2, 6.5.2, step 2 - 4
 	// See EMV 4.4 Book 2, 6.5.2, table 17
+	// See EMV 4.4 Book 2, 6.6.2, step 2 - 4
+	// See EMV 4.4 Book 2, 6.6.2, table 22
+	// See EMV 4.4 Book 2, 6.6.1, table 19
 	if (
 		// Step 2
 		decrypted_sdad.body[sdad_dynamic_len + sdad_hash_len] != 0xBC ||
@@ -787,13 +792,14 @@ int emv_rsa_retrieve_sdad(
 		// Step 4
 		decrypted_sdad.format != EMV_RSA_FORMAT_SDAD ||
 		// Sanity check
-		decrypted_sdad.icc_dynamic_data_len > icc_pkey->modulus_len - 25 ||
+		decrypted_sdad.icc_dynamic_data_len > 1 + 8 + 1 + 8 + 20 ||
 		(decrypted_sdad.icc_dynamic_data_len > 0 && decrypted_sdad.body[0] > 8)
 	) {
 		// Incorrect ICC public key
 		return -4;
 	}
 	// See EMV 4.4 Book 2, 6.5.2, step 6
+	// See EMV 4.4 Book 2, 6.6.2, step 8
 	if (decrypted_sdad.hash_id != EMV_PKEY_HASH_SHA1) {
 		// Unsupported hash algorithm indicator
 		return -5;
@@ -803,11 +809,33 @@ int emv_rsa_retrieve_sdad(
 	data->format = decrypted_sdad.format;
 	data->hash_id = decrypted_sdad.hash_id;
 	if (decrypted_sdad.icc_dynamic_data_len > 0) {
+		// Extract ICC Dynamic Number (field 9F4C)
 		data->icc_dynamic_number_len = decrypted_sdad.body[0];
 		if (data->icc_dynamic_number_len > 0 &&
 			data->icc_dynamic_number_len <= sizeof(data->icc_dynamic_number)
 		) {
 			memcpy(data->icc_dynamic_number, decrypted_sdad.body + 1, data->icc_dynamic_number_len);
+		}
+
+		// Extract other fields from ICC Dynamic Data
+		// See EMV 4.4 Book 2, 6.6.2, step 5
+		// See EMV 4.4 Book 2, 6.6.1, table 19
+		if (decrypted_sdad.icc_dynamic_data_len ==
+			1 + data->icc_dynamic_number_len + 1 + 8 + 20) {
+
+			const uint8_t* ptr = decrypted_sdad.body + 1 + data->icc_dynamic_number_len;
+
+			// Extract Cryptogram Information Data (field 9F27)
+			data->cid = *ptr;
+			++ptr;
+
+			// Extract Application Cryptogram (field 9F26)
+			memcpy(data->cryptogram, ptr, sizeof(data->cryptogram));
+			ptr += sizeof(data->cryptogram);
+
+			// Extract Transaction Data Hash Code
+			memcpy(data->txn_data_hash_code, ptr, sizeof(data->txn_data_hash_code));
+			ptr += sizeof(data->txn_data_hash_code);
 		}
 	}
 	memcpy(data->hash, decrypted_sdad.body + sdad_dynamic_len, sizeof(data->hash));
@@ -820,6 +848,7 @@ int emv_rsa_retrieve_sdad(
 
 	// Compute hash
 	// See EMV 4.4 Book 2, 6.5.2, step 5 - 6
+	// See EMV 4.4 Book 2, 6.6.2, step 7 - 8
 	r = crypto_sha1_init(&sha1_ctx);
 	if (r) {
 		emv_debug_trace_msg("crypto_sha1_init() failed; r=%d", r);
@@ -861,6 +890,7 @@ int emv_rsa_retrieve_sdad(
 
 	// Verify hash
 	// See EMV 4.4 Book 2, 6.5.2, step 7
+	// See EMV 4.4 Book 2, 6.6.2, step 9
 	emv_debug_trace_data("Computed hash", hash, sizeof(hash));
 	emv_debug_trace_data("SDAD obj hash", data->hash, sizeof(data->hash));
 	if (memcmp(hash, data->hash, sizeof(data->hash)) != 0) {
