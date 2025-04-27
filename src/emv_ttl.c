@@ -750,3 +750,67 @@ int emv_ttl_internal_authenticate(
 
 	return 0;
 }
+
+int emv_ttl_genac(
+	struct emv_ttl_t* ctx,
+	uint8_t ref_ctrl,
+	const void* data,
+	size_t data_len,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+)
+{
+	int r;
+	struct iso7816_apdu_case_4s_t c_apdu;
+	uint8_t r_apdu[EMV_RAPDU_MAX];
+	size_t r_apdu_len = sizeof(r_apdu);
+
+	if (!ctx || !response || !response_len || !*response_len || !sw1sw2) {
+		return -1;
+	}
+	if (data && data_len > EMV_CAPDU_DATA_MAX) {
+		return -2;
+	}
+	if (!data && data_len) {
+		return -3;
+	}
+	if (*response_len < EMV_RAPDU_DATA_MAX) {
+		return -4;
+	}
+
+	// Build GENERATE APPLICATION CRYPTOGRAM command
+	c_apdu.CLA = 0x80; // See EMV 4.4 Book 3, 6.3.2
+	c_apdu.INS = 0xAE; // See EMV 4.4 Book 3, 6.5.5.2, table 11
+	c_apdu.P1  = ref_ctrl; // See EMV 4.4 Book 3, 6.5.5.2, table 11
+	c_apdu.P2  = 0x00; // See EMV 4.4 Book 3, 6.5.5.2, table 11
+	c_apdu.Lc  = data_len;
+	if (c_apdu.Lc) {
+		memcpy(c_apdu.data, data, c_apdu.Lc);
+	}
+	c_apdu.data[c_apdu.Lc] = 0x00; // See EMV 4.4 Book 3, 6.5.5.2, table 11
+
+	r = emv_ttl_trx(
+		ctx,
+		&c_apdu,
+		iso7816_apdu_case_4s_length(&c_apdu),
+		r_apdu,
+		&r_apdu_len,
+		sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+	if (r_apdu_len < 2) {
+		return -5;
+	}
+	if (r_apdu_len - 2 > *response_len) {
+		return -6;
+	}
+
+	// Copy response from R-APDU
+	*response_len = r_apdu_len - 2;
+	memcpy(response, r_apdu, *response_len);
+
+	return 0;
+}

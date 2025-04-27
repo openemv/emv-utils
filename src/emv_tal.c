@@ -1139,3 +1139,237 @@ exit:
 	emv_tlv_list_clear(&response_list);
 	return r;
 }
+
+int emv_tal_genac(
+	struct emv_ttl_t* ttl,
+	uint8_t ref_ctrl,
+	const void* data,
+	size_t data_len,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+	uint8_t response[EMV_RAPDU_DATA_MAX];
+	size_t response_len = sizeof(response);
+	uint16_t sw1sw2;
+	struct iso8825_tlv_t response_tlv;
+	struct emv_tlv_list_t response_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* tlv;
+
+	if (!ttl || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (data && data_len > EMV_CAPDU_DATA_MAX) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (!data && data_len) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// GENERATE APPLICATION CRYPTOGRAM
+	// See EMV 4.4 Book 3, 9
+	emv_debug_info("GENAC [P1=0x%02X]", ref_ctrl);
+	r = emv_ttl_genac(ttl, ref_ctrl, data, data_len, response, &response_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_genac() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+	// See EMV 4.4 Book 3, 6.5.5.5
+	if (sw1sw2 != 0x9000) {
+		// Unknown error; terminate session
+		emv_debug_error("SW1SW2=0x%04hX", sw1sw2);
+		return EMV_TAL_ERROR_GENAC_FAILED;
+	}
+
+	emv_debug_info_tlv("GENAC response", response, response_len);
+
+	// Determine response format
+	r = iso8825_ber_decode(response, response_len, &response_tlv);
+	if (r <= 0) {
+		emv_debug_trace_msg("iso8825_ber_decode() failed; r=%d", r);
+
+		// Parse error; terminate session
+		// See EMV 4.4 Book 3, 6.5.5.4
+		emv_debug_error("Failed to parse GENAC response");
+		return EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+	}
+
+	if (response_tlv.tag == EMV_TAG_80_RESPONSE_MESSAGE_TEMPLATE_FORMAT_1) {
+		// Response format 1
+		// See EMV 4.4 Book 3, 6.5.5.4
+
+		// Validate length
+		// See EMV 4.4 Book 3, 6.5.5.4, table 13
+		if (response_tlv.length < 1 + 2 + 8 ||
+			response_tlv.length > 1 + 2 + 8 + 32
+		) {
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.5.4
+			emv_debug_error("Invalid GENAC response format 1 length of %u", response_tlv.length);
+			return EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+		}
+
+		// Create Cryptogram Information Data (field 9F27)
+		r = emv_tlv_list_push(
+			&response_list,
+			EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA,
+			1,
+			response_tlv.value,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		// Create Application Transaction Counter (field 9F36)
+		r = emv_tlv_list_push(
+			&response_list,
+			EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER,
+			2,
+			response_tlv.value + 1,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		// Create Application Cryptogram (field 9F26)
+		r = emv_tlv_list_push(
+			&response_list,
+			EMV_TAG_9F26_APPLICATION_CRYPTOGRAM,
+			8,
+			response_tlv.value + 1 + 2,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		if (response_tlv.length > 1 + 2 + 8) {
+			// Create Issuer Application Data (field 9F10)
+			r = emv_tlv_list_push(
+				&response_list,
+				EMV_TAG_9F10_ISSUER_APPLICATION_DATA,
+				response_tlv.length - 1 - 2 - 8,
+				response_tlv.value + 1 + 2 + 8,
+				0
+			);
+			if (r) {
+				emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_TAL_ERROR_INTERNAL;
+				goto exit;
+			}
+		}
+
+	} else if (response_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
+		// Response format 2
+		// See EMV 4.4 Book 3, 6.5.5.4
+
+		r = emv_tlv_parse(response_tlv.value, response_tlv.length, &response_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+			if (r < 0) {
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_TAL_ERROR_INTERNAL;
+				goto exit;
+			}
+			if (r > 0) {
+				// Parse error; terminate session
+				// See EMV 4.4 Book 3, 6.5.5.4
+				emv_debug_error("Failed to parse GENAC response format 2");
+				r = EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+				goto exit;
+			}
+		}
+
+	} else {
+		emv_debug_error("Invalid GENAC response format");
+		r = EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+		goto exit;
+	}
+
+	// Ensure that Cryptogram Information Data (field 9F27) is present
+	tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+	if (!tlv) {
+		// Mandatory field missing; terminate session
+		// See EMV 4.4 Book 3, 6.5.5.4
+		emv_debug_error("CID not found in GENAC response");
+		r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
+		goto exit;
+	}
+
+	// Ensure that Application Transaction Counter (field 9F36) is present
+	tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER);
+	if (!tlv) {
+		// Mandatory field missing; terminate session
+		// See EMV 4.4 Book 3, 6.5.5.4
+		emv_debug_error("ATC not found in GENAC response");
+		r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
+		goto exit;
+	}
+
+	if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) == EMV_TTL_GENAC_SIG_NONE) {
+		// Ensure that Application Cryptogram (field 9F26) is present
+		tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F26_APPLICATION_CRYPTOGRAM);
+		if (!tlv) {
+			// Mandatory field missing; terminate session
+			// See EMV 4.4 Book 3, 6.5.5.4
+			emv_debug_error("AC not found in GENAC response");
+			r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
+			goto exit;
+		}
+	} else {
+		// Ensure that Signed Dynamic Application Data (field 9F4B) is present
+		tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
+		if (!tlv) {
+			// Mandatory field missing; terminate session
+			// See EMV 4.4 Book 3, 6.5.5.4
+			emv_debug_error("SDAD not found in GENAC response");
+			r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
+			goto exit;
+		}
+	}
+
+	r = emv_tlv_list_append(list, &response_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
+
+	// Successful GENERATE APPLICATION CRYPTOGRAM processing
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&response_list);
+	return r;
+}

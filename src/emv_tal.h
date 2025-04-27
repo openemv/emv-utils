@@ -57,6 +57,9 @@ enum emv_tal_error_t {
 	EMV_TAL_ERROR_INT_AUTH_FAILED = -12, ///< INTERNAL AUTHENTICATE failed
 	EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED = -13, ///< Failed to parse INTERNAL AUTHENTICATE response
 	EMV_TAL_ERROR_INT_AUTH_FIELD_NOT_FOUND = -14, ///< Failed to find mandatory field in INTERNAL AUTHENTICATE response
+	EMV_TAL_ERROR_GENAC_FAILED = -15, ///< GENERATE APPLICATION CRYPTOGRAM failed
+	EMV_TAL_ERROR_GENAC_PARSE_FAILED = -16, ///< Failed to parse GENERATE APPLICATION CRYPTOGRAM response
+	EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND = -17, ///< Failed to find mandatory field in GENERATE APPLICATION CRYPTOGRAM response
 };
 
 /**
@@ -222,6 +225,29 @@ int emv_tal_read_afl_records(
  */
 int emv_tal_internal_authenticate(
 	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len,
+	struct emv_tlv_list_t* list
+);
+
+/**
+ * Perform GENERATE APPLICATION CRYPTOGRAM and parse response
+ * @remark See EMV 4.4 Book 3, 9
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param ref_ctrl Reference control parameter. See @ref emv-ttl-genac-ref-ctrl "bit values".
+ * @param data Concatenated data according to Dynamic Data Authentication
+ *             Data Object List (DDOL)
+ * @param data_len Length of concatenated DDOL data in bytes
+ * @param list List to which decoded EMV TLV fields will be appended
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ */
+int emv_tal_genac(
+	struct emv_ttl_t* ttl,
+	uint8_t ref_ctrl,
 	const void* data,
 	size_t data_len,
 	struct emv_tlv_list_t* list
