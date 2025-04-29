@@ -374,6 +374,23 @@ int emv_read_application_data(struct emv_ctx_t* ctx);
  */
 int emv_offline_data_authentication(struct emv_ctx_t* ctx);
 
+/**
+ * Perform EMV Card Action Analysis to determined the risk management decision
+ * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM.
+ *
+ * @note This function is not yet fully implemented and only supports offline
+ *       declines by requesting an Application Authentication Cryptogram (AAC).
+ *
+ * @remark See EMV 4.4 Book 3, 10.8
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_card_action_analysis(struct emv_ctx_t* ctx);
+
 __END_DECLS
 
 #endif

@@ -916,6 +916,17 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
+	printf("\nCard action analysis\n");
+	r = emv_card_action_analysis(&emv);
+	if (r < 0) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto emv_exit;
+	}
+	if (r > 0) {
+		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+		goto emv_exit;
+	}
+
 	printf("\nICC data:\n");
 	print_emv_tlv_list(&emv.icc);
 

@@ -21,10 +21,12 @@
 
 #include "emv.h"
 #include "emv_utils_config.h"
+#include "emv_ttl.h"
 #include "emv_tal.h"
 #include "emv_app.h"
 #include "emv_dol.h"
 #include "emv_tags.h"
+#include "emv_fields.h"
 #include "emv_oda.h"
 
 #include "iso7816.h"
@@ -948,5 +950,103 @@ exit:
 	// Clear only records because they are no longer needed and contain
 	// sensitive card data.
 	emv_oda_clear_records(&ctx->oda);
+	return r;
+}
+
+int emv_card_action_analysis(struct emv_ctx_t* ctx)
+{
+	int r;
+	const struct emv_tlv_list_t* sources[3];
+	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+	const struct emv_tlv_t* cdol1;
+	uint8_t cdol1_data_buf[EMV_CAPDU_DATA_MAX];
+	size_t cdol1_data_len = sizeof(cdol1_data_buf);
+	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+
+	// Always decline offline for now until Terminal Action Analysis is fully
+	// implemented
+	uint8_t ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Prepare ordered data source list
+	sources[0] = &ctx->params;
+	sources[1] = &ctx->config;
+	sources[2] = &ctx->terminal;
+
+	// Prepare Card Risk Management Data
+	// See EMV 4.4 Book 3, 9.2.1
+	cdol1 = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_8C_CDOL1);
+	if (!cdol1) {
+		// Presence of CDOL1 should have been confirmed by
+		// emv_read_application_data()
+		emv_debug_error("Card Risk Management Data Object List 1 (CDOL1) not found");
+		return EMV_ERROR_INTERNAL;
+	}
+	r = emv_dol_build_data(
+		cdol1->value,
+		cdol1->length,
+		sources,
+		sources_count,
+		cdol1_data_buf,
+		&cdol1_data_len
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
+		emv_debug_error("Failed to build CDOL1 data");
+
+		// This is considered a card error because CDOL1 is provided by the
+		// ICC, should be valid, and should not cause the maximum length to be
+		// exceeded.
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Perform Card Action Analysis using GENAC1
+	// See EMV 4.4 Book 3, 10.8
+	r = emv_tal_genac(
+		ctx->ttl,
+		ref_ctrl,
+		cdol1_data_buf,
+		cdol1_data_len,
+		&genac_list
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_genac() failed; r=%d", r);
+		emv_debug_error("Error during card action analysis; terminate session");
+
+		if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+			r = EMV_ERROR_INTERNAL;
+		} else {
+			// All other GENAC1 errors are card errors
+			r = EMV_OUTCOME_CARD_ERROR;
+		}
+		goto exit;
+	}
+
+	// TODO: Implement offline decline if CID indicates AAC
+	// See EMV 4.4 Book 2, 6.6.2
+	// See EMV 4.4 Book 4, 6.3.7
+
+	// Append GENAC1 output to ICC data list
+	r = emv_tlv_list_append(&ctx->icc, &genac_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&genac_list);
 	return r;
 }
