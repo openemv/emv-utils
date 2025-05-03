@@ -1145,7 +1145,8 @@ int emv_tal_genac(
 	uint8_t ref_ctrl,
 	const void* data,
 	size_t data_len,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 )
 {
 	int r;
@@ -1290,22 +1291,80 @@ int emv_tal_genac(
 		// Response format 2
 		// See EMV 4.4 Book 3, 6.5.5.4
 
-		r = emv_tlv_parse(response_tlv.value, response_tlv.length, &response_list);
+		// NOTE: This is parsed manually instead of using emv_tlv_parse() to
+		// find the encoded offset of SDAD (field 9F4B) such that the remaining
+		// encoded fields can be cached. Recursive parsing of constructed
+		// fields is also not required.
+
+		struct iso8825_ber_itr_t itr;
+		struct iso8825_tlv_t tlv;
+		unsigned int offset_after_sdad = 0;
+		unsigned int length_after_sdad = 0;
+
+		r = iso8825_ber_itr_init(response_tlv.value, response_tlv.length, &itr);
 		if (r) {
-			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
-			if (r < 0) {
+			emv_debug_trace_msg("iso8825_ber_itr_init() failed; r=%d", r);
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+			if (oda &&
+				tlv.tag == EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA
+			) {
+				unsigned int offset_before_sdad =
+					itr.ptr - (void*)response_tlv.value - r;
+
+				if (offset_before_sdad <= sizeof(oda->genac_data)) {
+					// Found SDAD (field 9F4B) and buffer has enough space,
+					// therefore cache fields before SDAD
+					memcpy(
+						oda->genac_data,
+						response_tlv.value,
+						offset_before_sdad
+					);
+					oda->genac_data_len = offset_before_sdad;
+					offset_after_sdad = offset_before_sdad + r;
+					length_after_sdad = response_tlv.length - offset_after_sdad;
+				}
+			}
+
+			r = emv_tlv_list_push(
+				&response_list,
+				tlv.tag,
+				tlv.length,
+				tlv.value,
+				0
+			);
+			if (r) {
+				emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
 				// Internal error; terminate session
 				emv_debug_error("Internal error");
 				r = EMV_TAL_ERROR_INTERNAL;
 				goto exit;
 			}
-			if (r > 0) {
-				// Parse error; terminate session
-				// See EMV 4.4 Book 3, 6.5.5.4
-				emv_debug_error("Failed to parse GENAC response format 2");
-				r = EMV_TAL_ERROR_GENAC_PARSE_FAILED;
-				goto exit;
-			}
+		}
+		if (r < 0) {
+			emv_debug_trace_msg("iso8825_ber_itr_next() failed; r=%d", r);
+
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.5.4
+			emv_debug_error("Failed to parse GENAC response format 2");
+			r = EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+			goto exit;
+		}
+
+		if (length_after_sdad) {
+			// Fields before SDAD (field 9F4B) have already been cached and
+			// more fields exists after SDAD, therefore cache fields after SDAD
+			memcpy(
+				oda->genac_data + oda->genac_data_len,
+				response_tlv.value + offset_after_sdad,
+				length_after_sdad
+			);
+			oda->genac_data_len += length_after_sdad;
 		}
 
 	} else {

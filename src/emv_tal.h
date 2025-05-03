@@ -240,6 +240,7 @@ int emv_tal_internal_authenticate(
  *             Data Object List (DDOL)
  * @param data_len Length of concatenated DDOL data in bytes
  * @param list List to which decoded EMV TLV fields will be appended
+ * @param oda Offline Data Authentication (ODA) context. NULL to skip ODA processing.
  *
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
@@ -250,7 +251,8 @@ int emv_tal_genac(
 	uint8_t ref_ctrl,
 	const void* data,
 	size_t data_len,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 );
 
 __END_DECLS

@@ -508,10 +508,8 @@ int emv_initiate_application_processing(
 {
 	int r;
 	uint8_t un[4];
-	const struct emv_tlv_list_t* sources[3];
-	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
 	const struct emv_tlv_t* pdol;
-	uint8_t gpo_data_buf[255]; // See EMV_CAPDU_DATA_MAX
+	uint8_t gpo_data_buf[EMV_CAPDU_DATA_MAX];
 	uint8_t* gpo_data;
 	size_t gpo_data_len;
 	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
@@ -525,6 +523,14 @@ int emv_initiate_application_processing(
 	// Clear existing ICC data and terminal data lists to avoid ambiguity
 	emv_tlv_list_clear(&ctx->icc);
 	emv_tlv_list_clear(&ctx->terminal);
+
+	// Clear existing ODA state to avoid ambiguity
+	r = emv_oda_init(&ctx->oda);
+	if (r) {
+		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
 
 	// NOTE: EMV 4.4 Book 1, 12.4, states that the terminal should set the
 	// value of Application Identifier (AID) - terminal (field 9F06) before
@@ -637,53 +643,58 @@ int emv_initiate_application_processing(
 		return EMV_ERROR_INTERNAL;
 	}
 
-	// Prepare ordered data source list
-	sources[0] = &ctx->params;
-	sources[1] = &ctx->config;
-	sources[2] = &ctx->terminal;
-
 	// Process PDOL, if available
 	// See EMV 4.4 Book 3, 10.1
 	pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
 	if (pdol) {
-		int dol_data_len;
-		size_t gpo_data_offset;
+		const struct emv_tlv_list_t* sources[3];
+		size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+		int pdol_data_len;
+		size_t pdol_data_offset;
 
 		emv_debug_info_data("PDOL found", pdol->value, pdol->length);
-		dol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
-		if (dol_data_len < 0) {
-			emv_debug_trace_msg("emv_dol_compute_data_length() failed; dol_data_len=%d", dol_data_len);
+
+		// Prepare ordered data source list
+		sources[0] = &ctx->params;
+		sources[1] = &ctx->config;
+		sources[2] = &ctx->terminal;
+
+		// Validate PDOL data length
+		pdol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
+		if (pdol_data_len < 0) {
+			emv_debug_trace_msg("emv_dol_compute_data_length() failed; pdol_data_len=%d", pdol_data_len);
 			emv_debug_error("Failed to compute PDOL data length");
 			return EMV_OUTCOME_CARD_ERROR;
 		}
-		if (dol_data_len > sizeof(gpo_data_buf) - 3) {
-			emv_debug_error("Invalid PDOL data length of %u", dol_data_len);
+		if (pdol_data_len > sizeof(ctx->oda.pdol_data)) {
+			emv_debug_error("Invalid PDOL data length of %u", pdol_data_len);
 			return EMV_OUTCOME_CARD_ERROR;
 		}
 
+		// Prepare GPO data buffer with field 83
 		gpo_data = gpo_data_buf;
-		gpo_data_len = sizeof(gpo_data_buf);
 		gpo_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
-		gpo_data_offset = 1;
-		if (dol_data_len < 0x80) {
+		pdol_data_offset = 1;
+		if (pdol_data_len < 0x80) {
 			// Short length form
-			gpo_data[1] = dol_data_len;
-			gpo_data_offset += 1;
+			gpo_data[1] = pdol_data_len;
+			pdol_data_offset += 1;
 		} else {
 			// Long length form
 			gpo_data[1] = 0x81;
-			gpo_data[2] = dol_data_len;
-			gpo_data_offset += 2;
+			gpo_data[2] = pdol_data_len;
+			pdol_data_offset += 2;
 		}
-		gpo_data_len -= gpo_data_offset;
 
+		// Populate PDOL data in cache buffer
+		ctx->oda.pdol_data_len = sizeof(ctx->oda.pdol_data);
 		r = emv_dol_build_data(
 			pdol->value,
 			pdol->length,
 			sources,
 			sources_count,
-			gpo_data + gpo_data_offset,
-			&gpo_data_len
+			ctx->oda.pdol_data,
+			&ctx->oda.pdol_data_len
 		);
 		if (r) {
 			emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
@@ -695,7 +706,16 @@ int emv_initiate_application_processing(
 			return EMV_ERROR_INTERNAL;
 		}
 
-		gpo_data_len += gpo_data_offset;
+		// Finalise GPO data buffer
+		if (ctx->oda.pdol_data_len > sizeof(gpo_data_buf) - pdol_data_offset) {
+			emv_debug_error("Error during PDOL processing; "
+				"pdol_data_len=%zu; sizeof(gpo_data_buf)=%zu; pdol_data_offset=%zu",
+				ctx->oda.pdol_data_len, sizeof(gpo_data_buf), pdol_data_offset
+			);
+			return EMV_ERROR_INTERNAL;
+		}
+		memcpy(gpo_data + pdol_data_offset, ctx->oda.pdol_data, ctx->oda.pdol_data_len);
+		gpo_data_len = pdol_data_offset + ctx->oda.pdol_data_len;
 
 	} else {
 		// PDOL not available. emv_ttl_get_processing_options() will build
@@ -789,11 +809,11 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		return EMV_OUTCOME_CARD_ERROR;
 	}
 
-	// Initialise Offline Data Authentication (ODA) to ensure that it is ready
-	// when reading application records
-	r = emv_oda_init(&ctx->oda, ctx->afl->value, ctx->afl->length);
+	// Ensure that Offline Data Authentication (ODA) context is ready when
+	// reading application records
+	r = emv_oda_prepare_records(&ctx->oda, ctx->afl->value, ctx->afl->length);
 	if (r) {
-		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
+		emv_debug_trace_msg("emv_oda_prepare_records() failed; r=%d", r);
 
 		if (r == EMV_ODA_ERROR_INTERNAL ||
 			r == EMV_ODA_ERROR_INVALID_PARAMETER
@@ -959,8 +979,6 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 	const struct emv_tlv_list_t* sources[3];
 	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
 	const struct emv_tlv_t* cdol1;
-	uint8_t cdol1_data_buf[EMV_CAPDU_DATA_MAX];
-	size_t cdol1_data_len = sizeof(cdol1_data_buf);
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
 
 	// Always decline offline for now until Terminal Action Analysis is fully
@@ -987,13 +1005,16 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 		emv_debug_error("Card Risk Management Data Object List 1 (CDOL1) not found");
 		return EMV_ERROR_INTERNAL;
 	}
+
+	// Populate CDOL1 data in cache buffer
+	ctx->oda.cdol1_data_len = sizeof(ctx->oda.cdol1_data);
 	r = emv_dol_build_data(
 		cdol1->value,
 		cdol1->length,
 		sources,
 		sources_count,
-		cdol1_data_buf,
-		&cdol1_data_len
+		ctx->oda.cdol1_data,
+		&ctx->oda.cdol1_data_len
 	);
 	if (r) {
 		emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
@@ -1010,9 +1031,10 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 	r = emv_tal_genac(
 		ctx->ttl,
 		ref_ctrl,
-		cdol1_data_buf,
-		cdol1_data_len,
-		&genac_list
+		ctx->oda.cdol1_data,
+		ctx->oda.cdol1_data_len,
+		&genac_list,
+		&ctx->oda
 	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_genac() failed; r=%d", r);

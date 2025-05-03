@@ -39,7 +39,19 @@
 #include <stdlib.h> // For malloc() and free()
 #include <string.h>
 
-int emv_oda_init(
+int emv_oda_init(struct emv_oda_ctx_t* ctx)
+{
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+	memset(ctx, 0, sizeof(*ctx));
+
+	return 0;
+}
+
+int emv_oda_prepare_records(
 	struct emv_oda_ctx_t* ctx,
 	const uint8_t* afl,
 	size_t afl_len
@@ -55,7 +67,13 @@ int emv_oda_init(
 		emv_debug_error("Invalid parameter");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
-	memset(ctx, 0, sizeof(*ctx));
+
+	r = emv_oda_clear_records(ctx);
+	if (r) {
+		emv_debug_trace_msg("emv_oda_clear_records() failed; r=%d", r);
+		emv_debug_error("Invalid parameter");
+		return EMV_ODA_ERROR_INTERNAL;
+	}
 
 	r = emv_afl_itr_init(afl, afl_len, &afl_itr);
 	if (r) {
@@ -85,8 +103,8 @@ int emv_oda_init(
 	// encoded AIP, AID (terminal) and PDOL. Assume that the encoded fields
 	// cannot exceed two R-APDU responses in total.
 	// See EMV 4.4 Book 3, 10.3 (page 98)
-	ctx->buf = malloc(EMV_RAPDU_DATA_MAX * (oda_record_count + 2));
-	if (!ctx->buf) {
+	ctx->record_buf = malloc(EMV_RAPDU_DATA_MAX * (oda_record_count + 2));
+	if (!ctx->record_buf) {
 		emv_debug_error("Failed to allocate ODA buffer");
 		return EMV_ODA_ERROR_INTERNAL;
 	}
@@ -102,12 +120,12 @@ int emv_oda_clear_records(struct emv_oda_ctx_t* ctx)
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
 
-	if (ctx->buf) {
-		crypto_cleanse(ctx->buf, ctx->buf_len);
-		free(ctx->buf);
+	if (ctx->record_buf) {
+		crypto_cleanse(ctx->record_buf, ctx->record_buf_len);
+		free(ctx->record_buf);
 	}
-	ctx->buf = NULL;
-	ctx->buf_len = 0;
+	ctx->record_buf = NULL;
+	ctx->record_buf_len = 0;
 
 	return 0;
 }
@@ -121,7 +139,7 @@ int emv_oda_clear(struct emv_oda_ctx_t* ctx)
 	}
 
 	emv_oda_clear_records(ctx);
-	memset(ctx, 0, sizeof(*ctx));
+	crypto_cleanse(ctx, sizeof(*ctx));
 
 	return 0;
 }
@@ -139,8 +157,8 @@ int emv_oda_append_record(
 		emv_debug_error("Invalid parameter");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
-	if (!ctx->buf) {
-		emv_debug_trace_msg("ctx->buf=%p", ctx->buf);
+	if (!ctx->record_buf) {
+		emv_debug_trace_msg("ctx->record_buf=%p", ctx->record_buf);
 		emv_debug_error("Invalid ODA buffer");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
@@ -150,8 +168,8 @@ int emv_oda_append_record(
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
 
-	memcpy(ctx->buf + ctx->buf_len, record, record_len);
-	ctx->buf_len += record_len;
+	memcpy(ctx->record_buf + ctx->record_buf_len, record, record_len);
+	ctx->record_buf_len += record_len;
 
 	return 0;
 }

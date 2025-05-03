@@ -426,11 +426,11 @@ int emv_rsa_retrieve_ssad(
 		r = -7;
 		goto exit;
 	}
-	if (oda->buf && oda->buf_len) {
+	if (oda->record_buf && oda->record_buf_len) {
 		r = crypto_sha1_update(
 			&sha1_ctx,
-			oda->buf,
-			oda->buf_len
+			oda->record_buf,
+			oda->record_buf_len
 		);
 		if (r) {
 			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
@@ -688,11 +688,11 @@ int emv_rsa_retrieve_icc_pkey(
 		r = -11;
 		goto exit;
 	}
-	if (oda->buf && oda->buf_len) {
+	if (oda->record_buf && oda->record_buf_len) {
 		r = crypto_sha1_update(
 			&sha1_ctx,
-			oda->buf,
-			oda->buf_len
+			oda->record_buf,
+			oda->record_buf_len
 		);
 		if (r) {
 			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);

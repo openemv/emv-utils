@@ -75,9 +75,33 @@ enum emv_oda_method_t {
  * EMV Offline Data Authentication (ODA) context
  */
 struct emv_oda_ctx_t {
-	// Buffer for record data
-	uint8_t* buf; ///< Offline Data Authentication (ODA) buffer
-	unsigned int buf_len; ///< Length of Offline Data Authentication (ODA) buffer
+	uint8_t* record_buf; ///< Application record buffer
+	unsigned int record_buf_len; ///< Length of application record buffer
+
+	/**
+	 * Cached Processing Options Data Object List (PDOL) data for validating
+	 * Transaction Data Hash Code. PDOL data has a maximum length of
+	 * @ref EMV_CAPDU_DATA_MAX minus 3 bytes to allow for tag 83 and its length
+	 * in the GPO data.
+	 */
+	uint8_t pdol_data[255 - 3];
+	size_t pdol_data_len; ///< Length of cached PDOL data in bytes
+
+	/**
+	 * Cached Card Risk Management Data Object List 1 (CDOL1) data for
+	 * validating Transaction Data Hash Code. CDOL1 data has a maximum length
+	 * of @ref EMV_CAPDU_DATA_MAX.
+	 */
+	uint8_t cdol1_data[255];
+	size_t cdol1_data_len; ///< Length of cached CDOL1 data in bytes
+
+	/**
+	 * Cached GENAC response excluding Signed Dynamic Application Data (SDAD)
+	 * for validating Transaction Data Hash Code. GENAC response has a maximum
+	 * length of @ref EMV_RAPDU_DATA_MAX minus minimum length of 512-bit SDAD.
+	 */
+	uint8_t genac_data[256 - 64];
+	size_t genac_data_len; ///< Length of cached GENAC response data in bytes
 
 	/// Currently selected Offline Data Authentication (ODA) method
 	enum emv_oda_method_t method;
@@ -93,13 +117,24 @@ struct emv_oda_ctx_t {
  * Initialise Offline Data Authentication (ODA) context
  *
  * @param ctx Offline Data Authentication (ODA) context
+ *
+ * @return Zero for success.
+ * @return Less than zero for error. See @ref emv_oda_error_t
+ */
+int emv_oda_init(struct emv_oda_ctx_t* ctx);
+
+/**
+ * Prepare Offline Data Authentication (ODA) application record buffer
+ * according to provided Application File Locator (AFL)
+ *
+ * @param ctx Offline Data Authentication (ODA) context
  * @param afl Application File Locator (AFL) field. Must be multiples of 4 bytes.
  * @param afl_len Length of Application File Locator (AFL) field. Must be multiples of 4 bytes.
  *
  * @return Zero for success.
  * @return Less than zero for error. See @ref emv_oda_error_t
  */
-int emv_oda_init(
+int emv_oda_prepare_records(
 	struct emv_oda_ctx_t* ctx,
 	const uint8_t* afl,
 	size_t afl_len
@@ -109,7 +144,8 @@ int emv_oda_init(
  * Clear and free Offline Data Authentication (ODA) records. This function
  * is only intended to free memory sooner when these records are no longer
  * needed, while preserving the other members of the context object, and will
- * be called by @ref emv_oda_clear() regardless.
+ * be called by @ref emv_oda_prepare_records() and @ref emv_oda_clear() for
+ * this purpose.
  *
  * @param ctx Offline Data Authentication (ODA) context
  *
@@ -130,7 +166,7 @@ int emv_oda_clear_records(struct emv_oda_ctx_t* ctx);
 int emv_oda_clear(struct emv_oda_ctx_t* ctx);
 
 /**
- * Append Offline Data Authentication (ODA) record
+ * Append Offline Data Authentication (ODA) application record
  *
  * @param ctx Offline Data Authentication (ODA) context
  * @param record Record data
