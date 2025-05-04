@@ -990,6 +990,21 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
+	if (!ctx->tvr) {
+		emv_debug_trace_msg("tvr=%p", ctx->tvr);
+		emv_debug_error("Invalid context variable");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+
+	if (ctx->oda.method == EMV_ODA_METHOD_CDA &&
+		!(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
+	) {
+		// Only request CDA signature if CDA was previously selected but has
+		// not yet failed.
+		// See EMV 4.4 Book 2, 6.6
+		// See EMV 4.4 Book 4, 6.3.2.1
+		ref_ctrl |= EMV_TTL_GENAC_SIG_CDA;
+	}
 
 	// Prepare ordered data source list
 	sources[0] = &ctx->params;
@@ -1034,7 +1049,7 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 		ctx->oda.cdol1_data,
 		ctx->oda.cdol1_data_len,
 		&genac_list,
-		&ctx->oda
+		(ref_ctrl & EMV_TTL_GENAC_SIG_MASK) ? &ctx->oda : NULL
 	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_genac() failed; r=%d", r);
@@ -1053,15 +1068,37 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 	// See EMV 4.4 Book 2, 6.6.2
 	// See EMV 4.4 Book 4, 6.3.7
 
-	// Append GENAC1 output to ICC data list
-	r = emv_tlv_list_append(&ctx->icc, &genac_list);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+	if (ref_ctrl & EMV_TTL_GENAC_SIG_MASK) {
+		// Validate GENAC1 response which will in turn append it to the ICC
+		// data list
+		r = emv_oda_process_genac(ctx, &genac_list);
+		if (r) {
+			if (r < 0) {
+				emv_debug_trace_msg("emv_oda_process_genac() failed; r=%d", r);
+				emv_debug_error("Error during card action analysis; terminate session");
+				if (r == EMV_ODA_ERROR_INTERNAL || r == EMV_ODA_ERROR_INVALID_PARAMETER) {
+					r = EMV_ERROR_INTERNAL;
+				} else {
+					r = EMV_OUTCOME_CARD_ERROR;
+				}
+				goto exit;
+			}
 
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		r = EMV_ERROR_INTERNAL;
-		goto exit;
+		// Otherwise session may continue although offline data authentication
+		// has failed.
+		emv_debug_error("Offline data authentication failed");
+		}
+	} else {
+		// Append GENAC1 output to ICC data list
+		r = emv_tlv_list_append(&ctx->icc, &genac_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_ERROR_INTERNAL;
+			goto exit;
+		}
 	}
 
 	// Success

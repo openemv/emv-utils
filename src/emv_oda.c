@@ -34,6 +34,7 @@
 #include "emv_debug.h"
 
 #include "crypto_mem.h"
+#include "crypto_sha.h"
 
 #include <stdbool.h>
 #include <stdlib.h> // For malloc() and free()
@@ -804,7 +805,6 @@ exit:
 int emv_oda_apply_cda(struct emv_ctx_t* ctx)
 {
 	int r;
-	const struct emv_tlv_t* un;
 	struct emv_rsa_icc_pkey_t icc_pkey;
 
 	if (!ctx) {
@@ -818,14 +818,6 @@ int emv_oda_apply_cda(struct emv_ctx_t* ctx)
 		);
 		emv_debug_error("Invalid context variable");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
-	}
-
-	un = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F37_UNPREDICTABLE_NUMBER);
-	if (!un) {
-		// Unpredictable Number should have been created by
-		// emv_initiate_application_processing()
-		emv_debug_error("Unpredictable Number not found");
-		return EMV_ODA_ERROR_INTERNAL;
 	}
 
 	// Assume that CDA has failed until the related steps have succeeded. Note
@@ -875,5 +867,217 @@ int emv_oda_apply_cda(struct emv_ctx_t* ctx)
 exit:
 	// Cleanse ICC public key because it contains the PAN
 	crypto_cleanse(&icc_pkey, sizeof(icc_pkey));
+	return r;
+}
+
+int emv_oda_process_genac(
+	struct emv_ctx_t* ctx,
+	struct emv_tlv_list_t* genac_list
+)
+{
+	int r;
+	const struct emv_tlv_t* un;
+	const struct emv_tlv_t* enc_sdad;
+	struct emv_rsa_sdad_t sdad;
+	const struct emv_tlv_t* cid_tlv;
+	crypto_sha1_ctx_t sha1_ctx = NULL;
+	uint8_t tdhc[SHA1_SIZE];
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->tvr || !ctx->tsi) {
+		emv_debug_trace_msg("tvr=%p, tsi=%p", ctx->tvr, ctx->tsi);
+		emv_debug_error("Invalid context variable");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+	if (ctx->oda.method != EMV_ODA_METHOD_CDA) {
+		emv_debug_trace_msg("method=%u", ctx->oda.method);
+		emv_debug_error("Selected ODA is not CDA");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+
+	// Assume that CDA has failed until the related steps have succeeded
+	emv_debug_info("Finalise Combined DDA/Application Cryptogram Generation (CDA)");
+	ctx->tvr->value[0] |= EMV_TVR_CDA_FAILED;
+	ctx->tsi->value[0] |= EMV_TSI_OFFLINE_DATA_AUTH_PERFORMED;
+
+	un = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F37_UNPREDICTABLE_NUMBER);
+	if (!un) {
+		// Unpredictable Number should have been created by
+		// emv_initiate_application_processing()
+		emv_debug_error("Unpredictable Number not found");
+		return EMV_ODA_ERROR_INTERNAL;
+	}
+
+	enc_sdad = emv_tlv_list_find_const(genac_list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
+	if (!enc_sdad) {
+		// Presence of SDAD should have been confirmed by emv_tal_genac()
+		emv_debug_error("SDAD not found in GENAC response");
+		return EMV_ODA_ERROR_INTERNAL;
+	}
+
+	// Retrieve Signed Dynamic Application Data (SDAD)
+	// See EMV 4.4 Book 2, 6.6.2
+	r = emv_rsa_retrieve_sdad(
+		enc_sdad->value,
+		enc_sdad->length,
+		&ctx->oda.icc_pkey,
+		un->value,
+		un->length,
+		&sdad
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_rsa_retrieve_sdad() failed; r=%d", r);
+		if (r < 0) {
+			emv_debug_error("Failed to retrieve Signed Dynamic Application Data");
+		} else {
+			emv_debug_error("Failed to validate Signed Dynamic Application Data hash");
+		}
+		// EMV_TVR_CDA_FAILED already set in TVR
+		r = EMV_ODA_CDA_FAILED;
+		goto exit;
+	}
+	emv_debug_info("Valid Signed Dynamic Application Data hash");
+
+	// Validate Cryptogram Information Data (field 9F27)
+	// See EMV 4.4 Book 2, 6.6.2, step 6
+	cid_tlv = emv_tlv_list_find_const(genac_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+	if (!cid_tlv) {
+		// Presence of CID should have been confirmed by emv_tal_genac()
+		emv_debug_error("CID not found in GENAC response");
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+	if (cid_tlv->length != 1 || cid_tlv->value[0] != sdad.cid) {
+		emv_debug_error("CID mismatch");
+		// EMV_TVR_CDA_FAILED already set in TVR
+		r = EMV_ODA_CDA_FAILED;
+		goto exit;
+	}
+
+	// Compute Transaction Data Hash Code
+	// See EMV 4.4 Book 2, 6.6.2, step 10 - 11
+	r = crypto_sha1_init(&sha1_ctx);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+	if (ctx->oda.pdol_data_len) {
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			ctx->oda.pdol_data,
+			ctx->oda.pdol_data_len
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			r = EMV_ODA_ERROR_INTERNAL;
+			goto exit;
+		}
+	}
+	if (ctx->oda.cdol1_data_len) {
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			ctx->oda.cdol1_data,
+			ctx->oda.cdol1_data_len
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			r = EMV_ODA_ERROR_INTERNAL;
+			goto exit;
+		}
+	}
+	if (ctx->oda.genac_data_len) {
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			ctx->oda.genac_data,
+			ctx->oda.genac_data_len
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			r = EMV_ODA_ERROR_INTERNAL;
+			goto exit;
+		}
+	}
+	r = crypto_sha1_finish(&sha1_ctx, tdhc);
+	if (r) {
+		emv_debug_trace_msg("crypto_sha1_finish() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Verify Transaction Data Hash Code
+	// See EMV 4.4 Book 2, 6.6.2, step 12
+	emv_debug_trace_data("Computed TDHC", tdhc, sizeof(tdhc));
+	emv_debug_trace_data("SDAD obj TDHC", sdad.txn_data_hash_code, sizeof(sdad.txn_data_hash_code));
+	if (memcmp(tdhc, sdad.txn_data_hash_code, sizeof(sdad.txn_data_hash_code)) != 0) {
+		emv_debug_error("Invalid Transaction Data Hash Code");
+		// EMV_TVR_CDA_FAILED already set in TVR
+		r = EMV_ODA_CDA_FAILED;
+		goto exit;
+	}
+
+	// Append GENERATE APPLICATION CRYPTOGRAM output to ICC data list
+	r = emv_tlv_list_append(&ctx->icc, genac_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Create ICC Dynamic Number (field 9F4C)
+	// See EMV 4.4 Book 2, 6.6.2 (page 71)
+	r = emv_tlv_list_push(
+		&ctx->icc,
+		EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER,
+		sdad.icc_dynamic_number_len,
+		sdad.icc_dynamic_number,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Create Application Cryptogram (field 9F26)
+	// See EMV 4.4 Book 2, 6.6.2 (page 71)
+	r = emv_tlv_list_push(
+		&ctx->icc,
+		EMV_TAG_9F26_APPLICATION_CRYPTOGRAM,
+		sizeof(sdad.cryptogram),
+		sdad.cryptogram,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		r = EMV_ODA_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Successful CDA processing
+	emv_debug_info("Combined DDA/Application Cryptogram Generation (CDA) succeeded");
+	ctx->tvr->value[0] &= ~EMV_TVR_CDA_FAILED;
+	r = 0;
+	goto exit;
+
+exit:
+	// Cleanse Signed Dynamic Application Data (SDAD) because it contains the
+	// application cryptogram
+	crypto_cleanse(&sdad, sizeof(sdad));
+	crypto_sha1_free(&sha1_ctx);
 	return r;
 }

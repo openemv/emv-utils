@@ -312,13 +312,13 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx);
  *   - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
  *   - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
  *   - @ref EMV_TAG_9F06_AID
- *   - @ref EMV_TAG_9F37_UNPREDICTABLE_NUMBER
  *
  * Upon success, this function will update @ref emv_ctx_t.terminal to append
  * @ref EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX. However, the
  * values of @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS and
  * @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION will only be updated upon
- * error or failure, and not success.
+ * error or failure, and not success. See @ref emv_oda_process_genac() for
+ * finalisation of CDA processing.
  *
  * @param ctx EMV processing context
  *
@@ -329,6 +329,43 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx);
  *         continue the card session. See @ref emv_oda_result_t
  */
 int emv_oda_apply_cda(struct emv_ctx_t* ctx);
+
+/**
+ * Process output of GENERATE APPLICATION CRYPTOGRAM and finalise
+ * Combined DDA/Application Cryptogram Generation (CDA).
+ *
+ * @note This function is used by @ref emv_card_action_analysis() and should
+ *       only be used directly for use cases beyond EMV requirements. If in
+ *       doubt, use @ref emv_card_action_analysis() instead.
+ *
+ * This function requires:
+ * - @ref emv_ctx_t.terminal must contain these fields:
+ *   - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
+ *   - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
+ *   - @ref EMV_TAG_9F37_UNPREDICTABLE_NUMBER
+ * - @ref emv_oda_ctx_t.method "emv_ctx_t.oda.method" must be
+ *   @ref EMV_ODA_METHOD_CDA
+ * - @ref emv_oda_ctx_t.icc_pkey "emv_ctx_t.oda.icc_pkey" must be valid
+ *
+ * Upon success, this function will update @ref emv_ctx_t.icc to append the
+ * fields provided in @p genac_list as well as the fields recovered from
+ * @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA that are not already
+ * provided in @p genac_list, like @ref EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER and
+ * @ref EMV_TAG_9F26_APPLICATION_CRYPTOGRAM.
+ *
+ * @param ctx EMV processing context
+ * @param genac_list Fields provided by GENERATE APPLICATION CRYPTOGRAM
+ *
+ * @return Zero for success.
+ * @return Less than zero for error. See @ref emv_oda_error_t
+ * @return Greater than zero indicates that combined data authentication is
+ *         either not possible or has failed, but that the terminal may
+ *         continue the card session. See @ref emv_oda_result_t
+ */
+int emv_oda_process_genac(
+	struct emv_ctx_t* ctx,
+	struct emv_tlv_list_t* genac_list
+);
 
 __END_DECLS
 

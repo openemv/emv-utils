@@ -378,6 +378,10 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx);
  * Perform EMV Card Action Analysis to determined the risk management decision
  * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM.
  *
+ * If CDA or XDA were selected during Offline Data Authentication (ODA), this
+ * function will request the appropriate signature and process the resulting
+ * Signed Dynamic Application Data (SDAD) to extract the signed ICC fields.
+ *
  * @note This function is not yet fully implemented and only supports offline
  *       declines by requesting an Application Authentication Cryptogram (AAC).
  *
