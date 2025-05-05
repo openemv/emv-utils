@@ -52,7 +52,8 @@ static void emv_txn_load_config(struct emv_ctx_t* emv);
 
 // argp option keys
 enum emv_tool_param_t {
-	EMV_TOOL_PARAM_TXN_TYPE = -255, // Negative value to avoid short options
+	EMV_TOOL_PARAM_ODA = -255, // Negative value to avoid short options
+	EMV_TOOL_PARAM_TXN_TYPE,
 	EMV_TOOL_PARAM_TXN_AMOUNT,
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
@@ -65,12 +66,15 @@ enum emv_tool_param_t {
 
 // argp option structure
 static struct argp_option argp_options[] = {
-	{ NULL, 0, NULL, 0, "Transaction parameters", 1 },
+	{ NULL, 0, NULL, 0, "EMV configuration options", 1 },
+	{ "oda", EMV_TOOL_PARAM_ODA, "SDA,DDA,CDA", 0, "Comma separated list of supported Offline Data Authentication (ODA) methods. Default is SDA,DDA,CDA." },
+
+	{ NULL, 0, NULL, 0, "Transaction parameters", 2 },
 	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
 
-	{ NULL, 0, NULL, 0, "Debug options", 2 },
+	{ NULL, 0, NULL, 0, "Debug options", 3 },
 	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
 	{ "debug-source", EMV_TOOL_PARAM_DEBUG_SOURCES_MASK, "x,y,z...", 0, "Comma separated list of debug sources. Allowed values are TTL, TAL, ODA, EMV, APP, ALL. Default is ALL." },
 	{ "debug-level", EMV_TOOL_PARAM_DEBUG_LEVEL, "LEVEL", 0, "Maximum debug level. Allowed values are NONE, ERROR, INFO, CARD, TRACE, ALL. Default is INFO." },
@@ -91,6 +95,12 @@ static struct argp argp_config = {
 	NULL,
 	"Perform EMV transaction",
 };
+
+// EMV configuration
+static uint8_t term_caps_sec =
+	EMV_TERM_CAPS_SECURITY_SDA |
+	EMV_TERM_CAPS_SECURITY_DDA |
+	EMV_TERM_CAPS_SECURITY_CDA;
 
 // Transaction parameters
 static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
@@ -129,6 +139,27 @@ static char* mcc_json = NULL;
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 {
 	switch (key) {
+		case EMV_TOOL_PARAM_ODA: {
+			const char* str;
+
+			// Parse comma separated list and set the appropriate security
+			// capability bits in the Terminal Capabilities (field 9F33)
+			term_caps_sec = 0;
+			while ((str = strtok(arg, ","))) {
+				if (strcasecmp(str, "SDA") == 0) {
+					term_caps_sec |= EMV_TERM_CAPS_SECURITY_SDA;
+				}
+				if (strcasecmp(str, "DDA") == 0) {
+					term_caps_sec |= EMV_TERM_CAPS_SECURITY_DDA;
+				}
+				if (strcasecmp(str, "CDA") == 0) {
+					term_caps_sec |= EMV_TERM_CAPS_SECURITY_CDA;
+				}
+			}
+
+			return 0;
+		}
+
 		case EMV_TOOL_PARAM_TXN_TYPE: {
 			size_t arg_len = strlen(arg);
 			unsigned long value;
@@ -600,10 +631,10 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	// Terminal Capabilities:
 	// - Card Data Input Capability: IC with Contacts
 	// - CVM Capability: Plaintext offline PIN, Enciphered online PIN, Signature, Enciphered offline PIN, No CVM
-	// - Security Capability: SDA, DDA, CDA
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, 0xC8}, 0);
+	// - Security Capability: Set using --oda option. Default is SDA, DDA, CDA.
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, term_caps_sec }, 0);
 
-	// Merchant attended, offline with online capability
+	// Terminal Type: Merchant attended, offline with online capability
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){ 0x22 }, 0);
 
 	// Additional Terminal Capabilities:
