@@ -72,7 +72,7 @@ static struct argp_option argp_options[] = {
 
 	{ NULL, 0, NULL, 0, "Debug options", 2 },
 	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
-	{ "debug-source", EMV_TOOL_PARAM_DEBUG_SOURCES_MASK, "x,y,z...", 0, "Comma separated list of debug sources. Allowed values are TTL, TAL, EMV, APP, ALL. Default is ALL." },
+	{ "debug-source", EMV_TOOL_PARAM_DEBUG_SOURCES_MASK, "x,y,z...", 0, "Comma separated list of debug sources. Allowed values are TTL, TAL, ODA, EMV, APP, ALL. Default is ALL." },
 	{ "debug-level", EMV_TOOL_PARAM_DEBUG_LEVEL, "LEVEL", 0, "Maximum debug level. Allowed values are NONE, ERROR, INFO, CARD, TRACE, ALL. Default is INFO." },
 
 	{ "version", EMV_TOOL_VERSION, NULL, 0, "Display emv-utils version" },
@@ -99,12 +99,16 @@ static uint32_t txn_amount_other = 0;
 
 // Debug parameters
 static bool debug_verbose = false;
-static const char* debug_source_str[] = {
-	"TTL",
-	"TAL",
-	"EMV",
-	"APP",
-	"ALL",
+static struct {
+	const char* str;
+	enum emv_debug_source_t src;
+} debug_source_opt[] = {
+	{ "TTL", EMV_DEBUG_SOURCE_TTL },
+	{ "TAL", EMV_DEBUG_SOURCE_TAL },
+	{ "ODA", EMV_DEBUG_SOURCE_ODA },
+	{ "EMV", EMV_DEBUG_SOURCE_EMV },
+	{ "APP", EMV_DEBUG_SOURCE_APP },
+	{ "ALL", EMV_DEBUG_SOURCE_ALL },
 };
 static unsigned int debug_sources_mask = EMV_DEBUG_SOURCE_ALL;
 static const char* debug_level_str[] = {
@@ -202,19 +206,19 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			// Parse comma separated list
 			while ((str = strtok(arg, ","))) {
 				size_t i;
-				for (i = 0; i < sizeof(debug_source_str) / sizeof(debug_source_str[0]); ++i) {
-					if (strcasecmp(str, debug_source_str[i]) == 0) {
+				for (i = 0; i < sizeof(debug_source_opt) / sizeof(debug_source_opt[0]); ++i) {
+					if (strcasecmp(str, debug_source_opt[i].str) == 0) {
 						break;
 					}
 				}
 
-				if (i >= sizeof(debug_source_str) / sizeof(debug_source_str[0])) {
+				if (i >= sizeof(debug_source_opt) / sizeof(debug_source_opt[0])) {
 					// Failed to find debug source string in list
 					argp_error(state, "Unknown debug source (--debug-source) argument \"%s\"", str);
 				}
 
-				// Found debug source string in list; shift into mask
-				debug_sources_mask |= 1 << i;
+				// Found debug source string in list; set in mask
+				debug_sources_mask |= debug_source_opt[i].src;
 
 				arg = NULL;
 			}
