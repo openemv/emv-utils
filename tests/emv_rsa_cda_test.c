@@ -45,6 +45,11 @@ static const struct emv_tlv_t valid_icc_data[] = {
 	}, 0 }}, NULL },
 };
 
+// Valid transaction parameters for certificate retrieval
+static const struct emv_tlv_t valid_params_data[] = {
+	{ {{ EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]) { 0x25, 0x05, 0x06 }, 0 }}, NULL },
+};
+
 // 1408-bit CAPK A000000004 #F1
 static const uint8_t test_capk_rid[] = { 0xA0, 0x00, 0x00, 0x00, 0x04 };
 static const uint8_t test_capk_index = 0xF1;
@@ -189,6 +194,7 @@ int main(void)
 	int r;
 	const struct emv_capk_t* capk;
 	struct emv_tlv_list_t valid_icc = EMV_TLV_LIST_INIT;
+	struct emv_tlv_list_t valid_params = EMV_TLV_LIST_INIT;
 	struct emv_rsa_issuer_pkey_t ipk;
 	struct emv_rsa_ssad_t ssad;
 	struct emv_rsa_icc_pkey_t icc_pkey;
@@ -214,11 +220,21 @@ int main(void)
 		goto exit;
 	}
 
-	// Populate fields required for issuer public key validation
+	// Populate fields required for certificate validation
 	r = populate_tlv_list(
 		valid_icc_data,
 		sizeof(valid_icc_data) / sizeof(valid_icc_data[0]),
 		&valid_icc
+	);
+	if (r) {
+		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	r = populate_tlv_list(
+		valid_params_data,
+		sizeof(valid_params_data) / sizeof(valid_params_data[0]),
+		&valid_params
 	);
 	if (r) {
 		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
@@ -233,6 +249,7 @@ int main(void)
 		sizeof(valid_issuer_cert),
 		capk,
 		&valid_icc,
+		&valid_params,
 		&ipk
 	);
 	if (r) {
@@ -248,17 +265,18 @@ int main(void)
 		goto exit;
 	}
 
-	// Test retrieval of ICC public key with validation
+	// Test retrieval of ICC public key with certificate validation but no ODA
 	memset(&icc_pkey, 0, sizeof(icc_pkey));
 	r = emv_rsa_retrieve_icc_pkey(
 		valid_icc_cert,
 		sizeof(valid_icc_cert),
 		&ipk,
 		&valid_icc,
+		&valid_params,
 		NULL,
 		&icc_pkey
 	);
-	if (r != 9) {
+	if (r != 10) {
 		fprintf(stderr, "emv_rsa_retrieve_icc_pkey() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
@@ -316,5 +334,6 @@ int main(void)
 
 exit:
 	emv_tlv_list_clear(&valid_icc);
+	emv_tlv_list_clear(&valid_params);
 	return r;
 }

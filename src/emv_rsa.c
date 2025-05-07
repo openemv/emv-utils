@@ -25,6 +25,7 @@
 #include "emv_capk.h"
 #include "emv_tlv.h"
 #include "emv_tags.h"
+#include "emv_date.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_ODA
 #include "emv_debug.h"
@@ -92,6 +93,7 @@ int emv_rsa_retrieve_issuer_pkey(
 	size_t issuer_cert_len,
 	const struct emv_capk_t* capk,
 	const struct emv_tlv_list_t* icc,
+	const struct emv_tlv_list_t* params,
 	struct emv_rsa_issuer_pkey_t* pkey
 )
 {
@@ -105,6 +107,7 @@ int emv_rsa_retrieve_issuer_pkey(
 	const struct emv_tlv_t* remainder_tlv;
 	const struct emv_tlv_t* exponent_tlv;
 	const struct emv_tlv_t* pan_tlv;
+	const struct emv_tlv_t* txn_date_tlv;
 
 	if (!issuer_cert || !issuer_cert_len || !capk || !pkey) {
 		return -1;
@@ -317,6 +320,17 @@ int emv_rsa_retrieve_issuer_pkey(
 		}
 	}
 
+	// See EMV 4.4 Book 2, 5.3, step 9
+	txn_date_tlv = emv_tlv_list_find_const(params, EMV_TAG_9A_TRANSACTION_DATE);
+	if (emv_date_mmyy_is_expired(txn_date_tlv, pkey->cert_exp)) {
+		// Transaction date not available, transaction date not valid, or
+		// certificate is expired
+		emv_debug_trace_data("Certificate expiration date", pkey->cert_exp, sizeof(pkey->cert_exp));
+		emv_debug_error("Certificate is expired");
+		r = 10;
+		goto exit;
+	}
+
 	// Success
 	r = 0;
 	goto exit;
@@ -471,6 +485,7 @@ int emv_rsa_retrieve_icc_pkey(
 	size_t icc_cert_len,
 	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
 	const struct emv_tlv_list_t* icc,
+	const struct emv_tlv_list_t* params,
 	const struct emv_oda_ctx_t* oda,
 	struct emv_rsa_icc_pkey_t* pkey
 )
@@ -483,6 +498,7 @@ int emv_rsa_retrieve_icc_pkey(
 	const struct emv_tlv_t* remainder_tlv;
 	const struct emv_tlv_t* exponent_tlv;
 	const struct emv_tlv_t* pan_tlv;
+	const struct emv_tlv_t* txn_date_tlv;
 	crypto_sha1_ctx_t sha1_ctx = NULL;
 	uint8_t hash[SHA1_SIZE];
 
@@ -637,10 +653,21 @@ int emv_rsa_retrieve_icc_pkey(
 		}
 	}
 
+	// See EMV 4.4 Book 2, 6.4, step 9
+	txn_date_tlv = emv_tlv_list_find_const(params, EMV_TAG_9A_TRANSACTION_DATE);
+	if (emv_date_mmyy_is_expired(txn_date_tlv, pkey->cert_exp)) {
+		// Transaction date not available, transaction date not valid, or
+		// certificate is expired
+		emv_debug_trace_data("Certificate expiration date", pkey->cert_exp, sizeof(pkey->cert_exp));
+		emv_debug_error("Certificate is expired");
+		r = 9;
+		goto exit;
+	}
+
 	if (!oda) {
 		// Optional Offline Data Authentication (ODA) context not available.
 		// Hash validation not possible.
-		r = 9;
+		r = 10;
 		goto exit;
 	}
 
@@ -715,7 +742,7 @@ int emv_rsa_retrieve_icc_pkey(
 	emv_debug_trace_data("ICC cert hash", pkey->hash, sizeof(pkey->hash));
 	if (memcmp(hash, pkey->hash, sizeof(pkey->hash)) != 0) {
 		emv_debug_error("Invalid hash");
-		r = 10;
+		r = 11;
 		goto exit;
 	}
 

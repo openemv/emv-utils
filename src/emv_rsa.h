@@ -133,6 +133,11 @@ struct emv_rsa_sdad_t {
  * - @ref EMV_TAG_5A_APPLICATION_PAN will be used to validate the issuer
  *   identifier of the issuer public key.
  *
+ * The following optional fields can be provided in @p params and contribute to
+ * issuer public key validation:
+ * - @ref EMV_TAG_9A_TRANSACTION_DATE will be used to validate the certificate
+ *   expiration date of the issuer public key.
+ *
  * If sufficient fields are present to retrieve the full issuer public key,
  * then the hash field of the issuer public key certificate will be validated.
  * However, the certificate header, trailer, format, hash algorithm indicator
@@ -144,6 +149,8 @@ struct emv_rsa_sdad_t {
  * @param capk Certificate Authority Public Key (CAPK) to use
  * @param icc ICC data used during issuer public key retrieval and validation.
  *            NULL to ignore.
+ * @param params Transaction parameters used during issuer public key
+ *        validation. NULL to ignore.
  * @param pkey Issuer public key output
  *
  * @return Zero if retrieved and validated.
@@ -156,6 +163,7 @@ int emv_rsa_retrieve_issuer_pkey(
 	size_t issuer_cert_len,
 	const struct emv_capk_t* capk,
 	const struct emv_tlv_list_t* icc,
+	const struct emv_tlv_list_t* params,
 	struct emv_rsa_issuer_pkey_t* pkey
 );
 
@@ -203,6 +211,11 @@ int emv_rsa_retrieve_ssad(
  * - @ref EMV_TAG_5A_APPLICATION_PAN will be used to validate the application
  *   PAN of the ICC public key.
  *
+ * The following optional fields can be provided in @p params and contribute to
+ * ICC public key validation:
+ * - @ref EMV_TAG_9A_TRANSACTION_DATE will be used to validate the certificate
+ *   expiration date of the ICC public key.
+ *
  * This function will perform decryption and validate the data header, trailer,
  * format, hash algorithm indicator and public key algorithm indicator to
  * confirm that decryption succeeded with the appropriate issuer public key.
@@ -216,6 +229,8 @@ int emv_rsa_retrieve_ssad(
  * @param issuer_pkey Issuer public key
  * @param icc ICC data used during ICC public key retrieval and validation.
  *            NULL to ignore.
+ * @param params Transaction parameters used during ICC public key validation.
+ *               NULL to ignore.
  * @param oda Offline Data Authentication (ODA) context used during hash
  *            validation. NULL to ignore.
  * @param pkey ICC public key output
@@ -230,6 +245,7 @@ int emv_rsa_retrieve_icc_pkey(
 	size_t icc_cert_len,
 	const struct emv_rsa_issuer_pkey_t* issuer_pkey,
 	const struct emv_tlv_list_t* icc,
+	const struct emv_tlv_list_t* params,
 	const struct emv_oda_ctx_t* oda,
 	struct emv_rsa_icc_pkey_t* pkey
 );

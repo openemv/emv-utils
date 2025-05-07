@@ -353,6 +353,7 @@ int emv_oda_apply_sda(struct emv_ctx_t* ctx)
 		ipk_cert->length,
 		capk,
 		&ctx->icc,
+		&ctx->params,
 		&ipk
 	);
 	if (r) {
@@ -512,6 +513,7 @@ static int emv_oda_apply_sad_auth(struct emv_ctx_t* ctx, struct emv_rsa_icc_pkey
 		ipk_cert->length,
 		capk,
 		&ctx->icc,
+		&ctx->params,
 		&ipk
 	);
 	if (r) {
@@ -532,6 +534,7 @@ static int emv_oda_apply_sad_auth(struct emv_ctx_t* ctx, struct emv_rsa_icc_pkey
 		icc_cert->length,
 		&ipk,
 		&ctx->icc,
+		&ctx->params,
 		&ctx->oda,
 		icc_pkey
 	);

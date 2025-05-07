@@ -62,6 +62,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_rsa_cda_test PRIVATE print_helpers emv)
 	add_test(emv_rsa_cda_test emv_rsa_cda_test)
 
+	add_executable(emv_date_test emv_date_test.c)
+	target_link_libraries(emv_date_test PRIVATE emv)
+	add_test(emv_date_test emv_date_test)
+
 	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c)
 	target_link_libraries(emv_build_candidate_list_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_build_candidate_list_test emv_build_candidate_list_test)

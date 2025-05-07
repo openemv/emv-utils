@@ -225,6 +225,8 @@ int emv_oda_apply(
  *       If in doubt, always use @ref emv_oda_apply() instead.
  *
  * This function requires:
+ * - @ref emv_ctx_t.params must contain these fields:
+ *   - @ref EMV_TAG_9A_TRANSACTION_DATE
  * - @ref emv_ctx_t.icc must contain these fields:
  *   - @ref EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX
  *   - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
@@ -261,6 +263,8 @@ int emv_oda_apply_sda(struct emv_ctx_t* ctx);
  * This function requires:
  * - @ref emv_ctx_t.config must contain
  *   - @ref EMV_TAG_9F49_DDOL (Default DDOL)
+ * - @ref emv_ctx_t.params must contain these fields:
+ *   - @ref EMV_TAG_9A_TRANSACTION_DATE
  * - @ref emv_ctx_t.icc must contain these fields:
  *   - @ref EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX
  *   - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
@@ -300,6 +304,8 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx);
  *       If in doubt, always use @ref emv_oda_apply() instead.
  *
  * This function requires:
+ * - @ref emv_ctx_t.params must contain these fields:
+ *   - @ref EMV_TAG_9A_TRANSACTION_DATE
  * - @ref emv_ctx_t.icc must contain these fields:
  *   - @ref EMV_TAG_8F_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX
  *   - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE

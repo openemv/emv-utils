@@ -38,7 +38,7 @@ static const struct emv_tlv_t invalid_icc_data[] = {
 	{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x47, 0x61, 0x73, 0x90, 0x01, 0x01, 0x01, 0x19 }, 0 }}, NULL },
 	{ {{ EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER, 0, NULL, 0 }}, NULL },
 	{ {{ EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT, 3, (uint8_t[]){ 0x01, 0x00, 0x01 }, 0 }}, NULL }, // Exponent is incorrect
-	{ {{ EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT, 1, (uint8_t[]){ 0x03 }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT, 3, (uint8_t[]){ 0x01, 0x00, 0x01 }, 0 }}, NULL }, // Exponent is incorrect
 	{ {{ EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER, 42, (uint8_t[]){
 		0x4D, 0xD8, 0xA5, 0x0B, 0x21, 0xB9, 0xCB, 0xF6, 0x2B, 0xFA, 0xD4, 0xBB, 0x3F, 0x4C, 0xF6, 0xB5,
 		0x23, 0x9F, 0x3F, 0xD2, 0x3F, 0x8B, 0x93, 0xE9, 0x6C, 0x84, 0xC9, 0xCE, 0x67, 0xDF, 0xD7, 0x03,
@@ -57,6 +57,24 @@ static const struct emv_tlv_t valid_icc_data[] = {
 		0x23, 0x9F, 0x3F, 0xD2, 0x3F, 0x8B, 0x93, 0xE9, 0x6C, 0x84, 0xC9, 0xCE, 0x67, 0xDF, 0xD7, 0x03,
 		0x59, 0x15, 0x38, 0x55, 0xA8, 0xF7, 0x35, 0xCA, 0xFB, 0xE5,
 	}, 0 }}, NULL },
+};
+
+// Invalid transaction parameters for certificate retrieval of certificates
+// that expire at the end of 2031 or earlier
+static const struct emv_tlv_t expired_params_data[] = {
+	{ {{ EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]) { 0x32, 0x01, 0x01 }, 0 }}, NULL },
+};
+
+// Valid transaction parameters for certificate retrieval of certificatas that
+// expire at the end of 2031 or earlier
+static const struct emv_tlv_t valid_params_data_2031[] = {
+	{ {{ EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]) { 0x31, 0x12, 0x31 }, 0 }}, NULL },
+};
+
+// Valid transaction parameters for certificate retrieval of certificatas that
+// expire at the end of 2022 or earlier
+static const struct emv_tlv_t valid_params_data_2022[] = {
+	{ {{ EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]) { 0x22, 0x05, 0x06 }, 0 }}, NULL },
 };
 
 // 1984-bit CAPK A000000003 #94
@@ -331,6 +349,9 @@ int main(void)
 	const struct emv_capk_t* capk;
 	struct emv_tlv_list_t invalid_icc = EMV_TLV_LIST_INIT;
 	struct emv_tlv_list_t valid_icc = EMV_TLV_LIST_INIT;
+	struct emv_tlv_list_t expired_params = EMV_TLV_LIST_INIT;
+	struct emv_tlv_list_t valid_params_2031 = EMV_TLV_LIST_INIT;
+	struct emv_tlv_list_t valid_params_2022 = EMV_TLV_LIST_INIT;
 	struct emv_rsa_issuer_pkey_t ipk;
 	struct emv_rsa_ssad_t ssad;
 	struct emv_rsa_icc_pkey_t icc_pkey;
@@ -356,7 +377,7 @@ int main(void)
 		goto exit;
 	}
 
-	// Populate fields required for issuer public key validation
+	// Populate fields required for certificate validation
 	r = populate_tlv_list(
 		invalid_icc_data,
 		sizeof(invalid_icc_data) / sizeof(invalid_icc_data[0]),
@@ -367,12 +388,40 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-
-	// Populate fields required for issuer public key validation
 	r = populate_tlv_list(
 		valid_icc_data,
 		sizeof(valid_icc_data) / sizeof(valid_icc_data[0]),
 		&valid_icc
+	);
+	if (r) {
+		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	r = populate_tlv_list(
+		expired_params_data,
+		sizeof(expired_params_data) / sizeof(expired_params_data[0]),
+		&expired_params
+	);
+	if (r) {
+		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	r = populate_tlv_list(
+		valid_params_data_2031,
+		sizeof(valid_params_data_2031) / sizeof(valid_params_data_2031[0]),
+		&valid_params_2031
+	);
+	if (r) {
+		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	r = populate_tlv_list(
+		valid_params_data_2022,
+		sizeof(valid_params_data_2022) / sizeof(valid_params_data_2022[0]),
+		&valid_params_2022
 	);
 	if (r) {
 		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
@@ -387,6 +436,7 @@ int main(void)
 		sizeof(invalid_issuer_cert),
 		capk,
 		NULL,
+		NULL,
 		&ipk
 	);
 	if (r >= 0) {
@@ -395,12 +445,13 @@ int main(void)
 		goto exit;
 	}
 
-	// Test retrieval of issuer public key without validation
+	// Test decryption of issuer public key without validation
 	memset(&ipk, 0, sizeof(ipk));
 	r = emv_rsa_retrieve_issuer_pkey(
 		valid_issuer_cert,
 		sizeof(valid_issuer_cert),
 		capk,
+		NULL,
 		NULL,
 		&ipk
 	);
@@ -417,13 +468,14 @@ int main(void)
 		goto exit;
 	}
 
-	// Test retrieval of issuer public key with failed validation
+	// Test decryption of issuer public key with invalid ICC data
 	memset(&ipk, 0, sizeof(ipk));
 	r = emv_rsa_retrieve_issuer_pkey(
 		valid_issuer_cert,
 		sizeof(valid_issuer_cert),
 		capk,
 		&invalid_icc,
+		NULL,
 		&ipk
 	);
 	if (r != 5) {
@@ -439,13 +491,37 @@ int main(void)
 		goto exit;
 	}
 
-	// Test retrieval of issuer public key with validation
+	// Test retrieval of expired issuer public key
 	memset(&ipk, 0, sizeof(ipk));
 	r = emv_rsa_retrieve_issuer_pkey(
 		valid_issuer_cert,
 		sizeof(valid_issuer_cert),
 		capk,
 		&valid_icc,
+		&expired_params,
+		&ipk
+	);
+	if (r != 10) {
+		fprintf(stderr, "emv_rsa_retrieve_issuer_pkey() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	if (memcmp(&ipk, &full_issuer_pkey_verify, sizeof(full_issuer_pkey_verify)) != 0) {
+		fprintf(stderr, "Retrieved issuer public key is incorrect\n");
+		print_buf("retrieved", &ipk, sizeof(ipk));
+		print_buf("expected", &full_issuer_pkey_verify, sizeof(full_issuer_pkey_verify));
+		r = 1;
+		goto exit;
+	}
+
+	// Test retrieval of issuer public key with full validation
+	memset(&ipk, 0, sizeof(ipk));
+	r = emv_rsa_retrieve_issuer_pkey(
+		valid_issuer_cert,
+		sizeof(valid_issuer_cert),
+		capk,
+		&valid_icc,
+		&valid_params_2031,
 		&ipk
 	);
 	if (r) {
@@ -506,6 +582,7 @@ int main(void)
 		&ipk,
 		NULL,
 		NULL,
+		NULL,
 		&icc_pkey
 	);
 	if (r >= 0) {
@@ -514,7 +591,7 @@ int main(void)
 		goto exit;
 	}
 
-	// Test retrieval of ICC public key without validation
+	// Test decryption of ICC public key without validation
 	memset(&icc_pkey, 0, sizeof(icc_pkey));
 	r = emv_rsa_retrieve_icc_pkey(
 		valid_icc_cert,
@@ -522,9 +599,34 @@ int main(void)
 		&ipk,
 		NULL,
 		NULL,
+		NULL,
 		&icc_pkey
 	);
 	if (r != 1) {
+		fprintf(stderr, "emv_rsa_retrieve_icc_pkey() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	if (memcmp(&icc_pkey, &decrypted_icc_pkey_verify, decrypted_icc_pkey_verify_len) != 0) {
+		fprintf(stderr, "Decrypted ICC public key is incorrect\n");
+		print_buf("retrieved", &icc_pkey, decrypted_icc_pkey_verify_len);
+		print_buf("expected", &decrypted_icc_pkey_verify, decrypted_icc_pkey_verify_len);
+		r = 1;
+		goto exit;
+	}
+
+	// Test decryption of ICC public key with invalid ICC data
+	memset(&icc_pkey, 0, sizeof(icc_pkey));
+	r = emv_rsa_retrieve_icc_pkey(
+		valid_icc_cert,
+		sizeof(valid_icc_cert),
+		&ipk,
+		&invalid_icc,
+		NULL,
+		NULL,
+		&icc_pkey
+	);
+	if (r != 5) {
 		fprintf(stderr, "emv_rsa_retrieve_icc_pkey() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
@@ -544,10 +646,35 @@ int main(void)
 		sizeof(valid_icc_cert),
 		&ipk,
 		&valid_icc,
+		&expired_params,
 		NULL,
 		&icc_pkey
 	);
 	if (r != 9) {
+		fprintf(stderr, "emv_rsa_retrieve_icc_pkey() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	if (memcmp(&icc_pkey, &full_icc_pkey_verify, sizeof(full_icc_pkey_verify)) != 0) {
+		fprintf(stderr, "Retrieved ICC public key is incorrect\n");
+		print_buf("retrieved", &icc_pkey, sizeof(icc_pkey));
+		print_buf("expected", &full_icc_pkey_verify, sizeof(full_icc_pkey_verify));
+		r = 1;
+		goto exit;
+	}
+
+	// Test retrieval of ICC public key with certificate validation but no ODA
+	memset(&icc_pkey, 0, sizeof(icc_pkey));
+	r = emv_rsa_retrieve_icc_pkey(
+		valid_icc_cert,
+		sizeof(valid_icc_cert),
+		&ipk,
+		&valid_icc,
+		&valid_params_2022,
+		NULL,
+		&icc_pkey
+	);
+	if (r != 10) {
 		fprintf(stderr, "emv_rsa_retrieve_icc_pkey() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
@@ -606,5 +733,8 @@ int main(void)
 exit:
 	emv_tlv_list_clear(&invalid_icc);
 	emv_tlv_list_clear(&valid_icc);
+	emv_tlv_list_clear(&expired_params);
+	emv_tlv_list_clear(&valid_params_2031);
+	emv_tlv_list_clear(&valid_params_2022);
 	return r;
 }
