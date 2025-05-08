@@ -1021,7 +1021,7 @@ int emv_oda_process_genac(
 	// See EMV 4.4 Book 2, 6.6.2, step 12
 	emv_debug_trace_data("Computed TDHC", tdhc, sizeof(tdhc));
 	emv_debug_trace_data("SDAD obj TDHC", sdad.txn_data_hash_code, sizeof(sdad.txn_data_hash_code));
-	if (memcmp(tdhc, sdad.txn_data_hash_code, sizeof(sdad.txn_data_hash_code)) != 0) {
+	if (crypto_memcmp_s(tdhc, sdad.txn_data_hash_code, sizeof(sdad.txn_data_hash_code)) != 0) {
 		emv_debug_error("Invalid Transaction Data Hash Code");
 		// EMV_TVR_CDA_FAILED already set in TVR
 		r = EMV_ODA_CDA_FAILED;

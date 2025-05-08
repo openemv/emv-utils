@@ -23,6 +23,7 @@
 #include "emv_capk_static_data.h"
 
 #include "crypto_sha.h"
+#include "crypto_mem.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -63,7 +64,7 @@ static int emv_capk_validate(const struct emv_capk_t* capk)
 		if (r) {
 			break;
 		}
-		if (memcmp(hash, capk->hash, SHA1_SIZE) != 0) {
+		if (crypto_memcmp_s(hash, capk->hash, SHA1_SIZE) != 0) {
 			r = 42;
 			break;
 		}

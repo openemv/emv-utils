@@ -286,7 +286,7 @@ int emv_rsa_retrieve_issuer_pkey(
 
 	// Validate hash
 	// See EMV 4.4 Book 2, 5.3, step 7
-	if (memcmp(hash, cert.body + cert_modulus_len, cert_hash_len) != 0) {
+	if (crypto_memcmp_s(hash, cert.body + cert_modulus_len, cert_hash_len) != 0) {
 		// Certificate hash validation failed
 		r = 6;
 		goto exit;
@@ -465,7 +465,7 @@ int emv_rsa_retrieve_ssad(
 	// See EMV 4.4 Book 2, 5.4, step 7
 	emv_debug_trace_data("Computed hash", hash, sizeof(hash));
 	emv_debug_trace_data("SSAD obj hash", data->hash, sizeof(data->hash));
-	if (memcmp(hash, data->hash, sizeof(data->hash)) != 0) {
+	if (crypto_memcmp_s(hash, data->hash, sizeof(data->hash)) != 0) {
 		emv_debug_error("Invalid hash");
 		r = 2;
 		goto exit;
@@ -740,7 +740,7 @@ int emv_rsa_retrieve_icc_pkey(
 	// See EMV 4.4 Book 2, 6.4, step 7
 	emv_debug_trace_data("Computed hash", hash, sizeof(hash));
 	emv_debug_trace_data("ICC cert hash", pkey->hash, sizeof(pkey->hash));
-	if (memcmp(hash, pkey->hash, sizeof(pkey->hash)) != 0) {
+	if (crypto_memcmp_s(hash, pkey->hash, sizeof(pkey->hash)) != 0) {
 		emv_debug_error("Invalid hash");
 		r = 11;
 		goto exit;
@@ -920,7 +920,7 @@ int emv_rsa_retrieve_sdad(
 	// See EMV 4.4 Book 2, 6.6.2, step 9
 	emv_debug_trace_data("Computed hash", hash, sizeof(hash));
 	emv_debug_trace_data("SDAD obj hash", data->hash, sizeof(data->hash));
-	if (memcmp(hash, data->hash, sizeof(data->hash)) != 0) {
+	if (crypto_memcmp_s(hash, data->hash, sizeof(data->hash)) != 0) {
 		emv_debug_error("Invalid hash");
 		r = 2;
 		goto exit;
