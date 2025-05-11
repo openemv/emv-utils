@@ -23,7 +23,7 @@
 #define EMV_H
 
 #include "emv_tlv.h"
-#include "emv_oda.h"
+#include "emv_oda_types.h"
 
 #include <sys/cdefs.h>
 #include <stddef.h>

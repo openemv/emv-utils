@@ -22,6 +22,8 @@
 #ifndef EMV_RSA_H
 #define EMV_RSA_H
 
+#include "emv_oda_types.h"
+
 #include <sys/cdefs.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -31,7 +33,6 @@ __BEGIN_DECLS
 // Forward declarations
 struct emv_capk_t;
 struct emv_tlv_list_t;
-struct emv_oda_ctx_t;
 
 /**
  * @name EMV RSA formats
@@ -77,30 +78,6 @@ struct emv_rsa_ssad_t {
 	uint8_t hash_id; ///< Hash algorithm indicator. Must be @ref EMV_PKEY_HASH_SHA1.
 	uint8_t data_auth_code[2]; ///< Data authentication code
 	uint8_t hash[20]; ///< Hash used for Static Data Authentication (SDA)
-};
-
-/**
- * ICC public key
- * @remark See EMV 4.4 Book 2, 6.4, Table 14
- *
- * This structure is intended to represent the complete and validated Issuer
- * Public Key created from the combination of these fields:
- * - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE
- * - @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER
- * - @ref EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT
- */
-struct emv_rsa_icc_pkey_t {
-	uint8_t format; ///< Certificate Format. Must be @ref EMV_RSA_FORMAT_ICC_CERT.
-	uint8_t pan[10]; ///< Application PAN (padded to the right with hex 'F's).
-	uint8_t cert_exp[2]; ///< Certificate Expiration Date (MMYY)
-	uint8_t cert_sn[3]; ///< Binary number unique to this certificate
-	uint8_t hash_id; ///< Hash algorithm indicator. Must be @ref EMV_PKEY_HASH_SHA1.
-	uint8_t alg_id; ///< Public key algorithm indicator. Must be @ref EMV_PKEY_SIG_RSA_SHA1.
-	uint8_t modulus_len; ///< Public key modulus length in bytes
-	uint8_t exponent_len; ///< Public key exponent length in bytes
-	uint8_t modulus[1984 / 8]; ///< Public key modulus
-	uint8_t exponent[3]; ///< Public key exponent
-	uint8_t hash[20]; ///< Hash used for ICC public key validation
 };
 
 /**

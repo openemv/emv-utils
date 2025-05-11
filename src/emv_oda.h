@@ -22,7 +22,7 @@
 #ifndef EMV_ODA_H
 #define EMV_ODA_H
 
-#include "emv_rsa.h"
+#include "emv_oda_types.h"
 
 #include <sys/cdefs.h>
 #include <stddef.h>
@@ -32,6 +32,7 @@ __BEGIN_DECLS
 
 // Forward declarations
 struct emv_ctx_t;
+struct emv_tlv_list_t;
 
 /**
  * EMV Offline Data Authentication (ODA) errors.
@@ -58,59 +59,6 @@ enum emv_oda_result_t {
 	EMV_ODA_SAD_AUTH_FAILED, ///< Authentication of static application data (for either DDA or CDA) failed
 	EMV_ODA_DDA_FAILED, ///< Dynamic Data Authentication (DDA) failed
 	EMV_ODA_CDA_FAILED, ///< Combined DDA/Application Cryptogram Generation (CDA) failed
-};
-
-/**
- * EMV Offline Data Authentication (ODA) method
- */
-enum emv_oda_method_t {
-	EMV_ODA_METHOD_NONE = 0,
-	EMV_ODA_METHOD_SDA, ///< Static Data Authentication (SDA)
-	EMV_ODA_METHOD_DDA, ///< Dynamic Data Authentication (DDA)
-	EMV_ODA_METHOD_CDA, ///< Combined DDA/Application Cryptogram Generation (CDA)
-	EMV_ODA_METHOD_XDA, ///< Extended Data Authentication (XDA)
-};
-
-/**
- * EMV Offline Data Authentication (ODA) context
- */
-struct emv_oda_ctx_t {
-	uint8_t* record_buf; ///< Application record buffer
-	unsigned int record_buf_len; ///< Length of application record buffer
-
-	/**
-	 * Cached Processing Options Data Object List (PDOL) data for validating
-	 * Transaction Data Hash Code. PDOL data has a maximum length of
-	 * @ref EMV_CAPDU_DATA_MAX minus 3 bytes to allow for tag 83 and its length
-	 * in the GPO data.
-	 */
-	uint8_t pdol_data[255 - 3];
-	size_t pdol_data_len; ///< Length of cached PDOL data in bytes
-
-	/**
-	 * Cached Card Risk Management Data Object List 1 (CDOL1) data for
-	 * validating Transaction Data Hash Code. CDOL1 data has a maximum length
-	 * of @ref EMV_CAPDU_DATA_MAX.
-	 */
-	uint8_t cdol1_data[255];
-	size_t cdol1_data_len; ///< Length of cached CDOL1 data in bytes
-
-	/**
-	 * Cached GENAC response excluding Signed Dynamic Application Data (SDAD)
-	 * for validating Transaction Data Hash Code. GENAC response has a maximum
-	 * length of @ref EMV_RAPDU_DATA_MAX minus minimum length of 512-bit SDAD.
-	 */
-	uint8_t genac_data[256 - 64];
-	size_t genac_data_len; ///< Length of cached GENAC response data in bytes
-
-	/// Currently selected Offline Data Authentication (ODA) method
-	enum emv_oda_method_t method;
-
-	/**
-	 * Currently retrieved ICC public key for use during processing of
-	 * Combined DDA/Application Cryptogram Generation (CDA)
-	 */
-	struct emv_rsa_icc_pkey_t icc_pkey;
 };
 
 /**
