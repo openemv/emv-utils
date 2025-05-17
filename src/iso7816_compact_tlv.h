@@ -2,7 +2,7 @@
  * @file iso7816_compact_tlv.h
  * @brief ISO/IEC 7816 COMPACT-TLV implementation
  *
- * Copyright 2021 Leon Lynch
+ * Copyright 2021, 2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -40,8 +40,10 @@ __BEGIN_DECLS
 
 /// ISO/IEC 7816 COMPACT-TLV iterator
 struct iso7816_compact_tlv_itr_t {
+	/// @cond INTERNAL
 	const void* ptr;
 	size_t len;
+	/// @endcond
 };
 
 /// ISO/IEC 7816 COMPACT-TLV element

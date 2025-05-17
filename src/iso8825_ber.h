@@ -3,7 +3,7 @@
  * @brief Basic Encoding Rules (BER) implementation
  *        (see ISO/IEC 8825-1 or ITU-T Rec X.690 07/2002)
  *
- * Copyright 2021 Leon Lynch
+ * Copyright 2021, 2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -113,14 +113,16 @@ struct iso8825_tlv_t {
 
 /// ISO 8825 BER iterator
 struct iso8825_ber_itr_t {
+	/// @cond INTERNAL
 	const void* ptr;
 	size_t len;
+	/// @endcond
 };
 
 /// ASN.1 OID
 struct iso8825_oid_t {
-	uint32_t value[10];
-	unsigned int length;
+	uint32_t value[10];                         ///< List of component values
+	unsigned int length;                        ///< Number of component values (arc length)
 };
 
 /**

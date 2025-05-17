@@ -2,7 +2,7 @@
  * @file emv_tal.h
  * @brief EMV Terminal Application Layer (TAL)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -188,9 +188,9 @@ int emv_tal_get_processing_options(
  * @return Less than zero indicates that the terminal should terminate the
  *         card session. See @ref emv_tal_error_t
  * @return Greater than zero indicates that the terminal may continue the card
- *         card session but that some failure occurred. Typically this occurs
- *         when a record required for offline data authentication is invalid
- *         and this function indicates this using a return value of
+ *         session but that some failure occurred. Typically this occurs when
+ *         a record required for offline data authentication is invalid and
+ *         this function indicates this condition using a return value of
  *         @ref EMV_TAL_RESULT_ODA_RECORD_INVALID
  */
 int emv_tal_read_afl_records(

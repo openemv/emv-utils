@@ -2,7 +2,7 @@
  * @file emv.h
  * @brief High level EMV library interface
  *
- * Copyright 2023-2024 Leon Lynch
+ * Copyright 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -48,7 +48,7 @@ struct emv_app_t;
  */
 struct emv_ctx_t {
 	/**
-	 * @brief Terminal Transport Layer (TTL) context
+	 * @brief Terminal Transport Layer (TTL) context.
 	 *
 	 * Populated by @ref emv_ctx_init().
 	 */
@@ -97,7 +97,7 @@ struct emv_ctx_t {
 	struct emv_tlv_list_t params;
 
 	/**
-	 * @brief Currently selected application
+	 * @brief Currently selected application.
 	 *
 	 * Populated by @ref emv_select_application() and used by
 	 * @ref emv_initiate_application_processing().

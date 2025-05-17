@@ -34,8 +34,8 @@ __BEGIN_DECLS
 
 // Application Priority Indicator
 // See EMV 4.4 Book 1, 12.2.3, table 13
-#define EMV_APP_PRIORITY_INDICATOR_MASK                         (0x0F)
-#define EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED                (0x80)
+#define EMV_APP_PRIORITY_INDICATOR_MASK                         (0x0F) ///< Application Priority Indicator mask for order in which the application is to be listed or selected
+#define EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED                (0x80) ///< Application Priority Indicator: Application cannot be selected without confirmation by the cardholder
 
 // Application Selection Indicator
 // See EMV 4.4 Book 1, 12.3.1
@@ -931,8 +931,10 @@ int emv_aid_get_info(
 
 /// Application File Locator (AFL) iterator
 struct emv_afl_itr_t {
+	/// @cond INTERNAL
 	const void* ptr;
 	size_t len;
+	/// @endcond
 };
 
 /// Application File Locator (AFL) entry
@@ -962,8 +964,10 @@ int emv_afl_itr_next(struct emv_afl_itr_t* itr, struct emv_afl_entry_t* entry);
 
 /// Cardholder Verification Method (CVM) List iterator
 struct emv_cvmlist_itr_t {
+	/// @cond INTERNAL
 	const void* ptr;
 	size_t len;
+	/// @endcond
 };
 
 /// Cardholder Verification Method (CVM) List amounts

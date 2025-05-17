@@ -2,7 +2,7 @@
  * @file emv_debug.h
  * @brief EMV debug implementation
  *
- * Copyright 2021, 2023 Leon Lynch
+ * Copyright 2021, 2023, 2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -60,7 +60,8 @@ enum emv_debug_type_t {
 };
 
 /**
- * EMV debug event function signature
+ * Debug event function signature
+ *
  * @param timestamp 32-bit microsecond timestamp value
  * @param source Debug event source
  * @param level Debug event level
@@ -80,7 +81,8 @@ typedef void (*emv_debug_func_t)(
 );
 
 /**
- * Initialise EMV debug event function
+ * Initialise debug event function
+ *
  * @param sources_mask Bitmask of debug sources to pass to event function. See @ref emv_debug_source_t
  * @param level Maximum debug level event to pass to event function
  * @param func Callback function to use for debug events
@@ -92,7 +94,9 @@ int emv_debug_init(
 );
 
 /**
- * Internal EMV debugging implementation used by macros. Callers should use the macros instead.
+ * Internal debugging implementation used by macros. Callers should use the
+ * macros instead.
+ *
  * @param source Debug event source
  * @param level Debug event level
  * @param debug_type Debug event type
@@ -124,21 +128,24 @@ void emv_debug_internal(
 #ifdef EMV_DEBUG_ENABLED
 
 /**
- * Emit EMV debug error message
+ * Emit debug error message
+ *
  * @param fmt Format string (printf-style)
  * @param ... Variable arguments for @c fmt
  */
 #define emv_debug_error(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_ERROR, EMV_DEBUG_TYPE_MSG, fmt, NULL, 0, ##__VA_ARGS__); } while (0)
 
 /**
- * Emit EMV debug info message
+ * Emit debug info message
+ *
  * @param fmt Format string (printf-style)
  * @param ... Variable arguments for @c fmt
  */
 #define emv_debug_info(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_INFO, EMV_DEBUG_TYPE_MSG, fmt, NULL, 0, ##__VA_ARGS__); } while (0)
 
 /**
- * Emit EMV debug info message with binary data
+ * Emit debug info message with binary data
+ *
  * @param fmt Format string (printf-style)
  * @param buf Debug event data
  * @param buf_len Length of debug event data in bytes
@@ -147,7 +154,8 @@ void emv_debug_internal(
 #define emv_debug_info_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_INFO, EMV_DEBUG_TYPE_DATA, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
 
 /**
- * Emit EMV debug info message with ISO 8825-1 BER encoded (TLV) data
+ * Emit debug info message with ISO 8825-1 BER encoded (TLV) data
+ *
  * @param fmt Format string (printf-style)
  * @param buf BER encoded data
  * @param buf_len Length of BER encoded data in bytes
@@ -166,6 +174,7 @@ void emv_debug_internal(
 
 /**
  * Emit debug event with decoded ISO 7816 ATR
+ *
  * @param atr_info Pointer to parsed ATR info (@ref iso7816_atr_info_t)
  */
 #define emv_debug_atr_info(atr_info) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_CARD, EMV_DEBUG_TYPE_ATR, "ATR", atr_info, sizeof(*atr_info)); } while (0)
@@ -178,6 +187,7 @@ void emv_debug_internal(
 
 /**
  * Emit debug APDU message
+ *
  * @param fmt Format string (printf-style)
  * @param ... Variable arguments for @c fmt
  */
@@ -185,6 +195,7 @@ void emv_debug_internal(
 
 /**
  * Emit debug event with ISO 7816 C-APDU (command APDU) data
+ *
  * @param buf C-APDU data
  * @param buf_len Length of C-APDU data in bytes
  */
@@ -192,6 +203,7 @@ void emv_debug_internal(
 
 /**
  * Emit debug event with ISO 7816 R-APDU (response APDU) data
+ *
  * @param buf R-APDU data
  * @param buf_len Length of R-APDU data in bytes
  */
@@ -207,6 +219,7 @@ void emv_debug_internal(
 
 /**
  * Emit debug event with ISO 7816 C-TPDU (request TPDU) data
+ *
  * @param buf C-TPDU data
  * @param buf_len Length of C-TPDU data in bytes
  */
@@ -214,6 +227,7 @@ void emv_debug_internal(
 
 /**
  * Emit debug event with ISO 7816 R-TPDU (response TPDU) data
+ *
  * @param buf R-TPDU data
  * @param buf_len Length of R-TPDU data in bytes
  */
@@ -228,6 +242,7 @@ void emv_debug_internal(
 
 /**
  * Emit debug trace message
+ *
  * @param fmt Format string (printf-style)
  * @param ... Variable arguments for @c fmt
  */
@@ -235,6 +250,7 @@ void emv_debug_internal(
 
 /**
  * Emit debug trace data
+ *
  * @param fmt Format string (printf-style)
  * @param buf Debug event data
  * @param buf_len Length of debug event data in bytes

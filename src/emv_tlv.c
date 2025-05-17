@@ -2,7 +2,7 @@
  * @file emv_tlv.c
  * @brief EMV TLV structures and helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,7 +24,7 @@
 #include "emv_tags.h"
 
 #include <stdbool.h>
-#include <stdlib.h> // for malloc() and free()
+#include <stdlib.h> // For malloc() and free()
 #include <string.h>
 #include <assert.h>
 
@@ -221,14 +221,17 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 	}
 
 	if (list->back) {
-		// If list not empty, attach list back to other front
+		// If the list is not empty, then attach the back of the list to the
+		// front of the other list
 		list->back->next = other->front;
 	} else {
-		// If list empty, attach list front to other front
+		// If the list is empty, then the front of the other list becomes the
+		// front of the combined list
 		list->front = other->front;
 	}
 	if (other->back) {
-		// If other not empty, other back becomes list back
+		// If the other list is not empty, then the back of the other list
+		// becomes the back of the combined list
 		list->back = other->back;
 	}
 	other->front = NULL;
@@ -472,7 +475,7 @@ int emv_format_n_to_uint(const uint8_t* buf, size_t buf_len, uint32_t* value)
 			// Invalid digit for EMV format "n"
 			return 1;
 		}
-		// Shift decimal digit into x
+		// Shift decimal digit into output value
 		*value = (*value * 10) + digit;
 
 		// Extract least significant nibble
@@ -481,7 +484,7 @@ int emv_format_n_to_uint(const uint8_t* buf, size_t buf_len, uint32_t* value)
 			// Invalid digit for EMV format "n"
 			return 2;
 		}
-		// Shift decimal digit into x
+		// Shift decimal digit into output value
 		*value = (*value * 10) + digit;
 	}
 
