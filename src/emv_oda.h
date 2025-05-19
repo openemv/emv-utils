@@ -149,6 +149,12 @@ int emv_oda_append_record(
  * values of @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS and
  * @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION to reflect the outcome.
  *
+ * Refer to the documentation of the following functions for additional
+ * requirements related to each ODA method:
+ * - @ref emv_oda_apply_sda()
+ * - @ref emv_oda_apply_dda()
+ * - @ref emv_oda_apply_cda()
+ *
  * @param ctx EMV processing context
  * @param term_caps Terminal Capabilities (field 9F33). Must be 3 bytes.
  *

@@ -354,7 +354,7 @@ int emv_initiate_application_processing(
 int emv_read_application_data(struct emv_ctx_t* ctx);
 
 /**
- * Perform Offline Data Authentication (ODA) by selecting and applying the
+ * Perform EMV Offline Data Authentication (ODA) by selecting and applying the
  * appropriate ODA method.
  *
  * The ODA method is selected based on card support indicated by
