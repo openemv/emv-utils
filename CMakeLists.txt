@@ -251,10 +251,13 @@ if(Doxygen_FOUND)
 	set(DOXYGEN_EXTRACT_STATIC YES)
 	# Allow inline functions
 	set(DOXYGEN_INLINE_SOURCES YES)
-	# Ignore uses of GCC __attribute__
+	# Ignore uses of GCC __attribute__ and enable documentation for
+	# debug macros
 	set(DOXYGEN_MACRO_EXPANSION YES)
 	set(DOXYGEN_EXPAND_ONLY_PREDEF YES)
-	set(DOXYGEN_PREDEFINED "__attribute__(x)=")
+	set(DOXYGEN_PREDEFINED "__attribute__(x)=\\
+			EMV_DEBUG_ENABLED
+	")
 
 	# Generate docs for public headers
 	if(BUILD_DOCS)
