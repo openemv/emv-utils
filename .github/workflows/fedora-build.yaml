@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -15,9 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 40", fedora_version: 40, deps: "none", build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "Fedora 40", fedora_version: 40, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "Fedora 41", fedora_version: 41, deps: "none", build_emv_tool: NO, build_emv_viewer: NO }
           - { name: "Fedora 41", fedora_version: 41, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "Fedora 42", fedora_version: 42, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
     runs-on: ubuntu-latest
@@ -67,8 +67,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 40", fedora_version: 40 }
           - { name: "Fedora 41", fedora_version: 41 }
+          - { name: "Fedora 42", fedora_version: 42 }
 
     name: ${{ matrix.name }} release
     runs-on: ubuntu-latest
@@ -77,7 +77,7 @@ jobs:
     steps:
     - name: Install build tools and dependencies
       run: |
-        sudo dnf -y install git gh cmake gcc g++ boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion doxygen rpm-build qt5-qtbase-devel
+        sudo dnf -y install git gh cmake gcc g++ boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion-devel doxygen rpm-build qt5-qtbase-devel
 
     - name: Checkout
       uses: actions/checkout@v4
