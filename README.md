@@ -22,6 +22,12 @@ If you wish to use these libraries for a project that is not compatible with
 the terms of the LGPL v2.1 license, please contact the author for alternative
 licensing options.
 
+Example output
+--------------
+![Example of emv-decoder usage](/emv-decoder-example.png)
+![Example of emv-viewer usage](/emv-viewer-example.png)
+See [usage](#usage) for more examples.
+
 Installation
 ------------
 
@@ -224,6 +230,8 @@ cmake --build build --target package
 Usage
 -----
 
+### emv-decode
+
 The available command line options of the `emv-decode` application can be
 displayed using:
 ```shell
@@ -239,6 +247,12 @@ emv-decode --atr 3BDA18FF81B1FE751F030031F573C78A40009000B0
 To decode EMV TLV data, use the `--tlv` option. For example:
 ```shell
 emv-decode --tlv 701A9F390105571040123456789095D2512201197339300F82025900
+```
+
+Alternatively, binary (not ASCII-HEX) EMV TLV data can be read from stdin by
+specifying `--tlv -`. For example:
+```shell
+echo "701A9F390105571040123456789095D2512201197339300F82025900" | xxd -r -p | emv-decoder --tlv -
 ```
 
 To decode an EMV Data Object List (DOL), use the `--dol` option. For example:
@@ -276,6 +290,31 @@ emv-decode --iso8859-10 A1A2A3A4A5A6A7
 The `emv-decode` application can also decode various other EMV structures and
 fields. Use the `--help` option to display all available options.
 
+### emv-viewer
+
+The `emv-viewer` application can be launched via the desktop environment or it
+can be launched via the command line. The `emv-viewer` application does not
+support the decoding of individual fields like the `emv-decode` application
+does, but does allow the decoding of EMV TLV data in the same manner as the
+`emv-decode` application.
+
+The available command line options of the `emv-viewer` application can be
+displayed using:
+```shell
+emv-viewer --help
+```
+
+To decode EMV TLV data, use the `--tlv` option. For example:
+```shell
+emv-viewer --tlv 701A9F390105571040123456789095D2512201197339300F82025900
+```
+
+Alternatively, binary (not ASCII-HEX) EMV TLV data can be read from stdin by
+specifying `--tlv -`. For example:
+```shell
+echo "701A9F390105571040123456789095D2512201197339300F82025900" | xxd -r -p | emv-viewer --tlv -
+```
+
 Roadmap
 -------
 * Document `emv-tool` usage
@@ -298,7 +337,7 @@ See [LICENSE](https://github.com/openemv/emv-utils/blob/master/LICENSE) and
 files.
 
 This project includes [mcc-codes](https://github.com/greggles/mcc-codes) as a
-git submodule and it is licensed under The Unlicense license. See
+git submodule and it is licensed under the terms of The Unlicense license. See
 [LICENSE](https://github.com/greggles/mcc-codes/blob/main/LICENSE.txt) file.
 
 > [!NOTE]
