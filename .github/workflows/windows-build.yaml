@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -126,13 +126,15 @@ jobs:
           mingw-w64-${{matrix.env}}-nsis
 
     - name: Install Qt6
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       with:
-        version: 6.5.*
+        version: 6.8.*
         host: windows
         target: desktop
         arch: win64_mingw
         archives: qtbase qttools MinGW
+        tools: tools_mingw1310
+        add-tools-to-path: true
         cache: true
 
     # MSYS2 Git assumes CRLF by default
@@ -141,10 +143,16 @@ jobs:
         git config --global core.autocrlf true
         echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> $GITHUB_ENV
 
+    # Build using Qt toolchain because it will be packaged with Qt toolchain's runtime
+    - name: Configure Qt toolchain path
+      run: echo "TOOLCHAIN_PATH=$(cygpath -u '${{ env.IQTA_TOOLS }}')/mingw1310_64/bin" >> $GITHUB_ENV
+
     - name: Configure CMake
       run: |
         cmake -G Ninja -B build \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
+          -DCMAKE_C_COMPILER="${{ env.TOOLCHAIN_PATH }}/gcc.exe" \
+          -DCMAKE_CXX_COMPILER="${{ env.TOOLCHAIN_PATH }}/g++.exe" \
           -DBUILD_SHARED_LIBS=YES \
           -DFETCH_ARGP=YES \
           -DBUILD_EMV_DECODE=YES \
@@ -153,7 +161,7 @@ jobs:
           -DBUILD_WIN_STANDALONE=YES
       # CMake will only accept Windows paths if they are environment variables, not CMake command line cache entries
       env:
-        CMAKE_PREFIX_PATH: ${{ env.Qt6_DIR }}
+        CMAKE_PREFIX_PATH: ${{ env.QT_ROOT_DIR }}
 
     - name: Build
       run: cmake --build build
