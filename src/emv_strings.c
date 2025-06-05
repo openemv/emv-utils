@@ -2006,12 +2006,16 @@ int emv_date_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
 		}
 		date_str[(i * 2) + 1] = '0' + digit;
 	}
-	date_str[(buf_len * 2) + 1] = 0;
+	date_str[buf_len * 2] = 0; // NULL terminate
 
-	// Assume it's the 21st century; if it isn't, then hopefully we've at
-	// least addressed climate change...
-	str[offset++] = '2';
-	str[offset++] = '0';
+	// See EMV 4.4 Book 4, 6.7.3
+	if (buf[0] < 0x50) {
+		str[offset++] = '2';
+		str[offset++] = '0';
+	} else {
+		str[offset++] = '1';
+		str[offset++] = '9';
+	}
 	memcpy(str + offset, date_str, 2);
 	offset += 2;
 
@@ -2079,7 +2083,7 @@ int emv_time_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
 		}
 		time_str[(i * 2) + 1] = '0' + digit;
 	}
-	time_str[(buf_len * 2) + 1] = 0;
+	time_str[buf_len * 2] = 0; // NULL terminate
 
 	// Hours
 	memcpy(str + offset, time_str, 2);

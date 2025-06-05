@@ -176,12 +176,17 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 
 	add_test(NAME emv_decode_test3
-		COMMAND emv-decode --tlv 9A03221215
+		COMMAND emv-decode --tlv 9A032212159A034912319A03500101
 			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_test3_regex
+		"^9A \\| Transaction Date : \\[3\\] 22 12 15 \\(2022-12-15\\)[\r\n]"
+		"9A \\| Transaction Date : \\[3\\] 49 12 31 \\(2049-12-31\\)[\r\n]"
+		"9A \\| Transaction Date : \\[3\\] 50 01 01 \\(1950-01-01\\)[\r\n]"
 	)
 	set_tests_properties(emv_decode_test3
 		PROPERTIES
-			PASS_REGULAR_EXPRESSION "^9A \\| Transaction Date : \\[3\\] 22 12 15 \\(2022-12-15\\)[\r\n]"
+			PASS_REGULAR_EXPRESSION ${emv_decode_test3_regex}
 	)
 
 	add_test(NAME emv_decode_test4
