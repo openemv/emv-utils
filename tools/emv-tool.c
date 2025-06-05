@@ -53,6 +53,8 @@ static void emv_txn_load_config(struct emv_ctx_t* emv);
 // argp option keys
 enum emv_tool_param_t {
 	EMV_TOOL_PARAM_ODA = -255, // Negative value to avoid short options
+	EMV_TOOL_PARAM_TXN_DATE,
+	EMV_TOOL_PARAM_TXN_TIME,
 	EMV_TOOL_PARAM_TXN_TYPE,
 	EMV_TOOL_PARAM_TXN_AMOUNT,
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
@@ -70,6 +72,8 @@ static struct argp_option argp_options[] = {
 	{ "oda", EMV_TOOL_PARAM_ODA, "SDA,DDA,CDA", 0, "Comma separated list of supported Offline Data Authentication (ODA) methods. Default is SDA,DDA,CDA." },
 
 	{ NULL, 0, NULL, 0, "Transaction parameters", 2 },
+	{ "txn-date", EMV_TOOL_PARAM_TXN_DATE, "YYYY-MM-DD", 0, "Transaction date (YYYY-MM-DD). Default is current date." },
+	{ "txn-time", EMV_TOOL_PARAM_TXN_TIME, "hh:mm:ss", 0, "Transaction time (hh:mm:ss). Default is current time." },
 	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
@@ -103,6 +107,8 @@ static uint8_t term_caps_sec =
 	EMV_TERM_CAPS_SECURITY_CDA;
 
 // Transaction parameters
+static uint8_t txn_date[3] = { 0xFF }; // Default is current date
+static uint8_t txn_time[3] = { 0xFF }; // Default is current time
 static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
 static uint32_t txn_amount = 0;
 static uint32_t txn_amount_other = 0;
@@ -156,6 +162,56 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 					term_caps_sec |= EMV_TERM_CAPS_SECURITY_CDA;
 				}
 			}
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_TXN_DATE: {
+			int r;
+			int year;
+			int year_short;
+			int month;
+			int day;
+			r = sscanf(arg, "%4d-%2d-%2d", &year, &month, &day);
+			if (r != 3) {
+				argp_error(state, "Transaction date (--txn-date) argument must be YYYY-MM-DD");
+			}
+			if (year < 1950 || year > 2049 ||
+				month < 1 || month > 12 ||
+				day < 1 || day > 31
+			) {
+				argp_error(state, "Transaction date (--txn-date) argument must contain a valid date");
+			}
+			if (year < 2000) { // See EMV 4.4 Book 4, 6.7.3
+				year_short = year - 1900;
+			} else {
+				year_short = year - 2000;
+			}
+			txn_date[0] = ((year_short / 10) << 4) | (year_short % 10);
+			txn_date[1] = ((month / 10) << 4) | (month % 10);
+			txn_date[2] = ((day / 10) << 4) | (day % 10);
+
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_TXN_TIME: {
+			int r;
+			int hours;
+			int minutes;
+			int seconds;
+			r = sscanf(arg, "%2d:%2d:%2d", &hours, &minutes, &seconds);
+			if (r != 3) {
+				argp_error(state, "Transaction time (--txn-time) argument must be hh:mm:ss");
+			}
+			if (hours < 0 || hours > 23 ||
+				minutes < 0 || minutes > 59 ||
+				seconds < 0 || seconds > 59
+			) {
+				argp_error(state, "Transaction time (--txn-time) argument must contain a valid time");
+			}
+			txn_time[0] = ((hours / 10) << 4) | (hours % 10);
+			txn_time[1] = ((minutes / 10) << 4) | (minutes % 10);
+			txn_time[2] = ((seconds / 10) << 4) | (seconds % 10);
 
 			return 0;
 		}
@@ -584,25 +640,29 @@ static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uin
 {
 	time_t t = time(NULL);
 	struct tm* tm = localtime(&t);
-	uint8_t emv_date[3];
-	uint8_t emv_time[3];
-	int date_offset = 0;
 	uint8_t buf[6];
 
 	// Transaction sequence counter
 	// See EMV 4.4 Book 4, 6.5.5
 	emv_tlv_list_push(&emv->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER, 4, emv_uint_to_format_n(txn_seq_cnt, buf, 4), 0);
 
-	// Current date and time
-	tm->tm_year += date_offset; // Useful for expired test cards
-	emv_date[0] = (((tm->tm_year / 10) % 10) << 4) | (tm->tm_year % 10);
-	emv_date[1] = (((tm->tm_mon + 1) / 10) << 4) | ((tm->tm_mon + 1) % 10);
-	emv_date[2] = ((tm->tm_mday / 10) << 4) | (tm->tm_mday % 10);
-	emv_time[0] = ((tm->tm_hour / 10) << 4) | (tm->tm_hour % 10);
-	emv_time[1] = ((tm->tm_min / 10) << 4) | (tm->tm_min % 10);
-	emv_time[2] = ((tm->tm_sec / 10) << 4) | (tm->tm_sec % 10);
-	emv_tlv_list_push(&emv->params, EMV_TAG_9A_TRANSACTION_DATE, 3, emv_date, 0);
-	emv_tlv_list_push(&emv->params, EMV_TAG_9F21_TRANSACTION_TIME, 3, emv_time, 0);
+	// Transaction date
+	if (txn_date[0] == 0xFF) {
+		// Use current date
+		txn_date[0] = (((tm->tm_year / 10) % 10) << 4) | (tm->tm_year % 10);
+		txn_date[1] = (((tm->tm_mon + 1) / 10) << 4) | ((tm->tm_mon + 1) % 10);
+		txn_date[2] = ((tm->tm_mday / 10) << 4) | (tm->tm_mday % 10);
+	}
+	emv_tlv_list_push(&emv->params, EMV_TAG_9A_TRANSACTION_DATE, 3, txn_date, 0);
+
+	// Transaction time
+	if (txn_time[0] == 0xFF) {
+		// Use current time
+		txn_time[0] = ((tm->tm_hour / 10) << 4) | (tm->tm_hour % 10);
+		txn_time[1] = ((tm->tm_min / 10) << 4) | (tm->tm_min % 10);
+		txn_time[2] = ((tm->tm_sec / 10) << 4) | (tm->tm_sec % 10);
+	}
+	emv_tlv_list_push(&emv->params, EMV_TAG_9F21_TRANSACTION_TIME, 3, txn_time, 0);
 
 	// Transaction currency
 	emv_tlv_list_push(&emv->params, EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0); // Euro (978)
