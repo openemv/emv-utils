@@ -250,9 +250,6 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
 	endif()
 
-	# Assume that MSYS2/MinGW environments have all DLLs in the same path
-	# as the compiler
-	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
 	install(
 		TARGETS
 			iso8859
@@ -265,7 +262,9 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
-			${COMPILER_PATH}
+			$<$<STREQUAL:${ISO8859_IMPL},boost>:$<$<TARGET_EXISTS:Boost::locale>:$<TARGET_FILE_DIR:Boost::locale>>>
+			$<$<STREQUAL:${ISO8859_IMPL},iconv>:$<$<BOOL:${Iconv_LIBRARIES}>:$<TARGET_FILE_DIR:Iconv::Iconv>>>
+
 		RUNTIME
 			COMPONENT emv_runtime
 	)
@@ -393,9 +392,6 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
 	endif()
 
-	# Assume that MSYS2/MinGW environments have all DLLs in the same path
-	# as the compiler
-	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
 	install(
 		TARGETS
 			emv_strings
@@ -408,7 +404,7 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
-			${COMPILER_PATH}
+			$<$<TARGET_EXISTS:json-c::json-c>:$<TARGET_FILE_DIR:json-c::json-c>>
 		RUNTIME
 			COMPONENT emv_runtime
 	)
