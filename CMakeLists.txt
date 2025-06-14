@@ -83,6 +83,18 @@ if(EMV_UTILS_IS_TOP_LEVEL)
 	include(CTest)
 endif()
 
+# Allow parent scope to provide crypto targets when not building shared libs
+if(EMV_UTILS_IS_TOP_LEVEL OR BUILD_SHARED_LIBS)
+	list(APPEND CRYPTO_TESTS crypto_sha crypto_rsa)
+	add_subdirectory(crypto)
+	add_subdirectory(crypto/test)
+elseif (NOT TARGET crypto_mem OR
+	NOT TARGET crypto_rand OR
+	NOT TARGET crypto_sha OR
+	NOT TARGET crypto_rsa)
+	message(FATAL_ERROR "Parent project must provide crypto libraries for static builds")
+endif()
+
 include(FindPackageHandleStandardArgs) # Provides find_package() messages
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 

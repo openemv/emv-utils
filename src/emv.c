@@ -2,7 +2,7 @@
  * @file emv.c
  * @brief High level EMV library interface
  *
- * Copyright 2023-2024 Leon Lynch
+ * Copyright 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,15 +21,21 @@
 
 #include "emv.h"
 #include "emv_utils_config.h"
+#include "emv_ttl.h"
 #include "emv_tal.h"
 #include "emv_app.h"
 #include "emv_dol.h"
 #include "emv_tags.h"
+#include "emv_fields.h"
+#include "emv_oda.h"
 
 #include "iso7816.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
+
+#include "crypto_mem.h"
+#include "crypto_rand.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -45,6 +51,7 @@ const char* emv_error_get_string(enum emv_error_t error)
 	switch (error) {
 		case EMV_ERROR_INTERNAL: return "Internal error";
 		case EMV_ERROR_INVALID_PARAMETER: return "Invalid function parameter";
+		case EMV_ERROR_INVALID_CONFIG: return "Invalid configuration";
 	}
 
 	return "Unknown error";
@@ -73,6 +80,13 @@ int emv_ctx_reset(struct emv_ctx_t* ctx)
 	emv_tlv_list_clear(&ctx->terminal);
 	emv_app_free(ctx->selected_app);
 	ctx->selected_app = NULL;
+	emv_oda_clear(&ctx->oda);
+
+	ctx->aid = NULL;
+	ctx->tvr = NULL;
+	ctx->tsi = NULL;
+	ctx->aip = NULL;
+	ctx->afl = NULL;
 
 	return 0;
 }
@@ -493,10 +507,9 @@ int emv_initiate_application_processing(
 )
 {
 	int r;
-	const struct emv_tlv_list_t* sources[3];
-	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+	uint8_t un[4];
 	const struct emv_tlv_t* pdol;
-	uint8_t gpo_data_buf[255]; // See EMV_CAPDU_DATA_MAX
+	uint8_t gpo_data_buf[EMV_CAPDU_DATA_MAX];
 	uint8_t* gpo_data;
 	size_t gpo_data_len;
 	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
@@ -510,6 +523,14 @@ int emv_initiate_application_processing(
 	// Clear existing ICC data and terminal data lists to avoid ambiguity
 	emv_tlv_list_clear(&ctx->icc);
 	emv_tlv_list_clear(&ctx->terminal);
+
+	// Clear existing ODA state to avoid ambiguity
+	r = emv_oda_init(&ctx->oda);
+	if (r) {
+		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
 
 	// NOTE: EMV 4.4 Book 1, 12.4, states that the terminal should set the
 	// value of Application Identifier (AID) - terminal (field 9F06) before
@@ -586,53 +607,94 @@ int emv_initiate_application_processing(
 		return EMV_ERROR_INTERNAL;
 	}
 
-	// Prepare ordered data source list
-	sources[0] = &ctx->params;
-	sources[1] = &ctx->config;
-	sources[2] = &ctx->terminal;
+	// Create Unpredictable Number (field 9F37)
+	// See EMV 4.4 Book 4, 6.5.6
+	crypto_rand(un, sizeof(un));
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9F37_UNPREDICTABLE_NUMBER,
+		sizeof(un),
+		un,
+		0
+	);
+	crypto_cleanse(un, sizeof(un));
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Cache various terminal fields
+	ctx->aid = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F06_AID);
+	if (!ctx->aid) {
+		emv_debug_error("AID not found");
+		return EMV_ERROR_INTERNAL;
+	}
+	ctx->tvr = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS);
+	if (!ctx->tvr) {
+		emv_debug_error("TVR not found");
+		return EMV_ERROR_INTERNAL;
+	}
+	ctx->tsi = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
+	if (!ctx->tsi) {
+		emv_debug_error("TSI not found");
+		return EMV_ERROR_INTERNAL;
+	}
 
 	// Process PDOL, if available
 	// See EMV 4.4 Book 3, 10.1
 	pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
 	if (pdol) {
-		int dol_data_len;
-		size_t gpo_data_offset;
+		const struct emv_tlv_list_t* sources[3];
+		size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+		int pdol_data_len;
+		size_t pdol_data_offset;
 
 		emv_debug_info_data("PDOL found", pdol->value, pdol->length);
-		dol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
-		if (dol_data_len < 0) {
-			emv_debug_trace_msg("emv_dol_compute_data_length() failed; dol_data_len=%d", dol_data_len);
+
+		// Prepare ordered data source list
+		sources[0] = &ctx->params;
+		sources[1] = &ctx->config;
+		sources[2] = &ctx->terminal;
+
+		// Validate PDOL data length
+		pdol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
+		if (pdol_data_len < 0) {
+			emv_debug_trace_msg("emv_dol_compute_data_length() failed; pdol_data_len=%d", pdol_data_len);
 			emv_debug_error("Failed to compute PDOL data length");
 			return EMV_OUTCOME_CARD_ERROR;
 		}
-		if (dol_data_len > sizeof(gpo_data_buf) - 3) {
-			emv_debug_error("Invalid PDOL data length of %u", dol_data_len);
+		if (pdol_data_len > sizeof(ctx->oda.pdol_data)) {
+			emv_debug_error("Invalid PDOL data length of %u", pdol_data_len);
 			return EMV_OUTCOME_CARD_ERROR;
 		}
 
+		// Prepare GPO data buffer with field 83
 		gpo_data = gpo_data_buf;
-		gpo_data_len = sizeof(gpo_data_buf);
 		gpo_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
-		gpo_data_offset = 1;
-		if (dol_data_len < 0x80) {
+		pdol_data_offset = 1;
+		if (pdol_data_len < 0x80) {
 			// Short length form
-			gpo_data[1] = dol_data_len;
-			gpo_data_offset += 1;
+			gpo_data[1] = pdol_data_len;
+			pdol_data_offset += 1;
 		} else {
 			// Long length form
 			gpo_data[1] = 0x81;
-			gpo_data[2] = dol_data_len;
-			gpo_data_offset += 2;
+			gpo_data[2] = pdol_data_len;
+			pdol_data_offset += 2;
 		}
-		gpo_data_len -= gpo_data_offset;
 
+		// Populate PDOL data in cache buffer
+		ctx->oda.pdol_data_len = sizeof(ctx->oda.pdol_data);
 		r = emv_dol_build_data(
 			pdol->value,
 			pdol->length,
 			sources,
 			sources_count,
-			gpo_data + gpo_data_offset,
-			&gpo_data_len
+			ctx->oda.pdol_data,
+			&ctx->oda.pdol_data_len
 		);
 		if (r) {
 			emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
@@ -644,7 +706,16 @@ int emv_initiate_application_processing(
 			return EMV_ERROR_INTERNAL;
 		}
 
-		gpo_data_len += gpo_data_offset;
+		// Finalise GPO data buffer
+		if (ctx->oda.pdol_data_len > sizeof(gpo_data_buf) - pdol_data_offset) {
+			emv_debug_error("Error during PDOL processing; "
+				"pdol_data_len=%zu; sizeof(gpo_data_buf)=%zu; pdol_data_offset=%zu",
+				ctx->oda.pdol_data_len, sizeof(gpo_data_buf), pdol_data_offset
+			);
+			return EMV_ERROR_INTERNAL;
+		}
+		memcpy(gpo_data + pdol_data_offset, ctx->oda.pdol_data, ctx->oda.pdol_data_len);
+		gpo_data_len = pdol_data_offset + ctx->oda.pdol_data_len;
 
 	} else {
 		// PDOL not available. emv_ttl_get_processing_options() will build
@@ -653,7 +724,14 @@ int emv_initiate_application_processing(
 		gpo_data_len = 0;
 	}
 
-	r = emv_tal_get_processing_options(ctx->ttl, gpo_data, gpo_data_len, &gpo_output, NULL, NULL);
+	r = emv_tal_get_processing_options(
+		ctx->ttl,
+		gpo_data,
+		gpo_data_len,
+		&gpo_output,
+		&ctx->aip,
+		&ctx->afl
+	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_get_processing_options() failed; r=%d", r);
 		if (r < 0) {
@@ -711,7 +789,6 @@ exit:
 int emv_read_application_data(struct emv_ctx_t* ctx)
 {
 	int r;
-	const struct emv_tlv_t* afl;
 	struct emv_tlv_list_t record_data = EMV_TLV_LIST_INIT;
 	bool found_5F24 = false;
 	bool found_5A = false;
@@ -724,16 +801,42 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
-	// Process Application File Locator (AFL)
-	// See EMV 4.4 Book 3, 10.2
-	afl = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
-	if (!afl) {
+	// Application File Locator (AFL) is required to read application records
+	if (!ctx->afl) {
 		// AFL not found; terminate session
 		// See EMV 4.4 Book 3, 6.5.8.4
 		emv_debug_error("AFL not found");
 		return EMV_OUTCOME_CARD_ERROR;
 	}
-	r = emv_tal_read_afl_records(ctx->ttl, afl->value, afl->length, &record_data);
+
+	// Ensure that Offline Data Authentication (ODA) context is ready when
+	// reading application records
+	r = emv_oda_prepare_records(&ctx->oda, ctx->afl->value, ctx->afl->length);
+	if (r) {
+		emv_debug_trace_msg("emv_oda_prepare_records() failed; r=%d", r);
+
+		if (r == EMV_ODA_ERROR_INTERNAL ||
+			r == EMV_ODA_ERROR_INVALID_PARAMETER
+		) {
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		} else {
+			// All other ODA errors are card errors
+			emv_debug_error("Invalid ICC data during ODA initialisation");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+
+	// Process Application File Locator (AFL)
+	// See EMV 4.4 Book 3, 10.2
+	r = emv_tal_read_afl_records(
+		ctx->ttl,
+		ctx->afl->value,
+		ctx->afl->length,
+		&record_data,
+		&ctx->oda
+	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_read_afl_records() failed; r=%d", r);
 		if (r < 0) {
@@ -743,12 +846,12 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 			} else {
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
-			goto exit;
+			goto error;
 		}
 		if (r != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
 			emv_debug_error("Failed to read application data");
 			r = EMV_OUTCOME_CARD_ERROR;
-			goto exit;
+			goto error;
 		}
 		// Continue regardless of offline data authentication failure
 		// See EMV 4.4 Book 3, 10.3 (page 98)
@@ -759,7 +862,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		// See EMV 4.4 Book 3, 10.2
 		emv_debug_error("Application data contains redundant fields");
 		r = EMV_OUTCOME_CARD_ERROR;
-		goto exit;
+		goto error;
 	}
 
 	for (const struct emv_tlv_t* tlv = record_data.front; tlv != NULL; tlv = tlv->next) {
@@ -783,7 +886,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		// See EMV 4.4 Book 3, 10.2
 		emv_debug_error("Mandatory field not found");
 		r = EMV_OUTCOME_CARD_ERROR;
-		goto exit;
+		goto error;
 	}
 
 	r = emv_tlv_list_append(&ctx->icc, &record_data);
@@ -793,7 +896,70 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		// Internal error; terminate session
 		emv_debug_error("Internal error");
 		r = EMV_TAL_ERROR_INTERNAL;
+		goto error;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+error:
+	emv_oda_clear(&ctx->oda);
+exit:
+	emv_tlv_list_clear(&record_data);
+	return r;
+}
+
+int emv_offline_data_authentication(struct emv_ctx_t* ctx)
+{
+	int r;
+	const struct emv_tlv_t* term_caps;
+	const struct emv_tlv_t* default_ddol;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Ensure mandatory configuration fields are present and have valid length
+	term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
+	if (!term_caps || term_caps->length != 3) {
+		emv_debug_trace_msg("term_caps=%p, term_caps->length=%u",
+			term_caps, term_caps ? term_caps->length : 0);
+		emv_debug_error("Terminal Capabilities (9F33) not found or invalid");
+		r = EMV_ERROR_INVALID_CONFIG;
 		goto exit;
+	}
+	default_ddol = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F49_DDOL);
+	if (!default_ddol || default_ddol->length < 2) {
+		emv_debug_trace_msg("default_ddol=%p, default_ddol->length=%u",
+			default_ddol, default_ddol ? default_ddol->length : 0);
+		emv_debug_error("Default DDOL (9F49) not found or invalid");
+		r = EMV_ERROR_INVALID_CONFIG;
+		goto exit;
+	}
+
+	r = emv_oda_apply(ctx, term_caps->value);
+	if (r) {
+		if (r < 0) {
+			emv_debug_trace_msg("emv_oda_apply() failed; r=%d", r);
+			emv_debug_error("Error during offline data authentication");
+			if (r == EMV_ODA_ERROR_INTERNAL || r == EMV_ODA_ERROR_INVALID_PARAMETER) {
+				r = EMV_ERROR_INTERNAL;
+			} else {
+				r = EMV_OUTCOME_CARD_ERROR;
+			}
+			goto exit;
+		}
+
+		// Otherwise session may continue although offline data authentication
+		// was not possible or has failed.
+		if (r == EMV_ODA_NO_SUPPORTED_METHOD) {
+			emv_debug_info("Offline data authentication was not performed");
+		} else {
+			emv_debug_error("Offline data authentication failed");
+		}
 	}
 
 	// Success
@@ -801,6 +967,145 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 	goto exit;
 
 exit:
-	emv_tlv_list_clear(&record_data);
+	// Clear only records because they are no longer needed and contain
+	// sensitive card data.
+	emv_oda_clear_records(&ctx->oda);
+	return r;
+}
+
+int emv_card_action_analysis(struct emv_ctx_t* ctx)
+{
+	int r;
+	const struct emv_tlv_list_t* sources[3];
+	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+	const struct emv_tlv_t* cdol1;
+	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+
+	// Always decline offline for now until Terminal Action Analysis is fully
+	// implemented
+	uint8_t ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->tvr) {
+		emv_debug_trace_msg("tvr=%p", ctx->tvr);
+		emv_debug_error("Invalid context variable");
+		return EMV_ODA_ERROR_INVALID_PARAMETER;
+	}
+
+	if (ctx->oda.method == EMV_ODA_METHOD_CDA &&
+		!(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
+	) {
+		// Only request CDA signature if CDA was previously selected but has
+		// not yet failed.
+		// See EMV 4.4 Book 2, 6.6
+		// See EMV 4.4 Book 4, 6.3.2.1
+		ref_ctrl |= EMV_TTL_GENAC_SIG_CDA;
+	}
+
+	// Prepare ordered data source list
+	sources[0] = &ctx->params;
+	sources[1] = &ctx->config;
+	sources[2] = &ctx->terminal;
+
+	// Prepare Card Risk Management Data
+	// See EMV 4.4 Book 3, 9.2.1
+	cdol1 = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_8C_CDOL1);
+	if (!cdol1) {
+		// Presence of CDOL1 should have been confirmed by
+		// emv_read_application_data()
+		emv_debug_error("Card Risk Management Data Object List 1 (CDOL1) not found");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Populate CDOL1 data in cache buffer
+	ctx->oda.cdol1_data_len = sizeof(ctx->oda.cdol1_data);
+	r = emv_dol_build_data(
+		cdol1->value,
+		cdol1->length,
+		sources,
+		sources_count,
+		ctx->oda.cdol1_data,
+		&ctx->oda.cdol1_data_len
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
+		emv_debug_error("Failed to build CDOL1 data");
+
+		// This is considered a card error because CDOL1 is provided by the
+		// ICC, should be valid, and should not cause the maximum length to be
+		// exceeded.
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Perform Card Action Analysis using GENAC1
+	// See EMV 4.4 Book 3, 10.8
+	r = emv_tal_genac(
+		ctx->ttl,
+		ref_ctrl,
+		ctx->oda.cdol1_data,
+		ctx->oda.cdol1_data_len,
+		&genac_list,
+		(ref_ctrl & EMV_TTL_GENAC_SIG_MASK) ? &ctx->oda : NULL
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_genac() failed; r=%d", r);
+		emv_debug_error("Error during card action analysis; terminate session");
+
+		if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+			r = EMV_ERROR_INTERNAL;
+		} else {
+			// All other GENAC1 errors are card errors
+			r = EMV_OUTCOME_CARD_ERROR;
+		}
+		goto exit;
+	}
+
+	// TODO: Implement offline decline if CID indicates AAC
+	// See EMV 4.4 Book 2, 6.6.2
+	// See EMV 4.4 Book 4, 6.3.7
+
+	if (ref_ctrl & EMV_TTL_GENAC_SIG_MASK) {
+		// Validate GENAC1 response which will in turn append it to the ICC
+		// data list
+		r = emv_oda_process_genac(ctx, &genac_list);
+		if (r) {
+			if (r < 0) {
+				emv_debug_trace_msg("emv_oda_process_genac() failed; r=%d", r);
+				emv_debug_error("Error during card action analysis; terminate session");
+				if (r == EMV_ODA_ERROR_INTERNAL || r == EMV_ODA_ERROR_INVALID_PARAMETER) {
+					r = EMV_ERROR_INTERNAL;
+				} else {
+					r = EMV_OUTCOME_CARD_ERROR;
+				}
+				goto exit;
+			}
+
+		// Otherwise session may continue although offline data authentication
+		// has failed.
+		emv_debug_error("Offline data authentication failed");
+		}
+	} else {
+		// Append GENAC1 output to ICC data list
+		r = emv_tlv_list_append(&ctx->icc, &genac_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_ERROR_INTERNAL;
+			goto exit;
+		}
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&genac_list);
 	return r;
 }

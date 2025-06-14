@@ -42,6 +42,35 @@ __BEGIN_DECLS
 #define EMV_ASI_EXACT_MATCH                                     (0x00) ///< Application Selection Indicator: Exact match required
 #define EMV_ASI_PARTIAL_MATCH                                   (0x01) ///< Application Selection Indicator: Partial match allowed
 
+/**
+ * @name EMV public key hash algorithms
+ * @remark See EMV 4.4 Book 2, Annex B2.3, Table 47
+ * @anchor emv-pkey-hash-values
+ */
+/// @{
+#define EMV_PKEY_HASH_SHA1                                      (0x01) ///< SHA-1
+#define EMV_PKEY_HASH_SHA256                                    (0x02) ///< SHA-256
+#define EMV_PKEY_HASH_SHA512                                    (0x03) ///< SHA-512
+#define EMV_PKEY_HASH_SHA3_256                                  (0x04) ///< SHA-3 256
+#define EMV_PKEY_HASH_SHA3_512                                  (0x05) ///< SHA-3 512
+#define EMV_PKEY_HASH_SM3                                       (0x80) ///< SM3
+
+/// @}
+
+/**
+ * @name EMV public key signature algorithms
+ * @remark See EMV 4.4 Book 2, Annex B2.4.1, Table 48
+ * @anchor emv-pkey-sig-values
+ */
+/// @{
+#define EMV_PKEY_SIG_RSA_SHA1                                   (0x01) ///< RSA signature algorithm using SHA-1
+#define EMV_PKEY_SIG_ECSDSA_SHA256_P256                         (0x10) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA-256 with curve P-256
+#define EMV_PKEY_SIG_ECSDSA_SHA512_P521                         (0x11) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA-521 with curve P-521
+#define EMV_PKEY_SIG_ECSDSA_SHA3_256_P256                       (0x12) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA-3 256 with curve P-256
+#define EMV_PKEY_SIG_ECSDSA_SHA3_512_P521                       (0x13) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA-3 512 with curve P-521
+#define EMV_PKEY_SIG_SM2DSA_SM3_SM2P256                         (0x80) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SM3 with curve SM2-P256
+/// @}
+
 // Transaction Type (field 9C)
 // See ISO 8583:1987, 4.3.8
 // See ISO 8583:1993, A.9

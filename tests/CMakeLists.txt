@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2021-2024 Leon Lynch
+# Copyright 2021-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -49,6 +49,22 @@ if (BUILD_TESTING)
 	add_executable(emv_dol_test emv_dol_test.c)
 	target_link_libraries(emv_dol_test PRIVATE print_helpers emv)
 	add_test(emv_dol_test emv_dol_test)
+
+	add_executable(emv_capk_test emv_capk_test.c)
+	target_link_libraries(emv_capk_test PRIVATE emv)
+	add_test(emv_capk_test emv_capk_test)
+
+	add_executable(emv_rsa_test emv_rsa_test.c)
+	target_link_libraries(emv_rsa_test PRIVATE print_helpers emv)
+	add_test(emv_rsa_test emv_rsa_test)
+
+	add_executable(emv_rsa_cda_test emv_rsa_cda_test.c)
+	target_link_libraries(emv_rsa_cda_test PRIVATE print_helpers emv)
+	add_test(emv_rsa_cda_test emv_rsa_cda_test)
+
+	add_executable(emv_date_test emv_date_test.c)
+	target_link_libraries(emv_date_test PRIVATE emv)
+	add_test(emv_date_test emv_date_test)
 
 	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c)
 	target_link_libraries(emv_build_candidate_list_test PRIVATE emv_cardreader_emul print_helpers emv)

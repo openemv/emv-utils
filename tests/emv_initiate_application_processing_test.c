@@ -2,7 +2,7 @@
  * @file emv_initiate_application_processing_test.c
  * @brief Unit tests for EMV application processing
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -140,7 +140,9 @@ static int verify_terminal_data(struct emv_ctx_t* ctx)
 		ctx->terminal.front->next->next->tag == EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION &&
 		ctx->terminal.front->next->next->next &&
 		ctx->terminal.front->next->next->next->tag == EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS &&
-		!ctx->terminal.front->next->next->next->next
+		ctx->terminal.front->next->next->next->next &&
+		ctx->terminal.front->next->next->next->next->tag == EMV_TAG_9F37_UNPREDICTABLE_NUMBER &&
+		!ctx->terminal.front->next->next->next->next->next
 	) {
 		// Expected state
 		return 0;

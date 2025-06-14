@@ -29,7 +29,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libboost-locale-dev iso-codes libjson-c-dev
+        sudo apt-get install -y libmbedtls-dev libboost-locale-dev iso-codes libjson-c-dev
 
     - name: Install PCSCLite
       if: contains(matrix.deps, 'pcsclite')
@@ -80,7 +80,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        apt-get install -y libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev bash-completion doxygen qtbase5-dev
+        apt-get install -y libmbedtls-dev libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev bash-completion doxygen qtbase5-dev
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -148,7 +148,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev doxygen qtbase5-dev
+        sudo apt-get install -y libmbedtls-dev libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev doxygen qtbase5-dev
 
     - name: Checkout
       uses: actions/checkout@v4

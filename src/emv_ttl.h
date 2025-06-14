@@ -2,7 +2,7 @@
  * @file emv_ttl.h
  * @brief EMV Terminal Transport Layer (TTL)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -71,6 +71,23 @@ struct emv_cardreader_t {
 struct emv_ttl_t {
 	struct emv_cardreader_t cardreader;
 };
+
+/**
+ * @name Generate Application Cryptogram (GENAC) reference control parameter
+ *       bit values
+ * @remark See EMV 4.4 Book 3, 6.5.5.2, Table 12
+ * @anchor emv-ttl-genac-ref-ctrl
+ */
+/// @{
+#define EMV_TTL_GENAC_TYPE_MASK                 (0xC0) ///< Reference control parameter mask for Application Cryptogram (AC) type
+#define EMV_TTL_GENAC_TYPE_AAC                  (0x00) ///< Application Cryptogram (AC) type: Application Authentication Cryptogram (AAC)
+#define EMV_TTL_GENAC_TYPE_TC                   (0x40) ///< Application Cryptogram (AC) type: Transaction Certificate (TC)
+#define EMV_TTL_GENAC_TYPE_ARQC                 (0x80) ///< Application Cryptogram (AC) type: Authorisation Request Cryptogram (ARQC)
+#define EMV_TTL_GENAC_SIG_MASK                  (0x18) ///< Reference control parameter mask for requested signature
+#define EMV_TTL_GENAC_SIG_NONE                  (0x00) ///< Requested signature: No CDA/XDA signature requested
+#define EMV_TTL_GENAC_SIG_CDA                   (0x10) ///< Requested signature: CDA signature requested
+#define EMV_TTL_GENAC_SIG_XDA                   (0x08) ///< Requested signature: XDA signature requested
+/// @}
 
 /**
  * EMV Terminal Transport Layer (TTL) transceive function for sending a
@@ -175,6 +192,50 @@ int emv_ttl_read_record(
  */
 int emv_ttl_get_processing_options(
 	struct emv_ttl_t* ctx,
+	const void* data,
+	size_t data_len,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+);
+
+/**
+ * INTERNAL AUTHENTICATE (0x88) for current application
+ * @remark EMV 4.4 Book 3, 6.5.9
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param data Authentication-related data
+ * @param data_len Length of authentication-related data in bytes
+ * @param response Response output
+ * @param response_len Length of response output in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_internal_authenticate(
+	struct emv_ttl_t* ctx,
+	const void* data,
+	size_t data_len,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+);
+
+/**
+ * GENERATE APPLICATION CRYPTOGRAM (0xAE) for current application
+ * @remark EMV 4.4 Book 3, 6.5.5
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param ref_ctrl Reference control parameter. See @ref emv-ttl-genac-ref-ctrl "bit values".
+ * @param data Authentication-related data
+ * @param data_len Length of authentication-related data in bytes
+ * @param response Response output
+ * @param response_len Length of response output in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_genac(
+	struct emv_ttl_t* ctx,
+	uint8_t ref_ctrl,
 	const void* data,
 	size_t data_len,
 	void* response,

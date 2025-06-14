@@ -2,7 +2,7 @@
  * @file print_helpers.c
  * @brief Helper functions for command line output
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -901,6 +901,10 @@ void print_emv_debug(
 			src_str = "TAL";
 			break;
 
+		case EMV_DEBUG_SOURCE_ODA:
+			src_str = "ODA";
+			break;
+
 		case EMV_DEBUG_SOURCE_EMV:
 			src_str = "EMV";
 			break;
@@ -938,6 +942,10 @@ void print_emv_debug_verbose(
 
 		case EMV_DEBUG_SOURCE_TAL:
 			src_str = "TAL";
+			break;
+
+		case EMV_DEBUG_SOURCE_ODA:
+			src_str = "ODA";
 			break;
 
 		case EMV_DEBUG_SOURCE_EMV:

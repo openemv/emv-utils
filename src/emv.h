@@ -23,6 +23,7 @@
 #define EMV_H
 
 #include "emv_tlv.h"
+#include "emv_oda_types.h"
 
 #include <sys/cdefs.h>
 #include <stddef.h>
@@ -107,17 +108,44 @@ struct emv_ctx_t {
 	/**
 	 * @brief Integrated Circuit Card (ICC) data for current application.
 	 *
-	 * Populated by @ref emv_initiate_application_processing() and
-	 * @ref emv_read_application_data().
+	 * Populated and used by:
+	 * - @ref emv_initiate_application_processing()
+	 * - @ref emv_read_application_data()
+	 * - @ref emv_offline_data_authentication()
 	 */
 	struct emv_tlv_list_t icc;
 
 	/**
-	 * @brief Terminal data for the current transaction.
+	 * @brief Terminal data for current transaction.
 	 *
-	 * Populated by @ref emv_initiate_application_processing().
+	 * Populated and used by:
+	 * - @ref emv_initiate_application_processing()
+	 * - @ref emv_offline_data_authentication()
 	 */
 	struct emv_tlv_list_t terminal;
+
+	/**
+	 * @brief Offline Data Authentication (ODA) context.
+	 *
+	 * Populated and used by:
+	 * - @ref emv_read_application_data()
+	 * - @ref emv_offline_data_authentication()
+	 */
+	struct emv_oda_ctx_t oda;
+
+	/**
+	 * @brief Various cached fields for internal use
+	 *
+	 * Populated by @ref emv_initiate_application_processing() and used by
+	 * various functions.
+	 * @cond INTERNAL
+	 */
+	const struct emv_tlv_t* aid;
+	const struct emv_tlv_t* tvr;
+	const struct emv_tlv_t* tsi;
+	const struct emv_tlv_t* aip;
+	const struct emv_tlv_t* afl;
+	/// @endcond
 };
 
 /**
@@ -128,6 +156,7 @@ struct emv_ctx_t {
 enum emv_error_t {
 	EMV_ERROR_INTERNAL = -1, ///< Internal error
 	EMV_ERROR_INVALID_PARAMETER = -2, ///< Invalid function parameter
+	EMV_ERROR_INVALID_CONFIG = -3, ///< Invalid configuration
 };
 
 /**
@@ -278,12 +307,12 @@ int emv_select_application(
  * - @ref emv_ctx_t.config
  * - @ref emv_ctx_t.terminal
  *
- * @note This functions clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
+ * @note This function clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
  *       and then populates them appropriately. Upon success, the selected
  *       application's TLV data will be moved to @ref emv_ctx_t.icc and the
  *       output of GET PROCESSING OPTIONS will be appended. Upon success,
  *       @ref emv_ctx_t.terminal will be populated with various fields,
- *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE.
+ *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE and @ref EMV_TAG_9F06_AID.
  *
  * @remark See EMV 4.4 Book 3, 10.1
  * @remark See EMV 4.4 Book 4, 6.3.1
@@ -307,8 +336,12 @@ int emv_initiate_application_processing(
  * redundant TLV fields provided by the application records, and checking for
  * the mandatory fields.
  *
- * @note Upon success, this function will append the application data to the
- *       ICC data list
+ * While reading the application records, this function will also concatenate
+ * the data required for Offline Data Authentication (ODA) and update
+ * @ref emv_ctx_t.oda accordingly.
+ *
+ * @note Upon success, this function will append the application data to
+ *       @ref emv_ctx_t.icc
  *
  * @remark See EMV 4.4 Book 3, 10.2
  *
@@ -319,6 +352,48 @@ int emv_initiate_application_processing(
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_read_application_data(struct emv_ctx_t* ctx);
+
+/**
+ * Perform EMV Offline Data Authentication (ODA) by selecting and applying the
+ * appropriate ODA method.
+ *
+ * The ODA method is selected based on card support indicated by
+ * @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE and terminal support
+ * indicated by @ref EMV_TAG_9F33_TERMINAL_CAPABILITIES. This function will
+ * update @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION based on the selected
+ * method and update @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS based on the
+ * outcome.
+ *
+ * @remark See EMV 4.4 Book 3, 10.3
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_offline_data_authentication(struct emv_ctx_t* ctx);
+
+/**
+ * Perform EMV Card Action Analysis to determined the risk management decision
+ * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM.
+ *
+ * If CDA or XDA were selected during Offline Data Authentication (ODA), this
+ * function will request the appropriate signature and process the resulting
+ * Signed Dynamic Application Data (SDAD) to extract the signed ICC fields.
+ *
+ * @note This function is not yet fully implemented and only supports offline
+ *       declines by requesting an Application Authentication Cryptogram (AAC).
+ *
+ * @remark See EMV 4.4 Book 3, 10.8
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_card_action_analysis(struct emv_ctx_t* ctx);
 
 __END_DECLS
 
