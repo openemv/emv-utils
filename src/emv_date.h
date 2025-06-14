@@ -45,6 +45,38 @@ bool emv_date_mmyy_is_expired(
 	const uint8_t* mmyy
 );
 
+/**
+ * Determine whether the Transaction Date (see @ref EMV_TAG_9A_TRANSACTION_DATE)
+ * is less than the Application Effective Date (see
+ * @ref EMV_TAG_5F25_APPLICATION_EFFECTIVE_DATE), therefore indicating that the
+ * application is not yet effective.
+ *
+ * @param txn_date Transaction date (field 9A)
+ * @param effective_date Application Effective Date (field 5F25)
+ *
+ * @return Boolean indicate whether application is not effective by date
+ */
+bool emv_date_is_not_effective(
+	const struct emv_tlv_t* txn_date,
+	const struct emv_tlv_t* effective_date
+);
+
+/**
+ * Determine whether the Transaction Date (see @ref EMV_TAG_9A_TRANSACTION_DATE)
+ * is greater than the Application Expiration Date (see
+ * @ref EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE), therefore indicating that
+ * the application is expired.
+ *
+ * @param txn_date Transaction Date (field 9A)
+ * @param expiration_date Application Expiration Date (field 5F24)
+ *
+ * @return Boolean indicate whether application is expired by date
+ */
+bool emv_date_is_expired(
+	const struct emv_tlv_t* txn_date,
+	const struct emv_tlv_t* expiration_date
+);
+
 __END_DECLS
 
 #endif

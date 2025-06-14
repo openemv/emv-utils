@@ -375,6 +375,33 @@ int emv_read_application_data(struct emv_ctx_t* ctx);
 int emv_offline_data_authentication(struct emv_ctx_t* ctx);
 
 /**
+ * Perform EMV Processing Restrictions to determine the compatibility of this
+ * implementation and the current configuration with the card application.
+ *
+ * The following compatibility checks will be performed:
+ * - Application Version Number
+ * - Application Usage Control
+ * - Application Effective/Expiration Dates
+ *
+ * While performing the compatibility checks, this function will update
+ * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the outcomes of
+ * those compatibility checks.
+ *
+ * This function will use values of @ref EMV_TAG_9F35_TERMINAL_TYPE and
+ * @ref EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES to determine whether the
+ * processing restrictions for ATMs or non-ATMs should be applied. See
+ * See EMV 4.4 Book 4, Annex A1 for how this is determined.
+ *
+ * @remark See EMV 4.4 Book 3, 10.4
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_processing_restrictions(struct emv_ctx_t* ctx);
+
+/**
  * Perform EMV Card Action Analysis to determined the risk management decision
  * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM.
  *

@@ -28,6 +28,7 @@
 #include "emv_tags.h"
 #include "emv_fields.h"
 #include "emv_oda.h"
+#include "emv_date.h"
 
 #include "iso7816.h"
 
@@ -971,6 +972,231 @@ exit:
 	// sensitive card data.
 	emv_oda_clear_records(&ctx->oda);
 	return r;
+}
+
+int emv_processing_restrictions(struct emv_ctx_t* ctx)
+{
+	const struct emv_tlv_t* term_app_version;
+	const struct emv_tlv_t* term_type;
+	const struct emv_tlv_t* addl_term_caps;
+	const struct emv_tlv_t* term_country_code;
+	const struct emv_tlv_t* txn_type;
+	const struct emv_tlv_t* txn_date;
+	const struct emv_tlv_t* app_version;
+	const struct emv_tlv_t* auc;
+	const struct emv_tlv_t* issuer_country_code;
+	const struct emv_tlv_t* app_effective_date;
+	const struct emv_tlv_t* app_expiration_date;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->tvr) {
+		emv_debug_trace_msg("tvr=%p", ctx->tvr);
+		emv_debug_error("Invalid context variable");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Ensure mandatory configuration fields are present and have valid length
+	term_app_version = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL);
+	if (!term_app_version || term_app_version->length != 2) {
+		emv_debug_trace_msg("term_app_version=%p, term_app_version->length=%u",
+			term_app_version, term_app_version ? term_app_version->length : 0);
+		emv_debug_error("Application Version Number - terminal (9F09) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	term_type = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F35_TERMINAL_TYPE);
+	if (!term_type || term_type->length != 1) {
+		emv_debug_trace_msg("term_type=%p, term_type->length=%u",
+			term_type, term_type ? term_type->length : 0);
+		emv_debug_error("Terminal Type (9F35) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	addl_term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES);
+	if (!addl_term_caps || addl_term_caps->length != 5) {
+		emv_debug_trace_msg("addl_term_caps=%p, addl_term_caps->length=%u",
+			addl_term_caps, addl_term_caps ? addl_term_caps->length : 0);
+		emv_debug_error("Additional Terminal Capabilities (9F40) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	term_country_code = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE);
+	if (!term_country_code || term_country_code->length != 2) {
+		emv_debug_trace_msg("term_country_code=%p, term_country_code->length=%u",
+			term_country_code, term_country_code ? term_country_code->length : 0);
+		emv_debug_error("Terminal Country Code (9F1A) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
+	// Ensure mandatory transaction parameters are present and have valid length
+	txn_type = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9C_TRANSACTION_TYPE);
+	if (!txn_type || txn_type->length != 1) {
+		emv_debug_trace_msg("txn_type=%p, txn_type->length=%u",
+			txn_type, txn_type ? txn_type->length : 0);
+		emv_debug_error("Transaction Type (9C) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_date = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9A_TRANSACTION_DATE);
+	if (!txn_date || txn_date->length != 3) {
+		emv_debug_trace_msg("txn_date=%p, txn_date->length=%u",
+			txn_date, txn_date ? txn_date->length : 0);
+		emv_debug_error("Transaction Date (9A) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Check compatibility of Application Version Number (field 9F08)
+	// See EMV 4.4 Book 3, 10.4.1
+	app_version = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F08_APPLICATION_VERSION_NUMBER);
+	if (app_version) {
+		if (app_version->length != term_app_version->length ||
+			memcmp(app_version->value, term_app_version->value, term_app_version->length) != 0
+		) {
+			emv_debug_info("ICC and terminal have different application versions");
+			ctx->tvr->value[1] |= EMV_TVR_APPLICATION_VERSIONS_DIFFERENT;
+		} else {
+			emv_debug_info("ICC and terminal application versions match");
+			ctx->tvr->value[1] &= ~EMV_TVR_APPLICATION_VERSIONS_DIFFERENT;
+		}
+	} else {
+		// If not present, assume compatible and continue
+		emv_debug_trace_msg("Application Version Number (9F08) not found");
+		ctx->tvr->value[1] &= ~EMV_TVR_APPLICATION_VERSIONS_DIFFERENT;
+	}
+
+	// Check compatibility of Application Usage Control (field 9F07)
+	// See EMV 4.4 Book 3, 10.4.2
+	auc = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F07_APPLICATION_USAGE_CONTROL);
+	if (auc) {
+		// Determine whether terminal is an ATM
+		// See EMV 4.4 Book 4, Annex A1
+		if (
+			(
+				term_type->value[0] == 0x14 ||
+				term_type->value[0] == 0x15 ||
+				term_type->value[0] == 0x16
+			) &&
+			(addl_term_caps->value[0] & EMV_ADDL_TERM_CAPS_TXN_TYPE_CASH)
+		) {
+			// Terminal is an ATM
+			if ((auc->value[0] & EMV_AUC_ATM) == 0) {
+				emv_debug_info("Terminal is ATM but AUC is not valid at ATM ");
+				ctx->tvr->value[1] |= EMV_TVR_SERVICE_NOT_ALLOWED;
+			}
+		} else {
+			// Terminal is non-ATM
+			if ((auc->value[0] & EMV_AUC_NON_ATM) == 0) {
+				emv_debug_info("Terminal is non-ATM but AUC is not valid at non-ATM ");
+				ctx->tvr->value[1] |= EMV_TVR_SERVICE_NOT_ALLOWED;
+			}
+		}
+
+		// Transaction type checks require both AUC and issuer country code to be present
+		issuer_country_code = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_5F28_ISSUER_COUNTRY_CODE);
+		if (issuer_country_code) {
+			// Determine whether it is a domestic transaction
+			bool domestic = false;
+			if (issuer_country_code->length == term_country_code->length &&
+				memcmp(issuer_country_code->value, term_country_code->value, term_country_code->length) == 0
+			) {
+				domestic = true;
+			}
+
+			// Determine whether transaction type is allowed
+			// See EMV 4.4 Book 3, table 36
+			switch (txn_type->value[0]) {
+				case EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES:
+					if (domestic &&
+						(auc->value[0] & (EMV_AUC_DOMESTIC_GOODS | EMV_AUC_DOMESTIC_SERVICES)) == 0
+					) {
+						emv_debug_info("AUC does not allow domestic goods/services transaction");
+						ctx->tvr->value[1] |= EMV_TVR_SERVICE_NOT_ALLOWED;
+					}
+					if (!domestic &&
+						(auc->value[0] & (EMV_AUC_INTERNATIONAL_GOODS | EMV_AUC_INTERNATIONAL_SERVICES)) == 0
+					) {
+						emv_debug_info("AUC does not allow international goods/services transaction");
+						ctx->tvr->value[1] |= EMV_TVR_SERVICE_NOT_ALLOWED;
+					}
+					break;
+
+				case EMV_TRANSACTION_TYPE_CASH:
+					if (domestic &&
+						(auc->value[0] & EMV_AUC_DOMESTIC_CASH) == 0
+					) {
+						emv_debug_info("AUC does not allow domestic cash transaction");
+						ctx->tvr->value[1] |= EMV_TVR_SERVICE_NOT_ALLOWED;
+					}
+					if (!domestic &&
+						(auc->value[0] & EMV_AUC_INTERNATIONAL_CASH) == 0
+					) {
+						emv_debug_info("AUC does not allow international cash transaction");
+						ctx->tvr->value[1] |= EMV_TVR_SERVICE_NOT_ALLOWED;
+					}
+					break;
+
+				case EMV_TRANSACTION_TYPE_CASHBACK:
+					if (domestic &&
+						(auc->value[1] & EMV_AUC_DOMESTIC_CASHBACK) == 0
+					) {
+						emv_debug_info("AUC does not allow domestic cashback transaction");
+						ctx->tvr->value[1] |= EMV_TVR_SERVICE_NOT_ALLOWED;
+					}
+					if (!domestic &&
+						(auc->value[1] & EMV_AUC_INTERNATIONAL_CASHBACK) == 0
+					) {
+						emv_debug_info("AUC does not allow international cashback transaction");
+						ctx->tvr->value[1] |= EMV_TVR_SERVICE_NOT_ALLOWED;
+					}
+					break;
+			}
+
+			if ((ctx->tvr->value[1] & EMV_TVR_SERVICE_NOT_ALLOWED) == 0) {
+				emv_debug_info("Service allowed");
+			}
+		}
+
+	} else {
+		// If not present, assume compatible and continue
+		emv_debug_trace_msg("Application Usage Control (9F07) not found");
+		ctx->tvr->value[1] &= ~EMV_TVR_SERVICE_NOT_ALLOWED;
+	}
+
+	// Check validity of Application Effective Date (field 5F25)
+	// See EMV 4.4 Book 3, 10.4.3
+	app_effective_date = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_5F25_APPLICATION_EFFECTIVE_DATE);
+	if (app_effective_date) {
+		if (emv_date_is_not_effective(txn_date, app_effective_date)) {
+			emv_debug_info("Application is not yet effective");
+			ctx->tvr->value[1] |= EMV_TVR_APPLICATION_NOT_EFFECTIVE;
+		} else {
+			emv_debug_info("Application is effective");
+			ctx->tvr->value[1] &= ~EMV_TVR_APPLICATION_NOT_EFFECTIVE;
+		}
+	} else {
+		// If not present, assume valid and continue
+		emv_debug_trace_msg("Application Effective Date (5F25) not found");
+		ctx->tvr->value[1] &= ~EMV_TVR_APPLICATION_NOT_EFFECTIVE;
+	}
+
+	// Check validity of Application Expiration Date (field 5F24)
+	// See EMV 4.4 Book 3, 10.4.3
+	app_expiration_date = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE);
+	if (!app_expiration_date) {
+		// Presence of Application Expiration Date (field 5F24) should have
+		// been confirmed by emv_read_application_data()
+		emv_debug_error("Application Expiration Date (5F24) not found");
+		return EMV_ERROR_INTERNAL;
+	}
+	if (emv_date_is_expired(txn_date, app_expiration_date)) {
+		emv_debug_info("Application is expired");
+		ctx->tvr->value[1] |= EMV_TVR_APPLICATION_EXPIRED;
+	} else {
+		emv_debug_info("Application is not expired");
+		ctx->tvr->value[1] &= ~EMV_TVR_APPLICATION_EXPIRED;
+	}
+
+	return 0;
 }
 
 int emv_card_action_analysis(struct emv_ctx_t* ctx)

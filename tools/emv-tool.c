@@ -712,6 +712,7 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, EMV_ASI_EXACT_MATCH); // V Pay
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30 }, EMV_ASI_PARTIAL_MATCH); // Maestro
+	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 5, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 }, EMV_ASI_PARTIAL_MATCH); // Amex
 }
 
 int main(int argc, char** argv)
@@ -1002,6 +1003,54 @@ int main(int argc, char** argv)
 
 	printf("\nOffline data authentication\n");
 	r = emv_offline_data_authentication(&emv);
+	if (r < 0) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto emv_exit;
+	}
+	if (r > 0) {
+		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+		goto emv_exit;
+	}
+
+	printf("\nProcessing restrictions\n");
+	// HACK HACK HACK:
+	// Add scheme-specific Application Version Number (field 9F09)
+	// configuration because per-AID configuration is not implemented yet.
+	{
+		struct emv_aid_info_t info;
+
+		r = emv_aid_get_info(
+			emv.selected_app->aid->value,
+			emv.selected_app->aid->length,
+			&info
+		);
+		if (r) {
+			fprintf(stderr, "emv_aid_get_info() failed; r=%d\n", r);
+			goto emv_exit;
+		}
+
+		switch (info.scheme) {
+			case EMV_CARD_SCHEME_VISA:
+				// See Visa Terminal Acceptance Device Guide (TADG) version 3.2, January 2020, 4.6, Processing Restrictions
+				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0xA0 }, 0);
+				break;
+
+			case EMV_CARD_SCHEME_MASTERCARD:
+				// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Application Version Number
+				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0);
+				break;
+
+			case EMV_CARD_SCHEME_AMEX:
+				// See Amex Live Terminal Parameters Guide (October 2024), 2.4
+				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x01 }, 0);
+				break;
+
+			default:
+				// Unsupported scheme
+				break;
+		}
+	}
+	r = emv_processing_restrictions(&emv);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
