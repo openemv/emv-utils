@@ -54,5 +54,6 @@
    fun:_dl_open
    ...
    fun:load_lib
+   ...
    fun:SCardEstablishContext
 }
