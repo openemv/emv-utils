@@ -412,6 +412,9 @@ __BEGIN_DECLS
 /// EMV tag 9F4E Merchant Name and Location
 #define EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION                 (0x9F4E)
 
+/// EMV tag 9F4F Log Format
+#define EMV_TAG_9F4F_LOG_FORMAT                                 (0x9F4F)
+
 /// Mastercard tag 9F5D Application Capabilities Information. Template BF0C.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.9
 #define MASTERCARD_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION (0x9F5D)
@@ -486,6 +489,12 @@ __BEGIN_DECLS
 
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.
 #define EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA              (0xBF0C)
+
+/// EMV tag BF4C Biometric Try Counters Template
+#define EMV_TAG_BF4C_BIOMETRIC_TRY_COUNTERS_TEMPLATE            (0xBF4C)
+
+/// EMV tag BF4D Preferred Attempts Template
+#define EMV_TAG_BF4D_PREFERRED_ATTEMPTS_TEMPLATE                (0xBF4D)
 
 __END_DECLS
 
