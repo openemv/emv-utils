@@ -992,6 +992,81 @@ int emv_tal_read_afl_records(
 	}
 }
 
+int emv_tal_get_data(
+	struct emv_ttl_t* ttl,
+	uint16_t tag,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+	uint8_t response[EMV_RAPDU_DATA_MAX];
+	size_t response_len = sizeof(response);
+	struct emv_tlv_list_t response_list = EMV_TLV_LIST_INIT;
+	uint16_t sw1sw2;
+
+	if (!ttl || !tag || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// GET DATA
+	// See EMV 4.4 Book 3, 6.5.7
+	emv_debug_info("GET DATA [%X]", tag);
+	r = emv_ttl_get_data(ttl, tag, response, &response_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_get_data() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+	// See EMV 4.4 Book 3, 6.5.7.5
+	if (sw1sw2 != 0x9000) {
+		// Unknown error; terminal may continue session
+		// See EMV 4.4 Book 3, 6.3.5 (page 50)
+		emv_debug_error("SW1SW2=0x%04hX", sw1sw2);
+		return EMV_TAL_RESULT_GET_DATA_FAILED;
+	}
+
+	emv_debug_info_tlv("GET DATA response", response, response_len);
+
+	r = emv_tlv_parse(response, response_len, &response_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+		if (r < 0) {
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+		if (r > 0) {
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.7.4
+			emv_debug_error("Failed to parse GET DATA response");
+			r = EMV_TAL_ERROR_GET_DATA_PARSE_FAILED;
+			goto exit;
+		}
+	}
+
+	r = emv_tlv_list_append(list, &response_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
+
+	// Successful GET DATA processing
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&response_list);
+	return r;
+}
+
 int emv_tal_internal_authenticate(
 	struct emv_ttl_t* ttl,
 	const void* data,

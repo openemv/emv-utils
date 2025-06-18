@@ -54,12 +54,13 @@ enum emv_tal_error_t {
 	EMV_TAL_ERROR_READ_RECORD_FAILED = -9, ///< READ RECORD failed
 	EMV_TAL_ERROR_READ_RECORD_INVALID = -10, ///< READ RECORD provided invalid record
 	EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED = -11, ///< Failed to parse READ RECORD response
-	EMV_TAL_ERROR_INT_AUTH_FAILED = -12, ///< INTERNAL AUTHENTICATE failed
-	EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED = -13, ///< Failed to parse INTERNAL AUTHENTICATE response
-	EMV_TAL_ERROR_INT_AUTH_FIELD_NOT_FOUND = -14, ///< Failed to find mandatory field in INTERNAL AUTHENTICATE response
-	EMV_TAL_ERROR_GENAC_FAILED = -15, ///< GENERATE APPLICATION CRYPTOGRAM failed
-	EMV_TAL_ERROR_GENAC_PARSE_FAILED = -16, ///< Failed to parse GENERATE APPLICATION CRYPTOGRAM response
-	EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND = -17, ///< Failed to find mandatory field in GENERATE APPLICATION CRYPTOGRAM response
+	EMV_TAL_ERROR_GET_DATA_PARSE_FAILED = -12, ///< Failed to parse GET DATA response
+	EMV_TAL_ERROR_INT_AUTH_FAILED = -13, ///< INTERNAL AUTHENTICATE failed
+	EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED = -14, ///< Failed to parse INTERNAL AUTHENTICATE response
+	EMV_TAL_ERROR_INT_AUTH_FIELD_NOT_FOUND = -15, ///< Failed to find mandatory field in INTERNAL AUTHENTICATE response
+	EMV_TAL_ERROR_GENAC_FAILED = -16, ///< GENERATE APPLICATION CRYPTOGRAM failed
+	EMV_TAL_ERROR_GENAC_PARSE_FAILED = -17, ///< Failed to parse GENERATE APPLICATION CRYPTOGRAM response
+	EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND = -18, ///< Failed to find mandatory field in GENERATE APPLICATION CRYPTOGRAM response
 };
 
 /**
@@ -83,6 +84,7 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_APP_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for selected application
 	EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED, ///< Conditions of use not satisfied for selected application
 	EMV_TAL_RESULT_ODA_RECORD_INVALID, ///< Offline data authentication not possible due to an invalid record
+	EMV_TAL_RESULT_GET_DATA_FAILED, ///< Failed to retrieve data object
 };
 
 /**
@@ -207,6 +209,39 @@ int emv_tal_read_afl_records(
 	size_t afl_len,
 	struct emv_tlv_list_t* list,
 	struct emv_oda_ctx_t* oda
+);
+
+/**
+ * Perform GET DATA and parse response
+ * @remark See EMV 4.4 Book 3, 6.5.7
+ * @remark See EMV 4.4 Book 3, 7.3
+ *
+ * This command can retrieve these fields, if supported by the ICC:
+ * - @ref EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER
+ * - @ref EMV_TAG_9F13_LAST_ONLINE_ATC_REGISTER
+ * - @ref EMV_TAG_9F17_PIN_TRY_COUNTER
+ * - @ref EMV_TAG_9F4F_LOG_FORMAT
+ * - @ref EMV_TAG_BF4C_BIOMETRIC_TRY_COUNTERS_TEMPLATE
+ * - @ref EMV_TAG_BF4D_PREFERRED_ATTEMPTS_TEMPLATE
+ *
+ * If a constructed/template field is requested, this function will decode the
+ * inner fields and only append primitive fields to the output @p list.
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param tag Tag of requested data field
+ * @param list List to which decoded EMV TLV fields will be appended
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ * @return Greater than zero indicates that the terminal may continue the card
+ *         session but that some failure occurred. Typically this occurs when
+ *         the requested field is not available.
+ */
+int emv_tal_get_data(
+	struct emv_ttl_t* ttl,
+	uint16_t tag,
+	struct emv_tlv_list_t* list
 );
 
 /**
