@@ -402,6 +402,32 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx);
 int emv_processing_restrictions(struct emv_ctx_t* ctx);
 
 /**
+ * Perform EMV Terminal Risk Management to identify risks to be considered for
+ * online authorisation. This function will perform terminal risk management
+ * regardless of whether the ICC indicates that it is mandatory in
+ * @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE.
+ *
+ * Terminal risk management consists of:
+ * - Floor limit checking
+ * - Random transaction selection
+ * - Velocity checking
+ *
+ * While performing terminal risk management, this function will update
+ * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the outcomes and
+ * update @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION to indicate that it
+ * has been performed.
+ *
+ * @remark See EMV 4.4 Book 3, 10.6
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_terminal_risk_management(struct emv_ctx_t* ctx);
+
+/**
  * Perform EMV Card Action Analysis to determined the risk management decision
  * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM.
  *

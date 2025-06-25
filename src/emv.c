@@ -1199,6 +1199,250 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx)
 	return 0;
 }
 
+int emv_terminal_risk_management(struct emv_ctx_t* ctx)
+{
+	int r;
+	const struct emv_tlv_t* term_floor_limit;
+	const struct emv_tlv_t* txn_amount;
+	uint32_t floor_limit_value;
+	uint32_t amount_value;
+	const struct emv_tlv_t* lower_offline_limit;
+	const struct emv_tlv_t* upper_offline_limit;
+	struct emv_tlv_list_t get_data_list = EMV_TLV_LIST_INIT;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->tvr || !ctx->tsi) {
+		emv_debug_trace_msg("tvr=%p, tsi=%p", ctx->tvr, ctx->tsi);
+		emv_debug_error("Invalid context variable");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Ensure mandatory configuration fields are present and have valid length
+	term_floor_limit = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
+	if (!term_floor_limit || term_floor_limit->length != 4) {
+		emv_debug_trace_msg("term_floor_limit=%p, term_floor_limit->length=%u",
+			term_floor_limit, term_floor_limit ? term_floor_limit->length : 0);
+		emv_debug_error("Terminal Floor Limit (9F1B) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
+	// Ensure mandatory transaction parameters are present and have valid length
+	txn_amount = emv_tlv_list_find_const(&ctx->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY);
+	if (!txn_amount || txn_amount->length != 4) {
+		emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
+			txn_amount, txn_amount ? txn_amount->length : 0);
+		emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Mandatory fields are present for terminal risk management to proceed
+	ctx->tsi->value[0] |= EMV_TSI_TERMINAL_RISK_MANAGEMENT_PERFORMED;
+
+	// Floor Limits
+	// See EMV 4.4 Book 3, 10.6.1
+	r = emv_format_b_to_uint(
+		term_floor_limit->value,
+		term_floor_limit->length,
+		&floor_limit_value
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+	emv_debug_trace_msg("Terminal Floor Limit value is %u", (unsigned int)floor_limit_value);
+	r = emv_format_b_to_uint(
+		txn_amount->value,
+		txn_amount->length,
+		&amount_value
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+	emv_debug_trace_msg("Amount, Authorised (Binary) value is %u", (unsigned int)amount_value);
+	if (amount_value >= floor_limit_value) {
+		emv_debug_info("Floor limit exceeded");
+		ctx->tvr->value[3] |= EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED;
+	} else {
+		emv_debug_info("Floor limit not exceeded");
+		ctx->tvr->value[3] &= ~EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED;
+	}
+
+	// Velocity Checking
+	// See EMV 4.4 Book 3, 10.6.3
+	lower_offline_limit = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F14_LOWER_CONSECUTIVE_OFFLINE_LIMIT);
+	upper_offline_limit = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F23_UPPER_CONSECUTIVE_OFFLINE_LIMIT);
+	if (lower_offline_limit && lower_offline_limit->length == 1 &&
+		 upper_offline_limit && upper_offline_limit->length == 1
+	) {
+		const struct emv_tlv_t* atc;
+		uint32_t atc_value;
+		const struct emv_tlv_t* last_online_atc;
+		uint32_t last_online_atc_value;
+
+		// Retrieve Application Transaction Counter (9F36)
+		r = emv_tal_get_data(
+			ctx->ttl,
+			EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER,
+			&get_data_list
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tal_get_data() failed; r=%d", r);
+			emv_debug_error("Failed to retrieve Application Transaction Counter (9F36)");
+
+			if (r < 0) {
+				if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+					r = EMV_ERROR_INTERNAL;
+				} else {
+					// All other GET DATA errors are card errors
+					r = EMV_OUTCOME_CARD_ERROR;
+				}
+				goto exit;
+			}
+
+			// Otherwise continue processing
+		}
+		atc = emv_tlv_list_find_const(&get_data_list, EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER);
+		if (atc) {
+			r = emv_format_b_to_uint(
+				atc->value,
+				atc->length,
+				&atc_value
+			);
+			if (r) {
+				emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_ERROR_INTERNAL;
+				goto exit;
+			}
+
+			emv_debug_trace_msg("ATC value is %u", atc_value);
+		}
+
+		// Retrieve Last Online ATC Register (9F13)
+		r = emv_tal_get_data(
+			ctx->ttl,
+			EMV_TAG_9F13_LAST_ONLINE_ATC_REGISTER,
+			&get_data_list
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tal_get_data() failed; r=%d", r);
+			emv_debug_error("Failed to retrieve Last Online ATC Register (9F13)");
+
+			if (r < 0) {
+				if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+					r = EMV_ERROR_INTERNAL;
+				} else {
+					// All other GET DATA errors are card errors
+					r = EMV_OUTCOME_CARD_ERROR;
+				}
+				goto exit;
+			}
+
+			// Otherwise continue processing
+		}
+		last_online_atc = emv_tlv_list_find_const(&get_data_list, EMV_TAG_9F13_LAST_ONLINE_ATC_REGISTER);
+		if (last_online_atc) {
+			r = emv_format_b_to_uint(
+				last_online_atc->value,
+				last_online_atc->length,
+				&last_online_atc_value
+			);
+			if (r) {
+				emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_ERROR_INTERNAL;
+				goto exit;
+			}
+
+			emv_debug_trace_msg("Last Online ATC value is %u", last_online_atc_value);
+		}
+
+		// If both ATC and Last Online ATC are available, and offline
+		// transaction attempts have happened since the previous online
+		// authorisation, apply issuer velocity limits
+		if (atc && last_online_atc &&
+			atc_value > last_online_atc_value
+		) {
+			// Check velocity limits
+			// See EMV 4.4 Book 3, 10.6.3
+			if (atc_value - last_online_atc_value > lower_offline_limit->value[0]) {
+				emv_debug_info("Lower Consecutive Offline Limits exceeded");
+				ctx->tvr->value[3] |= EMV_TVR_LOWER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED;
+			} else {
+				emv_debug_info("Lower Consecutive Offline Limits not exceeded");
+				ctx->tvr->value[3] &= ~EMV_TVR_LOWER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED;
+			}
+			if (atc_value - last_online_atc_value > upper_offline_limit->value[0]) {
+				emv_debug_info("Upper Consecutive Offline Limits exceeded");
+				ctx->tvr->value[3] |= EMV_TVR_UPPER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED;
+			} else {
+				emv_debug_info("Upper Consecutive Offline Limits not exceeded");
+				ctx->tvr->value[3] &= ~EMV_TVR_UPPER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED;
+			}
+
+		} else {
+			// Unable to apply velocity checking
+			// See EMV 4.4 Book 3, 10.6.3
+			emv_debug_info("Velocity checking not possible. Assume both Consecutive Offline Limits exceeded.");
+			ctx->tvr->value[3] |= EMV_TVR_LOWER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED;
+			ctx->tvr->value[3] |= EMV_TVR_UPPER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED;
+		}
+
+		// Check for new card
+		// See EMV 4.4 Book 3, 10.6.3
+		if (last_online_atc && last_online_atc_value == 0) {
+			emv_debug_info("New card");
+			ctx->tvr->value[1] |= EMV_TVR_NEW_CARD;
+		} else {
+			ctx->tvr->value[1] &= ~EMV_TVR_NEW_CARD;
+		}
+
+	} else {
+		// If not present, skip velocity checking
+		// See EMV 4.4 Book 3, 10.6.3
+		// See EMV 4.4 Book 3, 7.3
+		emv_debug_trace_msg("One or both Consecutive Offline Limits (9F14 or 9F23) not found");
+		emv_debug_info("ICC does not support velocity checking");
+		ctx->tvr->value[1] &= ~EMV_TVR_NEW_CARD;
+		ctx->tvr->value[3] &= ~EMV_TVR_LOWER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED;
+		ctx->tvr->value[3] &= ~EMV_TVR_UPPER_CONSECUTIVE_OFFLINE_LIMIT_EXCEEDED;
+	}
+
+	// Append GET DATA output to ICC data list
+	r = emv_tlv_list_append(&ctx->icc, &get_data_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&get_data_list);
+	return r;
+}
+
 int emv_card_action_analysis(struct emv_ctx_t* ctx)
 {
 	int r;

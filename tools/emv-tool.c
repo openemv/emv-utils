@@ -683,7 +683,7 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F15_MCC, 2, (uint8_t[]){ 0x59, 0x99 }, 0); // Miscellaneous and Specialty Retail Stores
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F16_MERCHANT_IDENTIFIER, 15, (const uint8_t*)"0987654321     ", 0); // Unique merchant identifier
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE, 2, (uint8_t[]){ 0x05, 0x28 }, 0); // Netherlands
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x03, 0xE8 }, 0); // 1000
+	emv_tlv_list_push(&emv->config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0); // 10000
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F1C_TERMINAL_IDENTIFICATION, 8, (const uint8_t*)"TID12345", 0); // Unique location of terminal at merchant
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F1E_IFD_SERIAL_NUMBER, 8, (const uint8_t*)"12345678", 0); // Serial number
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION, 12, (const uint8_t*)"ACME Peanuts", 0); // Merchant Name and Location
@@ -1051,6 +1051,17 @@ int main(int argc, char** argv)
 		}
 	}
 	r = emv_processing_restrictions(&emv);
+	if (r < 0) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto emv_exit;
+	}
+	if (r > 0) {
+		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+		goto emv_exit;
+	}
+
+	printf("\nTerminal Risk Management\n");
+	r = emv_terminal_risk_management(&emv);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
