@@ -1230,6 +1230,20 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INVALID_CONFIG;
 	}
 
+	// Ensure that random selection configuration values are valid
+	if (ctx->random_selection_percentage > 99 ||
+		ctx->random_selection_max_percentage > 99 ||
+		ctx->random_selection_percentage > ctx->random_selection_max_percentage
+	) {
+		emv_debug_trace_msg("random_selection_percentage=%u, "
+			"random_selection_max_percentage->length=%u",
+			ctx->random_selection_percentage,
+			ctx->random_selection_max_percentage
+		);
+		emv_debug_error("Invalid random selection configuration");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
 	// Ensure mandatory transaction parameters are present and have valid length
 	txn_amount = emv_tlv_list_find_const(&ctx->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY);
 	if (!txn_amount || txn_amount->length != 4) {
@@ -1276,6 +1290,59 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx)
 	} else {
 		emv_debug_info("Floor limit not exceeded");
 		ctx->tvr->value[3] &= ~EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED;
+	}
+
+	// Random Transaction Selection
+	// See EMV 4.4 Book 3, 10.6.2
+	if (amount_value < floor_limit_value &&
+		ctx->random_selection_percentage
+	) {
+		int x;
+
+		// Ensure that random selection threshold is valid to avoid invalid
+		// computation of transaction target percent later
+		if (ctx->random_selection_threshold >= floor_limit_value) {
+			emv_debug_trace_msg("random_selection_threshold=%u",
+				ctx->random_selection_threshold);
+			emv_debug_error("Invalid random selection threshold");
+			return EMV_ERROR_INVALID_CONFIG;
+		}
+
+		x = crypto_rand_byte(1, 99);
+		if (x < 0) {
+			emv_debug_trace_msg("crypto_rand_byte() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		if (amount_value < ctx->random_selection_threshold) {
+			// Apply unbiased transaction selection
+			if (x <= ctx->random_selection_percentage) {
+				emv_debug_info("Transaction selected randomly for online processing");
+				ctx->tvr->value[3] |= EMV_TVR_RANDOM_SELECTED_ONLINE;
+			}
+		} else {
+			// Compute transaction target percent
+			// See EMV 4.4 Book 3, 10.6.2, figure 15
+			unsigned int ttp =
+				(
+					(ctx->random_selection_max_percentage - ctx->random_selection_percentage) *
+					(amount_value - ctx->random_selection_threshold)
+				)
+				/ (floor_limit_value - ctx->random_selection_threshold)
+				+ ctx->random_selection_percentage;
+
+			// Apply biased transaction selection
+			if (x <= ttp) {
+				emv_debug_info("Transaction selected randomly for online processing");
+				ctx->tvr->value[3] |= EMV_TVR_RANDOM_SELECTED_ONLINE;
+			}
+		}
+	} else {
+		emv_debug_info("Random transaction selection not applied");
+		ctx->tvr->value[3] &= ~EMV_TVR_RANDOM_SELECTED_ONLINE;
 	}
 
 	// Velocity Checking

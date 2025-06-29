@@ -713,6 +713,11 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30 }, EMV_ASI_PARTIAL_MATCH); // Maestro
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 5, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 }, EMV_ASI_PARTIAL_MATCH); // Amex
+
+	// Random transaction selection
+	emv->random_selection_percentage = 25;
+	emv->random_selection_max_percentage = 50;
+	emv->random_selection_threshold = 5000; // Because floor limit is 10000
 }
 
 int main(int argc, char** argv)
