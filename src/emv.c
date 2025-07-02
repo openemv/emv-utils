@@ -1199,7 +1199,10 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx)
 	return 0;
 }
 
-int emv_terminal_risk_management(struct emv_ctx_t* ctx)
+int emv_terminal_risk_management(struct emv_ctx_t* ctx,
+	const struct emv_txn_log_entry_t* txn_log,
+	size_t txn_log_cnt
+)
 {
 	int r;
 	const struct emv_tlv_t* term_floor_limit;
@@ -1218,6 +1221,11 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx)
 	if (!ctx->tvr || !ctx->tsi) {
 		emv_debug_trace_msg("tvr=%p, tsi=%p", ctx->tvr, ctx->tsi);
 		emv_debug_error("Invalid context variable");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!txn_log && txn_log_cnt) {
+		emv_debug_trace_msg("txn_log=%p, txn_log_cnt=%zu", txn_log, txn_log_cnt);
+		emv_debug_error("Invalid transaction log");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
@@ -1284,6 +1292,37 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INTERNAL;
 	}
 	emv_debug_trace_msg("Amount, Authorised (Binary) value is %u", (unsigned int)amount_value);
+	if (txn_log && txn_log_cnt) {
+		const struct emv_tlv_t* pan;
+		const struct emv_txn_log_entry_t* entry = NULL;
+
+		pan = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_5A_APPLICATION_PAN);
+		if (!pan || !pan->length || pan->length > 10) {
+			// Presence of the PAN should have been confirmed by
+			// emv_read_application_data()
+			emv_debug_error("Application Primary Account Number (PAN) not found or invalid");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// Find the latest approved transaction with the same PAN. Note that it
+		// is not mandatory to compare the Application PAN Sequence Number and
+		// that this implementation specifically chooses not to do so because
+		// the risk is considered for the card as a whole.
+		for (size_t i = 0; i < txn_log_cnt; ++i) {
+			if (pan->length <= sizeof(txn_log[i].pan) &&
+				memcmp(pan->value, txn_log[i].pan, pan->length) == 0
+			) {
+				entry = &txn_log[i];
+			}
+		}
+
+		if (entry) {
+			emv_debug_trace_data("Using transaction log entry with amount %u for PAN", entry->pan, sizeof(entry->pan), entry->transaction_amount);
+			amount_value += entry->transaction_amount;
+		}
+
+		emv_debug_trace_msg("Amount risk value is %u", (unsigned int)amount_value);
+	}
 	if (amount_value >= floor_limit_value) {
 		emv_debug_info("Floor limit exceeded");
 		ctx->tvr->value[3] |= EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED;

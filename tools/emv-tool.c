@@ -1066,7 +1066,7 @@ int main(int argc, char** argv)
 	}
 
 	printf("\nTerminal Risk Management\n");
-	r = emv_terminal_risk_management(&emv);
+	r = emv_terminal_risk_management(&emv, NULL, 0);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;

@@ -41,6 +41,9 @@ struct test_t {
 	struct emv_tlv_t* params_data;
 	struct emv_tlv_t* icc_data;
 
+	const struct emv_txn_log_entry_t* txn_log;
+	size_t txn_log_cnt;
+
 	const struct xpdu_t* xpdu_list;
 
 	uint8_t tvr[5];
@@ -64,12 +67,36 @@ static const struct test_t test[] = {
 		},
 
 		.icc_data = (struct emv_tlv_t[]){
+			// PAN: 5413330089020011
+			{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11 }, 0 }}, NULL },
 			// Lower Consecutive Offline Limit: 18
 			{ {{ EMV_TAG_9F14_LOWER_CONSECUTIVE_OFFLINE_LIMIT, 1, (uint8_t[]){ 0x12 }, 0 }}, NULL },
 			// Upper Consecutive Offline Limit: 52
 			{ {{ EMV_TAG_9F23_UPPER_CONSECUTIVE_OFFLINE_LIMIT, 1, (uint8_t[]){ 0x34 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_log = (const struct emv_txn_log_entry_t[]){
+			{
+				{ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x01 },
+				0x9999, // 39321
+			},
+			{
+				{ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x02 },
+				0x1234, // 4660
+			},
+			{
+				{ 0x47, 0x61, 0x73, 0x90, 0x01, 0x01, 0x01, 0x19, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x03 },
+				0x9999, // 39321
+			},
+		},
+		.txn_log_cnt = 3,
 
 		.xpdu_list = (const struct xpdu_t[]){
 			{
@@ -88,7 +115,7 @@ static const struct test_t test[] = {
 	},
 
 	{
-		.name = "Floor limit exceeded",
+		.name = "Floor limit exceeded without transaction log",
 
 		.config_data = (struct emv_tlv_t[]){
 			// Floor limit: 100.00
@@ -103,9 +130,111 @@ static const struct test_t test[] = {
 		},
 
 		.icc_data = (struct emv_tlv_t[]){
+			// PAN: 5413330089020011
+			{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11 }, 0 }}, NULL },
 			// No velocity checking
 			{ {{ 0 }} },
 		},
+
+		.xpdu_list = NULL,
+
+		.tvr = { 0x00, 0x00, 0x00, EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED, 0x00 },
+		.tsi = { EMV_TSI_TERMINAL_RISK_MANAGEMENT_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Floor limit exceeded regardless of transaction log",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Floor limit: 100.00
+			{ {{ EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			// Amount, Authorised (Binary): 150.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x3A, 0x98 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			// PAN: 5413330089020011
+			{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11 }, 0 }}, NULL },
+			// No velocity checking
+			{ {{ 0 }} },
+		},
+
+		.txn_log = (const struct emv_txn_log_entry_t[]){
+			{
+				{ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x01 },
+				1,
+			},
+			{
+				{ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x02 },
+				1,
+			},
+			{
+				{ 0x47, 0x61, 0x73, 0x90, 0x01, 0x01, 0x01, 0x19, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x03 },
+				1,
+			},
+		},
+		.txn_log_cnt = 3,
+
+		.xpdu_list = NULL,
+
+		.tvr = { 0x00, 0x00, 0x00, EMV_TVR_TXN_FLOOR_LIMIT_EXCEEDED, 0x00 },
+		.tsi = { EMV_TSI_TERMINAL_RISK_MANAGEMENT_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Floor limit exceeded due to transaction log",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Floor limit: 100.00
+			{ {{ EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			// Amount, Authorised (Binary): 50.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			// PAN: 5413330089020011
+			{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11 }, 0 }}, NULL },
+			// No velocity checking
+			{ {{ 0 }} },
+		},
+
+		.txn_log = (const struct emv_txn_log_entry_t[]){
+			{
+				{ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x11, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x01 },
+				0x9999, // 39321
+			},
+			{
+				{ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x12, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x02 },
+				0x1234, // 4660
+			},
+			{
+				{ 0x47, 0x61, 0x73, 0x90, 0x01, 0x01, 0x01, 0x19, 0xFF, 0xFF },
+				0x01,
+				{ 0x25, 0x07, 0x03 },
+				0x1234, // 4660
+			},
+		},
+		.txn_log_cnt = 3,
 
 		.xpdu_list = NULL,
 
@@ -487,7 +616,11 @@ int main(void)
 		emul_ctx.xpdu_current = NULL;
 
 		// Test terminal risk management...
-		r = emv_terminal_risk_management(&emv);
+		r = emv_terminal_risk_management(
+			&emv,
+			test[i].txn_log,
+			test[i].txn_log_cnt
+		);
 		if (r) {
 			fprintf(stderr, "emv_terminal_risk_management() failed; r=%d\n", r);
 			r = 1;

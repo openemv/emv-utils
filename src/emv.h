@@ -179,6 +179,16 @@ struct emv_ctx_t {
 };
 
 /**
+ * @brief EMV transaction log entry
+ */
+struct emv_txn_log_entry_t {
+	uint8_t pan[10]; ///< Primary Account Number (PAN) in EMV format 'cn'
+	uint8_t pan_seq; ///< Primary Account Number (PAN) Sequence Number
+	uint8_t txn_date[3]; ///< Transaction date in EMV format 'n' as YYMMDD
+	uint32_t transaction_amount; ///< Transaction amount in binary format
+};
+
+/**
  * EMV errors
  * These are typically for internal errors and errors caused by invalid use of
  * the API functions in this header, and must have values less than zero.
@@ -450,12 +460,20 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx);
  * @remark See EMV 4.4 Book 3, 10.6
  *
  * @param ctx EMV processing context
+ * @param txn_log Ordered transaction log containing previously approved
+ *                transactions with the oldest entry first and the newest entry
+ *                last. NULL to ignore.
+ * @param txn_log_cnt Number of transactions entries in @p txn_log.
+ *                    Zero to ignore.
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
-int emv_terminal_risk_management(struct emv_ctx_t* ctx);
+int emv_terminal_risk_management(struct emv_ctx_t* ctx,
+	const struct emv_txn_log_entry_t* txn_log,
+	size_t txn_log_cnt
+);
 
 /**
  * Perform EMV Card Action Analysis to determined the risk management decision
