@@ -1141,6 +1141,15 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
 
+		case EMV_TAG_9F4F_LOG_FORMAT:
+			info->tag_name = "Log Format";
+			info->tag_desc =
+				"List (in tag and length format) of data objects representing "
+				"the logged data elements that are passed to the terminal when "
+				"a transaction log record is read";
+			info->format = EMV_FORMAT_DOL;
+			return 0;
+
 		case 0x9F5D: // Used for different purposes by different kernels
 			if (tlv->tag == MASTERCARD_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION && // Helps IDE find this case statement
 				tlv->length == 3
@@ -1439,6 +1448,21 @@ int emv_tlv_get_info(
 			info->tag_name = "File Control Information (FCI) Issuer Discretionary Data";
 			info->tag_desc =
 				"Issuer discretionary part of the File Control Information (FCI)";
+			info->format = EMV_FORMAT_VAR;
+			return 0;
+
+		case EMV_TAG_BF4C_BIOMETRIC_TRY_COUNTERS_TEMPLATE:
+			info->tag_name = "Biometric Try Counters Template";
+			info->tag_desc =
+				"A template that contains one or more Biometric Try Counters";
+			info->format = EMV_FORMAT_VAR;
+			return 0;
+
+		case EMV_TAG_BF4D_PREFERRED_ATTEMPTS_TEMPLATE:
+			info->tag_name = "Preferred Attempts Template";
+			info->tag_desc =
+				"A template that contains the TLV-coded values for the "
+				"preferred attempts of any BIT of a Biometric Type";
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
@@ -2006,12 +2030,16 @@ int emv_date_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
 		}
 		date_str[(i * 2) + 1] = '0' + digit;
 	}
-	date_str[(buf_len * 2) + 1] = 0;
+	date_str[buf_len * 2] = 0; // NULL terminate
 
-	// Assume it's the 21st century; if it isn't, then hopefully we've at
-	// least addressed climate change...
-	str[offset++] = '2';
-	str[offset++] = '0';
+	// See EMV 4.4 Book 4, 6.7.3
+	if (buf[0] < 0x50) {
+		str[offset++] = '2';
+		str[offset++] = '0';
+	} else {
+		str[offset++] = '1';
+		str[offset++] = '9';
+	}
 	memcpy(str + offset, date_str, 2);
 	offset += 2;
 
@@ -2079,7 +2107,7 @@ int emv_time_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
 		}
 		time_str[(i * 2) + 1] = '0' + digit;
 	}
-	time_str[(buf_len * 2) + 1] = 0;
+	time_str[buf_len * 2] = 0; // NULL terminate
 
 	// Hours
 	memcpy(str + offset, time_str, 2);

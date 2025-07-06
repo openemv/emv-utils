@@ -82,6 +82,14 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_read_application_data_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_read_application_data_test emv_read_application_data_test)
 
+	add_executable(emv_processing_restrictions_test emv_processing_restrictions_test.c)
+	target_link_libraries(emv_processing_restrictions_test PRIVATE print_helpers emv)
+	add_test(emv_processing_restrictions_test emv_processing_restrictions_test)
+
+	add_executable(emv_terminal_risk_management_test emv_terminal_risk_management_test.c)
+	target_link_libraries(emv_terminal_risk_management_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_terminal_risk_management_test emv_terminal_risk_management_test)
+
 	add_executable(isocodes_test isocodes_test.c)
 	find_package(Intl)
 	if(Intl_FOUND)

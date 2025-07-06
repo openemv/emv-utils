@@ -200,6 +200,26 @@ int emv_ttl_get_processing_options(
 );
 
 /**
+ * GET DATA (0xCA) for current application
+ * @remark EMV 4.4 Book 3, 6.5.7
+ * @remark EMV 4.4 Book 3, 7.3
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param p1p2 P1-P2 in host endianness for the requested tag
+ * @param response Response output
+ * @param response_len Length of response output in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_get_data(
+	struct emv_ttl_t* ctx,
+	uint16_t p1p2,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+);
+
+/**
  * INTERNAL AUTHENTICATE (0x88) for current application
  * @remark EMV 4.4 Book 3, 6.5.9
  *
