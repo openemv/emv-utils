@@ -80,12 +80,22 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="decodeCheckBox">
+            <widget class="QCheckBox" name="decodeFieldsCheckBox">
              <property name="toolTip">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interpret each input field according to EMV or ASN.1. Disable to view only the ISO 8825 structure instead.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
              <property name="text">
               <string>Decode EMV / ASN.1 fields</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="decodeObjectsCheckBox">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode ASN.1 objects that start with an OID field and contain at least one other member. Disable to view the object structure as-is.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Decode ASN.1 objects</string>
              </property>
             </widget>
            </item>

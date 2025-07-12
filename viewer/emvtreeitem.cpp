@@ -51,6 +51,11 @@ static QString buildDecodedFieldString(
 	const struct emv_tlv_info_t& info,
 	const QByteArray& valueStr
 );
+static QString buildDecodedObjectString(
+	const struct iso8825_tlv_t* tlv,
+	const struct emv_tlv_info_t& info,
+	const QByteArray& valueStr
+);
 static QString buildFieldString(
 	unsigned int tag,
 	const char* name = nullptr,
@@ -81,20 +86,24 @@ EmvTreeItem::EmvTreeItem(
 	unsigned int srcOffset,
 	unsigned int srcLength,
 	const struct iso8825_tlv_t* tlv,
-	bool decode,
+	bool decodeFields,
+	bool decodeObjects,
 	bool autoExpand
 )
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
-  m_hideWhenDecoded(false)
+  m_hideWhenDecodingObject(false)
 {
-	setTlv(tlv, decode);
+	setTlv(tlv);
 	if (m_constructed) {
 		// Always expand constructed fields
 		autoExpand = true;
 	}
 	setExpanded(autoExpand);
+
+	// Render the widget according to the current state
+	render(decodeFields, decodeObjects);
 }
 
 EmvTreeItem::EmvTreeItem(
@@ -108,13 +117,13 @@ EmvTreeItem::EmvTreeItem(
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
   m_constructed(false),
-  m_hideWhenDecoded(false)
+  m_hideWhenDecodingObject(false)
 {
 	m_simpleFieldStr = m_decodedFieldStr =
 		buildSimpleFieldString(str, srcLength, static_cast<const uint8_t*>(value));
 
-	// Render the widget according to the current state
-	render(false);
+	// Render the widget as-is
+	render(false, false);
 }
 
 void EmvTreeItem::deleteChildren()
@@ -127,11 +136,19 @@ void EmvTreeItem::deleteChildren()
 	}
 }
 
-void EmvTreeItem::render(bool showDecoded)
+void EmvTreeItem::render(bool showDecodedFields, bool showDecodedObjects)
 {
-	if (showDecoded) {
-		setText(0, m_decodedFieldStr);
-		setHidden(m_hideWhenDecoded);
+	if (showDecodedFields) {
+		if (showDecodedObjects) {
+			if (!m_decodedObjectStr.isEmpty()) {
+				setText(0, m_decodedObjectStr);
+			} else {
+				setText(0, m_decodedFieldStr);
+			}
+		} else {
+			setText(0, m_decodedFieldStr);
+		}
+		setHidden(showDecodedObjects && m_hideWhenDecodingObject);
 
 		// Make decoded values visible
 		if (!m_constructed) {
@@ -153,7 +170,7 @@ void EmvTreeItem::render(bool showDecoded)
 	}
 }
 
-void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv, bool decode)
+void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv)
 {
 	int r;
 	struct emv_tlv_t emv_tlv;
@@ -176,6 +193,7 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv, bool decode)
 	}
 	m_constructed = iso8825_ber_is_constructed(tlv);
 	m_decodedFieldStr = buildDecodedFieldString(tlv, info, valueStr);
+	m_decodedObjectStr = buildDecodedObjectString(tlv, info, valueStr);
 
 	if (m_constructed) {
 		// Add field length but omit raw value bytes from field strings for
@@ -197,9 +215,6 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv, bool decode)
 			addValueTagList(this, tlv->value, tlv->length);
 		}
 	}
-
-	// Render the widget according to the current state
-	render(decode);
 }
 
 static bool valueStrIsList(const QByteArray& str)
@@ -263,13 +278,12 @@ static QString buildDecodedFieldString(
 	const QByteArray& valueStr
 )
 {
-	if (iso8825_ber_is_constructed(tlv) && valueStr[0]) {
-		// Assume that a constructed field with a value string is an object
-		// of some kind
-		return QString::asprintf("%02X | %s", tlv->tag, valueStr.constData());
-	} else if (info.tag_name) {
+	if (info.tag_name) {
 		QString fieldStr = QString::asprintf("%02X | %s", tlv->tag, info.tag_name);
-		if (!valueStrIsList(valueStr) && valueStr[0]) {
+		if (!iso8825_ber_is_constructed(tlv) &&
+			!valueStrIsList(valueStr) &&
+			valueStr[0]
+		) {
 			if (info.format == EMV_FORMAT_A ||
 				info.format == EMV_FORMAT_AN ||
 				info.format == EMV_FORMAT_ANS ||
@@ -286,6 +300,22 @@ static QString buildDecodedFieldString(
 
 	} else {
 		return QString::asprintf("%02X", tlv->tag);
+	}
+}
+
+static QString buildDecodedObjectString(
+	const struct iso8825_tlv_t* tlv,
+	const struct emv_tlv_info_t& info,
+	const QByteArray& valueStr
+)
+{
+	if (iso8825_ber_is_constructed(tlv) && valueStr[0]) {
+		// Assume that a constructed field with a value string is an object
+		// of some kind
+		return QString::asprintf("%02X | %s", tlv->tag, valueStr.constData());
+	} else {
+		// Emtry string for non-objects
+		return QString();
 	}
 }
 

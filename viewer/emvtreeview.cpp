@@ -35,7 +35,8 @@ static bool parseData(
 	const void* ptr,
 	unsigned int len,
 	bool ignorePadding,
-	bool decode,
+	bool decodeFields,
+	bool decodeObjects,
 	unsigned int* totalValidBytes
 )
 {
@@ -58,7 +59,8 @@ static bool parseData(
 			*totalValidBytes,
 			fieldLength,
 			&tlv,
-			decode
+			decodeFields,
+			decodeObjects
 		);
 
 		if (iso8825_ber_is_constructed(&tlv)) {
@@ -75,7 +77,8 @@ static bool parseData(
 				tlv.value,
 				tlv.length,
 				ignorePadding,
-				decode,
+				decodeFields,
+				decodeObjects,
 				totalValidBytes
 			);
 			if (!valid) {
@@ -97,8 +100,8 @@ static bool parseData(
 					item->child(0)->type() == EmvTreeItemType
 				) {
 					EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item->child(0));
-					etItem->setHideWhenDecoded(true);
-					etItem->render(decode);
+					etItem->setHideWhenObject(true);
+					etItem->render(decodeFields, decodeObjects);
 				}
 			}
 
@@ -157,6 +160,7 @@ unsigned int EmvTreeView::populateItems(const QByteArray& data)
 		data.size(),
 		m_ignorePadding,
 		m_decodeFields,
+		m_decodeObjects,
 		&totalValidBytes
 	);
 
@@ -178,7 +182,28 @@ void EmvTreeView::setDecodeFields(bool enabled)
 		QTreeWidgetItem* item = *itr;
 		if (item->type() == EmvTreeItemType) {
 			EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
-			etItem->render(enabled);
+			etItem->render(m_decodeFields, m_decodeObjects);
+		}
+		++itr;
+	}
+}
+
+void EmvTreeView::setDecodeObjects(bool enabled)
+{
+	if (m_decodeObjects == enabled) {
+		// No change
+		return;
+	}
+	m_decodeObjects = enabled;
+
+	// Visit all EMV children recursively and re-render them according to the
+	// current state
+	QTreeWidgetItemIterator itr (this);
+	while (*itr) {
+		QTreeWidgetItem* item = *itr;
+		if (item->type() == EmvTreeItemType) {
+			EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
+			etItem->render(m_decodeFields, m_decodeObjects);
 		}
 		++itr;
 	}
