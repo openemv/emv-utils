@@ -46,6 +46,10 @@ static QString buildSimpleFieldString(
 	qsizetype length,
 	const std::uint8_t* value = nullptr
 );
+static QString buildRawValueString(
+	qsizetype length,
+	const std::uint8_t* value
+);
 static QString buildDecodedFieldString(
 	const struct iso8825_tlv_t* tlv,
 	const struct emv_tlv_info_t& info,
@@ -77,6 +81,7 @@ static QTreeWidgetItem* addValueTagList(
 );
 static QTreeWidgetItem* addValueRaw(
 	EmvTreeItem* item,
+	unsigned int srcOffset,
 	const void* ptr,
 	std::size_t len
 );
@@ -125,6 +130,30 @@ EmvTreeItem::EmvTreeItem(
 	// Render the widget as-is
 	render(false, false);
 }
+
+EmvTreeItem::EmvTreeItem(
+	EmvTreeItem* parent,
+	unsigned int srcOffset,
+	unsigned int srcLength,
+	const void* value
+)
+: QTreeWidgetItem(parent, EmvTreeItemType),
+  m_srcOffset(srcOffset),
+  m_srcLength(srcLength),
+  m_constructed(false),
+  m_hideWhenDecodingObject(false)
+{
+	// Reuse parent's name and description for when it is selected
+	m_tagName = parent->m_tagName;
+	m_tagDescription = parent->m_tagDescription;
+
+	m_simpleFieldStr = m_decodedFieldStr =
+		buildRawValueString(srcLength, static_cast<const uint8_t*>(value));
+
+	// Render the widget as-is
+	render(false, false);
+}
+
 
 void EmvTreeItem::deleteChildren()
 {
@@ -204,8 +233,16 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv)
 		// primitive fields
 		m_simpleFieldStr = buildSimpleFieldString(tlv->tag, tlv->length, tlv->value);
 
-		// Always add raw value bytes as first child for primitive fields
-		addValueRaw(this, tlv->value, tlv->length);
+		// Add raw value bytes as first child for primitive fields that have
+		// value bytes
+		if (tlv->length) {
+			addValueRaw(
+				this,
+				m_srcOffset + m_srcLength - tlv->length,
+				tlv->value,
+				tlv->length
+			);
+		}
 
 		if (valueStrIsList(valueStr)) {
 			addValueStringList(this, valueStr);
@@ -269,6 +306,27 @@ static QString buildSimpleFieldString(
 			).toHex(' ').toUpper().constData();
 	} else {
 		return QString::asprintf("%02X : [%zu]", tag, static_cast<std::size_t>(length));
+	}
+}
+
+static QString buildRawValueString(
+	qsizetype length,
+	const std::uint8_t* value
+)
+{
+	if (value) {
+		return
+			QString::asprintf("[%zu] ",
+				static_cast<std::size_t>(length)
+			) +
+			// Create an uppercase hex string, with spaces, from the
+			// field's value bytes
+			QByteArray::fromRawData(
+				reinterpret_cast<const char*>(value),
+				length
+			).toHex(' ').toUpper().constData();
+	} else {
+		return QString::asprintf("[%zu]", static_cast<std::size_t>(length));
 	}
 }
 
@@ -468,28 +526,24 @@ static QTreeWidgetItem* addValueTagList(
 
 static QTreeWidgetItem* addValueRaw(
 	EmvTreeItem* item,
+	unsigned int srcOffset,
 	const void* ptr,
 	std::size_t len
 )
 {
-	QTreeWidgetItem* valueItem = new QTreeWidgetItem(
+	EmvTreeItem* valueItem = new EmvTreeItem(
 		item,
-		QStringList(
-			QString::asprintf("[%zu] ", len) +
-			// Create an uppercase hex string, with spaces, from the
-			// field's value bytes
-			QByteArray::fromRawData(
-				reinterpret_cast<const char*>(ptr),
-				len
-			).toHex(' ').toUpper().constData()
-		)
+		srcOffset,
+		len,
+		ptr
 	);
-	valueItem->setFlags(Qt::ItemNeverHasChildren);
+	valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 	// Use default monospace font
 	QFont font = valueItem->font(0);
 	font.setFamily("Monospace");
 	valueItem->setFont(0, font);
+	valueItem->setForeground(0, Qt::darkGray);
 
 	return valueItem;
 }

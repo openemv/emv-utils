@@ -32,6 +32,10 @@ static const int EmvTreeItemType = 8825;
 class EmvTreeItem : public QTreeWidgetItem
 {
 public:
+	/**
+	 * Constructor for a tree item that represents a TLV field with a possible
+	 * value string, for example an EMV field.
+	 */
 	EmvTreeItem(
 		QTreeWidgetItem* parent,
 		unsigned int srcOffset,
@@ -42,11 +46,26 @@ public:
 		bool autoExpand = true
 	);
 
+	/**
+	 * Constructor for a tree item that represents a non-TLV field with a
+	 * static name and no value string, for example non-TLV padding.
+	 */
 	EmvTreeItem(
 		QTreeWidgetItem* parent,
 		unsigned int srcOffset,
 		unsigned int srcLength,
 		QString str,
+		const void* value
+	);
+
+	/**
+	 * Constructor for a tree item that represents a TLV field's value bytes.
+	 * Note that this will reuse the parent item's name and description.
+	 */
+	EmvTreeItem(
+		EmvTreeItem* parent,
+		unsigned int srcOffset,
+		unsigned int srcLength,
 		const void* value
 	);
 
