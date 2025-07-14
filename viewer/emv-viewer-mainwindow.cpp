@@ -306,8 +306,8 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 		highlighter->rehighlight();
 		dataEdit->blockSignals(false);
 
-		// Show description of selected item
-		// Assume that a tag description always has a tag name
+		// Show description of selected item if it has a name.
+		// Otherwise show legal text.
 		descriptionText->clear();
 		if (!etItem->tagName().isEmpty()) {
 			descriptionText->appendHtml(
@@ -316,14 +316,14 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 				QStringLiteral("</b><br/><br/>") +
 				etItem->tagDescription()
 			);
+
+			// Let description scroll to top after updating content
+			QTimer::singleShot(0, [this]() {
+				descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
+			});
+
+			return;
 		}
-
-		// Let description scroll to top after updating content
-		QTimer::singleShot(0, [this]() {
-			descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
-		});
-
-		return;
 	}
 
 	displayLegal();
