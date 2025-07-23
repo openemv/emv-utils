@@ -707,18 +707,34 @@ static void print_emv_tlv_internal(
 		printf("%s", prefix ? prefix : "");
 	}
 
-	if (info.tag_name) {
+	if (iso8825_ber_is_constructed(&tlv->ber) && value_str[0]) {
+		// Assume that a constructed field with a value string is an object
+		// of some kind
+		printf("%02X | %s : [%u]", tlv->tag, value_str, tlv->length);
+	} else if (info.tag_name) {
 		printf("%02X | %s : [%u]", tlv->tag, info.tag_name, tlv->length);
 	} else {
 		printf("%02X : [%u]", tlv->tag, tlv->length);
 	}
 
 	if (iso8825_ber_is_constructed(&tlv->ber)) {
-		printf("\n");
+		int r;
+		unsigned int nested_offset;
 
+		// Attempt to decode field as ASN.1 object
+		r = iso8825_ber_asn1_object_decode(&tlv->ber, NULL);
+		if (r <= 0) {
+			// Not ASN.1 object
+			nested_offset = 0;
+		} else {
+			// Continue parsing after OID for ASN.1 objects
+			nested_offset = r;
+		}
+
+		printf("\n");
 		print_emv_buf(
-			tlv->value,
-			tlv->length,
+			tlv->value + nested_offset,
+			tlv->length - nested_offset,
 			prefix, depth + 1,
 			ignore_padding
 		);
