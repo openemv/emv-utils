@@ -262,6 +262,15 @@ static const struct iso8825_oid_name_t oid_list[] = {
 	ASN1_OID_NAME(cmac), // 1.0.9797.1.3.5
 	ASN1_OID_NAME(hmac), // 1.0.9797.2.2
 
+	// ISO 10116
+	ASN1_OID_NAME(ecb), // 1.0.10116.0.1.1
+	ASN1_OID_NAME(cbc), // 1.0.10116.0.1.2
+	ASN1_OID_NAME(cfb), // 1.0.10116.0.1.3
+	ASN1_OID_NAME(ofb), // 1.0.10116.0.1.4
+	ASN1_OID_NAME(ctr), // 1.0.10116.0.1.5
+	ASN1_OID_NAME(padNull), // 1.0.10116.0.2.0
+	ASN1_OID_NAME(pad), // 1.0.10116.0.2.1
+
 	// ANSI X9.62 / X9.142
 	ASN1_OID_NAME(ecPublicKey), // 1.2.840.10045.2.1
 	ASN1_OID_NAME(prime256v1), // 1.2.840.10045.3.1.7

@@ -119,6 +119,15 @@ __BEGIN_DECLS
 #define ASN1_OID_cmac { 1, 0, 9797, 1, 3, 5 } ///< ASN.1 OID for ISO 9797-1:2011 MAC Algorithm 5, also known as CMAC
 #define ASN1_OID_hmac { 1, 0, 9797, 2, 2 } ///< ASN.1 OID for ISO 9797-2:2011 MAC Algorithm 2, also known as HMAC
 
+// ASN.1 object identifiers provided by ISO 10116
+#define ASN1_OID_ecb { 1, 0, 10116, 0, 1, 1 } ///< ASN.1 OID for ISO 10116 Electronic CodeBook (ECB) mode
+#define ASN1_OID_cbc { 1, 0, 10116, 0, 1, 2 } ///< ASN.1 OID for ISO 10116 Cipher Block Chaining (CBC) mode
+#define ASN1_OID_cfb { 1, 0, 10116, 0, 1, 3 } ///< ASN.1 OID for ISO 10116 Cipher Feedback (CFB) mode
+#define ASN1_OID_ofb { 1, 0, 10116, 0, 1, 4 } ///< ASN.1 OID for ISO 10116 Output Feedback (OFB) mode
+#define ASN1_OID_ctr { 1, 0, 10116, 0, 1, 5 } ///< ASN.1 OID for ISO 10116 Counter (CTR) mode
+#define ASN1_OID_padNull { 1, 0, 10116, 0, 2, 0 } ///< ASN.1 OID for ISO 10116 when no padding algorithm is identified
+#define ASN1_OID_pad { 1, 0, 10116, 0, 2, 1 } ///< ASN.1 OID for ISO 10116 when padding algorithm is specified
+
 // ASN.1 object identifiers provided by ANSI X9.62 / X9.142
 #define ASN1_OID_ecPublicKey { 1, 2, 840, 10045, 2, 1 } ///< ASN.1 OID for ANSI X9.62 Elliptic curve public key
 #define ASN1_OID_prime256v1 { 1, 2, 840, 10045, 3, 1, 7 } ///< ASN.1 OID for ANSI X9.62 Elliptic curve prime256v1 / secp256r1 / NIST P-256
