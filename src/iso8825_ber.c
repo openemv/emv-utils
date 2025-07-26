@@ -297,12 +297,12 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
 		while (len) {
 			// Determine whether it is the last octet of the subidentifier
 			// See ISO 8825-1:2021, 8.19.2
-			bool last_octet = !(*buf & 0x80); // TODO: use define
+			bool last_octet = !(*buf & 0x80);
 
 			// Extract the next 7 bits of the subidentifier
 			// See ISO 8825-1:2021, 8.19.2
 			subid <<= 7;
-			subid |= *buf & 0x7f; // TODO: use define
+			subid |= *buf & 0x7F;
 			++buf;
 			--len;
 
@@ -312,8 +312,8 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
 
 		// Store subidentifier
 		if (oid->length == 0) {
-			// First subidentifier is derived from the first two identifier
-			// components
+			// First subidentifier is derived from the first two object
+			// identifier components
 			// See ISO 8825-1:2021, 8.19.4
 			if (subid < 40) { // ITU-T
 				oid->value[0] = ASN1_OID_ITU_T;
@@ -342,6 +342,76 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
 	return 0;
 }
 
+int iso8825_ber_oid_encode(const struct iso8825_oid_t* oid, void* ptr, size_t* len)
+{
+	uint8_t* buf = ptr;
+	size_t remaining_len;
+
+	if (!ptr || !oid || !len) {
+		return -1;
+	}
+	remaining_len = *len;
+	*len = 0;
+
+	if (oid->length < 2) {
+		return -2;
+	}
+
+	if (remaining_len < oid->length) {
+		// OID too long for output buffer
+		return -3;
+	}
+
+	// First subidentifier is derived from the first two object identifier
+	// components
+	// See ISO 8825-1:2021, 8.19.4
+	buf[0] = oid->value[0] * 40 + oid->value[1];
+	++*len;
+	--remaining_len;
+
+	// Encode remaining subidentifiers
+	// See ISO 8825-1:2021, 8.19.5
+	for (unsigned int i = 2; i < oid->length; ++i) {
+		uint32_t subid = oid->value[i];
+
+		// Find encoded octet length of subidentifier (assume 32-bit)
+		unsigned int subid_octets = 5;
+		unsigned int subid_shift = 28;
+		while (subid_octets && (subid >> subid_shift) == 0) {
+			subid_octets -= 1;
+			subid_shift -= 7;
+		}
+
+		if (subid_octets == 0) {
+			// Encode zero subidentifier using a single octet
+			subid_octets = 1;
+		}
+
+		if (subid_octets > remaining_len) {
+			// Not enough space in output buffer
+			return -4;
+		}
+
+		// Encode multibyte subidentifier
+		while (subid_octets--) {
+			// Note that subid_octets has already been decremented above
+			// and can be multiplied by 7 for the shift value
+			buf[*len] = (subid >> (subid_octets * 7)) & 0x7F;
+
+			// Set the highest bit for all but the last octet
+			if (subid_octets) {
+				buf[*len] |= 0x80;
+			}
+
+			// Advance
+			++*len;
+			--remaining_len;
+		}
+	}
+
+	return 0;
+}
+
 int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_oid_t* rel_oid)
 {
 	const uint8_t* buf = ptr;
@@ -364,12 +434,12 @@ int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_o
 		while (len) {
 			// Determine whether it is the last octet of the subidentifier
 			// See ISO 8825-1:2021, 8.20.2
-			bool last_octet = !(*buf & 0x80); // TODO: use define
+			bool last_octet = !(*buf & 0x80);
 
 			// Extract the next 7 bits of the subidentifier
 			// See ISO 8825-1:2021, 8.20.2
 			subid <<= 7;
-			subid |= *buf & 0x7f; // TODO: use define
+			subid |= *buf & 0x7F;
 			++buf;
 			--len;
 

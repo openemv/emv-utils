@@ -171,7 +171,7 @@ __BEGIN_DECLS
 #define ASN1_OID_ARC_LEN(name) (sizeof((uint32_t[])ASN1_OID_##name) / sizeof((uint32_t[])ASN1_OID_##name[0]))
 
 /// Macro used to create initializer list for @ref iso8825_oid_t
-#define ASN1_OID(name) { ASN1_OID_ARC_LEN(name), ASN1_OID_##name }
+#define ASN1_OID(name) (struct iso8825_oid_t){ ASN1_OID_ARC_LEN(name), ASN1_OID_##name }
 
 /// ISO 8825 TLV field
 struct iso8825_tlv_t {
@@ -260,17 +260,26 @@ int iso8825_ber_itr_next(struct iso8825_ber_itr_t* itr, struct iso8825_tlv_t* tl
 
 /**
  * Decode BER object identifier (OID)
- * @param ptr BER encoded object identifer
- * @param len Length of BER encoded object identifer in bytes
- * @param oid Decoded OID output
+ * @param ptr BER encoded object identifer (OID)
+ * @param len Length of BER encoded object identifer (OID) in bytes
+ * @param oid Decoded object identifier (OID) output
  * @return Zero for success. Less than zero for error.
  */
 int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oid);
 
 /**
+ * Encode object identifier (OID) using BER
+ * @param oid Decoded object identifier (OID)
+ * @param ptr BER encoded object identifer (OID) output
+ * @param len Length of BER encoded object identifer (OID) output in bytes
+ * @return Zero for success. Less than zero for error.
+ */
+int iso8825_ber_oid_encode(const struct iso8825_oid_t* oid, void* ptr, size_t* len);
+
+/**
  * Decode BER relative object identifier (RELATIVE-OID)
- * @param ptr BER encoded object identifer
- * @param len Length of BER encoded object identifer in bytes
+ * @param ptr BER relative object identifier (RELATIVE-OID)
+ * @param len Length of BER relative object identifier (RELATIVE-OID) in bytes
  * @param rel_oid Decoded RELATIVE-OID output
  * @return Zero for success. Less than zero for error.
  */
