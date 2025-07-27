@@ -592,14 +592,12 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F1C_TERMINAL_IDENTIFICATION, 8, (const uint8_t*)"TID12345", 0); // Unique location of terminal at merchant
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F1E_IFD_SERIAL_NUMBER, 8, (const uint8_t*)"12345678", 0); // Serial number
 	emv_tlv_list_push(&emv->config, EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION, 12, (const uint8_t*)"ACME Peanuts", 0); // Merchant Name and Location
-	emv_tlv_list_push(&emv->config, ISO8825_BER_CONSTRUCTED | ASN1_SEQUENCE, 18, (uint8_t[]){
-		0x06, 0x03, 0x55, 0x04, 0x57, // ASN.1 OID 2.5.4.87 url
-		0x0C, 0x0B, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D // ASN.1 UTF-8 string "example.com"
-	}, ISO8825_BER_CONSTRUCTED); // Merchant URL
-	emv_tlv_list_push(&emv->config, ISO8825_BER_CONSTRUCTED | ASN1_SEQUENCE, 33, (uint8_t[]){
-		0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x09, 0x01, // ASN.1 OID 1.2.840.113549.1.9.1 emailAddress
-		0x0C, 0x14, 0x6A, 0x6F, 0x68, 0x6E, 0x2E, 0x64, 0x6F, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D // ASN.1 UTF-8 string "john.doe@example.com"
-	}, ISO8825_BER_CONSTRUCTED); // Merchant email address
+	emv_tlv_list_push_asn1_object(&emv->config, &ASN1_OID(url), // Merchant URL
+		13, (uint8_t[]){ 0x0C, 0x0B, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D } // ASN.1 UTF-8 string "example.com"
+	);
+	emv_tlv_list_push_asn1_object(&emv->config, &ASN1_OID(emailAddress), // Merchant email address
+		22, (uint8_t[]){ 0x0C, 0x14, 0x6A, 0x6F, 0x68, 0x6E, 0x2E, 0x64, 0x6F, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D } // ASN.1 UTF-8 string "john.doe@example.com"
+	);
 
 	// Terminal Capabilities:
 	// - Card Data Input Capability: IC with Contacts
