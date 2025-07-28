@@ -175,10 +175,10 @@ __BEGIN_DECLS
 
 /// ISO 8825 TLV field
 struct iso8825_tlv_t {
-	unsigned int tag;                           ///< BER encoded tag, including class, primitive/structured bit, and tag number
-	unsigned int length;                        ///< BER decoded length of @c value in bytes
-	const uint8_t* value;                       ///< BER value
-	uint8_t flags;                              ///< Flags for use by helper functions
+	unsigned int tag;           ///< BER encoded tag, including class, primitive/structured bit, and tag number
+	unsigned int length;        ///< BER decoded length of @c value in bytes
+	const uint8_t* value;       ///< BER value
+	uint8_t flags;              ///< Flags for use by helper functions
 };
 
 /// ISO 8825 BER iterator
