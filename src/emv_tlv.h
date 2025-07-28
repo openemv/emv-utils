@@ -59,7 +59,7 @@ struct emv_tlv_list_t {
 };
 
 /// Static initialiser for @ref emv_tlv_t
-#define EMV_TLV_INIT ((struct emv_tlv_t){ 0, 0, NULL, NULL })
+#define EMV_TLV_INIT ((struct emv_tlv_t){ { { 0, 0, NULL, 0 } }, NULL })
 
 /// Static initialiser for @ref emv_tlv_list_t
 #define EMV_TLV_LIST_INIT ((struct emv_tlv_list_t){ NULL, NULL })
