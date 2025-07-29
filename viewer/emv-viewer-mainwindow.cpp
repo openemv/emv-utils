@@ -65,7 +65,8 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	highlighter->setEmphasiseTags(tagsCheckBox->isChecked());
 	highlighter->setIgnorePadding(paddingCheckBox->isChecked());
 	treeView->setIgnorePadding(paddingCheckBox->isChecked());
-	treeView->setDecodeFields(decodeCheckBox->isChecked());
+	treeView->setDecodeFields(decodeFieldsCheckBox->isChecked());
+	treeView->setDecodeObjects(decodeObjectsCheckBox->isChecked());
 
 	// Load previous UI values
 	loadSettings();
@@ -75,7 +76,7 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 		dataEdit->setPlainText(overrideData);
 	}
 	if (overrideDecodeCheckBoxState > -1) {
-		decodeCheckBox->setCheckState(static_cast<Qt::CheckState>(overrideDecodeCheckBoxState));
+		decodeFieldsCheckBox->setCheckState(static_cast<Qt::CheckState>(overrideDecodeCheckBoxState));
 	}
 
 	// Default to showing legal text in description widget
@@ -280,9 +281,14 @@ void EmvViewerMainWindow::on_paddingCheckBox_stateChanged(int state)
 	parseData();
 }
 
-void EmvViewerMainWindow::on_decodeCheckBox_stateChanged(int state)
+void EmvViewerMainWindow::on_decodeFieldsCheckBox_stateChanged(int state)
 {
 	treeView->setDecodeFields(state != Qt::Unchecked);
+}
+
+void EmvViewerMainWindow::on_decodeObjectsCheckBox_stateChanged(int state)
+{
+	treeView->setDecodeObjects(state != Qt::Unchecked);
 }
 
 void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int column)
@@ -301,8 +307,8 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 		highlighter->rehighlight();
 		dataEdit->blockSignals(false);
 
-		// Show description of selected item
-		// Assume that a tag description always has a tag name
+		// Show description of selected item if it has a name.
+		// Otherwise show legal text.
 		descriptionText->clear();
 		if (!etItem->tagName().isEmpty()) {
 			descriptionText->appendHtml(
@@ -311,14 +317,14 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 				QStringLiteral("</b><br/><br/>") +
 				etItem->tagDescription()
 			);
+
+			// Let description scroll to top after updating content
+			QTimer::singleShot(0, [this]() {
+				descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
+			});
+
+			return;
 		}
-
-		// Let description scroll to top after updating content
-		QTimer::singleShot(0, [this]() {
-			descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
-		});
-
-		return;
 	}
 
 	displayLegal();

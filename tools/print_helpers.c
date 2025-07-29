@@ -26,6 +26,7 @@
 #include "iso7816_strings.h"
 
 #include "iso8825_ber.h"
+#include "iso8825_strings.h"
 
 #include "emv_tlv.h"
 #include "emv_dol.h"
@@ -531,21 +532,39 @@ static int print_emv_buf_internal(
 			printf("%s", prefix ? prefix : "");
 		}
 
-		if (info.tag_name) {
+		if (iso8825_ber_is_constructed(&tlv) && value_str[0]) {
+			// Assume that a constructed field with a value string is an object
+			// of some kind
+			printf("%02X | %s : [%u]", tlv.tag, value_str, tlv.length);
+		} else if (info.tag_name) {
 			printf("%02X | %s : [%u]", tlv.tag, info.tag_name, tlv.length);
 		} else {
 			printf("%02X : [%u]", tlv.tag, tlv.length);
 		}
 
 		if (iso8825_ber_is_constructed(&tlv)) {
+			unsigned int nested_offset;
+			unsigned int nested_bytes;
+
 			// If the field is constructed, only consider the tag and length
 			// to be valid until the value has been parsed
 			valid_bytes += (r - tlv.length);
 
+			// Attempt to decode field as ASN.1 object
+			r = iso8825_ber_asn1_object_decode(&tlv, NULL);
+			if (r <= 0) {
+				// Not ASN.1 object
+				nested_offset = 0;
+			} else {
+				// Continue parsing after OID for ASN.1 objects
+				nested_offset = r;
+			}
+			valid_bytes += nested_offset;
+
 			printf("\n");
 			r = print_emv_buf_internal(
-				tlv.value,
-				tlv.length,
+				tlv.value + nested_offset,
+				tlv.length - nested_offset,
 				prefix,
 				depth + 1,
 				ignore_padding
@@ -555,8 +574,9 @@ static int print_emv_buf_internal(
 				// processing of the error by recursive callers
 				return r;
 			}
-			valid_bytes += r;
-			if (r < tlv.length) {
+			nested_bytes = r;
+			valid_bytes += nested_bytes;
+			if (nested_offset + nested_bytes < tlv.length) {
 				// If only part of the constructed field was valid, return here
 				// to avoid further processing of the data
 				return valid_bytes;
@@ -592,7 +612,8 @@ static int print_emv_buf_internal(
 				// Use quotes for strings and parentheses for everything else
 				if (info.format == EMV_FORMAT_A ||
 					info.format == EMV_FORMAT_AN ||
-					info.format == EMV_FORMAT_ANS
+					info.format == EMV_FORMAT_ANS ||
+					iso8825_ber_is_string(&tlv)
 				) {
 					printf(" \"%s\"\n", value_str);
 				} else {
@@ -686,18 +707,34 @@ static void print_emv_tlv_internal(
 		printf("%s", prefix ? prefix : "");
 	}
 
-	if (info.tag_name) {
+	if (iso8825_ber_is_constructed(&tlv->ber) && value_str[0]) {
+		// Assume that a constructed field with a value string is an object
+		// of some kind
+		printf("%02X | %s : [%u]", tlv->tag, value_str, tlv->length);
+	} else if (info.tag_name) {
 		printf("%02X | %s : [%u]", tlv->tag, info.tag_name, tlv->length);
 	} else {
 		printf("%02X : [%u]", tlv->tag, tlv->length);
 	}
 
 	if (iso8825_ber_is_constructed(&tlv->ber)) {
-		printf("\n");
+		int r;
+		unsigned int nested_offset;
 
+		// Attempt to decode field as ASN.1 object
+		r = iso8825_ber_asn1_object_decode(&tlv->ber, NULL);
+		if (r <= 0) {
+			// Not ASN.1 object
+			nested_offset = 0;
+		} else {
+			// Continue parsing after OID for ASN.1 objects
+			nested_offset = r;
+		}
+
+		printf("\n");
 		print_emv_buf(
-			tlv->value,
-			tlv->length,
+			tlv->value + nested_offset,
+			tlv->length - nested_offset,
 			prefix, depth + 1,
 			ignore_padding
 		);
@@ -728,7 +765,8 @@ static void print_emv_tlv_internal(
 			// Use quotes for strings and parentheses for everything else
 			if (info.format == EMV_FORMAT_A ||
 				info.format == EMV_FORMAT_AN ||
-				info.format == EMV_FORMAT_ANS
+				info.format == EMV_FORMAT_ANS ||
+				iso8825_ber_is_string(&tlv->ber)
 			) {
 				printf(" \"%s\"\n", value_str);
 			} else {

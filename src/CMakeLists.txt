@@ -146,9 +146,11 @@ install(
 # ISO 8825 library
 add_library(iso8825
 	iso8825_ber.c
+	iso8825_strings.c
 )
 set(iso8825_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	iso8825_ber.h
+	iso8825_strings.h
 )
 set(iso8825_HEADERS ${iso8825_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::iso8825 ALIAS iso8825)
@@ -385,6 +387,7 @@ target_include_directories(emv_strings
 )
 target_link_libraries(emv_strings
 	PRIVATE
+		iso8825 # Used by emv_strings.c
 		iso7816 # Used by emv_strings.c
 		emv # Used by emv_strings.c
 		json-c::json-c # Used by isocodes_lookup.c

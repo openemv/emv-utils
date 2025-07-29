@@ -59,7 +59,7 @@ struct emv_tlv_list_t {
 };
 
 /// Static initialiser for @ref emv_tlv_t
-#define EMV_TLV_INIT ((struct emv_tlv_t){ 0, 0, NULL, NULL })
+#define EMV_TLV_INIT ((struct emv_tlv_t){ { { 0, 0, NULL, 0 } }, NULL })
 
 /// Static initialiser for @ref emv_tlv_list_t
 #define EMV_TLV_LIST_INIT ((struct emv_tlv_list_t){ NULL, NULL })
@@ -101,6 +101,28 @@ int emv_tlv_list_push(
 	unsigned int length,
 	const uint8_t* value,
 	uint8_t flags
+);
+
+/**
+ * Push encoded ASN.1 object on to the back of an EMV TLV list.
+ *
+ * This function will create an EMV TLV field consisting of:
+ * - An outer constructed sequence (0x30) field
+ * - The provided @p oid as the first inner subfield
+ * - The provided @p ber_bytes as the remaining subfield(s)
+ * Also see @ref iso8825_ber_asn1_object_decode().
+ *
+ * @param list EMV TLV list
+ * @param oid Decoded object identifier (OID)
+ * @param ber_length Length of remaining BER encoded subfields
+ * @param ber_bytes Remaining BER encoded subfields
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_tlv_list_push_asn1_object(
+	struct emv_tlv_list_t* list,
+	const struct iso8825_oid_t* oid,
+	unsigned int ber_length,
+	const uint8_t* ber_bytes
 );
 
 /**

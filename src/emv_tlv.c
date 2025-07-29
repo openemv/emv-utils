@@ -155,6 +155,79 @@ int emv_tlv_list_push(
 	return 0;
 }
 
+int emv_tlv_list_push_asn1_object(
+	struct emv_tlv_list_t* list,
+	const struct iso8825_oid_t* oid,
+	unsigned int ber_length,
+	const uint8_t* ber_bytes
+) {
+	int r;
+	size_t encoded_oid_length;
+	size_t max_length;
+	uint8_t* value = NULL;
+
+	if (!emv_tlv_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (!oid || oid->length < 2) {
+		return -2;
+	}
+
+	if (ber_length && !ber_bytes) {
+		return -3;
+	}
+
+	// Assume a maximum of 5 octets per OID subidentifier
+	encoded_oid_length = oid->length * 5;
+	max_length = 1 + 1 + encoded_oid_length + ber_length;
+	value = malloc(max_length);
+
+	// Encode OID
+	value[0] = ASN1_OBJECT_IDENTIFIER;
+	r = iso8825_ber_oid_encode(oid, value + 2, &encoded_oid_length);
+	if (r) {
+		r = -5;
+		goto exit;
+	}
+	if (encoded_oid_length > 127) {
+		r = -6;
+		goto exit;
+	}
+	value[1] = encoded_oid_length;
+
+	// Copy remaining BER encoded bytes without validation
+	if (max_length - 2 - encoded_oid_length < ber_length) {
+		r = -7;
+		goto exit;
+	}
+	memcpy(value + 2 + encoded_oid_length, ber_bytes, ber_length);
+
+	r = emv_tlv_list_push(
+		list,
+		ISO8825_BER_CONSTRUCTED | ASN1_SEQUENCE,
+		2 + encoded_oid_length + ber_length,
+		value,
+		ISO8825_BER_CONSTRUCTED
+	);
+	if (r) {
+		r = -8;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	if (value) {
+		free(value);
+		value = NULL;
+	}
+
+	return r;
+}
+
 struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list)
 {
 	struct emv_tlv_t* tlv = NULL;

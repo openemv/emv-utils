@@ -837,6 +837,80 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_padding_test4_regex}
 	)
 
+	# Test decoding of various ASN.1 types
+	add_test(NAME emv_decode_asn1_test1
+		COMMAND emv-decode --tlv 305D0101000101FF0203FFFFFF02037FFFFF0500060388370306092A864886F70D01010B0900090140090141090142090143090380FC01090580FE5555550908032B312E30652D330A03FFFFFE0A037FFFFE0D04C27B03021A054A6F6E6573
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_asn1_test1_regex
+		"^30 \\| ASN.1 Sequence : \\[93\\][\r\n]"
+		"  01 \\| ASN.1 Boolean : \\[1\\] 00 \\(False\\)[\r\n]"
+		"  01 \\| ASN.1 Boolean : \\[1\\] FF \\(True\\)[\r\n]"
+		"  02 \\| ASN.1 Integer : \\[3\\] FF FF FF \\(-1\\)[\r\n]"
+		"  02 \\| ASN.1 Integer : \\[3\\] 7F FF FF \\(8388607\\)[\r\n]"
+		"  05 \\| ASN.1 Null : \\[0\\][\r\n]"
+		"  06 \\| ASN.1 Object Identifier \\(OID\\) : \\[3\\] 88 37 03 \\(2\\.999\\.3\\)[\r\n]" # See ISO 8825-1:2021, 8.19.5
+		"  06 \\| ASN.1 Object Identifier \\(OID\\) : \\[9\\] 2A 86 48 86 F7 0D 01 01 0B \\(1\\.2\\.840\\.113549\\.1\\.1\\.11 sha256WithRSAEncryption\\)[\r\n]"
+		"  09 \\| ASN.1 Real : \\[0\\] \\(0\\)[\r\n]"
+		"  09 \\| ASN.1 Real : \\[1\\] 40 \\(PLUS-INFINITY\\)[\r\n]"
+		"  09 \\| ASN.1 Real : \\[1\\] 41 \\(MINUS-INFINITY\\)[\r\n]"
+		"  09 \\| ASN.1 Real : \\[1\\] 42 \\(NOT-A-NUMBER\\)[\r\n]"
+		"  09 \\| ASN.1 Real : \\[1\\] 43 \\(-0\\)[\r\n]"
+		"  09 \\| ASN.1 Real : \\[3\\] 80 FC 01 \\(0x01 x 2\\^-4\\)[\r\n]"
+		"  09 \\| ASN.1 Real : \\[5\\] 80 FE 55 55 55 \\(0x555555 x 2\\^-2\\)[\r\n]"
+		"  09 \\| ASN.1 Real : \\[8\\] 03 2B 31 2E 30 65 2D 33 \\(\\+1\\.0e-3\\)[\r\n]"
+		"  0A \\| ASN.1 Enumerated : \\[3\\] FF FF FE \\(-2\\)[\r\n]"
+		"  0A \\| ASN.1 Enumerated : \\[3\\] 7F FF FE \\(8388606\\)[\r\n]"
+		"  0D \\| ASN.1 Relative object identifier : \\[4\\] C2 7B 03 02 \\(\\.8571\\.3\\.2\\)[\r\n]" # See ISO 8825-1:2021, 8.20.5
+		"  1A \\| ASN.1 Visible \\(ISO 646\\) string : \\[5\\] 4A 6F 6E 65 73 \"Jones\"[\r\n]$" # See ISO 8825-1:2021, 8.23.5.4
+	)
+	set_tests_properties(emv_decode_asn1_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_asn1_test1_regex}
+	)
+
+	# Test decoding of ASN.1 objects as BER
+	add_test(NAME emv_decode_asn1_test2
+		COMMAND emv-decode --ber 301206035504030C0B6F70656E656D762E6F7267300D06092A864886F70D01010B0500301C060A2B810510864809180101060628CF04000102060628CC45010305
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_asn1_test2_regex
+		"^30 : \\[18\\][\r\n]"
+		"  06 : \\[3\\] 55 04 03 {2 5 4 3}[\r\n]"
+		"  0C : \\[11\\] 6F 70 65 6E 65 6D 76 2E 6F 72 67 \"openemv\\.org\"[\r\n]"
+		"30 : \\[13\\][\r\n]"
+		"  06 : \\[9\\] 2A 86 48 86 F7 0D 01 01 0B {1 2 840 113549 1 1 11}[\r\n]"
+		"  05 : \\[0\\][\r\n]"
+		"30 : \\[28\\][\r\n]"
+		"  06 : \\[10\\] 2B 81 05 10 86 48 09 18 01 01 {1 3 133 16 840 9 24 1 1}[\r\n]"
+		"  06 : \\[6\\] 28 CF 04 00 01 02 {1 0 10116 0 1 2}[\r\n]"
+		"  06 : \\[6\\] 28 CC 45 01 03 05 {1 0 9797 1 3 5}[\r\n]$"
+
+	)
+	set_tests_properties(emv_decode_asn1_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_asn1_test2_regex}
+	)
+
+	# Test fancy decoding of ASN.1 objects
+	add_test(NAME emv_decode_asn1_test3
+		COMMAND emv-decode --tlv 301206035504030C0B6F70656E656D762E6F7267300D06092A864886F70D01010B0500301C060A2B810510864809180101060628CF04000102060628CC45010305
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_asn1_test3_regex
+		"^30 \\| ASN\\.1 Object \\(2\\.5\\.4\\.3 commonName\\) : \\[18\\][\r\n]"
+		"  0C \\| ASN\\.1 UTF-8 string : \\[11\\] 6F 70 65 6E 65 6D 76 2E 6F 72 67 \"openemv\\.org\"[\r\n]"
+		"30 \\| ASN\\.1 Object \\(1\\.2\\.840\\.113549\\.1\\.1\\.11 sha256WithRSAEncryption\\) : \\[13\\][\r\n]"
+		"  05 \\| ASN\\.1 Null : \\[0\\][\r\n]"
+		"30 \\| ASN\\.1 Object \\(1\\.3\\.133\\.16\\.840\\.9\\.24\\.1\\.1 dukpt_aes128\\) : \\[28\\][\r\n]"
+		"  06 \\| ASN\\.1 Object Identifier \\(OID\\) : \\[6\\] 28 CF 04 00 01 02 \\(1\\.0\\.10116\\.0\\.1\\.2 cbc\\)[\r\n]"
+		"  06 \\| ASN\\.1 Object Identifier \\(OID\\) : \\[6\\] 28 CC 45 01 03 05 \\(1\\.0\\.9797\\.1\\.3\\.5 cmac\\)[\r\n]$"
+	)
+	set_tests_properties(emv_decode_asn1_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_asn1_test3_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

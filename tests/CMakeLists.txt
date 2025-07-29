@@ -90,6 +90,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_terminal_risk_management_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_terminal_risk_management_test emv_terminal_risk_management_test)
 
+	add_executable(iso8825_oid_encode_test iso8825_oid_encode_test.c)
+	target_link_libraries(iso8825_oid_encode_test PRIVATE iso8825 print_helpers)
+	add_test(iso8825_oid_encode_test iso8825_oid_encode_test)
+
 	add_executable(isocodes_test isocodes_test.c)
 	find_package(Intl)
 	if(Intl_FOUND)

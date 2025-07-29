@@ -35,7 +35,8 @@ static bool parseData(
 	const void* ptr,
 	unsigned int len,
 	bool ignorePadding,
-	bool decode,
+	bool decodeFields,
+	bool decodeObjects,
 	unsigned int* totalValidBytes
 )
 {
@@ -58,15 +59,16 @@ static bool parseData(
 			*totalValidBytes,
 			fieldLength,
 			&tlv,
-			decode
+			decodeFields,
+			decodeObjects
 		);
 
 		if (iso8825_ber_is_constructed(&tlv)) {
 			// If the field is constructed, only consider the tag and length
 			// to be valid until the value has been parsed. The fields inside
 			// the value will be added when they are parsed.
-			validBytes += (r - tlv.length);
-			*totalValidBytes += (r - tlv.length);
+			validBytes += (fieldLength - tlv.length);
+			*totalValidBytes += (fieldLength - tlv.length);
 
 			// Recursively parse constructed fields
 			bool valid;
@@ -75,7 +77,8 @@ static bool parseData(
 				tlv.value,
 				tlv.length,
 				ignorePadding,
-				decode,
+				decodeFields,
+				decodeObjects,
 				totalValidBytes
 			);
 			if (!valid) {
@@ -87,11 +90,26 @@ static bool parseData(
 			}
 			validBytes += tlv.length;
 
+			// Attempt to decode field as ASN.1 object
+			r = iso8825_ber_asn1_object_decode(&tlv, NULL);
+			if (r > 0) {
+				// For ASN.1 objects, hide the OID (first child) because its
+				// value string is already reflected in the value string of the
+				// current ASN.1 object.
+				if (item->child(0) &&
+					item->child(0)->type() == EmvTreeItemType
+				) {
+					EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item->child(0));
+					etItem->setHideWhenObject(true);
+					etItem->render(decodeFields, decodeObjects);
+				}
+			}
+
 		} else {
 			// If the field is not constructed, consider all of the bytes to
 			// be valid BER encoded data
-			validBytes += r;
-			*totalValidBytes += r;
+			validBytes += fieldLength;
+			*totalValidBytes += fieldLength;
 		}
 	}
 	if (r < 0) {
@@ -142,6 +160,7 @@ unsigned int EmvTreeView::populateItems(const QByteArray& data)
 		data.size(),
 		m_ignorePadding,
 		m_decodeFields,
+		m_decodeObjects,
 		&totalValidBytes
 	);
 
@@ -163,7 +182,28 @@ void EmvTreeView::setDecodeFields(bool enabled)
 		QTreeWidgetItem* item = *itr;
 		if (item->type() == EmvTreeItemType) {
 			EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
-			etItem->render(enabled);
+			etItem->render(m_decodeFields, m_decodeObjects);
+		}
+		++itr;
+	}
+}
+
+void EmvTreeView::setDecodeObjects(bool enabled)
+{
+	if (m_decodeObjects == enabled) {
+		// No change
+		return;
+	}
+	m_decodeObjects = enabled;
+
+	// Visit all EMV children recursively and re-render them according to the
+	// current state
+	QTreeWidgetItemIterator itr (this);
+	while (*itr) {
+		QTreeWidgetItem* item = *itr;
+		if (item->type() == EmvTreeItemType) {
+			EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
+			etItem->render(m_decodeFields, m_decodeObjects);
 		}
 		++itr;
 	}

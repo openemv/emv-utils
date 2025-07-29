@@ -113,9 +113,9 @@ enum emv_format_t {
  * @remark See ISO 7816-4:2005, 5.2.4
  */
 struct emv_tlv_info_t {
-	const char* tag_name;                       ///< Tag name, if available. Otherwise NULL.
-	const char* tag_desc;                       ///< Tag description, if available. Otherwise NULL.
-	enum emv_format_t format;                   ///< Value format. @see emv_format_t
+	const char* tag_name;       ///< Tag name, if available. Otherwise NULL.
+	const char* tag_desc;       ///< Tag description, if available. Otherwise NULL.
+	enum emv_format_t format;   ///< Value format. @see emv_format_t
 };
 
 /**

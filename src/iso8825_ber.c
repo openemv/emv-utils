@@ -1,9 +1,9 @@
 /**
  * @file iso8825_ber.c
  * @brief Basic Encoding Rules (BER) implementation
- *        (see ISO/IEC 8825-1 or ITU-T Rec X.690 07/2002)
+ *        (see ISO/IEC 8825-1:2021 or Rec. ITU-T X.690 02/2021)
  *
- * Copyright 2021 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -45,7 +45,7 @@ int iso8825_ber_tag_decode(const void* ptr, size_t len, unsigned int* tag)
 	// Decode tag octets
 	if ((buf[offset] & ISO8825_BER_TAG_NUMBER_MASK) == ISO8825_BER_TAG_HIGH_FORM) {
 		// High tag number form
-		// See ISO 8825-1:2003, 8.1.2.4
+		// See ISO 8825-1:2021, 8.1.2.4
 		*tag = buf[offset];
 		++offset;
 
@@ -55,25 +55,26 @@ int iso8825_ber_tag_decode(const void* ptr, size_t len, unsigned int* tag)
 				return -3;
 			}
 
+			if (offset >= sizeof(*tag)) {
+				// Decoded tag field size is too small for next high tag
+				// number form octet
+				return -4;
+			}
+
 			// Shift next octet into tag
 			*tag <<= 8;
 			*tag |= buf[offset];
 			++offset;
 
 			// Read octets while highest bit is set
-			// See ISO 8825-1:2003, 8.1.2.4.2
+			// See ISO 8825-1:2021, 8.1.2.4.2
 			if (!(buf[offset-1] & ISO8825_BER_TAG_HIGH_FORM_MORE)) {
 				break;
-			}
-
-			if (offset >= sizeof(*tag)) {
-				// Decoded tag field size is too small for next high tag
-				// number form octet
-				return -4;
 			}
 		} while (1);
 	} else {
 		// Low tag number form
+		// See ISO 8825-1:2021, 8.1.2.2
 		*tag = buf[offset];
 		++offset;
 	}
@@ -117,6 +118,7 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 	// Decode length octets
 	if (buf[offset] == ISO8825_BER_LEN_INDEFINITE_FORM) {
 		// Indefinite length form
+		// See ISO 8825-1:2021, 8.1.3.6
 		++offset;
 		tlv->length = 0;
 		tlv->value = &buf[offset];
@@ -141,7 +143,8 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 				return -8;
 			}
 
-			// Check for end-of-content
+			// Check for end-of-content but intentionally ignore length
+			// See ISO 8825-1:2021, 8.1.5
 			if (inner_tlv.tag == ASN1_EOC) {
 				break;
 			}
@@ -153,6 +156,7 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 
 	} else if (buf[offset] & ISO8825_BER_LEN_LONG_FORM) {
 		// Long length form
+		// See ISO 8825-1:2021, 8.1.3.5
 
 		// Remaining bits indicate number of length octets
 		size_t octet_count = buf[offset] & ISO8825_BER_LEN_LONG_FORM_COUNT_MASK;
@@ -170,10 +174,10 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 		}
 
 		// Shift length octets into length field
-		// See ISO 8825-1:2003, 8.1.3.5
 		tlv->length = 0;
 		for (size_t i = 0; i < octet_count; ++i) {
 			// Each subsequent octet is the next 8 bits of the length value
+			// See ISO 8825-1:2021, 8.1.3.5
 			tlv->length <<= 8;
 			tlv->length |= buf[offset];
 			++offset;
@@ -181,7 +185,7 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 	} else {
 		// Short length form
 		// Remaining bits indicate number of content octets
-		// See ISO 8825-1:2003, 8.1.3.4
+		// See ISO 8825-1:2021, 8.1.3.4
 		tlv->length = buf[offset];
 		++offset;
 	}
@@ -210,22 +214,30 @@ bool iso8825_ber_is_string(const struct iso8825_tlv_t* tlv)
 	switch (tlv->tag) {
 		// ASN.1 character string types, as well as derived types that can
 		// also be interpreted as strings
-		// See ISO 8824-1:2003, 37.1, table 6
-		// See ISO 8824-1:2003, Annex F
-		case ASN1_OBJECT_DESCRIPTOR: // See ISO 8824-1:2003, 44.3
+		// See ISO 8824-1:2021, 41.1, table 8
+		// See ISO 8824-1:2021, Annex H
+		case ASN1_OBJECT_DESCRIPTOR: // See ISO 8824-1:2021, 48.3
 		case ASN1_UTF8STRING:
+		case ASN1_TIME: // See ISO 8824-1:2021, 38.1.3
 		case ASN1_NUMERICSTRING:
 		case ASN1_PRINTABLESTRING:
-		case ASN1_T61STRING:
+		case ASN1_TELETEXSTRING:
 		case ASN1_VIDEOTEXSTRING:
 		case ASN1_IA5STRING:
-		case ASN1_UTCTIME: // See ISO 8824-1:2003, 43.3
-		case ASN1_GENERALIZEDTIME: // See ISO 8824-1:2003, 42.3
+		case ASN1_UTCTIME: // See ISO 8824-1:2021, 47.3
+		case ASN1_GENERALIZEDTIME: // See ISO 8824-1:2021, 46.3
 		case ASN1_GRAPHICSTRING:
-		case ASN1_ISO646STRING:
+		case ASN1_VISIBLESTRING:
 		case ASN1_GENERALSTRING:
 		case ASN1_UNIVERSALSTRING:
+		case ASN1_CHARACTERSTRING: // See ISO 824-1:2021, 44.1
 		case ASN1_BMPSTRING:
+		case ASN1_DATE: // See ISO 8824-1:2021, 38.4.1
+		case ASN1_TIME_OF_DAY: // See ISO 8824-1:2021, 38.4.2
+		case ASN1_DATE_TIME: // See ISO 8824-1:2021, 38.4.3
+		case ASN1_DURATION: // See ISO 8824-1:2021, 38.4.4
+		case ASN1_OID_IRI: // See ISO 8825-1:2021, 8.21.2
+		case ASN1_RELATIVE_OID_IRI: // See ISO 8825-1:2021, 8.22.2
 			return true;
 
 		default:
@@ -267,46 +279,30 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
 {
 	const uint8_t* buf = ptr;
 
-	memset(oid, 0, sizeof(*oid));
-
 	if (!ptr || !oid || !len) {
 		return -1;
 	}
+	memset(oid, 0, sizeof(*oid));
 
 	if (len >= sizeof(oid->value)) {
 		// OID too long
 		return -2;
 	}
 
-	// See ISO 8825-1:2003, 8.19.4
-	if (buf[0] < 40) { // ITU-T
-		oid->value[0] = ASN1_OID_ITU_T;
-		oid->value[1] = buf[0];
-	} else if (buf[0] < 80) { // ISO
-		oid->value[0] = ASN1_OID_ISO;
-		oid->value[1] = buf[0] - 40;
-	} else { // joint-iso-itu-t
-		oid->value[0] = ASN1_OID_JOINT;
-		oid->value[1] = buf[0] - 80;
-	}
-	oid->length = 2;
-	++buf;
-	--len;
-
-	// See ISO 8825-1:2003, 8.19
+	// See ISO 8825-1:2021, 8.19
 	while (len && oid->length < sizeof(oid->value)) {
 		uint32_t subid = 0;
 
 		// Decode multibyte subidentifier
 		while (len) {
 			// Determine whether it is the last octet of the subidentifier
-			// See ISO 8825-1:2003, 8.19.2
-			bool last_octet = !(*buf & 0x80); // TODO: use define
+			// See ISO 8825-1:2021, 8.19.2
+			bool last_octet = !(*buf & 0x80);
 
 			// Extract the next 7 bits of the subidentifier
-			// See ISO 8825-1:2003, 8.19.2
+			// See ISO 8825-1:2021, 8.19.2
 			subid <<= 7;
-			subid |= *buf & 0x7f; // TODO: use define
+			subid |= *buf & 0x7F;
 			++buf;
 			--len;
 
@@ -315,9 +311,226 @@ int iso8825_ber_oid_decode(const void* ptr, size_t len, struct iso8825_oid_t* oi
 		}
 
 		// Store subidentifier
-		oid->value[oid->length] = subid;
-		++oid->length;
+		if (oid->length == 0) {
+			// First subidentifier is derived from the first two object
+			// identifier components
+			// See ISO 8825-1:2021, 8.19.4
+			if (subid < 40) { // ITU-T
+				oid->value[0] = ASN1_OID_ITU_T;
+				oid->value[1] = subid;
+			} else if (subid < 80) { // ISO
+				oid->value[0] = ASN1_OID_ISO;
+				oid->value[1] = subid - 40;
+			} else { // joint-iso-itu-t
+				oid->value[0] = ASN1_OID_JOINT;
+				oid->value[1] = subid - 80;
+			}
+			oid->length = 2;
+		} else {
+			// Other subidentifier
+			oid->value[oid->length] = subid;
+			++oid->length;
+		}
+	}
+
+	// Confirm that entire OID was decoded
+	if (len) {
+		// OID too long
+		return -3;
 	}
 
 	return 0;
+}
+
+int iso8825_ber_oid_encode(const struct iso8825_oid_t* oid, void* ptr, size_t* len)
+{
+	uint8_t* buf = ptr;
+	size_t remaining_len;
+
+	if (!ptr || !oid || !len) {
+		return -1;
+	}
+	remaining_len = *len;
+	*len = 0;
+
+	if (oid->length < 2) {
+		return -2;
+	}
+
+	if (remaining_len < oid->length) {
+		// OID too long for output buffer
+		return -3;
+	}
+
+	// First subidentifier is derived from the first two object identifier
+	// components
+	// See ISO 8825-1:2021, 8.19.4
+	buf[0] = oid->value[0] * 40 + oid->value[1];
+	++*len;
+	--remaining_len;
+
+	// Encode remaining subidentifiers
+	// See ISO 8825-1:2021, 8.19.5
+	for (unsigned int i = 2; i < oid->length; ++i) {
+		uint32_t subid = oid->value[i];
+
+		// Find encoded octet length of subidentifier (assume 32-bit)
+		unsigned int subid_octets = 5;
+		unsigned int subid_shift = 28;
+		while (subid_octets && (subid >> subid_shift) == 0) {
+			subid_octets -= 1;
+			subid_shift -= 7;
+		}
+
+		if (subid_octets == 0) {
+			// Encode zero subidentifier using a single octet
+			subid_octets = 1;
+		}
+
+		if (subid_octets > remaining_len) {
+			// Not enough space in output buffer
+			return -4;
+		}
+
+		// Encode multibyte subidentifier
+		while (subid_octets--) {
+			// Note that subid_octets has already been decremented above
+			// and can be multiplied by 7 for the shift value
+			buf[*len] = (subid >> (subid_octets * 7)) & 0x7F;
+
+			// Set the highest bit for all but the last octet
+			if (subid_octets) {
+				buf[*len] |= 0x80;
+			}
+
+			// Advance
+			++*len;
+			--remaining_len;
+		}
+	}
+
+	return 0;
+}
+
+int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_oid_t* rel_oid)
+{
+	const uint8_t* buf = ptr;
+
+	if (!ptr || !rel_oid || !len) {
+		return -1;
+	}
+	memset(rel_oid, 0, sizeof(*rel_oid));
+
+	if (len > sizeof(rel_oid->value)) {
+		// RELATIVE-OID too long
+		return -2;
+	}
+
+	// See ISO 8825-1:2021, 8.20
+	while (len && rel_oid->length < sizeof(rel_oid->value)) {
+		uint32_t subid = 0;
+
+		// Decode multibyte subidentifier
+		while (len) {
+			// Determine whether it is the last octet of the subidentifier
+			// See ISO 8825-1:2021, 8.20.2
+			bool last_octet = !(*buf & 0x80);
+
+			// Extract the next 7 bits of the subidentifier
+			// See ISO 8825-1:2021, 8.20.2
+			subid <<= 7;
+			subid |= *buf & 0x7F;
+			++buf;
+			--len;
+
+			if (last_octet)
+				break;
+		}
+
+		// Store subidentifier
+		rel_oid->value[rel_oid->length] = subid;
+		++rel_oid->length;
+	}
+
+	// Confirm that entire RELATIVE-OID was decoded
+	if (len) {
+		// RELATIVE-OID too long
+		return -3;
+	}
+
+	return 0;
+}
+
+int iso8825_ber_asn1_object_decode(
+	const struct iso8825_tlv_t* tlv,
+	struct iso8825_oid_t* oid
+)
+{
+	int r;
+	struct iso8825_tlv_t oid_tlv;
+	struct iso8825_tlv_t other_tlv;
+	unsigned int offset;
+
+	if (!tlv || !tlv->length || !tlv->value) {
+		return -1;
+	}
+
+	if (tlv->tag != (ISO8825_BER_CONSTRUCTED | ASN1_SEQUENCE)) {
+		// Type is not a constructed sequence field
+		return 0;
+	}
+	if (tlv->length < 6) { // OID TLV of 4 bytes + other TLV of 2 bytes
+		// Length too short to contain OID subfield and another subfield
+		return 0;
+	}
+	if (tlv->value[0] != ASN1_OBJECT_IDENTIFIER) {
+		// First subfield is not an OID
+		return 0;
+	}
+
+	// Decode first subfield
+	r = iso8825_ber_decode(tlv->value, tlv->length, &oid_tlv);
+	if (r < 0) {
+		// BER decoding error
+		return -2;
+	}
+	if (r > tlv->length) {
+		// Unknown BER decoding anomaly
+		return -3;
+	}
+	if (oid_tlv.tag != ASN1_OBJECT_IDENTIFIER) {
+		// First subfield is not an OID
+		return 0;
+	}
+	if (r == tlv->length) {
+		// Constructed field only contains single subfield
+		return 0;
+	}
+	// Remember offset of second field
+	offset = r;
+
+	// Decode second subfield
+	r = iso8825_ber_decode(tlv->value + r, tlv->length, &other_tlv);
+	if (r < 0) {
+		// BER decoding error
+		return -4;
+	}
+	if (r > tlv->length) {
+		// Unknown BER decoding anomaly
+		return -5;
+	}
+	if (r == 0) {
+		// No second subfield
+		return 0;
+	}
+
+	if (oid) {
+		r = iso8825_ber_oid_decode(oid_tlv.value, oid_tlv.length, oid);
+		if (r) {
+			// OID decoding error
+			return -6;
+		}
+	}
+
+	return offset;
 }

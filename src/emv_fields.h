@@ -54,7 +54,6 @@ __BEGIN_DECLS
 #define EMV_PKEY_HASH_SHA3_256                                  (0x04) ///< SHA-3 256
 #define EMV_PKEY_HASH_SHA3_512                                  (0x05) ///< SHA-3 512
 #define EMV_PKEY_HASH_SM3                                       (0x80) ///< SM3
-
 /// @}
 
 /**
