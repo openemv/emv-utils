@@ -257,7 +257,7 @@ void emv_debug_internal(
  * @param buf_len Length of debug event data in bytes
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_trace_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_TRACE, EMV_DEBUG_TYPE_DATA, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
+#define emv_debug_trace_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_TRACE, EMV_DEBUG_TYPE_DATA, "%s[%u]: "fmt, buf, buf_len, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
 
 #else // EMV_DEBUG_ENABLED && !EMV_DEBUG_TRACE_DISABLED
 #define emv_debug_trace_msg(...) do {} while (0)

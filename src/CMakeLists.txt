@@ -287,6 +287,10 @@ add_library(emv
 	emv_oda.c
 	emv_date.c
 )
+set_property(
+	SOURCE emv_debug.c
+	APPEND PROPERTY COMPILE_DEFINITIONS CONFIG_SRC_BASE="${CMAKE_SOURCE_DIR}"
+)
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv.h
 	emv_tags.h
