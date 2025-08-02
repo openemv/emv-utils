@@ -262,7 +262,7 @@ int main(void)
 	uint16_t sw1sw2;
 
 	// Enable debug output
-	r = emv_debug_init(EMV_DEBUG_SOURCE_ALL, EMV_DEBUG_ALL, &print_emv_debug);
+	r = emv_debug_init(EMV_DEBUG_SOURCE_ALL, EMV_DEBUG_LEVEL_ALL, &print_emv_debug);
 	if (r) {
 		fprintf(stderr, "emv_debug_init() failed; r=%d\n", r);
 		return 1;

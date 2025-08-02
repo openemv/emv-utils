@@ -135,7 +135,7 @@ static const char* debug_level_str[] = {
 	"TRACE",
 	"ALL",
 };
-static enum emv_debug_level_t debug_level = EMV_DEBUG_INFO;
+static enum emv_debug_level_t debug_level = EMV_DEBUG_LEVEL_INFO;
 
 // Testing parameters
 static char* isocodes_path = NULL;

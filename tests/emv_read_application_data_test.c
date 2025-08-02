@@ -300,7 +300,7 @@ int main(void)
 
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
-		EMV_DEBUG_CARD,
+		EMV_DEBUG_LEVEL_CARD,
 		&print_emv_debug
 	);
 	if (r) {

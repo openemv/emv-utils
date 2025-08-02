@@ -204,7 +204,7 @@ int main(void)
 
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
-		EMV_DEBUG_CARD,
+		EMV_DEBUG_LEVEL_CARD,
 		&print_emv_debug
 	);
 	if (r) {
@@ -478,7 +478,7 @@ int main(void)
 	// Silence debugging logs for rebuilding candidate application list
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_NONE,
-		EMV_DEBUG_NONE,
+		EMV_DEBUG_LEVEL_NONE,
 		NULL
 	);
 	if (r) {
@@ -527,7 +527,7 @@ int main(void)
 	// Reset debuggin logs
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
-		EMV_DEBUG_CARD,
+		EMV_DEBUG_LEVEL_CARD,
 		&print_emv_debug
 	);
 	if (r) {

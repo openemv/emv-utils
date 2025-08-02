@@ -40,12 +40,12 @@ enum emv_debug_source_t {
 
 /// Debug event level in descending order of importance
 enum emv_debug_level_t {
-	EMV_DEBUG_NONE = 0,                         ///< No events. Can be passed to @ref emv_debug_init().
-	EMV_DEBUG_ERROR,                            ///< Error event
-	EMV_DEBUG_INFO,                             ///< Info event
-	EMV_DEBUG_CARD,                             ///< Card event
-	EMV_DEBUG_TRACE,                            ///< Software trace
-	EMV_DEBUG_ALL,                              ///< All events. Can be passed to @ref emv_debug_init().
+	EMV_DEBUG_LEVEL_NONE = 0,                   ///< No events. Can be passed to @ref emv_debug_init().
+	EMV_DEBUG_LEVEL_ERROR,                      ///< Error event
+	EMV_DEBUG_LEVEL_INFO,                       ///< Info event
+	EMV_DEBUG_LEVEL_CARD,                       ///< Card event
+	EMV_DEBUG_LEVEL_TRACE,                      ///< Software trace
+	EMV_DEBUG_LEVEL_ALL,                        ///< All events. Can be passed to @ref emv_debug_init().
 };
 
 /// Debug event content type
@@ -85,7 +85,7 @@ typedef void (*emv_debug_func_t)(
  * Initialise debug event function
  *
  * @param sources_mask Bitmask of debug sources to pass to event function. See @ref emv_debug_source_t
- * @param level Maximum debug level event to pass to event function
+ * @param level Maximum debug level event to pass to event function. See @ref emv_debug_level_t
  * @param func Callback function to use for debug events
  */
 int emv_debug_init(
@@ -134,7 +134,7 @@ void emv_debug_internal(
  * @param fmt Format string (printf-style)
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_error(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_ERROR, EMV_DEBUG_TYPE_MSG, fmt, NULL, 0, ##__VA_ARGS__); } while (0)
+#define emv_debug_error(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_ERROR, EMV_DEBUG_TYPE_MSG, fmt, NULL, 0, ##__VA_ARGS__); } while (0)
 
 /**
  * Emit debug info message
@@ -142,7 +142,7 @@ void emv_debug_internal(
  * @param fmt Format string (printf-style)
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_info(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_INFO, EMV_DEBUG_TYPE_MSG, fmt, NULL, 0, ##__VA_ARGS__); } while (0)
+#define emv_debug_info(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_INFO, EMV_DEBUG_TYPE_MSG, fmt, NULL, 0, ##__VA_ARGS__); } while (0)
 
 /**
  * Emit debug info message with binary data
@@ -152,7 +152,7 @@ void emv_debug_internal(
  * @param buf_len Length of debug event data in bytes
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_info_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_INFO, EMV_DEBUG_TYPE_DATA, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
+#define emv_debug_info_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_INFO, EMV_DEBUG_TYPE_DATA, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
 
 /**
  * Emit debug info message with ISO 8825-1 BER encoded (TLV) data
@@ -162,7 +162,7 @@ void emv_debug_internal(
  * @param buf_len Length of BER encoded data in bytes
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_info_tlv(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_INFO, EMV_DEBUG_TYPE_TLV, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
+#define emv_debug_info_tlv(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_INFO, EMV_DEBUG_TYPE_TLV, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
 
 #else // EMV_DEBUG_ENABLED
 #define emv_debug_error(fmt, ...) do {} while (0)
@@ -178,7 +178,7 @@ void emv_debug_internal(
  *
  * @param atr_info Pointer to parsed ATR info (@ref iso7816_atr_info_t)
  */
-#define emv_debug_atr_info(atr_info) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_CARD, EMV_DEBUG_TYPE_ATR, "ATR", atr_info, sizeof(*atr_info)); } while (0)
+#define emv_debug_atr_info(atr_info) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_CARD, EMV_DEBUG_TYPE_ATR, "ATR", atr_info, sizeof(*atr_info)); } while (0)
 
 #else // EMV_DEBUG_ENABLED && !EMV_DEBUG_CARD_DISABLED
 #define emv_debug_atr_info(atr_info) do {} while (0)
@@ -192,7 +192,7 @@ void emv_debug_internal(
  * @param fmt Format string (printf-style)
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_apdu(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_CARD, EMV_DEBUG_TYPE_MSG, fmt, NULL, 0, ##__VA_ARGS__); } while (0)
+#define emv_debug_apdu(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_CARD, EMV_DEBUG_TYPE_MSG, fmt, NULL, 0, ##__VA_ARGS__); } while (0)
 
 /**
  * Emit debug event with ISO 7816 C-APDU (command APDU) data
@@ -200,7 +200,7 @@ void emv_debug_internal(
  * @param buf C-APDU data
  * @param buf_len Length of C-APDU data in bytes
  */
-#define emv_debug_capdu(buf, buf_len) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_CARD, EMV_DEBUG_TYPE_CAPDU, "C-APDU", buf, buf_len); } while (0)
+#define emv_debug_capdu(buf, buf_len) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_CARD, EMV_DEBUG_TYPE_CAPDU, "C-APDU", buf, buf_len); } while (0)
 
 /**
  * Emit debug event with ISO 7816 R-APDU (response APDU) data
@@ -208,7 +208,7 @@ void emv_debug_internal(
  * @param buf R-APDU data
  * @param buf_len Length of R-APDU data in bytes
  */
-#define emv_debug_rapdu(buf, buf_len) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_CARD, EMV_DEBUG_TYPE_RAPDU, "R-APDU", buf, buf_len); } while (0)
+#define emv_debug_rapdu(buf, buf_len) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_CARD, EMV_DEBUG_TYPE_RAPDU, "R-APDU", buf, buf_len); } while (0)
 
 #else // EMV_DEBUG_ENABLED && !EMV_DEBUG_CARD_DISABLED && !EMV_DEBUG_APDU_DISABLED
 #define emv_debug_apdu(fmt, ...) do {} while (0)
@@ -224,7 +224,7 @@ void emv_debug_internal(
  * @param buf C-TPDU data
  * @param buf_len Length of C-TPDU data in bytes
  */
-#define emv_debug_ctpdu(buf, buf_len) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_CARD, EMV_DEBUG_TYPE_CTPDU, "C-TPDU", buf, buf_len); } while (0)
+#define emv_debug_ctpdu(buf, buf_len) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_CARD, EMV_DEBUG_TYPE_CTPDU, "C-TPDU", buf, buf_len); } while (0)
 
 /**
  * Emit debug event with ISO 7816 R-TPDU (response TPDU) data
@@ -232,7 +232,7 @@ void emv_debug_internal(
  * @param buf R-TPDU data
  * @param buf_len Length of R-TPDU data in bytes
  */
-#define emv_debug_rtpdu(buf, buf_len) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_CARD, EMV_DEBUG_TYPE_RTPDU, "R-TPDU", buf, buf_len); } while (0)
+#define emv_debug_rtpdu(buf, buf_len) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_CARD, EMV_DEBUG_TYPE_RTPDU, "R-TPDU", buf, buf_len); } while (0)
 
 #else // EMV_DEBUG_ENABLED && !EMV_DEBUG_CARD_DISABLED && !EMV_DEBUG_TPDU_DISABLED
 #define emv_debug_ctpdu(buf, buf_len) do {} while (0)
@@ -247,7 +247,7 @@ void emv_debug_internal(
  * @param fmt Format string (printf-style)
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_trace_msg(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_TRACE, EMV_DEBUG_TYPE_MSG, "%s[%u]: "fmt, NULL, 0, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
+#define emv_debug_trace_msg(fmt, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_TRACE, EMV_DEBUG_TYPE_MSG, "%s[%u]: "fmt, NULL, 0, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
 
 /**
  * Emit debug trace data
@@ -257,7 +257,7 @@ void emv_debug_internal(
  * @param buf_len Length of debug event data in bytes
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_trace_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_TRACE, EMV_DEBUG_TYPE_DATA, "%s[%u]: "fmt, buf, buf_len, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
+#define emv_debug_trace_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_TRACE, EMV_DEBUG_TYPE_DATA, "%s[%u]: "fmt, buf, buf_len, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
 
 #else // EMV_DEBUG_ENABLED && !EMV_DEBUG_TRACE_DISABLED
 #define emv_debug_trace_msg(...) do {} while (0)

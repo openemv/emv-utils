@@ -33,7 +33,7 @@
 #endif
 
 static unsigned int debug_sources_mask = EMV_DEBUG_SOURCE_NONE;
-static enum emv_debug_level_t debug_level = EMV_DEBUG_NONE;
+static enum emv_debug_level_t debug_level = EMV_DEBUG_LEVEL_NONE;
 static emv_debug_func_t debug_func = NULL;
 
 int emv_debug_init(

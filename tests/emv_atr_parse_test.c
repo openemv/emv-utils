@@ -42,7 +42,7 @@ int main(void)
 	uint8_t atr_t1_test[sizeof(complex_atr_t1_test)];
 
 	// Enable debug output
-	r = emv_debug_init(EMV_DEBUG_SOURCE_ALL, EMV_DEBUG_ALL, &print_emv_debug);
+	r = emv_debug_init(EMV_DEBUG_SOURCE_ALL, EMV_DEBUG_LEVEL_ALL, &print_emv_debug);
 	if (r) {
 		fprintf(stderr, "emv_debug_init() failed; r=%d\n", r);
 		return 1;

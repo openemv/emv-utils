@@ -1000,19 +1000,19 @@ void print_emv_debug_verbose(
 	}
 
 	switch (level) {
-		case EMV_DEBUG_ERROR:
+		case EMV_DEBUG_LEVEL_ERROR:
 			level_str = "ERROR";
 			break;
 
-		case EMV_DEBUG_INFO:
+		case EMV_DEBUG_LEVEL_INFO:
 			level_str = "INFO";
 			break;
 
-		case EMV_DEBUG_CARD:
+		case EMV_DEBUG_LEVEL_CARD:
 			level_str = "CARD";
 			break;
 
-		case EMV_DEBUG_TRACE:
+		case EMV_DEBUG_LEVEL_TRACE:
 			level_str = "TRACE";
 			break;
 
