@@ -52,7 +52,7 @@ enum emv_debug_level_t {
 enum emv_debug_type_t {
 	EMV_DEBUG_TYPE_MSG = 1,                     ///< Debug event contains only a string message and no data
 	EMV_DEBUG_TYPE_DATA,                        ///< Debug event contains binary data
-	EMV_DEBUG_TYPE_TLV,                         ///< Debug event contains ISO 8825-1 BER encoded data
+	EMV_DEBUG_TYPE_BER,                         ///< Debug event contains ISO 8825-1 BER encoded data
 	EMV_DEBUG_TYPE_ATR,                         ///< Debug event contains ISO 7816 Answer To Reset (ATR) data
 	EMV_DEBUG_TYPE_CAPDU,                       ///< Debug event contains ISO 7816 C-APDU (command APDU) data
 	EMV_DEBUG_TYPE_RAPDU,                       ///< Debug event contains ISO 7816 R-APDU (response APDU) data
@@ -162,13 +162,13 @@ void emv_debug_internal(
  * @param buf_len Length of BER encoded data in bytes
  * @param ... Variable arguments for @c fmt
  */
-#define emv_debug_info_tlv(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_INFO, EMV_DEBUG_TYPE_TLV, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
+#define emv_debug_info_ber(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_INFO, EMV_DEBUG_TYPE_BER, fmt, buf, buf_len, ##__VA_ARGS__); } while (0)
 
 #else // EMV_DEBUG_ENABLED
 #define emv_debug_error(fmt, ...) do {} while (0)
 #define emv_debug_info(fmt, ...) do {} while (0)
 #define emv_debug_info_data(fmt, buf, buf_len, ...) do {} while (0)
-#define emv_debug_info_tlv(fmt, buf, buf_len, ...) do {} while (0)
+#define emv_debug_info_ber(fmt, buf, buf_len, ...) do {} while (0)
 #endif // EMV_DEBUG_ENABLED
 
 #if defined(EMV_DEBUG_ENABLED) && !defined(EMV_DEBUG_CARD_DISABLED)

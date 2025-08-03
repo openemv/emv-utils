@@ -892,7 +892,7 @@ static void print_emv_debug_internal(
 		return;
 	} else {
 		switch (debug_type) {
-			case EMV_DEBUG_TYPE_TLV:
+			case EMV_DEBUG_TYPE_BER:
 				print_buf(str, buf, buf_len);
 				print_emv_buf(buf, buf_len, "  ", 1, false);
 				return;

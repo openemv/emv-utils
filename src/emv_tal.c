@@ -111,7 +111,7 @@ int emv_tal_read_pse(
 		return EMV_TAL_RESULT_PSE_SELECT_FAILED;
 	}
 
-	emv_debug_info_tlv("FCI", fci, fci_len);
+	emv_debug_info_ber("FCI", fci, fci_len);
 
 	// Parse File Control Information (FCI) provided by PSE DDF
 	// NOTE: FCI may contain padding (r > 0)
@@ -182,7 +182,7 @@ int emv_tal_read_pse(
 			continue;
 		}
 
-		emv_debug_info_tlv("AEF", aef_record, aef_record_len);
+		emv_debug_info_ber("AEF", aef_record, aef_record_len);
 
 		r = emv_tal_parse_aef_record(
 			&pse_tlv_list,
@@ -369,7 +369,7 @@ int emv_tal_find_supported_apps(
 			continue;
 		}
 
-		emv_debug_info_tlv("FCI", fci, fci_len);
+		emv_debug_info_ber("FCI", fci, fci_len);
 
 		// Extract FCI data
 		// See EMV 4.4 Book 1, 12.3.3, step 3
@@ -510,7 +510,7 @@ int emv_tal_select_app(
 		}
 	}
 
-	emv_debug_info_tlv("FCI", fci, fci_len);
+	emv_debug_info_ber("FCI", fci, fci_len);
 
 	// Parse FCI to confirm that selected application is valid
 	app = emv_app_create_from_fci(fci, fci_len);
@@ -607,7 +607,7 @@ int emv_tal_get_processing_options(
 		}
 	}
 
-	emv_debug_info_tlv("GPO response", gpo_response, gpo_response_len);
+	emv_debug_info_ber("GPO response", gpo_response, gpo_response_len);
 
 	// Determine GPO response format
 	r = iso8825_ber_decode(gpo_response, gpo_response_len, &gpo_tlv);
@@ -1029,7 +1029,7 @@ int emv_tal_get_data(
 		return EMV_TAL_RESULT_GET_DATA_FAILED;
 	}
 
-	emv_debug_info_tlv("GET DATA response", response, response_len);
+	emv_debug_info_ber("GET DATA response", response, response_len);
 
 	r = emv_tlv_parse(response, response_len, &response_list);
 	if (r) {
@@ -1114,7 +1114,7 @@ int emv_tal_internal_authenticate(
 		return EMV_TAL_ERROR_INT_AUTH_FAILED;
 	}
 
-	emv_debug_info_tlv("INTERNAL AUTHENTICATE response", response, response_len);
+	emv_debug_info_ber("INTERNAL AUTHENTICATE response", response, response_len);
 
 	// Determine response format
 	r = iso8825_ber_decode(response, response_len, &response_tlv);
@@ -1264,7 +1264,7 @@ int emv_tal_genac(
 		return EMV_TAL_ERROR_GENAC_FAILED;
 	}
 
-	emv_debug_info_tlv("GENAC response", response, response_len);
+	emv_debug_info_ber("GENAC response", response, response_len);
 
 	// Determine response format
 	r = iso8825_ber_decode(response, response_len, &response_tlv);
