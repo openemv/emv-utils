@@ -259,9 +259,20 @@ void emv_debug_internal(
  */
 #define emv_debug_trace_data(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_TRACE, EMV_DEBUG_TYPE_DATA, "%s[%u]: "fmt, buf, buf_len, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
 
+/**
+ * Emit debug trace message with ISO 8825-1 BER encoded (TLV) data
+ *
+ * @param fmt Format string (printf-style)
+ * @param buf BER encoded data
+ * @param buf_len Length of BER encoded data in bytes
+ * @param ... Variable arguments for @c fmt
+ */
+#define emv_debug_trace_ber(fmt, buf, buf_len, ...) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_TRACE, EMV_DEBUG_TYPE_BER, "%s[%u]: "fmt, buf, buf_len, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
+
 #else // EMV_DEBUG_ENABLED && !EMV_DEBUG_TRACE_DISABLED
 #define emv_debug_trace_msg(...) do {} while (0)
 #define emv_debug_trace_data(...) do {} while (0)
+#define emv_debug_trace_ber(...) do {} while (0)
 #endif // EMV_DEBUG_ENABLED && !EMV_DEBUG_TRACE_DISABLED
 
 __END_DECLS

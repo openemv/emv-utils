@@ -766,6 +766,7 @@ static int emv_tal_read_sfi_records(
 		size_t record_len = sizeof(record);
 		uint16_t sw1sw2;
 		bool record_oda = false;
+		struct emv_tlv_list_t record_list = EMV_TLV_LIST_INIT;
 
 		// READ RECORD
 		// See EMV 4.4 Book 3, 10.2
@@ -901,9 +902,13 @@ static int emv_tal_read_sfi_records(
 		// length should not be excluded during offline data authentication
 		// processing. This implementation therefore assumes that any record
 		// that has passed the preceding validations is suitable for parsing.
-		r = emv_tlv_parse(record, record_len, list);
+		r = emv_tlv_parse(record, record_len, &record_list);
 		if (r) {
 			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+
+			// Always cleanup record list
+			emv_tlv_list_clear(&record_list);
+
 			if (r < 0) {
 				// Internal error; terminate session
 				emv_debug_error("Internal error");
@@ -914,6 +919,19 @@ static int emv_tal_read_sfi_records(
 				emv_debug_error("Failed to parse application data record");
 				return EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED;
 			}
+		}
+		emv_debug_trace_ber("READ RECORD from SFI %u, record %u", record, record_len, afl_entry->sfi, record_number);
+
+		r = emv_tlv_list_append(list, &record_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+			// Always cleanup record list
+			emv_tlv_list_clear(&record_list);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_TAL_ERROR_INTERNAL;
 		}
 	}
 
