@@ -2,7 +2,7 @@
  * @file emv_debug_test.c
  * @brief Unit tests for EMV debug implementation
  *
- * Copyright 2023 Leon Lynch
+ * Copyright 2023, 2025 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,8 +29,8 @@
 int main(void)
 {
 	int r;
-	size_t asdf = 1337;
-	uint8_t foo[] = { 0xde, 0xad, 0xbe, 0xef };
+	size_t asdf __attribute__((unused)) = 1337;
+	uint8_t foo[] __attribute__((unused)) = { 0xde, 0xad, 0xbe, 0xef };
 
 	// Enable debug output
 	r = emv_debug_init(EMV_DEBUG_SOURCE_ALL, EMV_DEBUG_LEVEL_ALL, &print_emv_debug);
