@@ -1,0 +1,107 @@
+#!/bin/bash
+
+##############################################################################
+# Copyright 2025 Leon Lynch
+#
+# This file is licensed under the terms of the MIT license.
+# See LICENSE file.
+##############################################################################
+
+# Git pre-commit hook to validate copyright headers
+# Place this file at .git/hooks/pre-commit and make it executable
+
+set -e
+
+CURRENT_YEAR=$(date +%Y)
+EXIT_CODE=0
+
+# Function to check if a year range includes the current year
+check_year_range() {
+    local year_part="$1"
+
+    # Handle single year (e.g., "2023")
+    if [[ "$year_part" =~ ^[0-9]{4}$ ]]; then
+        if [ "$year_part" -eq "$CURRENT_YEAR" ]; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+
+    # Handle year range (e.g., "2021-2025" or "2023-2025")
+    if [[ "$year_part" =~ ^([0-9]{4})-([0-9]{4})$ ]]; then
+        local start_year="${BASH_REMATCH[1]}"
+        local end_year="${BASH_REMATCH[2]}"
+
+        if [ "$CURRENT_YEAR" -ge "$start_year" ] && [ "$CURRENT_YEAR" -le "$end_year" ]; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+
+    return 1
+}
+
+# Function to validate copyright header in staged file content
+validate_copyright() {
+    local file="$1"
+
+    # Get staged content of the file
+    local staged_content=$(git show ":$file" 2>/dev/null)
+
+    # Skip if we can't get staged content (deleted files, etc.)
+    if [ $? -ne 0 ] || [ -z "$staged_content" ]; then
+        return 0
+    fi
+
+    # Check if it's a binary file by looking at staged content
+    if echo "$staged_content" | head -1 | grep -qP '[\x00-\x08\x0E-\x1F\x7F]'; then
+        return 0
+    fi
+
+    # Look for copyright header in first 10 lines of staged content
+    local copyright_line=$(echo "$staged_content" | head -10 | grep -i "copyright" | head -1)
+
+    # If no copyright header found, that's fine
+    if [ -z "$copyright_line" ]; then
+        return 0
+    fi
+
+    # Extract year information from copyright line
+    local year_valid=false
+
+    # Extract all year patterns from the line
+    while IFS= read -r year_match; do
+        if [ -n "$year_match" ] && check_year_range "$year_match"; then
+            year_valid=true
+            break
+        fi
+    done < <(echo "$copyright_line" | grep -oE '[0-9]{4}(-[0-9]{4})?')
+
+    if [ "$year_valid" = true ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Get list of staged files (added, copied, modified, renamed)
+# Use git diff --cached to get only staged changes
+while IFS= read -r -d '' file; do
+    # Skip deleted files
+    if git diff --cached --name-status | grep -q "^D.*$file$"; then
+        continue
+    fi
+
+    if ! validate_copyright "$file"; then
+        EXIT_CODE=1
+    fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo "❌ Commit blocked: Some staged files have outdated copyright headers."
+    exit 1
+else
+    echo "✅ All copyright headers are up to date!"
+fi
