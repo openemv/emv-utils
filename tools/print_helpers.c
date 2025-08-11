@@ -776,6 +776,27 @@ static void print_emv_tlv_internal(
 	}
 }
 
+/**
+ * Print EMV TLV list (internal)
+ * @param list EMV TLV list object
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ * @param ignore_padding Ignore invalid data if it is likely DES or AES padding
+ */
+static void print_emv_tlv_list_internal(
+	const struct emv_tlv_list_t* list,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+)
+{
+	const struct emv_tlv_t* tlv;
+
+	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		print_emv_tlv_internal(tlv, prefix, depth, ignore_padding);
+	}
+}
+
 void print_emv_tlv(const struct emv_tlv_t* tlv)
 {
 	print_emv_tlv_internal(tlv, "  ", 0, false);
@@ -783,11 +804,7 @@ void print_emv_tlv(const struct emv_tlv_t* tlv)
 
 void print_emv_tlv_list(const struct emv_tlv_list_t* list)
 {
-	const struct emv_tlv_t* tlv;
-
-	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
-		print_emv_tlv_internal(tlv, "  ", 1, false);
-	}
+	print_emv_tlv_list_internal(list, "  ", 1, false);
 }
 
 void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int depth)
@@ -887,34 +904,38 @@ static void print_emv_debug_internal(
 	size_t buf_len
 )
 {
-	if (debug_type == EMV_DEBUG_TYPE_MSG) {
-		printf("%s\n", str);
-		return;
-	} else {
-		switch (debug_type) {
-			case EMV_DEBUG_TYPE_BER:
-				print_buf(str, buf, buf_len);
-				print_emv_buf(buf, buf_len, "  ", 1, false);
-				return;
+	switch (debug_type) {
+		case EMV_DEBUG_TYPE_MSG:
+			printf("%s\n", str);
+			return;
 
-			case EMV_DEBUG_TYPE_ATR:
-				print_atr(buf);
-				return;
+		case EMV_DEBUG_TYPE_BER:
+			print_buf(str, buf, buf_len);
+			print_emv_buf(buf, buf_len, "  ", 1, false);
+			return;
 
-			case EMV_DEBUG_TYPE_CAPDU:
-				printf("%s: ", str);
-				print_capdu(buf, buf_len);
-				return;
+		case EMV_DEBUG_TYPE_TLV_LIST:
+			printf("%s:\n", str);
+			print_emv_tlv_list_internal(buf, "  ", 1, false);
+			return;
 
-			case EMV_DEBUG_TYPE_RAPDU:
-				printf("%s: ", str);
-				print_rapdu(buf, buf_len);
-				return;
+		case EMV_DEBUG_TYPE_ATR:
+			print_atr(buf);
+			return;
 
-			default:
-				print_buf(str, buf, buf_len);
-				return;
-		}
+		case EMV_DEBUG_TYPE_CAPDU:
+			printf("%s: ", str);
+			print_capdu(buf, buf_len);
+			return;
+
+		case EMV_DEBUG_TYPE_RAPDU:
+			printf("%s: ", str);
+			print_rapdu(buf, buf_len);
+			return;
+
+		default:
+			print_buf(str, buf, buf_len);
+			return;
 	}
 }
 

@@ -636,8 +636,6 @@ int emv_tal_get_processing_options(
 			emv_debug_error("Invalid GPO response format 1 length of %u", gpo_tlv.length);
 			return EMV_TAL_ERROR_GPO_PARSE_FAILED;
 		}
-		emv_debug_info_data("AIP", gpo_tlv.value, 2);
-		emv_debug_info_data("AFL", gpo_tlv.value + 2, gpo_tlv.length - 2);
 
 		// Create Application Interchange Profile (field 82)
 		r = emv_tlv_list_push(
@@ -672,6 +670,8 @@ int emv_tal_get_processing_options(
 			r = EMV_TAL_ERROR_INTERNAL;
 			goto exit;
 		}
+
+		emv_debug_info_tlv_list("Extracted format 1 fields", &gpo_list);
 
 	} else if (gpo_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// GPO response format 2
@@ -1177,6 +1177,8 @@ int emv_tal_internal_authenticate(
 			goto exit;
 		}
 
+		emv_debug_info_tlv_list("Extracted format 1 fields", &response_list);
+
 	} else if (response_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// Response format 2
 		// See EMV 4.4 Book 3, 6.5.9.4
@@ -1379,6 +1381,8 @@ int emv_tal_genac(
 				goto exit;
 			}
 		}
+
+		emv_debug_info_tlv_list("Extracted format 1 fields", &response_list);
 
 	} else if (response_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// Response format 2
