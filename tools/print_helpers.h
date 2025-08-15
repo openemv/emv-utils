@@ -2,7 +2,7 @@
  * @file print_helpers.h
  * @brief Helper functions for command line output
  *
- * Copyright 2021-2022, 2024 Leon Lynch
+ * Copyright 2021-2022, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -33,6 +33,12 @@ struct iso7816_atr_info_t;
 struct emv_tlv_t;
 struct emv_tlv_list_t;
 struct emv_app_t;
+
+/**
+ * Set verbose flag for command line output functions
+ * @param enabled Boolean indicating whether verbose output should be enabled
+ */
+void print_set_verbose(bool enabled);
 
 /**
  * Print buffer as hex digits

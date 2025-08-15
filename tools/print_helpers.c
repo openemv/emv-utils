@@ -39,14 +39,11 @@
 #include <stdio.h>
 #include <string.h>
 
-static bool str_is_list(const char* str)
-{
-	if (!str || !str[0]) {
-		return false;
-	}
+static bool verbose_enabled = true;
 
-	// If the last character is a newline, assume it's a string list
-	return str[strlen(str) - 1] == '\n';
+void print_set_verbose(bool enabled)
+{
+	verbose_enabled = enabled;
 }
 
 void print_buf(const char* buf_name, const void* buf, size_t length)
@@ -492,6 +489,43 @@ void print_ber_buf(
 }
 
 /**
+ * Print BER value bytes and truncate if necessary (internal)
+ * @param value BER value bytes
+ * @param length Length of BER value bytes
+ */
+static void print_ber_value(const uint8_t* value, size_t length)
+{
+	if (verbose_enabled || length <= 16) {
+		for (size_t i = 0; i < length; ++i) {
+			printf(" %02X", value[i]);
+		}
+	} else {
+		for (size_t i = 0; i < 8; ++i) {
+			printf(" %02X", value[i]);
+		}
+		printf(" ...");
+		for (size_t i = length - 8; i < length; ++i) {
+			printf(" %02X", value[i]);
+		}
+	}
+}
+
+/**
+ * Determine whether value string provided by @ref emv_tlv_get_info() is a
+ * list of strings (internal)
+ * @param str Value string provided by @ref emv_tlv_get_info()
+ */
+static bool str_is_list(const char* str)
+{
+	if (!str || !str[0]) {
+		return false;
+	}
+
+	// If the last character is a newline, assume it's a string list
+	return str[strlen(str) - 1] == '\n';
+}
+
+/**
  * Print EMV TLV data (internal)
  * @param ptr EMV TLV data
  * @param len Length of EMV TLV data in bytes
@@ -588,9 +622,7 @@ static int print_emv_buf_internal(
 			valid_bytes += r;
 
 			// Print value bytes
-			for (size_t i = 0; i < tlv.length; ++i) {
-				printf(" %02X", tlv.value[i]);
-			}
+			print_ber_value(tlv.value, tlv.length);
 
 			// If the value string is empty or the value string is a list, end this
 			// line and continue on the next line. This implementation assumes that
@@ -741,9 +773,7 @@ static void print_emv_tlv_internal(
 
 	} else {
 		// Print value bytes
-		for (size_t i = 0; i < tlv->length; ++i) {
-			printf(" %02X", tlv->value[i]);
-		}
+		print_ber_value(tlv->value, tlv->length);
 
 		// If the value string is empty or the value string is a list, end this
 		// line and continue on the next line. This implementation assumes that
