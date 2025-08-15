@@ -689,8 +689,9 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 
 	# From Implementing American Express EMV Acceptance on a Terminal (Oct 2007), page 16, table 5
+	# Test with verbosity
 	add_test(NAME emv_decode_issuer_response_test4
-		COMMAND emv-decode --tlv 72459F18048000000086158424000210FEBF34F00B7CE770DC61DA847BFB1E59862504DA8E00200000000000000000420141035E031F020000000000000000AC7F4DF1D624A0ED
+		COMMAND emv-decode --verbose --tlv 72459F18048000000086158424000210FEBF34F00B7CE770DC61DA847BFB1E59862504DA8E00200000000000000000420141035E031F020000000000000000AC7F4DF1D624A0ED
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_issuer_response_test4_regex
@@ -704,19 +705,36 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test4_regex}
 	)
 
-	# From Implementing American Express EMV Acceptance on a Terminal (Oct 2007), page 17, table 6
+	# From Implementing American Express EMV Acceptance on a Terminal (Oct 2007), page 16, table 5
+	# Test without verbosity
 	add_test(NAME emv_decode_issuer_response_test5
-		COMMAND emv-decode --tlv 72179F180400004000860E04DA9F580900C7356286E3779889
+		COMMAND emv-decode --tlv 72459F18048000000086158424000210FEBF34F00B7CE770DC61DA847BFB1E59862504DA8E00200000000000000000420141035E031F020000000000000000AC7F4DF1D624A0ED
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_issuer_response_test5_regex
-		"^72 \\| Issuer Script Template 2 : \\[23\\][\r\n]"
-		"  9F18 \\| Issuer Script Identifier : \\[4\\] 00 00 40 00[\r\n]"
-		"  86 \\| Issuer Script Command : \\[14\\] 04 DA 9F 58 09 00 C7 35 62 86 E3 77 98 89 \\(PUT DATA for BER-TLV field 9F58\\)[\r\n]"
+		"^72 \\| Issuer Script Template 2 : \\[69\\][\r\n]"
+		"  9F18 \\| Issuer Script Identifier : \\[4\\] 80 00 00 00[\r\n]"
+		"  86 \\| Issuer Script Command : \\[21\\] 84 24 00 02 10 FE BF 34 \.\.\. DC 61 DA 84 7B FB 1E 59 \\(PIN CHANGE/UNBLOCK\\)[\r\n]"
+		"  86 \\| Issuer Script Command : \\[37\\] 04 DA 8E 00 20 00 00 00 \.\.\. AC 7F 4D F1 D6 24 A0 ED \\(PUT DATA for BER-TLV field 8E00\\)[\r\n]"
 	)
 	set_tests_properties(emv_decode_issuer_response_test5
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test5_regex}
+	)
+
+	# From Implementing American Express EMV Acceptance on a Terminal (Oct 2007), page 17, table 6
+	add_test(NAME emv_decode_issuer_response_test6
+		COMMAND emv-decode --tlv 72179F180400004000860E04DA9F580900C7356286E3779889
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_issuer_response_test6_regex
+		"^72 \\| Issuer Script Template 2 : \\[23\\][\r\n]"
+		"  9F18 \\| Issuer Script Identifier : \\[4\\] 00 00 40 00[\r\n]"
+		"  86 \\| Issuer Script Command : \\[14\\] 04 DA 9F 58 09 00 C7 35 62 86 E3 77 98 89 \\(PUT DATA for BER-TLV field 9F58\\)[\r\n]"
+	)
+	set_tests_properties(emv_decode_issuer_response_test6
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_issuer_response_test6_regex}
 	)
 
 	add_test(NAME emv_decode_9F27_test1
