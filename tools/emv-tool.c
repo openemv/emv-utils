@@ -769,6 +769,8 @@ int main(int argc, char** argv)
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 	}
 
+	print_set_verbose(debug_verbose);
+
 	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
