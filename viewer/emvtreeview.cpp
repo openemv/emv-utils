@@ -2,7 +2,7 @@
  * @file emvtreeview.cpp
  * @brief QTreeWidget derivative for viewing EMV data
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -100,7 +100,7 @@ static bool parseData(
 					item->child(0)->type() == EmvTreeItemType
 				) {
 					EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item->child(0));
-					etItem->setHideWhenObject(true);
+					etItem->setHideWhenDecodingObject(true);
 					etItem->render(decodeFields, decodeObjects);
 				}
 			}

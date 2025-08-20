@@ -2,7 +2,7 @@
  * @file emvtreeitem.h
  * @brief QTreeWidgetItem derivative that represents an EMV field
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -74,8 +74,8 @@ public:
 	QString tagName() const { return m_tagName; }
 	QString tagDescription() const { return m_tagDescription; }
 
-	bool hideWhenObject() const { return m_hideWhenDecodingObject; }
-	void setHideWhenObject(bool enabled) { m_hideWhenDecodingObject = enabled; }
+	bool hideWhenDecodingObject() const { return m_hideWhenDecodingObject; }
+	void setHideWhenDecodingObject(bool enabled) { m_hideWhenDecodingObject = enabled; }
 
 private:
 	void deleteChildren();
@@ -93,6 +93,7 @@ private:
 	QString m_simpleFieldStr;
 	QString m_decodedFieldStr;
 	QString m_decodedObjectStr;
+	bool m_hideByDefault;
 	bool m_hideWhenDecodingObject;
 };
 

@@ -2,7 +2,7 @@
  * @file emvtreeitem.cpp
  * @brief QTreeWidgetItem derivative that represents an EMV field
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -98,6 +98,7 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
+  m_hideByDefault(false),
   m_hideWhenDecodingObject(false)
 {
 	setTlv(tlv);
@@ -122,6 +123,7 @@ EmvTreeItem::EmvTreeItem(
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
   m_constructed(false),
+  m_hideByDefault(false),
   m_hideWhenDecodingObject(false)
 {
 	m_simpleFieldStr = m_decodedFieldStr =
@@ -141,11 +143,14 @@ EmvTreeItem::EmvTreeItem(
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
   m_constructed(false),
+  m_hideByDefault(true),
   m_hideWhenDecodingObject(false)
 {
 	// Reuse parent's name and description for when it is selected
-	m_tagName = parent->m_tagName;
-	m_tagDescription = parent->m_tagDescription;
+	if (parent) {
+		m_tagName = parent->m_tagName;
+		m_tagDescription = parent->m_tagDescription;
+	}
 
 	m_simpleFieldStr = m_decodedFieldStr =
 		buildRawValueString(srcLength, static_cast<const uint8_t*>(value));
@@ -168,12 +173,8 @@ void EmvTreeItem::deleteChildren()
 void EmvTreeItem::render(bool showDecodedFields, bool showDecodedObjects)
 {
 	if (showDecodedFields) {
-		if (showDecodedObjects) {
-			if (!m_decodedObjectStr.isEmpty()) {
-				setText(0, m_decodedObjectStr);
-			} else {
-				setText(0, m_decodedFieldStr);
-			}
+		if (showDecodedObjects && !m_decodedObjectStr.isEmpty()) {
+			setText(0, m_decodedObjectStr);
 		} else {
 			setText(0, m_decodedFieldStr);
 		}
@@ -188,7 +189,7 @@ void EmvTreeItem::render(bool showDecodedFields, bool showDecodedObjects)
 
 	} else {
 		setText(0, m_simpleFieldStr);
-		setHidden(false);
+		setHidden(m_hideByDefault);
 
 		// Hide decoded values
 		if (!m_constructed) {
