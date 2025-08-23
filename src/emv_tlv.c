@@ -30,6 +30,7 @@
 
 // Helper functions
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list);
+static inline bool emv_tlv_sources_is_valid(const struct emv_tlv_sources_t* sources);
 static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, const uint8_t* value, uint8_t flags);
 
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list)
@@ -43,6 +44,18 @@ static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list)
 	}
 
 	if (!list->front && list->back) {
+		return false;
+	}
+
+	return true;
+}
+
+static inline bool emv_tlv_sources_is_valid(const struct emv_tlv_sources_t* sources)
+{
+	if (!sources || !sources->count) {
+		return false;
+	}
+	if (sources->count > sizeof(sources->list) / sizeof(sources->list[0])) {
 		return false;
 	}
 
@@ -281,6 +294,94 @@ bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list)
 	}
 
 	return false;
+}
+
+const struct emv_tlv_t* emv_tlv_sources_find_const(
+	const struct emv_tlv_sources_t* sources,
+	unsigned int tag
+)
+{
+	if (!emv_tlv_sources_is_valid(sources)) {
+		return NULL;
+	}
+
+	for (unsigned int i = 0; i < sources->count; ++i) {
+		const struct emv_tlv_t* tlv;
+
+		tlv = emv_tlv_list_find_const(sources->list[i], tag);
+		if (tlv) {
+			return tlv;
+		}
+	}
+
+	return NULL;
+}
+
+int emv_tlv_sources_itr_init(
+	const struct emv_tlv_sources_t* sources,
+	struct emv_tlv_sources_itr_t* itr
+)
+{
+	if (!emv_tlv_sources_is_valid(sources)) {
+		return -1;
+	}
+	if (!itr) {
+		return -2;
+	}
+
+	memset(itr, 0, sizeof(*itr));
+	itr->sources = sources;
+	if (sources->count && sources->list[0]) {
+		// Used as the starting field for emv_tlv_sources_itr_find_next_const()
+		itr->tlv = sources->list[0]->front;
+	}
+
+	return 0;
+}
+
+const struct emv_tlv_t* emv_tlv_sources_itr_find_next_const(
+	struct emv_tlv_sources_itr_t* itr,
+	unsigned int tag
+)
+{
+	const struct emv_tlv_sources_t* sources;
+
+	if (!itr || !itr->sources) {
+		return NULL;
+	}
+	if (!emv_tlv_sources_is_valid(itr->sources)) {
+		return NULL;
+	}
+	sources = itr->sources;
+
+	// Iterate from the current TLV until the end of the current list
+	while (itr->tlv != NULL) {
+		const struct emv_tlv_t* tlv = itr->tlv;
+
+		if (tlv->tag == tag) {
+			// Remember the next TLV
+			itr->tlv = itr->tlv->next;
+
+			return tlv;
+		}
+
+		itr->tlv = itr->tlv->next;
+	}
+
+	// Otherwise iterate the remaining lists
+	for (++itr->idx; itr->idx < sources->count; ++itr->idx) {
+		const struct emv_tlv_t* tlv;
+
+		tlv = emv_tlv_list_find_const(sources->list[itr->idx], tag);
+		if (tlv) {
+			// Remember the next TLV
+			itr->tlv = tlv->next;
+
+			return tlv;
+		}
+	}
+
+	return NULL;
 }
 
 int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other)
