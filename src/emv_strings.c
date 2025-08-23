@@ -92,6 +92,7 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path)
 
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
+	const struct emv_tlv_sources_t* sources,
 	struct emv_tlv_info_t* info,
 	char* value_str,
 	size_t value_str_len

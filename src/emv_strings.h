@@ -28,6 +28,7 @@
 
 // Forward declarations
 struct emv_tlv_t;
+struct emv_tlv_sources_t;
 
 __BEGIN_DECLS
 
@@ -133,9 +134,15 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
 /**
  * Retrieve EMV TLV information, if available, and convert value to human
  * readable UTF-8 string(s), if possible.
+ *
+ * Some EMV TLV fields depend on other fields for their information or human
+ * readable string(s) to be populated. This function will search for needed
+ * fields in @c sources.
+ *
  * @note @c value_str output will be empty if human readable string is not available
  *
  * @param tlv Decoded EMV TLV structure
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
  * @param info EMV TLV information output. See @ref emv_tlv_info_t
  * @param value_str Value string buffer output. NULL to ignore.
  * @param value_str_len Length of value string buffer in bytes. Zero to ignore.
@@ -143,6 +150,7 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  */
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
+	const struct emv_tlv_sources_t* sources,
 	struct emv_tlv_info_t* info,
 	char* value_str,
 	size_t value_str_len

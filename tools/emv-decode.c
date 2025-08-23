@@ -497,7 +497,17 @@ int main(int argc, char** argv)
 		}
 
 		case EMV_DECODE_TLV: {
+			// Cache all available fields for better output
+			struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+			const struct emv_tlv_sources_t sources = { 1, { &list } };
+			emv_tlv_parse(data, data_len, &list);
+			print_set_sources(&sources);
+
+			// Actual output
 			print_emv_buf(data, data_len, "  ", 0, ignore_padding);
+
+			// Cleanup
+			emv_tlv_list_clear(&list);
 			break;
 		}
 

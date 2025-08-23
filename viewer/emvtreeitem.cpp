@@ -210,7 +210,13 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv)
 	deleteChildren();
 
 	emv_tlv.ber = *tlv;
-	r = emv_tlv_get_info(&emv_tlv, &info, valueStr.data(), valueStr.size());
+	r = emv_tlv_get_info(
+		&emv_tlv,
+		nullptr,
+		&info,
+		valueStr.data(),
+		valueStr.size()
+	);
 	if (r) {
 		qDebug("emv_tlv_get_info()=%d; tag=0x%02X", r, tlv->tag);
 	}
@@ -460,7 +466,7 @@ static QTreeWidgetItem* addValueDol(
 		memset(&emv_tlv, 0, sizeof(emv_tlv));
 		emv_tlv.tag = entry.tag;
 		emv_tlv.length = entry.length;
-		emv_tlv_get_info(&emv_tlv, &info, nullptr, 0);
+		emv_tlv_get_info(&emv_tlv, nullptr, &info, nullptr, 0);
 
 		QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 			dolItem,
@@ -502,7 +508,7 @@ static QTreeWidgetItem* addValueTagList(
 
 		memset(&emv_tlv, 0, sizeof(emv_tlv));
 		emv_tlv.tag = tag;
-		emv_tlv_get_info(&emv_tlv, &info, nullptr, 0);
+		emv_tlv_get_info(&emv_tlv, nullptr, &info, nullptr, 0);
 
 		QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 			tlItem,

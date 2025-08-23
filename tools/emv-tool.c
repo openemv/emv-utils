@@ -883,6 +883,7 @@ int main(int argc, char** argv)
 		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
 		goto pcsc_exit;
 	}
+	print_set_sources_from_ctx(&emv);
 	emv_txn_load_config(&emv);
 	emv_txn_load_params(
 		&emv,

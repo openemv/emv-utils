@@ -28,6 +28,7 @@
 #include "iso8825_ber.h"
 #include "iso8825_strings.h"
 
+#include "emv.h"
 #include "emv_tlv.h"
 #include "emv_dol.h"
 #include "emv_app.h"
@@ -40,10 +41,33 @@
 #include <string.h>
 
 static bool verbose_enabled = true;
+static struct emv_tlv_sources_t cached_sources = EMV_TLV_SOURCES_INIT;
 
 void print_set_verbose(bool enabled)
 {
 	verbose_enabled = enabled;
+}
+
+void print_set_sources(const struct emv_tlv_sources_t* sources)
+{
+	if (!sources) {
+		cached_sources = EMV_TLV_SOURCES_INIT;
+		return;
+	}
+
+	cached_sources = *sources;
+}
+
+void print_set_sources_from_ctx(const struct emv_ctx_t* ctx)
+{
+	if (!ctx) {
+		return;
+	}
+
+	cached_sources = EMV_TLV_SOURCES_INIT;
+	cached_sources.count = 2;
+	cached_sources.list[0] = &ctx->icc;
+	cached_sources.list[1] = &ctx->terminal;
 }
 
 void print_buf(const char* buf_name, const void* buf, size_t length)
@@ -560,7 +584,13 @@ static int print_emv_buf_internal(
 		char value_str[2048];
 
 		emv_tlv.ber = tlv;
-		emv_tlv_get_info(&emv_tlv, &info, value_str, sizeof(value_str));
+		emv_tlv_get_info(
+			&emv_tlv,
+			&cached_sources,
+			&info,
+			value_str,
+			sizeof(value_str)
+		);
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix ? prefix : "");
@@ -733,7 +763,13 @@ static void print_emv_tlv_internal(
 	struct emv_tlv_info_t info;
 	char value_str[2048];
 
-	emv_tlv_get_info(tlv, &info, value_str, sizeof(value_str));
+	emv_tlv_get_info(
+		tlv,
+		&cached_sources,
+		&info,
+		value_str,
+		sizeof(value_str)
+	);
 
 	for (unsigned int i = 0; i < depth; ++i) {
 		printf("%s", prefix ? prefix : "");
@@ -862,7 +898,7 @@ void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int
 		memset(&emv_tlv, 0, sizeof(emv_tlv));
 		emv_tlv.tag = entry.tag;
 		emv_tlv.length = entry.length;
-		emv_tlv_get_info(&emv_tlv, &info, NULL, 0);
+		emv_tlv_get_info(&emv_tlv, NULL, &info, NULL, 0);
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix ? prefix : "");
@@ -893,7 +929,7 @@ void print_emv_tag_list(const void* ptr, size_t len, const char* prefix, unsigne
 
 		memset(&emv_tlv, 0, sizeof(emv_tlv));
 		emv_tlv.tag = tag;
-		emv_tlv_get_info(&emv_tlv, &info, NULL, 0);
+		emv_tlv_get_info(&emv_tlv, NULL, &info, NULL, 0);
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix ? prefix : "");
