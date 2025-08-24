@@ -137,7 +137,9 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  *
  * Some EMV TLV fields depend on other fields for their information or human
  * readable string(s) to be populated. This function will search for needed
- * fields in @c sources.
+ * fields in @c sources. Examples of fields include:
+ * - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE depends on
+ *   @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER
  *
  * @note @c value_str output will be empty if human readable string is not available
  *
@@ -541,6 +543,24 @@ int emv_cvm_list_get_string_list(
 int emv_cvm_results_get_string_list(
 	const uint8_t* cvmresults,
 	size_t cvmresults_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Issuer Public Key Certificate (field 90)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param issuer_cert Issuer Public Key Certificate field
+ * @param issuer_cert_len Length of Issuer Public Key Certificate field
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_issuer_cert_get_string_list(
+	const uint8_t* issuer_cert,
+	size_t issuer_cert_len,
+	const struct emv_tlv_sources_t* sources,
 	char* str,
 	size_t str_len
 );

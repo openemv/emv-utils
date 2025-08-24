@@ -23,6 +23,8 @@
 #include "emv_tlv.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
+#include "emv_capk.h"
+#include "emv_rsa.h"
 #include "emv_ttl.h"
 #include "isocodes_lookup.h"
 #include "mcc_lookup.h"
@@ -63,6 +65,7 @@ static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_l
 static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
+static int emv_decrypt_issuer_pkey(const uint8_t* issuer_cert, size_t issuer_cert_len, const struct emv_tlv_sources_t* sources, const struct emv_capk_t** capk, struct emv_rsa_issuer_pkey_t* pkey);
 static int emv_iad_ccd_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_mchip_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
@@ -339,7 +342,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Issuer public key certified by a certification authority";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_issuer_cert_get_string_list(tlv->value, tlv->length, sources, value_str, value_str_len);
 
 		case EMV_TAG_91_ISSUER_AUTHENTICATION_DATA:
 			info->tag_name = "Issuer Authentication Data";
@@ -3840,6 +3843,171 @@ int emv_cvm_results_get_string_list(
 			emv_str_list_add(&itr, "CVM Result: %u", cvmresults[2]);
 			break;
 	}
+
+	return 0;
+}
+
+static int emv_decrypt_issuer_pkey(
+	const uint8_t* issuer_cert,
+	size_t issuer_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	const struct emv_capk_t** capk,
+	struct emv_rsa_issuer_pkey_t* pkey
+)
+{
+	int r;
+	struct emv_capk_itr_t capk_itr;
+
+	// Try all available CAPKs to decrypt issuer public key certificate
+	r = emv_capk_itr_init(&capk_itr);
+	if (r) {
+		return -2;
+	}
+	while ((*capk = emv_capk_itr_next(&capk_itr)) != NULL) {
+		r = emv_rsa_retrieve_issuer_pkey(
+			issuer_cert,
+			issuer_cert_len,
+			*capk,
+			NULL,
+			NULL,
+			pkey
+		);
+		if (r < 0) {
+			// Failed to decrypt issuer public key certificate
+			// Try next CAPK
+			continue;
+		}
+
+		// Issuer public certificate decrypted but public key not yet
+		// retrieved or validated
+		struct emv_tlv_sources_itr_t remainder_itr;
+		const struct emv_tlv_t* remainder_tlv = NULL;
+
+		// Try all instances of Issuer Public Key Remainder (field 92) but
+		// first try without it in case it is not needed
+		r = emv_tlv_sources_itr_init(sources, &remainder_itr);
+		if (r) {
+			return -2;
+		}
+		do {
+			struct emv_tlv_list_t icc = EMV_TLV_LIST_INIT;
+			struct emv_tlv_list_t params = EMV_TLV_LIST_INIT;
+
+			// Prepare additional data for full retrieval and validation
+			emv_tlv_list_push(&icc, EMV_TAG_5A_APPLICATION_PAN, sizeof(pkey->issuer_id), pkey->issuer_id, 0);
+			if (remainder_tlv) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER,
+					remainder_tlv->length,
+					remainder_tlv->value,
+					0
+				);
+			}
+			if (pkey->exponent_len == 1) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT,
+					1,
+					(uint8_t[]){ 0x03 },
+					0
+				);
+			} else if (pkey->exponent_len == 3) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT,
+					3,
+					(uint8_t[]){ 0x01, 0x00, 0x01 },
+					0
+				);
+			}
+			// Assume the oldest possible transaction date (1950-01-01)
+			emv_tlv_list_push(&params, EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]){ 0x50, 0x01, 0x01 }, 0);
+
+			// Attempt retrieval and validation
+			r = emv_rsa_retrieve_issuer_pkey(
+				issuer_cert,
+				issuer_cert_len,
+				*capk,
+				&icc,
+				&params,
+				pkey
+			);
+			// Always clear lists
+			emv_tlv_list_clear(&icc);
+			emv_tlv_list_clear(&params);
+			if (r) {
+				// Issuer public key retrieval or validation failed
+				// Try next Issuer Public Key Remainder (field 92)
+				continue;
+			}
+
+			// Issuer public key retrieved and validated
+			return 0;
+
+		} while (
+			(remainder_tlv = emv_tlv_sources_itr_find_next_const(
+				&remainder_itr,
+				EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER)
+			) != NULL
+		);
+
+		// Issuer public key certificate decrypted but public key
+		// retrieval or validation failed
+		return 0;
+	}
+
+	// Failed to decrypt issuer public key certificate
+	return 2;
+}
+
+int emv_issuer_cert_get_string_list(
+	const uint8_t* issuer_cert,
+	size_t issuer_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+	const struct emv_capk_t* capk;
+	struct emv_rsa_issuer_pkey_t pkey;
+
+	if (!issuer_cert || !issuer_cert_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (issuer_cert_len < 64) {
+		// Issuer Public Key Certificate (field 90) must be at least 512 bits for RSA
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	r = emv_decrypt_issuer_pkey(
+		issuer_cert,
+		issuer_cert_len,
+		sources,
+		&capk,
+		&pkey
+	);
+	if (r) {
+		return r;
+	}
+
+	emv_str_list_add(&str_itr, "Retrieved using CAPK %02X%02X%02X%02X%02X #%02X",
+		capk->rid[0], capk->rid[1], capk->rid[2], capk->rid[3], capk->rid[4],
+		capk->index
+	);
+	emv_str_list_add(&str_itr, "Certificate Format: %02X", pkey.format);
+	emv_str_list_add(&str_itr, "Issuer Identifier: %02X%02X%02X%02X", pkey.issuer_id[0], pkey.issuer_id[1], pkey.issuer_id[2], pkey.issuer_id[3]);
+	emv_str_list_add(&str_itr, "Certificate Expiration (MM/YY): %02X/%02X", pkey.cert_exp[0], pkey.cert_exp[1]);
+	emv_str_list_add(&str_itr, "Certificate Serial Number: %02X%02X%02X", pkey.cert_sn[0], pkey.cert_sn[1], pkey.cert_sn[2]);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", pkey.hash_id);
+	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X", pkey.alg_id);
+	emv_str_list_add(&str_itr, "Public Key Length: %u bytes / %u bits", pkey.modulus_len, ((unsigned int)pkey.modulus_len)*8);
+	emv_str_list_add(&str_itr, "Public Key Exponent Length: %u bytes", pkey.exponent_len);
 
 	return 0;
 }
