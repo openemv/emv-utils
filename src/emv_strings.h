@@ -140,6 +140,8 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  * fields in @c sources. Examples of fields include:
  * - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE depends on
  *   @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER
+ * - @ref EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA depends on
+ *   @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
  *
  * @note @c value_str output will be empty if human readable string is not available
  *
@@ -560,6 +562,24 @@ int emv_cvm_results_get_string_list(
 int emv_issuer_cert_get_string_list(
 	const uint8_t* issuer_cert,
 	size_t issuer_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Signed Static Application Data (field 93)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param ssad Signed Static Application Data (SSAD) field
+ * @param ssad_len Length of Signed Static Application Data (SSAD) field
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_ssad_get_string_list(
+	const uint8_t* ssad,
+	size_t ssad_len,
 	const struct emv_tlv_sources_t* sources,
 	char* str,
 	size_t str_len

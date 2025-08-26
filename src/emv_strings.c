@@ -66,6 +66,7 @@ static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_le
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
 static int emv_decrypt_issuer_pkey(const uint8_t* issuer_cert, size_t issuer_cert_len, const struct emv_tlv_sources_t* sources, const struct emv_capk_t** capk, struct emv_rsa_issuer_pkey_t* pkey);
+static int emv_decrypt_ssad(const uint8_t* ssad, size_t ssad_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_issuer_pkey_t* issuer_pkey, struct emv_rsa_ssad_t* data);
 static int emv_iad_ccd_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_mchip_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
@@ -364,7 +365,7 @@ int emv_tlv_get_info(
 				"Digital signature on critical application "
 				"parameters for SDA";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_ssad_get_string_list(tlv->value, tlv->length, sources, value_str, value_str_len);
 
 		case EMV_TAG_94_APPLICATION_FILE_LOCATOR:
 			info->tag_name = "Application File Locator (AFL)";
@@ -3961,6 +3962,64 @@ static int emv_decrypt_issuer_pkey(
 	return 2;
 }
 
+static int emv_decrypt_ssad(
+	const uint8_t* ssad,
+	size_t ssad_len,
+	const struct emv_tlv_sources_t* sources,
+	struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	struct emv_rsa_ssad_t* data
+)
+{
+	int r;
+	struct emv_tlv_sources_itr_t itr;
+	const struct emv_tlv_t* tlv;
+	const struct emv_capk_t* capk;
+
+	// Try all instances of Issuer Public Key Certificate (field 90) to decrypt
+	// the Signed Static Application Data (SSAD)
+	r = emv_tlv_sources_itr_init(sources, &itr);
+	if (r) {
+		return -3;
+	}
+	while (
+		(tlv = emv_tlv_sources_itr_find_next_const(
+			&itr,
+			EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE)
+		) != NULL
+	) {
+		r = emv_decrypt_issuer_pkey(
+			tlv->value,
+			tlv->length,
+			sources,
+			&capk,
+			issuer_pkey
+		);
+		if (r) {
+			// Failed to decrypt Issuer Public Key Certificate (field 90)
+			continue;
+		}
+
+		r = emv_rsa_retrieve_ssad(
+			ssad,
+			ssad_len,
+			issuer_pkey,
+			NULL,
+			data
+		);
+		if (r < 0) {
+			// Failed to decrypt SSAD
+			// Try next Issuer Public Key Certificate (field 90)
+			continue;
+		}
+
+		// SSAD decrypted
+		return 0;
+	}
+
+	// Failed to decrypt SSAD
+	return 3;
+}
+
 int emv_issuer_cert_get_string_list(
 	const uint8_t* issuer_cert,
 	size_t issuer_cert_len,
@@ -4008,6 +4067,49 @@ int emv_issuer_cert_get_string_list(
 	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X", pkey.alg_id);
 	emv_str_list_add(&str_itr, "Public Key Length: %u bytes / %u bits", pkey.modulus_len, ((unsigned int)pkey.modulus_len)*8);
 	emv_str_list_add(&str_itr, "Public Key Exponent Length: %u bytes", pkey.exponent_len);
+
+	return 0;
+}
+
+int emv_ssad_get_string_list(
+	const uint8_t* ssad,
+	size_t ssad_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+	struct emv_rsa_issuer_pkey_t issuer_pkey;
+	struct emv_rsa_ssad_t data;
+
+	if (!ssad || !ssad_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (ssad_len < 64) {
+		// Signed Static Application Data (field 93) must be at least 512 bits for RSA
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	r = emv_decrypt_ssad(
+		ssad,
+		ssad_len,
+		sources,
+		&issuer_pkey,
+		&data
+	);
+	if (r) {
+		return r;
+	}
+
+	emv_str_list_add(&str_itr, "Retrieved using issuer certificate %02X%02X%02X", issuer_pkey.cert_sn[0], issuer_pkey.cert_sn[1], issuer_pkey.cert_sn[2]);
+	emv_str_list_add(&str_itr, "Signed Data Format: %02X", data.format);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", data.hash_id);
+	emv_str_list_add(&str_itr, "Data Authentication Code: %02X%02X", data.data_auth_code[0], data.data_auth_code[1]);
 
 	return 0;
 }
