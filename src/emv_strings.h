@@ -142,6 +142,8 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  *   @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER
  * - @ref EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA depends on
  *   @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
+ * - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE depends on
+ *   @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
  *
  * @note @c value_str output will be empty if human readable string is not available
  *
@@ -580,6 +582,24 @@ int emv_issuer_cert_get_string_list(
 int emv_ssad_get_string_list(
 	const uint8_t* ssad,
 	size_t ssad_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Integrated Circuit Card (ICC) Public Key Certificate (field 9F46)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param icc_cert Integrated Circuit Card (ICC) Public Key Certificate field
+ * @param icc_cert_len Length of Integrated Circuit Card (ICC) Public Key Certificate field
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_icc_cert_get_string_list(
+	const uint8_t* icc_cert,
+	size_t icc_cert_len,
 	const struct emv_tlv_sources_t* sources,
 	char* str,
 	size_t str_len
