@@ -58,6 +58,7 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) ATTRIBUTE_FORMAT_PRINTF(2, 3);
+static void emv_str_list_add_data(struct str_itr_t* itr, const char* str, const void* data, size_t data_len);
 static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
@@ -68,6 +69,7 @@ static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_
 static int emv_decrypt_issuer_pkey(const uint8_t* issuer_cert, size_t issuer_cert_len, const struct emv_tlv_sources_t* sources, const struct emv_capk_t** capk, struct emv_rsa_issuer_pkey_t* pkey);
 static int emv_decrypt_ssad(const uint8_t* ssad, size_t ssad_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_issuer_pkey_t* issuer_pkey, struct emv_rsa_ssad_t* data);
 static int emv_decrypt_icc_pkey(const uint8_t* icc_cert, size_t icc_cert_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_issuer_pkey_t* issuer_pkey, struct emv_rsa_icc_pkey_t* icc_pkey);
+static int emv_decrypt_sdad(const uint8_t* sdad, size_t sdad_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_icc_pkey_t* icc_pkey, struct emv_rsa_sdad_t* data);
 static int emv_iad_ccd_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_mchip_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
@@ -1125,7 +1127,7 @@ int emv_tlv_get_info(
 				"Digital signature on critical application "
 				"parameters for DDA or CDA";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_sdad_get_string_list(tlv->value, tlv->length, sources, value_str, value_str_len);
 
 		case EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER:
 			info->tag_name = "Integrated Circuit Card (ICC) Dynamic Number";
@@ -2305,6 +2307,45 @@ static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...)
 	// Advance iterator
 	itr->ptr += str_len;
 	itr->len -= str_len;
+
+	// NULL terminate string list
+	*itr->ptr = 0;
+}
+
+static void emv_str_list_add_data(
+	struct str_itr_t* itr,
+	const char* str,
+	const void* data,
+	size_t data_len
+)
+{
+	size_t str_len;
+
+	str_len = strlen(str);
+
+	// Ensure that the iterator has enough space for the string, the data,
+	// the delimiter, and the NULL termination
+	if (itr->len < str_len + (data_len * 2) + 2) {
+		return;
+	}
+
+	// Populate string
+	memcpy(itr->ptr, str, str_len);
+	itr->ptr += str_len;
+	itr->len -= str_len;
+
+	// Populate data
+	for (size_t i = 0; i < data_len; ++i) {
+		const uint8_t* d = data + i;
+		snprintf(itr->ptr, 3, "%02X", *d);
+		itr->ptr += 2;
+		itr->len -= 2;
+	}
+
+	// Delimiter
+	*itr->ptr = '\n';
+	++itr->ptr;
+	--itr->len;
 
 	// NULL terminate string list
 	*itr->ptr = 0;
@@ -4082,6 +4123,140 @@ static int emv_decrypt_icc_pkey(
 	return 4;
 }
 
+static int emv_decrypt_sdad(
+	const uint8_t* sdad,
+	size_t sdad_len,
+	const struct emv_tlv_sources_t* sources,
+	struct emv_rsa_icc_pkey_t* icc_pkey,
+	struct emv_rsa_sdad_t* data
+)
+{
+	int r;
+	struct emv_tlv_sources_itr_t itr;
+	const struct emv_tlv_t* tlv;
+	struct emv_rsa_issuer_pkey_t issuer_pkey;
+
+	// Try all instances of ICC Public Key Certificate (field 9F46) to decrypt
+	// the Signed Dynamic Application Data (SDAD)
+	r = emv_tlv_sources_itr_init(sources, &itr);
+	if (r) {
+		return -5;
+	}
+	while (
+		(tlv = emv_tlv_sources_itr_find_next_const(
+			&itr,
+			EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE)
+		) != NULL
+	) {
+		r = emv_decrypt_icc_pkey(
+			tlv->value,
+			tlv->length,
+			sources,
+			&issuer_pkey,
+			icc_pkey
+		);
+		if (r) {
+			// Failed to decrypt ICC Public Key Certificate (field 9F46)
+			continue;
+		}
+
+		// ICC Public Key Certificate (field 9F46) decrypted but public key not
+		// yet retrieved or validated
+		struct emv_tlv_sources_itr_t remainder_itr;
+		const struct emv_tlv_t* remainder_tlv = NULL;
+
+		// Try all instances of ICC Public Key Remainder (field 9F48) but first
+		// try without it in case it is not needed
+		r = emv_tlv_sources_itr_init(sources, &remainder_itr);
+		if (r) {
+			return -5;
+		}
+		do {
+			struct emv_tlv_list_t icc = EMV_TLV_LIST_INIT;
+			struct emv_tlv_list_t params = EMV_TLV_LIST_INIT;
+
+			// Prepare additional data for full retrieval and validation
+			emv_tlv_list_push(&icc, EMV_TAG_5A_APPLICATION_PAN, sizeof(icc_pkey->pan), icc_pkey->pan, 0);
+			if (remainder_tlv) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER,
+					remainder_tlv->length,
+					remainder_tlv->value,
+					0
+				);
+			}
+			if (icc_pkey->exponent_len == 1) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT,
+					1,
+					(uint8_t[]){ 0x03 },
+					0
+				);
+			} else if (icc_pkey->exponent_len == 3) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT,
+					3,
+					(uint8_t[]){ 0x01, 0x00, 0x01 },
+					0
+				);
+			}
+			// Assume the oldest possible transaction date (1950-01-01)
+			emv_tlv_list_push(&params, EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]){ 0x50, 0x01, 0x01 }, 0);
+
+			// Attempt retrieval and validation
+			r = emv_rsa_retrieve_icc_pkey(
+				tlv->value,
+				tlv->length,
+				&issuer_pkey,
+				&icc,
+				&params,
+				NULL,
+				icc_pkey
+			);
+			// Always clear lists
+			emv_tlv_list_clear(&icc);
+			emv_tlv_list_clear(&params);
+			if (r != 10) {
+				// ICC public key retrieval unexpectedly failed
+				// Try next ICC Public Key Remainder (field 9F48)
+				continue;
+			}
+
+			// Attempt SDAD decryption
+			r = emv_rsa_retrieve_sdad(
+				sdad,
+				sdad_len,
+				icc_pkey,
+				NULL,
+				0,
+				data
+			);
+			if (r != 1) {
+				// SDAD decryption failed
+				// Try next ICC Public Key Remainder (field 9F48)
+				continue;
+			}
+
+			// SDAD decrypted
+			return 0;
+
+		} while (
+			(remainder_tlv = emv_tlv_sources_itr_find_next_const(
+				&remainder_itr,
+				EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER)
+			) != NULL
+		);
+
+		// Try next ICC Public Key Certificate (field 9F46)
+	}
+
+	// Failed to decrypt SDAD
+	return 5;
+}
+
 int emv_issuer_cert_get_string_list(
 	const uint8_t* issuer_cert,
 	size_t issuer_cert_len,
@@ -4122,9 +4297,13 @@ int emv_issuer_cert_get_string_list(
 		capk->index
 	);
 	emv_str_list_add(&str_itr, "Certificate Format: %02X", pkey.format);
-	emv_str_list_add(&str_itr, "Issuer Identifier: %02X%02X%02X%02X", pkey.issuer_id[0], pkey.issuer_id[1], pkey.issuer_id[2], pkey.issuer_id[3]);
+	emv_str_list_add_data(&str_itr, "Issuer Identifier: ",
+		pkey.issuer_id, sizeof(pkey.issuer_id)
+	);
 	emv_str_list_add(&str_itr, "Certificate Expiration (MM/YY): %02X/%02X", pkey.cert_exp[0], pkey.cert_exp[1]);
-	emv_str_list_add(&str_itr, "Certificate Serial Number: %02X%02X%02X", pkey.cert_sn[0], pkey.cert_sn[1], pkey.cert_sn[2]);
+	emv_str_list_add_data(&str_itr, "Certificate Serial Number: ",
+		pkey.cert_sn, sizeof(pkey.cert_sn)
+	);
 	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", pkey.hash_id);
 	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X", pkey.alg_id);
 	emv_str_list_add(&str_itr, "Public Key Length: %u bytes / %u bits", pkey.modulus_len, ((unsigned int)pkey.modulus_len)*8);
@@ -4168,10 +4347,14 @@ int emv_ssad_get_string_list(
 		return r;
 	}
 
-	emv_str_list_add(&str_itr, "Retrieved using issuer certificate %02X%02X%02X", issuer_pkey.cert_sn[0], issuer_pkey.cert_sn[1], issuer_pkey.cert_sn[2]);
+	emv_str_list_add_data(&str_itr, "Retrieved using issuer certificate ",
+		issuer_pkey.cert_sn, sizeof(issuer_pkey.cert_sn)
+	);
 	emv_str_list_add(&str_itr, "Signed Data Format: %02X", data.format);
 	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", data.hash_id);
-	emv_str_list_add(&str_itr, "Data Authentication Code: %02X%02X", data.data_auth_code[0], data.data_auth_code[1]);
+	emv_str_list_add_data(&str_itr, "Data Authentication Code: ",
+		data.data_auth_code, sizeof(data.data_auth_code)
+	);
 
 	return 0;
 }
@@ -4217,15 +4400,81 @@ int emv_icc_cert_get_string_list(
 		pan_str[0] = 0;
 	}
 
-	emv_str_list_add(&str_itr, "Retrieved using issuer certificate %02X%02X%02X", issuer_pkey.cert_sn[0], issuer_pkey.cert_sn[1], issuer_pkey.cert_sn[2]);
+	emv_str_list_add_data(&str_itr, "Retrieved using issuer certificate ",
+		issuer_pkey.cert_sn, sizeof(issuer_pkey.cert_sn)
+	);
 	emv_str_list_add(&str_itr, "Certificate Format: %02X", icc_pkey.format);
 	emv_str_list_add(&str_itr, "Application PAN: %s", pan_str);
 	emv_str_list_add(&str_itr, "Certificate Expiration (MM/YY): %02X/%02X", icc_pkey.cert_exp[0], icc_pkey.cert_exp[1]);
-	emv_str_list_add(&str_itr, "Certificate Serial Number: %02X%02X%02X", icc_pkey.cert_sn[0], icc_pkey.cert_sn[1], icc_pkey.cert_sn[2]);
+	emv_str_list_add_data(&str_itr, "Certificate Serial Number: ",
+		icc_pkey.cert_sn, sizeof(icc_pkey.cert_sn)
+	);
 	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", icc_pkey.hash_id);
 	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X", icc_pkey.alg_id);
 	emv_str_list_add(&str_itr, "Public Key Length: %u bytes / %u bits", icc_pkey.modulus_len, ((unsigned int)icc_pkey.modulus_len)*8);
 	emv_str_list_add(&str_itr, "Public Key Exponent Length: %u bytes", icc_pkey.exponent_len);
+
+	return 0;
+}
+
+int emv_sdad_get_string_list(
+	const uint8_t* sdad,
+	size_t sdad_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+	struct emv_rsa_icc_pkey_t icc_pkey;
+	struct emv_rsa_sdad_t data;
+	bool other_sdad_fields_exist = false;
+
+	if (!sdad || !sdad_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (sdad_len < 64) {
+		// Signed Dynamic Application Data (field 9F4B) must be at least 512 bits for RSA
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	r = emv_decrypt_sdad(
+		sdad,
+		sdad_len,
+		sources,
+		&icc_pkey,
+		&data
+	);
+	if (r) {
+		return r;
+	}
+
+	emv_str_list_add_data(&str_itr, "Retrieved using ICC certificate ",
+		icc_pkey.cert_sn, sizeof(icc_pkey.cert_sn)
+	);
+	emv_str_list_add(&str_itr, "Signed Data Format: %02X", data.format);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", data.hash_id);
+	if (data.icc_dynamic_number_len) {
+		emv_str_list_add_data(&str_itr, "ICC Dynamic Number: ",
+			data.icc_dynamic_number, data.icc_dynamic_number_len
+		);
+	}
+	for (size_t i = 0; i < sizeof(data.cryptogram); ++i) {
+		if (data.cryptogram[i]) {
+			other_sdad_fields_exist = true;
+			break;
+		}
+	}
+	if (other_sdad_fields_exist) {
+		emv_str_list_add(&str_itr, "Cryptogram Information Data: %02X", data.cid);
+		emv_str_list_add_data(&str_itr, "Application Cryptogram: ",
+			data.cryptogram, sizeof(data.cryptogram)
+		);
+	}
 
 	return 0;
 }

@@ -144,6 +144,9 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  *   @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
  * - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE depends on
  *   @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
+ * - @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA depends on
+ *   @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE and
+ *   @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER
  *
  * @note @c value_str output will be empty if human readable string is not available
  *
@@ -600,6 +603,24 @@ int emv_ssad_get_string_list(
 int emv_icc_cert_get_string_list(
 	const uint8_t* icc_cert,
 	size_t icc_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Signed Dynamic Application Data (field 9F4B)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param sdad Signed Dynamic Application Data (SDAD) field
+ * @param sdad_len Length of Signed Dynamic Application Data (SDAD) field
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_sdad_get_string_list(
+	const uint8_t* sdad,
+	size_t sdad_len,
 	const struct emv_tlv_sources_t* sources,
 	char* str,
 	size_t str_len
