@@ -51,8 +51,8 @@ __BEGIN_DECLS
 #define EMV_PKEY_HASH_SHA1                                      (0x01) ///< SHA-1
 #define EMV_PKEY_HASH_SHA256                                    (0x02) ///< SHA-256
 #define EMV_PKEY_HASH_SHA512                                    (0x03) ///< SHA-512
-#define EMV_PKEY_HASH_SHA3_256                                  (0x04) ///< SHA-3 256
-#define EMV_PKEY_HASH_SHA3_512                                  (0x05) ///< SHA-3 512
+#define EMV_PKEY_HASH_SHA3_256                                  (0x04) ///< SHA3-256
+#define EMV_PKEY_HASH_SHA3_512                                  (0x05) ///< SHA3-512
 #define EMV_PKEY_HASH_SM3                                       (0x80) ///< SM3
 /// @}
 
@@ -65,9 +65,9 @@ __BEGIN_DECLS
 #define EMV_PKEY_SIG_RSA_SHA1                                   (0x01) ///< RSA signature algorithm using SHA-1
 #define EMV_PKEY_SIG_ECSDSA_SHA256_P256                         (0x10) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA-256 with curve P-256
 #define EMV_PKEY_SIG_ECSDSA_SHA512_P521                         (0x11) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA-521 with curve P-521
-#define EMV_PKEY_SIG_ECSDSA_SHA3_256_P256                       (0x12) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA-3 256 with curve P-256
-#define EMV_PKEY_SIG_ECSDSA_SHA3_512_P521                       (0x13) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA-3 512 with curve P-521
-#define EMV_PKEY_SIG_SM2DSA_SM3_SM2P256                         (0x80) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SM3 with curve SM2-P256
+#define EMV_PKEY_SIG_ECSDSA_SHA3_256_P256                       (0x12) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA3-256 with curve P-256
+#define EMV_PKEY_SIG_ECSDSA_SHA3_512_P521                       (0x13) ///< Elliptic Curve Schnorr Digital Signature Algorithm (EC-SDSA) using SHA3-512 with curve P-521
+#define EMV_PKEY_SIG_SM2DSA_SM3_SM2P256                         (0x80) ///< SM2 Digital Signature Algorithm (SM2-DSA) using SM3 with curve SM2-P256
 /// @}
 
 // Transaction Type (field 9C)

@@ -4257,6 +4257,60 @@ static int emv_decrypt_sdad(
 	return 5;
 }
 
+static const char* emv_oda_format_get_string(uint8_t format)
+{
+	switch (format) {
+		case EMV_RSA_FORMAT_ISSUER_CERT:
+			// See EMV 4.4 Book 2, 5.3, table 6
+			// See EMV 4.4 Book 2, 6.3, table 13
+			return "Issuer Public Key Certificate using RSA";
+
+		case EMV_RSA_FORMAT_SSAD:
+			// See EMV 4.4 Book 2, 5.4, table 7
+			return "Signed Static Application Data using RSA";
+
+		case EMV_RSA_FORMAT_ICC_CERT:
+			// See EMV 4.4 Book 2, 6.4, table 14
+			return "ICC Public Key Certificate using RSA";
+
+		case EMV_RSA_FORMAT_SDAD:
+			// See EMV 4.4 Book 2, 6.5.2, table 17
+			// See EMV 4.4 Book 2, 6.6.2, table 22
+			return "Signed Dynamic Application Data using RSA";
+
+		default:
+			return "Unknown";
+	}
+}
+
+static const char* emv_pkey_hash_alg_get_string(uint8_t hash_id)
+{
+	// See EMV 4.4 Book 2, Annex B2.3, table 47
+	switch (hash_id) {
+		case EMV_PKEY_HASH_SHA1: return "SHA-1";
+		case EMV_PKEY_HASH_SHA256: return "SHA-256";
+		case EMV_PKEY_HASH_SHA512: return "SHA-512";
+		case EMV_PKEY_HASH_SHA3_256: return "SHA3-256";
+		case EMV_PKEY_HASH_SHA3_512: return "SHA3-512";
+		case EMV_PKEY_HASH_SM3: return "SM3";
+		default: return "Unknown";
+	}
+}
+
+static const char* emv_pkey_sig_alg_get_string(uint8_t alg_id)
+{
+	// See EMV 4.4 Book 2, Annex B2.4.1, table 48
+	switch (alg_id) {
+		case EMV_PKEY_SIG_RSA_SHA1: return "RSA/SHA-1";
+		case EMV_PKEY_SIG_ECSDSA_SHA256_P256: return "EC-SDSA/SHA-256/P-256";
+		case EMV_PKEY_SIG_ECSDSA_SHA512_P521: return "EC-SDSA/SHA-512/P-521";
+		case EMV_PKEY_SIG_ECSDSA_SHA3_256_P256: return "EC-SDSA/SHA3-256/P-256";
+		case EMV_PKEY_SIG_ECSDSA_SHA3_512_P521: return "EC-SDSA/SHA3-512/P-521";
+		case EMV_PKEY_SIG_SM2DSA_SM3_SM2P256: return "SM2-DSA/SM3/SM2-P256";
+		default: return "Unknown";
+	}
+}
+
 int emv_issuer_cert_get_string_list(
 	const uint8_t* issuer_cert,
 	size_t issuer_cert_len,
@@ -4296,7 +4350,9 @@ int emv_issuer_cert_get_string_list(
 		capk->rid[0], capk->rid[1], capk->rid[2], capk->rid[3], capk->rid[4],
 		capk->index
 	);
-	emv_str_list_add(&str_itr, "Certificate Format: %02X", pkey.format);
+	emv_str_list_add(&str_itr, "Certificate Format: %02X (%s)",
+		pkey.format, emv_oda_format_get_string(pkey.format)
+	);
 	emv_str_list_add_data(&str_itr, "Issuer Identifier: ",
 		pkey.issuer_id, sizeof(pkey.issuer_id)
 	);
@@ -4304,8 +4360,12 @@ int emv_issuer_cert_get_string_list(
 	emv_str_list_add_data(&str_itr, "Certificate Serial Number: ",
 		pkey.cert_sn, sizeof(pkey.cert_sn)
 	);
-	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", pkey.hash_id);
-	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X", pkey.alg_id);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X (%s)",
+		pkey.hash_id, emv_pkey_hash_alg_get_string(pkey.hash_id)
+	);
+	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X (%s)",
+		pkey.alg_id, emv_pkey_sig_alg_get_string(pkey.alg_id)
+	);
 	emv_str_list_add(&str_itr, "Public Key Length: %u bytes / %u bits", pkey.modulus_len, ((unsigned int)pkey.modulus_len)*8);
 	emv_str_list_add(&str_itr, "Public Key Exponent Length: %u bytes", pkey.exponent_len);
 
@@ -4350,8 +4410,12 @@ int emv_ssad_get_string_list(
 	emv_str_list_add_data(&str_itr, "Retrieved using issuer certificate ",
 		issuer_pkey.cert_sn, sizeof(issuer_pkey.cert_sn)
 	);
-	emv_str_list_add(&str_itr, "Signed Data Format: %02X", data.format);
-	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", data.hash_id);
+	emv_str_list_add(&str_itr, "Signed Data Format: %02X (%s)",
+		data.format, emv_oda_format_get_string(data.format)
+	);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X (%s)",
+		data.hash_id, emv_pkey_hash_alg_get_string(data.hash_id)
+	);
 	emv_str_list_add_data(&str_itr, "Data Authentication Code: ",
 		data.data_auth_code, sizeof(data.data_auth_code)
 	);
@@ -4403,14 +4467,20 @@ int emv_icc_cert_get_string_list(
 	emv_str_list_add_data(&str_itr, "Retrieved using issuer certificate ",
 		issuer_pkey.cert_sn, sizeof(issuer_pkey.cert_sn)
 	);
-	emv_str_list_add(&str_itr, "Certificate Format: %02X", icc_pkey.format);
+	emv_str_list_add(&str_itr, "Certificate Format: %02X (%s)",
+		icc_pkey.format, emv_oda_format_get_string(icc_pkey.format)
+	);
 	emv_str_list_add(&str_itr, "Application PAN: %s", pan_str);
 	emv_str_list_add(&str_itr, "Certificate Expiration (MM/YY): %02X/%02X", icc_pkey.cert_exp[0], icc_pkey.cert_exp[1]);
 	emv_str_list_add_data(&str_itr, "Certificate Serial Number: ",
 		icc_pkey.cert_sn, sizeof(icc_pkey.cert_sn)
 	);
-	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", icc_pkey.hash_id);
-	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X", icc_pkey.alg_id);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X (%s)",
+		icc_pkey.hash_id, emv_pkey_hash_alg_get_string(icc_pkey.hash_id)
+	);
+	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X (%s)",
+		icc_pkey.alg_id, emv_pkey_sig_alg_get_string(icc_pkey.alg_id)
+	);
 	emv_str_list_add(&str_itr, "Public Key Length: %u bytes / %u bits", icc_pkey.modulus_len, ((unsigned int)icc_pkey.modulus_len)*8);
 	emv_str_list_add(&str_itr, "Public Key Exponent Length: %u bytes", icc_pkey.exponent_len);
 
@@ -4456,8 +4526,13 @@ int emv_sdad_get_string_list(
 	emv_str_list_add_data(&str_itr, "Retrieved using ICC certificate ",
 		icc_pkey.cert_sn, sizeof(icc_pkey.cert_sn)
 	);
-	emv_str_list_add(&str_itr, "Signed Data Format: %02X", data.format);
-	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X", data.hash_id);
+	emv_str_list_add(&str_itr, "Signed Data Format: %02X (%s)",
+		data.format,
+		emv_oda_format_get_string(data.format)
+	);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X (%s)",
+		data.hash_id, emv_pkey_hash_alg_get_string(data.hash_id)
+	);
 	if (data.icc_dynamic_number_len) {
 		emv_str_list_add_data(&str_itr, "ICC Dynamic Number: ",
 			data.icc_dynamic_number, data.icc_dynamic_number_len
