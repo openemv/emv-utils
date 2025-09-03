@@ -19,11 +19,11 @@
  */
 
 #include "emvtreeitem.h"
+#include "emvtlvinfo.h"
 
 #include "iso8825_ber.h"
 #include "emv_tlv.h"
 #include "emv_dol.h"
-#include "emv_strings.h"
 
 #include <QtCore/QByteArray>
 #include <QtCore/QList>
@@ -35,7 +35,6 @@
 #include <cstdint>
 
 // Helper functions
-static bool valueStrIsList(const QByteArray& str);
 static QString buildSimpleFieldString(
 	QString str,
 	qsizetype length,
@@ -50,24 +49,12 @@ static QString buildRawValueString(
 	qsizetype length,
 	const std::uint8_t* value
 );
-static QString buildDecodedFieldString(
-	const struct iso8825_tlv_t* tlv,
-	const struct emv_tlv_info_t& info,
-	const QByteArray& valueStr
-);
-static QString buildDecodedObjectString(
-	const struct iso8825_tlv_t* tlv,
-	const struct emv_tlv_info_t& info,
-	const QByteArray& valueStr
-);
-static QString buildFieldString(
-	unsigned int tag,
-	const char* name = nullptr,
-	qsizetype length = -1
-);
+static QString buildDecodedFieldString(const EmvTlvInfo& info);
+static QString buildDecodedObjectString(const EmvTlvInfo& info);
+static QString buildFieldString(const EmvTlvInfo& info, qsizetype length = -1);
 static QTreeWidgetItem* addValueStringList(
 	EmvTreeItem* item,
-	const QByteArray& valueStr
+	const EmvTlvInfo& info
 );
 static QTreeWidgetItem* addValueDol(
 	EmvTreeItem* item,
@@ -201,34 +188,18 @@ void EmvTreeItem::render(bool showDecodedFields, bool showDecodedObjects)
 
 void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv)
 {
-	int r;
-	struct emv_tlv_t emv_tlv;
-	struct emv_tlv_info_t info;
-	QByteArray valueStr(2048, 0);
-
 	// First delete existing children
 	deleteChildren();
 
-	emv_tlv.ber = *tlv;
-	r = emv_tlv_get_info(
-		&emv_tlv,
-		nullptr,
-		&info,
-		valueStr.data(),
-		valueStr.size()
-	);
-	if (r) {
-		qDebug("emv_tlv_get_info()=%d; tag=0x%02X", r, tlv->tag);
+	EmvTlvInfo info(tlv);
+	if (info.error()) {
+		qDebug("No info for field 0x%02X", tlv->tag);
 	}
-	if (info.tag_name) {
-		m_tagName = info.tag_name;
-	}
-	if (info.tag_desc) {
-		m_tagDescription = info.tag_desc;
-	}
-	m_constructed = iso8825_ber_is_constructed(tlv);
-	m_decodedFieldStr = buildDecodedFieldString(tlv, info, valueStr);
-	m_decodedObjectStr = buildDecodedObjectString(tlv, info, valueStr);
+	m_tagName = info.tagName();
+	m_tagDescription = info.tagDescription();
+	m_constructed = info.isConstructed();
+	m_decodedFieldStr = buildDecodedFieldString(info);
+	m_decodedObjectStr = buildDecodedObjectString(info);
 
 	if (m_constructed) {
 		// Add field length but omit raw value bytes from field strings for
@@ -250,24 +221,14 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv)
 			);
 		}
 
-		if (valueStrIsList(valueStr)) {
-			addValueStringList(this, valueStr);
-		} else if (info.format == EMV_FORMAT_DOL) {
+		if (info.valueStrIsList()) {
+			addValueStringList(this, info);
+		} else if (info.format() == EmvFormat::DOL) {
 			addValueDol(this, tlv->value, tlv->length);
-		} else if (info.format == EMV_FORMAT_TAG_LIST) {
+		} else if (info.format() == EmvFormat::TAG_LIST) {
 			addValueTagList(this, tlv->value, tlv->length);
 		}
 	}
-}
-
-static bool valueStrIsList(const QByteArray& str)
-{
-	if (!str[0]) {
-		return false;
-	}
-
-	// If the last character is a newline, assume that it is a string list
-	return str[qstrnlen(str.constData(), str.size()) - 1] == '\n';
 }
 
 static QString buildSimpleFieldString(
@@ -336,97 +297,84 @@ static QString buildRawValueString(
 	}
 }
 
-static QString buildDecodedFieldString(
-	const struct iso8825_tlv_t* tlv,
-	const struct emv_tlv_info_t& info,
-	const QByteArray& valueStr
-)
+static QString buildDecodedFieldString(const EmvTlvInfo& info)
 {
-	if (info.tag_name) {
-		QString fieldStr = QString::asprintf("%02X | %s", tlv->tag, info.tag_name);
-		if (!iso8825_ber_is_constructed(tlv) &&
-			!valueStrIsList(valueStr) &&
-			valueStr[0]
+	if (!info.tagName().isEmpty()) {
+		QString fieldStr = QString::asprintf("%02X | %s",
+			info.tag(), qUtf8Printable(info.tagName())
+		);
+		if (!info.isConstructed() &&
+			!info.valueStrIsList() &&
+			!info.valueStr().isEmpty()
 		) {
-			if (info.format == EMV_FORMAT_A ||
-				info.format == EMV_FORMAT_AN ||
-				info.format == EMV_FORMAT_ANS ||
-				iso8825_ber_is_string(tlv)
-			) {
+			if (info.formatIsString()) {
 				fieldStr += QStringLiteral(" : \"") +
-					valueStr.constData() +
+					info.valueStr() +
 					QStringLiteral("\"");
 			} else {
-				fieldStr += QStringLiteral(" : ") + valueStr.constData();
+				fieldStr += QStringLiteral(" : ") + info.valueStr();
 			}
 		}
 		return fieldStr;
 
 	} else {
-		return QString::asprintf("%02X", tlv->tag);
+		return QString::asprintf("%02X", info.tag());
 	}
 }
 
-static QString buildDecodedObjectString(
-	const struct iso8825_tlv_t* tlv,
-	const struct emv_tlv_info_t& info,
-	const QByteArray& valueStr
-)
+static QString buildDecodedObjectString(const EmvTlvInfo& info)
 {
-	if (iso8825_ber_is_constructed(tlv) && valueStr[0]) {
+	if (info.isConstructed() && !info.valueStr().isEmpty()) {
 		// Assume that a constructed field with a value string is an object
 		// of some kind
-		return QString::asprintf("%02X | %s", tlv->tag, valueStr.constData());
+		return QString::asprintf("%02X | %s",
+			info.tag(), qUtf8Printable(info.valueStr())
+		);
 	} else {
 		// Emtry string for non-objects
 		return QString();
 	}
 }
 
-static QString buildFieldString(
-	unsigned int tag,
-	const char* name,
-	qsizetype length
-)
+static QString buildFieldString(const EmvTlvInfo& info, qsizetype length)
 {
-	if (name) {
+	if (!info.tagName().isEmpty()) {
 		if (length > -1) {
-			return QString::asprintf("%02X | %s [%zu]", tag, name, static_cast<std::size_t>(length));
+			return QString::asprintf("%02X | %s [%zu]",
+				info.tag(),
+				qUtf8Printable(info.tagName()),
+				static_cast<std::size_t>(length)
+
+			);
 		} else {
-			return QString::asprintf("%02X | %s", tag, name);
+			return QString::asprintf("%02X | %s",
+				info.tag(), qUtf8Printable(info.tagName())
+			);
 		}
 	} else {
 		if (length > -1) {
-			return QString::asprintf("%02X [%zu]", tag, static_cast<std::size_t>(length));
+			return QString::asprintf("%02X [%zu]",
+				info.tag(), static_cast<std::size_t>(length)
+			);
 		} else {
-			return QString::asprintf("%02X", tag);
+			return QString::asprintf("%02X", info.tag());
 		}
 	}
 }
 
 static QTreeWidgetItem* addValueStringList(
 	EmvTreeItem* item,
-	const QByteArray& valueStr
+	const EmvTlvInfo& info
 )
 {
-	if (!valueStr[0]) {
+	if (info.valueStr().isEmpty()) {
 		return nullptr;
 	}
 
 	QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 		item,
 		QStringList(
-			// NOTE: Qt6 differs from Qt5 for when a QByteArray is passed to
-			// QString::fromUtf8(), resulting in a QString with the same size
-			// as the whole QByteArray, regardless of null-termination. It is
-			// safe for both Qt5 and Qt6 to pass the content of QByteArray as
-			// a C-string instead. For safety, it is useful to compute the size
-			// using qstrnlen() to ensure that it does not exceed the size of
-			// the QByteArray content.
-			QString::fromUtf8(
-				valueStr.constData(),
-				qstrnlen(valueStr.constData(), valueStr.size() - 1)
-			).trimmed() // Trim trailing newline
+			info.valueStr().trimmed() // Trim trailing newline
 		)
 	);
 	valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
@@ -460,18 +408,12 @@ static QTreeWidgetItem* addValueDol(
 	}
 
 	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
-		struct emv_tlv_t emv_tlv;
-		struct emv_tlv_info_t info;
-
-		memset(&emv_tlv, 0, sizeof(emv_tlv));
-		emv_tlv.tag = entry.tag;
-		emv_tlv.length = entry.length;
-		emv_tlv_get_info(&emv_tlv, nullptr, &info, nullptr, 0);
+		EmvTlvInfo info(&entry);
 
 		QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 			dolItem,
 			QStringList(
-				buildFieldString(entry.tag, info.tag_name, entry.length)
+				buildFieldString(info, entry.length)
 			)
 		);
 		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
@@ -503,17 +445,12 @@ static QTreeWidgetItem* addValueTagList(
 	tlItem->setFlags(Qt::ItemIsEnabled);
 
 	while ((r = iso8825_ber_tag_decode(ptr, len, &tag)) > 0) {
-		struct emv_tlv_t emv_tlv;
-		struct emv_tlv_info_t info;
-
-		memset(&emv_tlv, 0, sizeof(emv_tlv));
-		emv_tlv.tag = tag;
-		emv_tlv_get_info(&emv_tlv, nullptr, &info, nullptr, 0);
+		EmvTlvInfo info(tag);
 
 		QTreeWidgetItem* valueItem = new QTreeWidgetItem(
 			tlItem,
 			QStringList(
-				buildFieldString(tag, info.tag_name)
+				buildFieldString(info)
 			)
 		);
 		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);

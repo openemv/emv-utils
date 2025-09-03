@@ -143,6 +143,7 @@ endif()
 add_executable(emv-viewer
 	emv-viewer.cpp
 	emv-viewer-mainwindow.cpp
+	emvtlvinfo.cpp
 	emvhighlighter.cpp
 	emvtreeitem.cpp
 	emvtreeview.cpp
