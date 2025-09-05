@@ -30,6 +30,9 @@
 
 #include <cstring>
 
+static struct emv_tlv_sources_t defaultSources = EMV_TLV_SOURCES_INIT;
+static struct emv_tlv_list_t defaultSourcesList = EMV_TLV_LIST_INIT;
+
 static constexpr EmvFormat convertFormat(enum emv_format_t format)
 {
 	switch (format) {
@@ -73,7 +76,7 @@ EmvTlvInfo::EmvTlvInfo(const struct iso8825_tlv_t* tlv)
 	emv_tlv.ber = *tlv;
 	emv_tlv_get_info(
 		&emv_tlv,
-		nullptr,
+		&defaultSources,
 		&info,
 		valueStr.data(),
 		valueStr.size()
@@ -117,7 +120,7 @@ EmvTlvInfo::EmvTlvInfo(const struct emv_dol_entry_t* entry)
 	emv_tlv.tag = entry->tag;
 	emv_tlv.length = entry->length;
 
-	emv_tlv_get_info(&emv_tlv, nullptr, &info, nullptr, 0);
+	emv_tlv_get_info(&emv_tlv, &defaultSources, &info, nullptr, 0);
 	if (info.tag_name) {
 		m_tagName = info.tag_name;
 	}
@@ -140,7 +143,7 @@ EmvTlvInfo::EmvTlvInfo(unsigned int tag)
 	std::memset(&emv_tlv, 0, sizeof(emv_tlv));
 	emv_tlv.tag = tag;
 
-	emv_tlv_get_info(&emv_tlv, nullptr, &info, nullptr, 0);
+	emv_tlv_get_info(&emv_tlv, &defaultSources, &info, nullptr, 0);
 	if (info.tag_name) {
 		m_tagName = info.tag_name;
 	}
@@ -159,4 +162,17 @@ bool EmvTlvInfo::valueStrIsList() const
 
 	// If the last character is a newline, assume that it is a list of strings
 	return m_valueStr.back() == '\n';
+}
+
+void EmvTlvInfo::clearDefaultSources()
+{
+	emv_tlv_list_clear(&defaultSourcesList);
+	defaultSources = EMV_TLV_SOURCES_INIT;
+}
+
+void EmvTlvInfo::setDefaultSources(const QByteArray& data)
+{
+	clearDefaultSources();
+	emv_tlv_parse(data.constData(), data.size(), &defaultSourcesList);
+	defaultSources = { 1, { &defaultSourcesList } };
 }

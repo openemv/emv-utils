@@ -77,6 +77,10 @@ private:
 	bool m_constructed;
 	EmvFormat m_format;
 	bool m_format_is_string;
+
+public:
+	static void clearDefaultSources();
+	static void setDefaultSources(const QByteArray& data);
 };
 
 #endif

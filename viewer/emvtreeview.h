@@ -34,6 +34,7 @@ public:
 	EmvTreeView(QWidget* parent);
 
 public slots:
+	void clear();
 	unsigned int populateItems(const QByteArray& data);
 	void setIgnorePadding(bool enabled) { m_ignorePadding = enabled; }
 	void setDecodeFields(bool enabled);
