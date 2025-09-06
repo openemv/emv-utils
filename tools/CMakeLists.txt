@@ -226,12 +226,13 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 
 	add_test(NAME emv_decode_test8
-		COMMAND emv-decode --tlv 701F9F390105571040123456789095D2512201197339300F820259009F15025999
+		COMMAND emv-decode --tlv 702D9F390105500C564953412025435245444954571040123456789095D2512201197339300F820259009F15025999
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_test8_regex
-		"^70 \\| EMV Data Template : \\[31\\][\r\n]"
+		"^70 \\| EMV Data Template : \\[45\\][\r\n]"
 		"  9F39 \\| Point-of-Service \\(POS\\) Entry Mode : \\[1\\] 05 \\(Integrated circuit card \\(ICC\\)\\. CVV can be checked\\.\\)[\r\n]"
+		"  50 \\| Application Label : \\[12\\] 56 49 53 41 20 25 43 52 45 44 49 54 \"VISA CREDIT\"[\r\n]" # Value intentionally contains invalid character
 		"  57 \\| Track 2 Equivalent Data : \\[16\\] 40 12 34 56 78 90 95 D2 51 22 01 19 73 39 30 0F \\(40123456789095=2512201197339300\\)[\r\n]"
 		"  82 \\| Application Interchange Profile \\(AIP\\) : \\[2\\] 59 00[\r\n]"
 		"    - Static Data Authentication \\(SDA\\) is supported[\r\n]"

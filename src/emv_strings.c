@@ -1582,7 +1582,7 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 
 		case EMV_FORMAT_ANS:
 			if (tlv->tag == EMV_TAG_50_APPLICATION_LABEL) {
-				r = emv_format_ans_only_space_get_string(tlv->value, tlv->length, value_str, value_str_len);
+				r = emv_format_ans_to_alnum_space_str(tlv->value, tlv->length, value_str, value_str_len);
 			}
 			else if (tlv->tag == EMV_TAG_9F12_APPLICATION_PREFERRED_NAME) {
 				// TODO: Convert EMV_TAG_9F12_APPLICATION_PREFERRED_NAME from the appropriate ISO/IEC 8859 code page to UTF-8
@@ -1681,45 +1681,6 @@ int emv_format_an_get_string(const uint8_t* buf, size_t buf_len, char* str, size
 			(*buf >= 0x30 && *buf <= 0x39) || // 0-9
 			(*buf >= 0x41 && *buf <= 0x5A) || // A-Z
 			(*buf >= 0x61 && *buf <= 0x7A)    // a-z
-		) {
-			*str = *buf;
-
-			// Advance output
-			++str;
-			--str_len;
-		} else {
-			// Invalid digit
-			return 1;
-		}
-
-		++buf;
-		--buf_len;
-	}
-
-	*str = 0; // NULL terminate
-
-	return 0;
-}
-
-int emv_format_ans_only_space_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
-{
-	if (!buf || !buf_len || !str || !str_len) {
-		return -1;
-	}
-
-	// Minimum string length
-	if (str_len < buf_len + 1) {
-		return -2;
-	}
-
-	while (buf_len) {
-		// Validate format "ans" with special characters limited to space
-		// character, which is effectively format "an" plus space character
-		if (
-			(*buf >= 0x30 && *buf <= 0x39) || // 0-9
-			(*buf >= 0x41 && *buf <= 0x5A) || // A-Z
-			(*buf >= 0x61 && *buf <= 0x7A) || // a-z
-			(*buf == 0x20)                    // Space
 		) {
 			*str = *buf;
 

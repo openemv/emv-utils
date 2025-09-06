@@ -190,20 +190,6 @@ int emv_format_a_get_string(const uint8_t* buf, size_t buf_len, char* str, size_
 int emv_format_an_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 
 /**
- * Stringify EMV format "ans", with special characters limited to space
- * character, to UTF-8.
- * See @ref EMV_FORMAT_ANS regarding @ref EMV_TAG_50_APPLICATION_LABEL
- * @remark See ISO/IEC 8859
- *
- * @param buf Buffer containing EMV format "ans" data
- * @param buf_len Length of buffer in bytes
- * @param str String buffer output
- * @param str_len Length of string buffer in bytes
- * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
- */
-int emv_format_ans_only_space_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
-
-/**
  * Stringify EMV format "ans" (using ISO/IEC 8859 common character set) to
  * UTF-8.
  * See @ref EMV_FORMAT_ANS
