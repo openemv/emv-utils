@@ -212,11 +212,20 @@ const struct emv_tlv_t* emv_tlv_sources_find_const(
 /**
  * Initialise EMV TLV sources iterator
  * @param sources EMV TLV sources
- * @param itr EMV TLV sources iteratoroutput
+ * @param itr EMV TLV sources iterator output
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
  */
 int emv_tlv_sources_itr_init(
 	const struct emv_tlv_sources_t* sources,
+	struct emv_tlv_sources_itr_t* itr
+);
+
+/**
+ * Advance to next EMV TLV field in sources
+ * @param itr EMV TLV sources iterator
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+const struct emv_tlv_t* emv_tlv_sources_itr_next_const(
 	struct emv_tlv_sources_itr_t* itr
 );
 

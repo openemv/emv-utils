@@ -147,6 +147,8 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  * - @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA depends on
  *   @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE and
  *   @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER
+ * - @ref EMV_TAG_9F12_APPLICATION_PREFERRED_NAME depends on
+ *   @ref EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX
  *
  * @note @c value_str output will be empty if human readable string is not available
  *

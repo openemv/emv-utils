@@ -29,6 +29,7 @@
 #include "isocodes_lookup.h"
 #include "mcc_lookup.h"
 #include "iso8825_strings.h"
+#include "iso8859.h"
 #include "iso7816_apdu.h"
 #include "iso7816_strings.h"
 
@@ -59,6 +60,7 @@ static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) ATTRIBUTE_FORMAT_PRINTF(2, 3);
 static void emv_str_list_add_data(struct str_itr_t* itr, const char* str, const void* data, size_t data_len);
+static int emv_app_preferred_name_get_string(const uint8_t* buf, size_t buf_len, const struct emv_tlv_sources_t* sources, char* str, size_t str_len);
 static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
@@ -737,7 +739,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Preferred mnemonic associated with the AID";
 			info->format = EMV_FORMAT_ANS;
-			return emv_tlv_value_get_string(tlv, info->format, 16, value_str, value_str_len);
+			return emv_app_preferred_name_get_string(tlv->value, tlv->length, sources, value_str, value_str_len);
 
 		case EMV_TAG_9F13_LAST_ONLINE_ATC_REGISTER:
 			info->tag_name =
@@ -1585,10 +1587,11 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 				r = emv_format_ans_to_alnum_space_str(tlv->value, tlv->length, value_str, value_str_len);
 			}
 			else if (tlv->tag == EMV_TAG_9F12_APPLICATION_PREFERRED_NAME) {
-				// TODO: Convert EMV_TAG_9F12_APPLICATION_PREFERRED_NAME from the appropriate ISO/IEC 8859 code page to UTF-8
-				memcpy(value_str, tlv->value, tlv->length);
-				value_str[tlv->length] = 0; // NULL terminate
-				return 0;
+				// NOTE: Use emv_app_preferred_name_get_string() instead for
+				// EMV_TAG_9F12_APPLICATION_PREFERRED_NAME to allow the use of
+				// of EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX when determining the
+				// ISO/IEC 8859 code page
+				r = emv_format_ans_to_non_control_str(tlv->value, tlv->length, value_str, value_str_len);
 			} else {
 				r = emv_format_ans_ccs_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			}
@@ -2694,6 +2697,108 @@ int emv_addl_term_caps_get_string_list(
 	}
 	if ((addl_term_caps[4] & EMV_ADDL_TERM_CAPS_OUTPUT_CODE_TABLE_1)) {
 		emv_str_list_add(&itr, "Terminal Data Output Capability: Code table 1");
+	}
+
+	return 0;
+}
+
+static int emv_app_preferred_name_get_string(
+	const uint8_t* buf,
+	size_t buf_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	char app_preferred_name[16 + 1]; // Ensure enough space for NULL termination
+	unsigned int issuer_code_table = 0;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	// Application Preferred Name is limited to non-control characters defined
+	// in the ISO/IEC 8859 part designated in the Issuer Code Table
+	// See EMV 4.4 Book 1, 4.3
+	// See EMV 4.4 Book 4, Annex B
+
+	// Copy only non-control characters
+	memset(app_preferred_name, 0, sizeof(app_preferred_name));
+	r = emv_format_ans_to_non_control_str(
+		buf,
+		buf_len,
+		app_preferred_name,
+		sizeof(app_preferred_name)
+	);
+	if (r) {
+		return -2;
+	}
+
+	// If the Application Preferred Name (field 9F12) happens to be in the
+	// sources, use the Issuer Code Table (field 9F11) that precedes it. This
+	// assumes that the AEF and FCI responses typically provide these fields in
+	// a consistent order such that when multiple sets are decoded, it is a
+	// reasonable assumption that the Issuer Code Table (field 9F11) always
+	// precedes the Application Preferred Name (field 9F12).
+	if (sources) {
+		struct emv_tlv_sources_itr_t itr;
+		const struct emv_tlv_t* tlv;
+		unsigned int latest_issuer_code_table = 0;
+
+		r = emv_tlv_sources_itr_init(sources, &itr);
+		if (r) {
+			return -3;
+		}
+
+		while ((tlv = emv_tlv_sources_itr_next_const(&itr)) != NULL) {
+
+			if (tlv->tag == EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX &&
+				tlv->length == 1 &&
+				tlv->value[0] != 0
+			) {
+				// Remember latest Issuer Code Table (field 9F11)
+				latest_issuer_code_table = tlv->value[0];
+				continue;
+			}
+
+			if (tlv->tag == EMV_TAG_9F12_APPLICATION_PREFERRED_NAME &&
+				tlv->length == buf_len &&
+				memcmp(tlv->value, buf, buf_len) == 0
+			) {
+				// Choose latest Issuer Code Table (field 9F11)
+				issuer_code_table = latest_issuer_code_table;
+				break;
+			}
+		}
+	}
+	if (!issuer_code_table) {
+		// Default to ISO 8859 code page 1
+		issuer_code_table = 1;
+	}
+
+	// Convert ISO 8859 to UTF-8
+	r = iso8859_to_utf8(
+		issuer_code_table,
+		(const uint8_t*)app_preferred_name,
+		strlen(app_preferred_name),
+		str,
+		str_len
+	);
+	if (r) {
+		str[0] = 0;
+		if (r < 0) {
+			// Internal error
+			return -4;
+		} else {
+			// Parse error
+			return 1;
+		}
 	}
 
 	return 0;

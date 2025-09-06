@@ -246,6 +246,36 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_test8_regex}
 	)
 
+	add_test(NAME emv_decode_test9
+		COMMAND emv-decode --tlv 9F120F6173646631CCCDCECFD0D1D2D3D4D59F1101049F120F6173646632CCCDCECFD0D1D2D3D4D59F1101059F120F6173646633CCCDCECFD0D1D2D3D4D59F11010B9F120F6173646634CCCDCECFD0D1D2D3D4D5
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	if(ISO8859_IMPL STREQUAL "simple")
+		string(CONCAT emv_decode_test9_regex
+			"^9F12 \\| Application Preferred Name : \\[15\\] 61 73 64 66 31 CC CD CE CF D0 D1 D2 D3 D4 D5 \"asdf1ÌÍÎÏÐÑÒÓÔÕ\"[\r\n]"
+			"9F11 \\| Issuer Code Table Index : \\[1\\] 04[\r\n]"
+			"9F12 \\| Application Preferred Name : \\[15\\] 61 73 64 66 32 CC CD CE CF D0 D1 D2 D3 D4 D5[\r\n]"
+			"9F11 \\| Issuer Code Table Index : \\[1\\] 05[\r\n]"
+			"9F12 \\| Application Preferred Name : \\[15\\] 61 73 64 66 33 CC CD CE CF D0 D1 D2 D3 D4 D5[\r\n]"
+			"9F11 \\| Issuer Code Table Index : \\[1\\] 0B[\r\n]"
+			"9F12 \\| Application Preferred Name : \\[15\\] 61 73 64 66 34 CC CD CE CF D0 D1 D2 D3 D4 D5[\r\n]$"
+		)
+	else()
+		string(CONCAT emv_decode_test9_regex
+			"^9F12 \\| Application Preferred Name : \\[15\\] 61 73 64 66 31 CC CD CE CF D0 D1 D2 D3 D4 D5 \"asdf1ÌÍÎÏÐÑÒÓÔÕ\"[\r\n]"
+			"9F11 \\| Issuer Code Table Index : \\[1\\] 04[\r\n]"
+			"9F12 \\| Application Preferred Name : \\[15\\] 61 73 64 66 32 CC CD CE CF D0 D1 D2 D3 D4 D5 \"asdf2ĖÍÎĪĐŅŌĶÔÕ\"[\r\n]"
+			"9F11 \\| Issuer Code Table Index : \\[1\\] 05[\r\n]"
+			"9F12 \\| Application Preferred Name : \\[15\\] 61 73 64 66 33 CC CD CE CF D0 D1 D2 D3 D4 D5 \"asdf3ЬЭЮЯабвгде\"[\r\n]"
+			"9F11 \\| Issuer Code Table Index : \\[1\\] 0B[\r\n]"
+			"9F12 \\| Application Preferred Name : \\[15\\] 61 73 64 66 34 CC CD CE CF D0 D1 D2 D3 D4 D5 \"asdf4ฬอฮฯะัาำิี\"[\r\n]$"
+		)
+	endif()
+	set_tests_properties(emv_decode_test9
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_test9_regex}
+	)
+
 	add_test(NAME emv_decode_country_test1
 		COMMAND emv-decode --country 528
 			--mcc-json ${MCC_JSON_BUILD_PATH}

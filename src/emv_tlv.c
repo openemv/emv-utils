@@ -339,6 +339,50 @@ int emv_tlv_sources_itr_init(
 	return 0;
 }
 
+const struct emv_tlv_t* emv_tlv_sources_itr_next_const(
+	struct emv_tlv_sources_itr_t* itr
+)
+{
+	const struct emv_tlv_sources_t* sources;
+	const struct emv_tlv_t* tlv;
+
+	if (!itr || !itr->sources) {
+		return NULL;
+	}
+	if (!emv_tlv_sources_is_valid(itr->sources)) {
+		return NULL;
+	}
+	sources = itr->sources;
+
+	if (itr->tlv != NULL) {
+		tlv = itr->tlv;
+
+		// Remember the next TLV
+		itr->tlv = itr->tlv->next;
+
+		return tlv;
+	}
+
+	for (++itr->idx; itr->idx < sources->count; ++itr->idx) {
+		const struct emv_tlv_t* tlv;
+
+		if (emv_tlv_list_is_empty(sources->list[itr->idx])) {
+			continue;
+		}
+
+		tlv = sources->list[itr->idx]->front;
+
+		if (tlv) {
+			// Remember the next TLV
+			itr->tlv = tlv->next;
+		}
+
+		return tlv;
+	}
+
+	return NULL;
+}
+
 const struct emv_tlv_t* emv_tlv_sources_itr_find_next_const(
 	struct emv_tlv_sources_itr_t* itr,
 	unsigned int tag
