@@ -82,6 +82,7 @@ validate_copyright() {
     if [ "$year_valid" = true ]; then
         return 0
     else
+        echo "⚠️ $file does not include copyright for year $CURRENT_YEAR"
         return 1
     fi
 }
