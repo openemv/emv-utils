@@ -20,6 +20,7 @@
 
 #include "emvtreeview.h"
 #include "emvtreeitem.h"
+#include "emvtlvinfo.h"
 
 #include "iso8825_ber.h"
 
@@ -146,6 +147,12 @@ static bool parseData(
 	return true;
 }
 
+void EmvTreeView::clear()
+{
+	EmvTlvInfo::clearDefaultSources();
+	QTreeWidget::clear();
+}
+
 unsigned int EmvTreeView::populateItems(const QByteArray& data)
 {
 	unsigned int totalValidBytes = 0;
@@ -153,6 +160,9 @@ unsigned int EmvTreeView::populateItems(const QByteArray& data)
 	// For now, clear the widget before repopulating it. In future, the widget
 	// should be updated incrementally instead.
 	clear();
+
+	// Cache all available fields for better output
+	EmvTlvInfo::setDefaultSources(data);
 
 	::parseData(
 		invisibleRootItem(),

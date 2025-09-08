@@ -15,7 +15,7 @@ if (BUILD_TESTING)
 	add_test(emv_debug_test emv_debug_test)
 	string(CONCAT emv_debug_test_regex
 		"\\[APP\\] asdf=1337[\r\n]"
-		"\\[APP\\] This is a trace message: DEADBEEF[\r\n]"
+		"\\[APP\\] tests/emv_debug_test\.c\\[46\\]: This is a trace message: DEADBEEF[\r\n]"
 	)
 	set_tests_properties(emv_debug_test
 		PROPERTIES

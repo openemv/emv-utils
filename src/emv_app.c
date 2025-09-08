@@ -179,10 +179,11 @@ static int emv_app_extract_display_name(struct emv_app_t* app, const struct emv_
 			// defined in the ISO/IEC 8859 part designated in the Issuer Code
 			// Table
 			// See EMV 4.4 Book 1, 4.3
-			// See EMV 4.4 Book 1, Annex B
+			// See EMV 4.4 Book 4, Annex B
 			char app_preferred_name[16 + 1]; // Ensure enough space for NULL termination
 
 			// Copy only non-control characters
+			memset(app_preferred_name, 0, sizeof(app_preferred_name));
 			r = emv_format_ans_to_non_control_str(
 				tlv->value,
 				tlv->length,

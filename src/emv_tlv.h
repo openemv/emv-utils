@@ -2,7 +2,7 @@
  * @file emv_tlv.h
  * @brief EMV TLV structures and helper functions
  *
- * Copyright 2021, 2023-2024 Leon Lynch
+ * Copyright 2021, 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -58,11 +58,36 @@ struct emv_tlv_list_t {
 	struct emv_tlv_t* back;                     ///< Pointer to end of list
 };
 
+/**
+ * EMV TLV sources
+ * @note This object must be populated manually and should not be modified
+ *       when an iterator is in use.
+ */
+struct emv_tlv_sources_t {
+	unsigned int count;                         ///< Number of source lists
+	const struct emv_tlv_list_t* list[4];       ///< Array of source lists
+};
+
+/**
+ * EMV TLV sources iterator
+ * @note Do not modify the EMV TLV sources object while using the iterator.
+ */
+struct emv_tlv_sources_itr_t {
+	/// @cond INTERNAL
+	const struct emv_tlv_sources_t* sources;
+	unsigned int idx;
+	const struct emv_tlv_t* tlv;
+	/// @endcond
+};
+
 /// Static initialiser for @ref emv_tlv_t
 #define EMV_TLV_INIT ((struct emv_tlv_t){ { { 0, 0, NULL, 0 } }, NULL })
 
 /// Static initialiser for @ref emv_tlv_list_t
 #define EMV_TLV_LIST_INIT ((struct emv_tlv_list_t){ NULL, NULL })
+
+/// Static initialiser for @ref emv_tlv_sources_t
+#define EMV_TLV_SOURCES_INIT ((struct emv_tlv_sources_t){ 0, { NULL }})
 
 /**
  * Free EMV TLV field
@@ -172,6 +197,48 @@ bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list);
  * @return Zero for success. Less than zero for error.
  */
 int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other);
+
+/**
+ * Find EMV TLV field in EMV TLV sources
+ * @param sources EMV TLV sources
+ * @param tag EMV tag to find
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+const struct emv_tlv_t* emv_tlv_sources_find_const(
+	const struct emv_tlv_sources_t* sources,
+	unsigned int tag
+);
+
+/**
+ * Initialise EMV TLV sources iterator
+ * @param sources EMV TLV sources
+ * @param itr EMV TLV sources iterator output
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_tlv_sources_itr_init(
+	const struct emv_tlv_sources_t* sources,
+	struct emv_tlv_sources_itr_t* itr
+);
+
+/**
+ * Advance to next EMV TLV field in sources
+ * @param itr EMV TLV sources iterator
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+const struct emv_tlv_t* emv_tlv_sources_itr_next_const(
+	struct emv_tlv_sources_itr_t* itr
+);
+
+/**
+ * Find next instance of a specific EMV TLV field
+ * @param itr EMV TLV sources iterator
+ * @param tag EMV tag to find
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+const struct emv_tlv_t* emv_tlv_sources_itr_find_next_const(
+	struct emv_tlv_sources_itr_t* itr,
+	unsigned int tag
+);
 
 /**
  * Parse EMV data.

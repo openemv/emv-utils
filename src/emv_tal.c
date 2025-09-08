@@ -111,7 +111,7 @@ int emv_tal_read_pse(
 		return EMV_TAL_RESULT_PSE_SELECT_FAILED;
 	}
 
-	emv_debug_info_tlv("FCI", fci, fci_len);
+	emv_debug_info_ber("FCI", fci, fci_len);
 
 	// Parse File Control Information (FCI) provided by PSE DDF
 	// NOTE: FCI may contain padding (r > 0)
@@ -182,7 +182,7 @@ int emv_tal_read_pse(
 			continue;
 		}
 
-		emv_debug_info_tlv("AEF", aef_record, aef_record_len);
+		emv_debug_info_ber("AEF", aef_record, aef_record_len);
 
 		r = emv_tal_parse_aef_record(
 			&pse_tlv_list,
@@ -369,7 +369,7 @@ int emv_tal_find_supported_apps(
 			continue;
 		}
 
-		emv_debug_info_tlv("FCI", fci, fci_len);
+		emv_debug_info_ber("FCI", fci, fci_len);
 
 		// Extract FCI data
 		// See EMV 4.4 Book 1, 12.3.3, step 3
@@ -510,7 +510,7 @@ int emv_tal_select_app(
 		}
 	}
 
-	emv_debug_info_tlv("FCI", fci, fci_len);
+	emv_debug_info_ber("FCI", fci, fci_len);
 
 	// Parse FCI to confirm that selected application is valid
 	app = emv_app_create_from_fci(fci, fci_len);
@@ -607,7 +607,7 @@ int emv_tal_get_processing_options(
 		}
 	}
 
-	emv_debug_info_tlv("GPO response", gpo_response, gpo_response_len);
+	emv_debug_info_ber("GPO response", gpo_response, gpo_response_len);
 
 	// Determine GPO response format
 	r = iso8825_ber_decode(gpo_response, gpo_response_len, &gpo_tlv);
@@ -636,8 +636,6 @@ int emv_tal_get_processing_options(
 			emv_debug_error("Invalid GPO response format 1 length of %u", gpo_tlv.length);
 			return EMV_TAL_ERROR_GPO_PARSE_FAILED;
 		}
-		emv_debug_info_data("AIP", gpo_tlv.value, 2);
-		emv_debug_info_data("AFL", gpo_tlv.value + 2, gpo_tlv.length - 2);
 
 		// Create Application Interchange Profile (field 82)
 		r = emv_tlv_list_push(
@@ -672,6 +670,8 @@ int emv_tal_get_processing_options(
 			r = EMV_TAL_ERROR_INTERNAL;
 			goto exit;
 		}
+
+		emv_debug_info_tlv_list("Extracted format 1 fields", &gpo_list);
 
 	} else if (gpo_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// GPO response format 2
@@ -766,6 +766,7 @@ static int emv_tal_read_sfi_records(
 		size_t record_len = sizeof(record);
 		uint16_t sw1sw2;
 		bool record_oda = false;
+		struct emv_tlv_list_t record_list = EMV_TLV_LIST_INIT;
 
 		// READ RECORD
 		// See EMV 4.4 Book 3, 10.2
@@ -901,9 +902,13 @@ static int emv_tal_read_sfi_records(
 		// length should not be excluded during offline data authentication
 		// processing. This implementation therefore assumes that any record
 		// that has passed the preceding validations is suitable for parsing.
-		r = emv_tlv_parse(record, record_len, list);
+		r = emv_tlv_parse(record, record_len, &record_list);
 		if (r) {
 			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+
+			// Always cleanup record list
+			emv_tlv_list_clear(&record_list);
+
 			if (r < 0) {
 				// Internal error; terminate session
 				emv_debug_error("Internal error");
@@ -914,6 +919,19 @@ static int emv_tal_read_sfi_records(
 				emv_debug_error("Failed to parse application data record");
 				return EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED;
 			}
+		}
+		emv_debug_trace_ber("READ RECORD from SFI %u, record %u", record, record_len, afl_entry->sfi, record_number);
+
+		r = emv_tlv_list_append(list, &record_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+			// Always cleanup record list
+			emv_tlv_list_clear(&record_list);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_TAL_ERROR_INTERNAL;
 		}
 	}
 
@@ -1029,7 +1047,7 @@ int emv_tal_get_data(
 		return EMV_TAL_RESULT_GET_DATA_FAILED;
 	}
 
-	emv_debug_info_tlv("GET DATA response", response, response_len);
+	emv_debug_info_ber("GET DATA response", response, response_len);
 
 	r = emv_tlv_parse(response, response_len, &response_list);
 	if (r) {
@@ -1114,7 +1132,7 @@ int emv_tal_internal_authenticate(
 		return EMV_TAL_ERROR_INT_AUTH_FAILED;
 	}
 
-	emv_debug_info_tlv("INTERNAL AUTHENTICATE response", response, response_len);
+	emv_debug_info_ber("INTERNAL AUTHENTICATE response", response, response_len);
 
 	// Determine response format
 	r = iso8825_ber_decode(response, response_len, &response_tlv);
@@ -1158,6 +1176,8 @@ int emv_tal_internal_authenticate(
 			r = EMV_TAL_ERROR_INTERNAL;
 			goto exit;
 		}
+
+		emv_debug_info_tlv_list("Extracted format 1 fields", &response_list);
 
 	} else if (response_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// Response format 2
@@ -1264,7 +1284,7 @@ int emv_tal_genac(
 		return EMV_TAL_ERROR_GENAC_FAILED;
 	}
 
-	emv_debug_info_tlv("GENAC response", response, response_len);
+	emv_debug_info_ber("GENAC response", response, response_len);
 
 	// Determine response format
 	r = iso8825_ber_decode(response, response_len, &response_tlv);
@@ -1361,6 +1381,8 @@ int emv_tal_genac(
 				goto exit;
 			}
 		}
+
+		emv_debug_info_tlv_list("Extracted format 1 fields", &response_list);
 
 	} else if (response_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// Response format 2

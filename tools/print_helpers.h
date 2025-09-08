@@ -2,7 +2,7 @@
  * @file print_helpers.h
  * @brief Helper functions for command line output
  *
- * Copyright 2021-2022, 2024 Leon Lynch
+ * Copyright 2021-2022, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,9 +30,40 @@
 
 // Forward declarations
 struct iso7816_atr_info_t;
+struct emv_ctx_t;
 struct emv_tlv_t;
 struct emv_tlv_list_t;
+struct emv_tlv_sources_t;
 struct emv_app_t;
+
+/**
+ * Set verbose flag for command line output functions
+ * @param enabled Boolean indicating whether verbose output should be enabled
+ */
+void print_set_verbose(bool enabled);
+
+/**
+ * Set sources containing fields used during decoding of other fields.
+ * @note This function will cache the provided sources object and therefore the
+ * caller is responsible for maintaining thread safety when modifying or
+ * clearing the source lists.
+ * See @ref emv_tlv_get_info for examples of fields.
+ * @param sources EMV TLV sources to use during decoding. NULL to clear cached
+ *                pointers.
+ */
+void print_set_sources(const struct emv_tlv_sources_t* sources);
+
+/**
+ * Set sources containing fields used during decoding of other fields from the
+ * current EMV processing context.
+ * @note This function will cache pointers to the individual EMV TLV lists in
+ * the EMV processing context and therefore the caller is responsible for
+ * maintaining thread safety when modifying or clearing the EMV processing
+ * context.
+ * See @ref emv_tlv_get_info for examples of fields.
+ * @param ctx EMV processing context. NULL to clear cached pointers.
+ */
+void print_set_sources_from_ctx(const struct emv_ctx_t* ctx);
 
 /**
  * Print buffer as hex digits

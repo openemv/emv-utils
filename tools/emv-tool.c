@@ -135,7 +135,7 @@ static const char* debug_level_str[] = {
 	"TRACE",
 	"ALL",
 };
-static enum emv_debug_level_t debug_level = EMV_DEBUG_INFO;
+static enum emv_debug_level_t debug_level = EMV_DEBUG_LEVEL_INFO;
 
 // Testing parameters
 static char* isocodes_path = NULL;
@@ -769,6 +769,8 @@ int main(int argc, char** argv)
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 	}
 
+	print_set_verbose(debug_verbose);
+
 	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
@@ -881,6 +883,7 @@ int main(int argc, char** argv)
 		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
 		goto pcsc_exit;
 	}
+	print_set_sources_from_ctx(&emv);
 	emv_txn_load_config(&emv);
 	emv_txn_load_params(
 		&emv,

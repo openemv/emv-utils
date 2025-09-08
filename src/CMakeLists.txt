@@ -287,6 +287,10 @@ add_library(emv
 	emv_oda.c
 	emv_date.c
 )
+set_property(
+	SOURCE emv_debug.c
+	APPEND PROPERTY COMPILE_DEFINITIONS CONFIG_SRC_BASE="${CMAKE_SOURCE_DIR}"
+)
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv.h
 	emv_tags.h
@@ -389,6 +393,7 @@ target_link_libraries(emv_strings
 	PRIVATE
 		iso8825 # Used by emv_strings.c
 		iso7816 # Used by emv_strings.c
+		iso8859 # Used by emv_strings.c
 		emv # Used by emv_strings.c
 		json-c::json-c # Used by isocodes_lookup.c
 )

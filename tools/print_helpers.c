@@ -28,6 +28,7 @@
 #include "iso8825_ber.h"
 #include "iso8825_strings.h"
 
+#include "emv.h"
 #include "emv_tlv.h"
 #include "emv_dol.h"
 #include "emv_app.h"
@@ -39,14 +40,34 @@
 #include <stdio.h>
 #include <string.h>
 
-static bool str_is_list(const char* str)
+static bool verbose_enabled = true;
+static struct emv_tlv_sources_t cached_sources = EMV_TLV_SOURCES_INIT;
+
+void print_set_verbose(bool enabled)
 {
-	if (!str || !str[0]) {
-		return false;
+	verbose_enabled = enabled;
+}
+
+void print_set_sources(const struct emv_tlv_sources_t* sources)
+{
+	if (!sources) {
+		cached_sources = EMV_TLV_SOURCES_INIT;
+		return;
 	}
 
-	// If the last character is a newline, assume it's a string list
-	return str[strlen(str) - 1] == '\n';
+	cached_sources = *sources;
+}
+
+void print_set_sources_from_ctx(const struct emv_ctx_t* ctx)
+{
+	if (!ctx) {
+		return;
+	}
+
+	cached_sources = EMV_TLV_SOURCES_INIT;
+	cached_sources.count = 2;
+	cached_sources.list[0] = &ctx->icc;
+	cached_sources.list[1] = &ctx->terminal;
 }
 
 void print_buf(const char* buf_name, const void* buf, size_t length)
@@ -492,6 +513,43 @@ void print_ber_buf(
 }
 
 /**
+ * Print BER value bytes and truncate if necessary (internal)
+ * @param value BER value bytes
+ * @param length Length of BER value bytes
+ */
+static void print_ber_value(const uint8_t* value, size_t length)
+{
+	if (verbose_enabled || length <= 16) {
+		for (size_t i = 0; i < length; ++i) {
+			printf(" %02X", value[i]);
+		}
+	} else {
+		for (size_t i = 0; i < 8; ++i) {
+			printf(" %02X", value[i]);
+		}
+		printf(" ...");
+		for (size_t i = length - 8; i < length; ++i) {
+			printf(" %02X", value[i]);
+		}
+	}
+}
+
+/**
+ * Determine whether value string provided by @ref emv_tlv_get_info() is a
+ * list of strings (internal)
+ * @param str Value string provided by @ref emv_tlv_get_info()
+ */
+static bool str_is_list(const char* str)
+{
+	if (!str || !str[0]) {
+		return false;
+	}
+
+	// If the last character is a newline, assume it's a string list
+	return str[strlen(str) - 1] == '\n';
+}
+
+/**
  * Print EMV TLV data (internal)
  * @param ptr EMV TLV data
  * @param len Length of EMV TLV data in bytes
@@ -526,7 +584,13 @@ static int print_emv_buf_internal(
 		char value_str[2048];
 
 		emv_tlv.ber = tlv;
-		emv_tlv_get_info(&emv_tlv, &info, value_str, sizeof(value_str));
+		emv_tlv_get_info(
+			&emv_tlv,
+			&cached_sources,
+			&info,
+			value_str,
+			sizeof(value_str)
+		);
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix ? prefix : "");
@@ -588,9 +652,7 @@ static int print_emv_buf_internal(
 			valid_bytes += r;
 
 			// Print value bytes
-			for (size_t i = 0; i < tlv.length; ++i) {
-				printf(" %02X", tlv.value[i]);
-			}
+			print_ber_value(tlv.value, tlv.length);
 
 			// If the value string is empty or the value string is a list, end this
 			// line and continue on the next line. This implementation assumes that
@@ -701,7 +763,13 @@ static void print_emv_tlv_internal(
 	struct emv_tlv_info_t info;
 	char value_str[2048];
 
-	emv_tlv_get_info(tlv, &info, value_str, sizeof(value_str));
+	emv_tlv_get_info(
+		tlv,
+		&cached_sources,
+		&info,
+		value_str,
+		sizeof(value_str)
+	);
 
 	for (unsigned int i = 0; i < depth; ++i) {
 		printf("%s", prefix ? prefix : "");
@@ -741,9 +809,7 @@ static void print_emv_tlv_internal(
 
 	} else {
 		// Print value bytes
-		for (size_t i = 0; i < tlv->length; ++i) {
-			printf(" %02X", tlv->value[i]);
-		}
+		print_ber_value(tlv->value, tlv->length);
 
 		// If the value string is empty or the value string is a list, end this
 		// line and continue on the next line. This implementation assumes that
@@ -776,6 +842,27 @@ static void print_emv_tlv_internal(
 	}
 }
 
+/**
+ * Print EMV TLV list (internal)
+ * @param list EMV TLV list object
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ * @param ignore_padding Ignore invalid data if it is likely DES or AES padding
+ */
+static void print_emv_tlv_list_internal(
+	const struct emv_tlv_list_t* list,
+	const char* prefix,
+	unsigned int depth,
+	bool ignore_padding
+)
+{
+	const struct emv_tlv_t* tlv;
+
+	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		print_emv_tlv_internal(tlv, prefix, depth, ignore_padding);
+	}
+}
+
 void print_emv_tlv(const struct emv_tlv_t* tlv)
 {
 	print_emv_tlv_internal(tlv, "  ", 0, false);
@@ -783,11 +870,7 @@ void print_emv_tlv(const struct emv_tlv_t* tlv)
 
 void print_emv_tlv_list(const struct emv_tlv_list_t* list)
 {
-	const struct emv_tlv_t* tlv;
-
-	for (tlv = list->front; tlv != NULL; tlv = tlv->next) {
-		print_emv_tlv_internal(tlv, "  ", 1, false);
-	}
+	print_emv_tlv_list_internal(list, "  ", 1, false);
 }
 
 void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int depth)
@@ -815,7 +898,7 @@ void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int
 		memset(&emv_tlv, 0, sizeof(emv_tlv));
 		emv_tlv.tag = entry.tag;
 		emv_tlv.length = entry.length;
-		emv_tlv_get_info(&emv_tlv, &info, NULL, 0);
+		emv_tlv_get_info(&emv_tlv, NULL, &info, NULL, 0);
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix ? prefix : "");
@@ -846,7 +929,7 @@ void print_emv_tag_list(const void* ptr, size_t len, const char* prefix, unsigne
 
 		memset(&emv_tlv, 0, sizeof(emv_tlv));
 		emv_tlv.tag = tag;
-		emv_tlv_get_info(&emv_tlv, &info, NULL, 0);
+		emv_tlv_get_info(&emv_tlv, NULL, &info, NULL, 0);
 
 		for (unsigned int i = 0; i < depth; ++i) {
 			printf("%s", prefix ? prefix : "");
@@ -887,34 +970,38 @@ static void print_emv_debug_internal(
 	size_t buf_len
 )
 {
-	if (debug_type == EMV_DEBUG_TYPE_MSG) {
-		printf("%s\n", str);
-		return;
-	} else {
-		switch (debug_type) {
-			case EMV_DEBUG_TYPE_TLV:
-				print_buf(str, buf, buf_len);
-				print_emv_buf(buf, buf_len, "  ", 1, false);
-				return;
+	switch (debug_type) {
+		case EMV_DEBUG_TYPE_MSG:
+			printf("%s\n", str);
+			return;
 
-			case EMV_DEBUG_TYPE_ATR:
-				print_atr(buf);
-				return;
+		case EMV_DEBUG_TYPE_BER:
+			print_buf(str, buf, buf_len);
+			print_emv_buf(buf, buf_len, "  ", 1, false);
+			return;
 
-			case EMV_DEBUG_TYPE_CAPDU:
-				printf("%s: ", str);
-				print_capdu(buf, buf_len);
-				return;
+		case EMV_DEBUG_TYPE_TLV_LIST:
+			printf("%s:\n", str);
+			print_emv_tlv_list_internal(buf, "  ", 1, false);
+			return;
 
-			case EMV_DEBUG_TYPE_RAPDU:
-				printf("%s: ", str);
-				print_rapdu(buf, buf_len);
-				return;
+		case EMV_DEBUG_TYPE_ATR:
+			print_atr(buf);
+			return;
 
-			default:
-				print_buf(str, buf, buf_len);
-				return;
-		}
+		case EMV_DEBUG_TYPE_CAPDU:
+			printf("%s: ", str);
+			print_capdu(buf, buf_len);
+			return;
+
+		case EMV_DEBUG_TYPE_RAPDU:
+			printf("%s: ", str);
+			print_rapdu(buf, buf_len);
+			return;
+
+		default:
+			print_buf(str, buf, buf_len);
+			return;
 	}
 }
 
@@ -1000,19 +1087,19 @@ void print_emv_debug_verbose(
 	}
 
 	switch (level) {
-		case EMV_DEBUG_ERROR:
+		case EMV_DEBUG_LEVEL_ERROR:
 			level_str = "ERROR";
 			break;
 
-		case EMV_DEBUG_INFO:
+		case EMV_DEBUG_LEVEL_INFO:
 			level_str = "INFO";
 			break;
 
-		case EMV_DEBUG_CARD:
+		case EMV_DEBUG_LEVEL_CARD:
 			level_str = "CARD";
 			break;
 
-		case EMV_DEBUG_TRACE:
+		case EMV_DEBUG_LEVEL_TRACE:
 			level_str = "TRACE";
 			break;
 

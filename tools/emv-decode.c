@@ -96,12 +96,14 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ISO8859_14,
 	EMV_DECODE_ISO8859_15,
 	EMV_DECODE_IGNORE_PADDING,
+	EMV_DECODE_VERBOSE,
 	EMV_DECODE_VERSION,
 	EMV_DECODE_OVERRIDE_ISOCODES_PATH,
 	EMV_DECODE_OVERRIDE_MCC_JSON,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
 static bool ignore_padding = false;
+static bool verbose = false;
 
 // Testing parameters
 static char* isocodes_path = NULL;
@@ -176,6 +178,7 @@ static struct argp_option argp_options[] = {
 	{ "iso8859-15", EMV_DECODE_ISO8859_15, NULL, OPTION_HIDDEN },
 
 	{ "ignore-padding", EMV_DECODE_IGNORE_PADDING, NULL, 0, "Ignore invalid data if the input aligns with either the DES or AES cipher block size and invalid data is less than the cipher block size. Only applies to --ber and --tlv" },
+	{ "verbose", EMV_DECODE_VERBOSE, NULL, 0, "Enable verbose output. This will prevent the truncation of content bytes for longer fields. Only applies to --ber and --tlv" },
 
 	{ "version", EMV_DECODE_VERSION, NULL, 0, "Display emv-utils version" },
 
@@ -322,6 +325,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			return 0;
 		}
 
+		case EMV_DECODE_VERBOSE: {
+			verbose = true;
+			return 0;
+		}
+
 		case EMV_DECODE_OVERRIDE_ISOCODES_PATH: {
 			isocodes_path = strdup(arg);
 			return 0;
@@ -433,6 +441,8 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	print_set_verbose(verbose);
+
 	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
@@ -487,7 +497,17 @@ int main(int argc, char** argv)
 		}
 
 		case EMV_DECODE_TLV: {
+			// Cache all available fields for better output
+			struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+			const struct emv_tlv_sources_t sources = { 1, { &list } };
+			emv_tlv_parse(data, data_len, &list);
+			print_set_sources(&sources);
+
+			// Actual output
 			print_emv_buf(data, data_len, "  ", 0, ignore_padding);
+
+			// Cleanup
+			emv_tlv_list_clear(&list);
 			break;
 		}
 
@@ -917,6 +937,7 @@ int main(int argc, char** argv)
 
 		case EMV_DECODE_ISO8859_X:
 		case EMV_DECODE_IGNORE_PADDING:
+		case EMV_DECODE_VERBOSE:
 		case EMV_DECODE_VERSION:
 		case EMV_DECODE_OVERRIDE_ISOCODES_PATH:
 		case EMV_DECODE_OVERRIDE_MCC_JSON:

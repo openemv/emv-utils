@@ -2,7 +2,7 @@
  * @file emv_build_candidate_list_test.c
  * @brief Unit tests for EMV PSE processing and AID discovery
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -376,7 +376,7 @@ int main(void)
 
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
-		EMV_DEBUG_CARD,
+		EMV_DEBUG_LEVEL_CARD,
 		&print_emv_debug
 	);
 	if (r) {
