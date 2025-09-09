@@ -2,7 +2,7 @@
  * @file emv_dol_test.c
  * @brief Unit tests for Data Object List (DOL) processing
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -152,8 +152,7 @@ int main(void)
 	size_t data_len;
 	struct emv_tlv_list_t source1 = EMV_TLV_LIST_INIT;
 	struct emv_tlv_list_t source2 = EMV_TLV_LIST_INIT;
-	const struct emv_tlv_list_t* sources[2] = { &source1, &source2 };
-	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+	const struct emv_tlv_sources_t sources = { 2, { &source1, &source2 } };
 
 	printf("\nTest 1: Iterate valid DOL\n");
 	r = emv_dol_itr_init(test1_dol, sizeof(test1_dol), &itr);
@@ -262,8 +261,7 @@ int main(void)
 	r = emv_dol_build_data(
 		test6_dol,
 		sizeof(test6_dol),
-		sources,
-		sources_count,
+		&sources,
 		data,
 		&data_len
 	);
@@ -297,8 +295,7 @@ int main(void)
 	r = emv_dol_build_data(
 		test7_dol,
 		sizeof(test7_dol),
-		sources,
-		sources_count,
+		&sources,
 		data,
 		&data_len
 	);

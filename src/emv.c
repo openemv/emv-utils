@@ -648,17 +648,17 @@ int emv_initiate_application_processing(
 	// See EMV 4.4 Book 3, 10.1
 	pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
 	if (pdol) {
-		const struct emv_tlv_list_t* sources[3];
-		size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+		struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 		int pdol_data_len;
 		size_t pdol_data_offset;
 
 		emv_debug_info_data("PDOL found", pdol->value, pdol->length);
 
-		// Prepare ordered data source list
-		sources[0] = &ctx->params;
-		sources[1] = &ctx->config;
-		sources[2] = &ctx->terminal;
+		// Prepare ordered data sources
+		sources.count = 3;
+		sources.list[0] = &ctx->params;
+		sources.list[1] = &ctx->config;
+		sources.list[2] = &ctx->terminal;
 
 		// Validate PDOL data length
 		pdol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
@@ -692,8 +692,7 @@ int emv_initiate_application_processing(
 		r = emv_dol_build_data(
 			pdol->value,
 			pdol->length,
-			sources,
-			sources_count,
+			&sources,
 			ctx->oda.pdol_data,
 			&ctx->oda.pdol_data_len
 		);
@@ -1552,8 +1551,7 @@ exit:
 int emv_card_action_analysis(struct emv_ctx_t* ctx)
 {
 	int r;
-	const struct emv_tlv_list_t* sources[3];
-	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 	const struct emv_tlv_t* cdol1;
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
 
@@ -1582,10 +1580,11 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 		ref_ctrl |= EMV_TTL_GENAC_SIG_CDA;
 	}
 
-	// Prepare ordered data source list
-	sources[0] = &ctx->params;
-	sources[1] = &ctx->config;
-	sources[2] = &ctx->terminal;
+	// Prepare ordered data sources
+	sources.count = 3;
+	sources.list[0] = &ctx->params;
+	sources.list[1] = &ctx->config;
+	sources.list[2] = &ctx->terminal;
 
 	// Prepare Card Risk Management Data
 	// See EMV 4.4 Book 3, 9.2.1
@@ -1602,8 +1601,7 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 	r = emv_dol_build_data(
 		cdol1->value,
 		cdol1->length,
-		sources,
-		sources_count,
+		&sources,
 		ctx->oda.cdol1_data,
 		&ctx->oda.cdol1_data_len
 	);

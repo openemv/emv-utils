@@ -577,8 +577,7 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 	const struct emv_tlv_t* un;
 	struct emv_rsa_icc_pkey_t icc_pkey;
 	const struct emv_tlv_t* ddol;
-	const struct emv_tlv_list_t* sources[3];
-	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 	uint8_t ddol_data_buf[EMV_CAPDU_DATA_MAX];
 	size_t ddol_data_len = sizeof(ddol_data_buf);
 	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
@@ -692,14 +691,14 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 	// Favour terminal data for current transaction and do not allow config
 	// to override terminal data nor ICC data
 	// See EMV 4.4 Book 3, 5.4
-	sources[0] = &ctx->terminal;
-	sources[1] = &ctx->icc;
-	sources[2] = &ctx->config;
+	sources.count = 3;
+	sources.list[0] = &ctx->terminal;
+	sources.list[1] = &ctx->icc;
+	sources.list[2] = &ctx->config;
 	r = emv_dol_build_data(
 		ddol->value,
 		ddol->length,
-		sources,
-		sources_count,
+		&sources,
 		ddol_data_buf,
 		&ddol_data_len
 	);
