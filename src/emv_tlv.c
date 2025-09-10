@@ -21,6 +21,7 @@
 
 #include "emv_tlv.h"
 #include "iso8825_ber.h"
+#include "emv.h"
 #include "emv_tags.h"
 
 #include <stdbool.h>
@@ -322,6 +323,42 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 	}
 	other->front = NULL;
 	other->back = NULL;
+
+	return 0;
+}
+
+int emv_tlv_sources_init_from_ctx(
+	struct emv_tlv_sources_t* sources,
+	const struct emv_ctx_t* ctx
+)
+{
+	if (!sources || !ctx) {
+		return -1;
+	}
+
+	if (!emv_tlv_list_is_valid(&ctx->params)) {
+		return -2;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->config)) {
+		return -3;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->terminal)) {
+		return -4;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->icc)) {
+		return -5;
+	}
+
+	// Order data sources such that:
+	// - Terminal data created during the current transaction takes precendence
+	// - ICC data obtained from the current card should not be overridden by
+	//   config or current transaction parameters
+	// - Transaction parameters can override config
+	sources->count = 4;
+	sources->list[0] = &ctx->terminal;
+	sources->list[1] = &ctx->icc;
+	sources->list[2] = &ctx->params;
+	sources->list[3] = &ctx->config;
 
 	return 0;
 }

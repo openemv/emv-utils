@@ -655,10 +655,12 @@ int emv_initiate_application_processing(
 		emv_debug_info_data("PDOL found", pdol->value, pdol->length);
 
 		// Prepare ordered data sources
-		sources.count = 3;
-		sources.list[0] = &ctx->params;
-		sources.list[1] = &ctx->config;
-		sources.list[2] = &ctx->terminal;
+		r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+			emv_debug_error("Failed to build PDOL sources");
+			return EMV_ERROR_INTERNAL;
+		}
 
 		// Validate PDOL data length
 		pdol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
@@ -1581,10 +1583,12 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 	}
 
 	// Prepare ordered data sources
-	sources.count = 3;
-	sources.list[0] = &ctx->params;
-	sources.list[1] = &ctx->config;
-	sources.list[2] = &ctx->terminal;
+	r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+		emv_debug_error("Failed to build CDOL1 sources");
+		return EMV_ERROR_INTERNAL;
+	}
 
 	// Prepare Card Risk Management Data
 	// See EMV 4.4 Book 3, 9.2.1

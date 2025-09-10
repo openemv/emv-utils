@@ -687,14 +687,16 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 		goto exit;
 	}
 
+	// Prepare ordered data sources
+	r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+		emv_debug_error("Failed to build DDOL sources");
+		return EMV_ERROR_INTERNAL;
+	}
+
 	// Build DDOL data
-	// Favour terminal data for current transaction and do not allow config
-	// to override terminal data nor ICC data
 	// See EMV 4.4 Book 3, 5.4
-	sources.count = 3;
-	sources.list[0] = &ctx->terminal;
-	sources.list[1] = &ctx->icc;
-	sources.list[2] = &ctx->config;
 	r = emv_dol_build_data(
 		ddol->value,
 		ddol->length,
