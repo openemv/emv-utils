@@ -277,15 +277,24 @@ const struct emv_tlv_t* emv_tlv_sources_itr_find_next_const(
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list);
 
 /**
- * Determine whether a specific EMV tag with source 'Terminal' should be
- * encoded as format 'n'
+ * Determine whether a specific EMV tag should be encoded as format 'n'
  * @note This function is typically needed for Data Object List (DOL) processing
  * @remark See EMV 4.4 Book 3, Annex A1
  *
- * @param tag EMV tag with source 'Terminal'
+ * @param tag EMV tag
  * @return Boolean indicating EMV tag should be encoded as format 'n'
  */
-bool emv_tlv_is_terminal_format_n(unsigned int tag);
+bool emv_tlv_is_format_n(unsigned int tag);
+
+/**
+ * Determine whether a specific EMV tag should be encoded as format 'cn'
+ * @note This function is typically needed for Data Object List (DOL) processing
+ * @remark See EMV 4.4 Book 3, Annex A1
+ *
+ * @param tag EMV tag
+ * @return Boolean indicating EMV tag should be encoded as format 'cn'
+ */
+bool emv_tlv_is_format_cn(unsigned tag);
 
 /**
  * Convert EMV format "ans" to ISO/IEC 8859 string and omit control characters

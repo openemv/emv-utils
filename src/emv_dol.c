@@ -186,9 +186,8 @@ int emv_dol_build_data(
 		if (tlv->length > entry.length) {
 			// TLV is found and length is more than DOL entry, requiring truncation
 			// See EMV 4.4 Book 3, 5.4, step 2c
-			// TODO: Update for non-PDOL use, non-terminal fields and format CN
 			unsigned int offset = 0;
-			if (emv_tlv_is_terminal_format_n(tlv->tag)) {
+			if (emv_tlv_is_format_n(tlv->tag)) {
 				offset = tlv->length - entry.length;
 			}
 			memcpy(data_ptr, tlv->value + offset, entry.length);
@@ -200,11 +199,13 @@ int emv_dol_build_data(
 		if (tlv->length < entry.length) {
 			// TLV is found and length is less than DOL entry, requiring padding
 			// See EMV 4.4 Book 3, 5.4, step 2d
-			// TODO: Update for non-PDOL use, non-terminal fields and format CN
 			unsigned int pad_len = entry.length - tlv->length;
-			if (emv_tlv_is_terminal_format_n(tlv->tag)) {
+			if (emv_tlv_is_format_n(tlv->tag)) {
 				memset(data_ptr, 0, pad_len);
 				memcpy(data_ptr + pad_len, tlv->value, tlv->length);
+			} else if (emv_tlv_is_format_cn(tlv->tag)) {
+				memcpy(data_ptr, tlv->value, tlv->length);
+				memset(data_ptr + tlv->length, 0xFF, pad_len);
 			} else {
 				memcpy(data_ptr, tlv->value, tlv->length);
 				memset(data_ptr + tlv->length, 0, pad_len);
