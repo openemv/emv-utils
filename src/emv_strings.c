@@ -6906,6 +6906,12 @@ static const struct {
 	{ "9D", "Bank not found" },
 	{ "9E", "Bank not effective" },
 	{ "9F", "Information not on file" },
+
+	// See EMV 4.4 Book 4, Annex A6, table 35
+	{ "Y1", "Offline approved" },
+	{ "Z1", "Offline declined" },
+	{ "Y3", "Unable to go online, offline approved" },
+	{ "Z3", "Unable to go online, offline declined" },
 };
 
 static const char* emv_arc_get_desc(const char* arc)

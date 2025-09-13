@@ -1553,13 +1553,10 @@ exit:
 int emv_card_action_analysis(struct emv_ctx_t* ctx)
 {
 	int r;
+	uint8_t ref_ctrl;
 	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 	const struct emv_tlv_t* cdol1;
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
-
-	// Always decline offline for now until Terminal Action Analysis is fully
-	// implemented
-	uint8_t ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
 
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
@@ -1571,6 +1568,19 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 		emv_debug_error("Invalid context variable");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
+
+	// Always decline offline for now until Terminal Action Analysis is fully
+	// implemented
+	ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
+	// Populate Authorisation Response Code (field 8A) for offline decline
+	// See EMV 4.4 Book 4, 6.3.6
+	emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+		2,
+		(uint8_t[]){ 0x5A, 0x31 },
+		0
+	);
 
 	if (ctx->oda.method == EMV_ODA_METHOD_CDA &&
 		!(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
