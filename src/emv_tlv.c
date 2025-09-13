@@ -21,6 +21,7 @@
 
 #include "emv_tlv.h"
 #include "iso8825_ber.h"
+#include "emv.h"
 #include "emv_tags.h"
 
 #include <stdbool.h>
@@ -326,6 +327,42 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 	return 0;
 }
 
+int emv_tlv_sources_init_from_ctx(
+	struct emv_tlv_sources_t* sources,
+	const struct emv_ctx_t* ctx
+)
+{
+	if (!sources || !ctx) {
+		return -1;
+	}
+
+	if (!emv_tlv_list_is_valid(&ctx->params)) {
+		return -2;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->config)) {
+		return -3;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->terminal)) {
+		return -4;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->icc)) {
+		return -5;
+	}
+
+	// Order data sources such that:
+	// - Terminal data created during the current transaction takes precendence
+	// - ICC data obtained from the current card should not be overridden by
+	//   config or current transaction parameters
+	// - Transaction parameters can override config
+	sources->count = 4;
+	sources->list[0] = &ctx->terminal;
+	sources->list[1] = &ctx->icc;
+	sources->list[2] = &ctx->params;
+	sources->list[3] = &ctx->config;
+
+	return 0;
+}
+
 const struct emv_tlv_t* emv_tlv_sources_find_const(
 	const struct emv_tlv_sources_t* sources,
 	unsigned int tag
@@ -492,27 +529,55 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 	return 0;
 }
 
-bool emv_tlv_is_terminal_format_n(unsigned int tag)
+bool emv_tlv_is_format_n(unsigned int tag)
 {
 	// EMV tags with source 'Terminal' and format 'n'
 	// See EMV 4.4 Book 3, Annex A1
 	switch (tag) {
+		case EMV_TAG_42_IIN:
 		case EMV_TAG_9A_TRANSACTION_DATE:
 		case EMV_TAG_9C_TRANSACTION_TYPE:
+		case EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE:
+		case EMV_TAG_5F25_APPLICATION_EFFECTIVE_DATE:
+		case EMV_TAG_5F28_ISSUER_COUNTRY_CODE:
 		case EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE:
+		case EMV_TAG_5F30_SERVICE_CODE:
+		case EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER:
 		case EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT:
 		case EMV_TAG_5F57_ACCOUNT_TYPE:
 		case EMV_TAG_9F01_ACQUIRER_IDENTIFIER:
 		case EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC:
 		case EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC:
+		case EMV_TAG_9F0C_IINE:
+		case EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX:
 		case EMV_TAG_9F15_MCC:
+		case EMV_TAG_9F19_TOKEN_REQUESTOR_ID:
 		case EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE:
 		case EMV_TAG_9F21_TRANSACTION_TIME:
+		case EMV_TAG_9F25_LAST_4_DIGITS_OF_PAN:
 		case EMV_TAG_9F35_TERMINAL_TYPE:
 		case EMV_TAG_9F39_POS_ENTRY_MODE:
+		case EMV_TAG_9F3B_APPLICATION_REFERENCE_CURRENCY:
 		case EMV_TAG_9F3C_TRANSACTION_REFERENCE_CURRENCY:
 		case EMV_TAG_9F3D_TRANSACTION_REFERENCE_CURRENCY_EXPONENT:
 		case EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER:
+		case EMV_TAG_9F42_APPLICATION_CURRENCY_CODE:
+		case EMV_TAG_9F43_APPLICATION_REFERENCE_CURRENCY_EXPONENT:
+		case EMV_TAG_9F44_APPLICATION_CURRENCY_EXPONENT:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
+bool emv_tlv_is_format_cn(unsigned tag)
+{
+	// EMV tags with format 'cn'
+	// See EMV 4.4 Book 3, Annex A1
+	switch (tag) {
+		case EMV_TAG_5A_APPLICATION_PAN:
+		case EMV_TAG_9F20_TRACK2_DISCRETIONARY_DATA:
 			return true;
 
 		default:

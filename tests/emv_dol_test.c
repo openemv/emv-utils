@@ -2,7 +2,7 @@
  * @file emv_dol_test.c
  * @brief Unit tests for Data Object List (DOL) processing
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -99,6 +99,9 @@ const uint8_t test7_dol[] = {
 	0x9A, 0x00, // Zero length
 	0x9C, 0x03, // Longer than original length
 	0x9F, 0x37, 0x03, // Shorter than original data length
+	0x5A, 0x05, // Shorter than original data length
+	0x9F, 0x20, 0x05, // Longer than original data length
+	0x9F, 0x19, 0x08, // Longer than original data length
 };
 const struct emv_tlv_t test7_source1[] = {
 	{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ 0x09 }, 0 }}, NULL },
@@ -107,11 +110,15 @@ const struct emv_tlv_t test7_source1[] = {
 	{ {{ EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0 }}, NULL },
 	{ {{ EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC, 6, (uint8_t[]){ 0x00, 0x09, 0x87, 0x65, 0x43, 0x21 }, 0 }}, NULL },
 	{ {{ EMV_TAG_9F37_UNPREDICTABLE_NUMBER, 4, (uint8_t[]){ 0xDE, 0xAD, 0xBE, 0xEF }, 0 }}, NULL },
+	{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x1F }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F20_TRACK2_DISCRETIONARY_DATA, 3, (uint8_t[]){ 0x12, 0x34, 0x5F }, 0 }}, NULL },
 };
 const struct emv_tlv_t test7_source2[] = {
 	{ {{ EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE, 2, (uint8_t[]){ 0x05, 0x28 }, 0 }}, NULL },
 	{ {{ EMV_TAG_9F37_UNPREDICTABLE_NUMBER, 4, (uint8_t[]){ 0xDE, 0xAD, 0xCA, 0xFE }, 0 }}, NULL },
 	{ {{ EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS, 5, (uint8_t[]){ 0x12, 0x34, 0x55, 0x43, 0x21 }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F20_TRACK2_DISCRETIONARY_DATA, 2, (uint8_t[]){ 0x12, 0x3F }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F19_TOKEN_REQUESTOR_ID, 6, (uint8_t[]){ 0x65, 0x43, 0x21, 0x01, 0x23, 0x45 }, 0 }}, NULL },
 };
 const uint8_t test7_data[] = {
 	0x45, 0x67, 0x89, // Shorter than original data length
@@ -122,6 +129,9 @@ const uint8_t test7_data[] = {
 	// Removed due to zero length
 	0x00, 0x00, 0x09, // Longer than original length
 	0xDE, 0xAD, 0xBE, // Shorter than original data length
+	0x54, 0x13, 0x33, 0x00, 0x89, // Shorter than original data length
+	0x12, 0x34, 0x5F, 0xFF, 0xFF, // Longer than original data length
+	0x00, 0x00, 0x65, 0x43, 0x21, 0x01, 0x23, 0x45, // Longer than original data length
 };
 
 static int populate_source(
@@ -152,8 +162,7 @@ int main(void)
 	size_t data_len;
 	struct emv_tlv_list_t source1 = EMV_TLV_LIST_INIT;
 	struct emv_tlv_list_t source2 = EMV_TLV_LIST_INIT;
-	const struct emv_tlv_list_t* sources[2] = { &source1, &source2 };
-	size_t sources_count = sizeof(sources) / sizeof(sources[0]);
+	const struct emv_tlv_sources_t sources = { 2, { &source1, &source2 } };
 
 	printf("\nTest 1: Iterate valid DOL\n");
 	r = emv_dol_itr_init(test1_dol, sizeof(test1_dol), &itr);
@@ -262,8 +271,7 @@ int main(void)
 	r = emv_dol_build_data(
 		test6_dol,
 		sizeof(test6_dol),
-		sources,
-		sources_count,
+		&sources,
 		data,
 		&data_len
 	);
@@ -297,8 +305,7 @@ int main(void)
 	r = emv_dol_build_data(
 		test7_dol,
 		sizeof(test7_dol),
-		sources,
-		sources_count,
+		&sources,
 		data,
 		&data_len
 	);

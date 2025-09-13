@@ -31,6 +31,9 @@
 
 __BEGIN_DECLS
 
+// Forward declarations
+struct emv_ctx_t;
+
 /**
  * EMV TLV field
  * @note The first 4 members of this structure are intentionally identical to @ref iso8825_tlv_t
@@ -199,6 +202,22 @@ bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list);
 int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other);
 
 /**
+ * Initialise EMV TLV sources from EMV processing context.
+ * Sources will have this order:
+ * - Terminal data created during the current transaction takes precendence
+ * - ICC data obtained from the current card should not be overridden by config
+ *   or current transaction parameters
+ * - Transaction parameters can override config
+ * @param sources EMV TLV sources
+ * @param ctx EMV processing context
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_tlv_sources_init_from_ctx(
+	struct emv_tlv_sources_t* sources,
+	const struct emv_ctx_t* ctx
+);
+
+/**
  * Find EMV TLV field in EMV TLV sources
  * @param sources EMV TLV sources
  * @param tag EMV tag to find
@@ -258,15 +277,24 @@ const struct emv_tlv_t* emv_tlv_sources_itr_find_next_const(
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list);
 
 /**
- * Determine whether a specific EMV tag with source 'Terminal' should be
- * encoded as format 'n'
+ * Determine whether a specific EMV tag should be encoded as format 'n'
  * @note This function is typically needed for Data Object List (DOL) processing
  * @remark See EMV 4.4 Book 3, Annex A1
  *
- * @param tag EMV tag with source 'Terminal'
+ * @param tag EMV tag
  * @return Boolean indicating EMV tag should be encoded as format 'n'
  */
-bool emv_tlv_is_terminal_format_n(unsigned int tag);
+bool emv_tlv_is_format_n(unsigned int tag);
+
+/**
+ * Determine whether a specific EMV tag should be encoded as format 'cn'
+ * @note This function is typically needed for Data Object List (DOL) processing
+ * @remark See EMV 4.4 Book 3, Annex A1
+ *
+ * @param tag EMV tag
+ * @return Boolean indicating EMV tag should be encoded as format 'cn'
+ */
+bool emv_tlv_is_format_cn(unsigned tag);
 
 /**
  * Convert EMV format "ans" to ISO/IEC 8859 string and omit control characters
