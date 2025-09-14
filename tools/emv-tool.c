@@ -717,7 +717,7 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, EMV_ASI_EXACT_MATCH); // Visa Electron
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, EMV_ASI_EXACT_MATCH); // V Pay
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
-	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30 }, EMV_ASI_PARTIAL_MATCH); // Maestro
+	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30, 0x60 }, EMV_ASI_PARTIAL_MATCH); // Maestro
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 5, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 }, EMV_ASI_PARTIAL_MATCH); // Amex
 
 	// Random transaction selection
@@ -956,7 +956,7 @@ int main(int argc, char** argv)
 
 		} else {
 			// Use first application
-			printf("\nSelect first application:\n");
+			printf("\nSelect first application\n");
 			index = 0;
 		}
 
@@ -979,7 +979,7 @@ int main(int argc, char** argv)
 			goto emv_exit;
 		}
 
-		printf("\nInitiate application processing:\n");
+		printf("\nInitiate application processing\n");
 		r = emv_initiate_application_processing(&emv, pos_entry_mode);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
@@ -1074,7 +1074,7 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
-	printf("\nTerminal Risk Management\n");
+	printf("\nTerminal risk management\n");
 	r = emv_terminal_risk_management(&emv, NULL, 0);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
@@ -1099,7 +1099,7 @@ int main(int argc, char** argv)
 	printf("\nICC data:\n");
 	print_emv_tlv_list(&emv.icc);
 
-	printf("\nTerminal data\n");
+	printf("\nTerminal data:\n");
 	print_emv_tlv_list(&emv.terminal);
 
 	r = pcsc_reader_disconnect(reader);
