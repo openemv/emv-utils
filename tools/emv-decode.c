@@ -376,6 +376,10 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 			str[str_idx++] = *hex;
 			++hex;
 		}
+		if (!str_idx) {
+			// No hex digits left
+			continue;
+		}
 		if (str_idx != 2) {
 			// Uneven number of hex digits
 			return 1;
