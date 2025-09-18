@@ -359,7 +359,7 @@ int emv_build_candidate_list(
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
-	emv_debug_info("SELECT Payment System Environment (PSE)");
+	emv_debug_info("Select Payment System Environment (PSE)");
 	r = emv_tal_read_pse(ctx->ttl, &ctx->supported_aids, app_list);
 	if (r < 0) {
 		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
@@ -439,6 +439,7 @@ int emv_select_application(
 		ctx->selected_app = NULL;
 	}
 
+	emv_debug_info("Select application index #%u", index);
 	current_app = emv_app_list_remove_index(app_list, index);
 	if (!current_app) {
 		emv_debug_trace_msg("emv_app_list_remove_index() failed; index=%u", index);
@@ -520,6 +521,8 @@ int emv_initiate_application_processing(
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
+
+	emv_debug_info("Initiate application processing");
 
 	// Clear existing ICC data and terminal data lists to avoid ambiguity
 	emv_tlv_list_clear(&ctx->icc);
@@ -803,6 +806,8 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
+	emv_debug_info("Read application data");
+
 	// Application File Locator (AFL) is required to read application records
 	if (!ctx->afl) {
 		// AFL not found; terminate session
@@ -842,7 +847,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 	if (r) {
 		emv_debug_trace_msg("emv_tal_read_afl_records() failed; r=%d", r);
 		if (r < 0) {
-			emv_debug_error("Error reading application data");
+			emv_debug_error("Error while reading application data");
 			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
 				r = EMV_ERROR_INTERNAL;
 			} else {
@@ -851,7 +856,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 			goto error;
 		}
 		if (r != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
-			emv_debug_error("Failed to read application data");
+			emv_debug_error("Failure while reading application data");
 			r = EMV_OUTCOME_CARD_ERROR;
 			goto error;
 		}
@@ -923,6 +928,8 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
+
+	emv_debug_info("Offline data authentication");
 
 	// Ensure mandatory configuration fields are present and have valid length
 	term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
@@ -999,6 +1006,8 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx)
 		emv_debug_error("Invalid context variable");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
+
+	emv_debug_info("Processing restrictions");
 
 	// Ensure mandatory configuration fields are present and have valid length
 	term_app_version = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL);
@@ -1229,6 +1238,8 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 		emv_debug_error("Invalid transaction log");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
+
+	emv_debug_info("Terminal risk management");
 
 	// Ensure mandatory configuration fields are present and have valid length
 	term_floor_limit = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
@@ -1568,6 +1579,8 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 		emv_debug_error("Invalid context variable");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
+
+	emv_debug_info("Card action analysis");
 
 	// Always decline offline for now until Terminal Action Analysis is fully
 	// implemented

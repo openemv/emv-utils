@@ -920,7 +920,7 @@ static int emv_tal_read_sfi_records(
 				return EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED;
 			}
 		}
-		emv_debug_trace_ber("READ RECORD from SFI %u, record %u", record, record_len, afl_entry->sfi, record_number);
+		emv_debug_info_ber("READ RECORD [%u,%u] response", record, record_len, afl_entry->sfi, record_number);
 
 		r = emv_tlv_list_append(list, &record_list);
 		if (r) {
