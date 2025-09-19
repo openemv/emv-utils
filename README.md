@@ -43,8 +43,9 @@ Installation
 * For MacOS with [Homebrew](https://brew.sh/), use the
   [OpenEMV tap](https://github.com/openemv/homebrew-tap) and install using
   `brew install openemv/tap/emv-utils`
-* For Windows, use [MSYS2](https://www.msys2.org/) and follow the build
-  instructions below
+* For Windows, use the
+  [installer](https://github.com/openemv/emv-utils/releases) or follow the
+  build instructions below to build using [MSYS2](https://www.msys2.org/)
 * For other platforms, architectures or configurations, follow the build
   instructions below
 
@@ -178,7 +179,7 @@ at build time using the CMake `ISO8859_IMPL` option. It allows these values:
 Qt
 --
 
-This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.7.x (although it
+This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.8.x (although it
 may be possible to use other versions of Qt) when building the `emv-viewer`
 application. However, on some platforms it may be necessary to use the `QT_DIR`
 option (and not the `Qt5_DIR` nor `Qt6_DIR` options) or `CMAKE_PREFIX_PATH`
