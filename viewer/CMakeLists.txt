@@ -8,7 +8,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(emv-viewer
-	VERSION 0.2.3
+	VERSION 0.3.0
 	DESCRIPTION "EMV Viewer using Qt"
 	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
 	LANGUAGES CXX
@@ -42,7 +42,7 @@ endif()
 
 if(EMV_VIEWER_IS_TOP_LEVEL)
 	# If this is the top-level project, look for the emv-utils libraries
-	find_package(emv-utils 0.2.0 REQUIRED)
+	find_package(emv-utils 0.3.0 REQUIRED)
 
 	# If this is the top-level project and being built as a MacOS bundle, the
 	# mcc-codes file must be available. Otherwise rely entirely on the
