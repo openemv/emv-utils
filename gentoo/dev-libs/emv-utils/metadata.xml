@@ -10,6 +10,8 @@
 	</upstream>
 
 	<use>
+		<flag name="mbedtls">Use MbedTLS as the crypto library</flag>
+		<flag name="openssl">Use OpenSSL as the crypto library</flag>
 		<flag name="pcsc-lite">Enable smartcard support with sys-apps/pcsc-lite</flag>
 	</use>
 </pkgmetadata>
