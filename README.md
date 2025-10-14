@@ -331,8 +331,8 @@ License
 Copyright 2021-2025 [Leon Lynch](https://github.com/leonlynch).
 
 This project is licensed under the terms of the LGPL v2.1 license with the
-exception of `emv-viewer` which is licensed under the terms of the GPL v3
-license.
+exception of `emv-decode`, `emv-tool` and `emv-viewer` which are licensed under
+the terms of the GPL v3 license.
 See [LICENSE](https://github.com/openemv/emv-utils/blob/master/LICENSE) and
 [LICENSE.gpl](https://github.com/openemv/emv-utils/blob/master/viewer/LICENSE.gpl)
 files.
