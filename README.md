@@ -63,10 +63,11 @@ Dependencies
 * [iconv](https://www.gnu.org/software/libiconv/) can _optionally_ be selected
   for ISO 8859 support; see [ISO/IEC 8859 support](#isoiec-8859-support).
 * `emv-decode` and `emv-tool` will be built by default and require `argp`
-  (either via Glibc, a system-provided standalone or a downloaded
-  implementation; see [MacOS / Windows](#macos--windows)). Use the
-  `BUILD_EMV_DECODE` and `BUILD_EMV_TOOL` options to prevent `emv-decode` and
-  `emv-tool` from being built and avoid the dependency on `argp`.
+  (either via Glibc, a system-provided standalone, or downloaded during the
+  build from [libargp](https://github.com/leonlynch/libargp); see
+  [MacOS / Windows](#macos--windows)). Use the `BUILD_EMV_DECODE` and
+  `BUILD_EMV_TOOL` options to prevent `emv-decode` and  `emv-tool` from being
+  built and avoid the dependency on `argp`.
 * `emv-tool` requires PC/SC, either provided by `WinSCard` on Windows or by
   [PCSCLite](https://pcsclite.apdu.fr/) on Linux/MacOS. Use the
   `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built and avoid the
@@ -343,6 +344,10 @@ submodule and it is licensed under the terms of the MIT license. See
 This project includes [mcc-codes](https://github.com/greggles/mcc-codes) as a
 git submodule and it is licensed under the terms of The Unlicense license. See
 [LICENSE](https://github.com/greggles/mcc-codes/blob/main/LICENSE.txt) file.
+
+This project may download [libargp](https://github.com/leonlynch/libargp)
+during the build and it is licensed under the terms of the LGPL v3 license. See
+[LICENSE](https://github.com/leonlynch/libargp/blob/master/LICENSE) file.
 
 > [!NOTE]
 > EMV :registered: is a registered trademark in the U.S. and other countries
