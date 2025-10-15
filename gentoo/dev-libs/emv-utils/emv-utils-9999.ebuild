@@ -15,10 +15,10 @@ else
 	SRC_URI="https://github.com/openemv/emv-utils/releases/download/${PV}/${P}-src.tar.gz -> ${P}.tar.gz"
 fi
 
-LICENSE="LGPL-2.1"
+LICENSE="LGPL-2.1+ tools? ( GPL-3+ ) qt5? ( GPL-3+ ) qt6? ( GPL-3+ )"
 SLOT="0"
 KEYWORDS="~amd64 ~x86"
-IUSE="+mbedtls openssl +pcsc-lite qt5 qt6 doc test"
+IUSE="+mbedtls openssl +pcsc-lite qt5 qt6 +tools doc test"
 REQUIRED_USE="
 	^^ ( mbedtls openssl )
 "
@@ -64,7 +64,8 @@ src_configure() {
 		$(cmake_use_find_package mbedtls MbedTLS)
 		$(cmake_use_find_package openssl OpenSSL)
 		$(cmake_use_find_package pcsc-lite PCSCLite)
-		-DBUILD_EMV_TOOL=$(usex pcsc-lite)
+		-DBUILD_EMV_DECODE=$(usex tools)
+		-DBUILD_EMV_TOOL=$(usex tools $(usex pcsc-lite YES NO) NO)
 		$(cmake_use_find_package qt5 Qt5)
 		$(cmake_use_find_package qt6 Qt6)
 		-DBUILD_DOCS=$(usex doc)
