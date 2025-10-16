@@ -55,10 +55,10 @@ jobs:
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build -j 4 --output-on-failure
 
   build-ubuntu-legacy-release:
     strategy:
@@ -118,10 +118,10 @@ jobs:
           -DCPACK_DEBIAN_PACKAGE_RELEASE="0ubuntu1~ppa1~${{ matrix.ubuntu_release_name }}1"
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: cmake --build build --target test
+      run: ctest --test-dir build -j 4 --output-on-failure
 
     - name: Package
       run: cmake --build build --target package
@@ -177,10 +177,10 @@ jobs:
           -DCPACK_DEBIAN_PACKAGE_RELEASE="0ubuntu1~ppa1~${{ matrix.ubuntu_release_name }}1"
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build -j 4 --output-on-failure
 
     - name: Package
       run: cmake --build build --target package

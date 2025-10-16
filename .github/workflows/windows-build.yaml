@@ -89,10 +89,10 @@ jobs:
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build -j 4 --output-on-failure
 
   build-windows-msys2-release:
     runs-on: windows-latest
@@ -173,10 +173,10 @@ jobs:
         CMAKE_PREFIX_PATH: ${{ env.QT_ROOT_DIR }}
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build -j 4 --output-on-failure
 
     - name: Package
       run: cmake --build build --target package
