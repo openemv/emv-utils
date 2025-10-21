@@ -121,7 +121,7 @@ jobs:
       run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build -j 4 --output-on-failure
+      run: cmake --build build --target test -j 4
 
     - name: Package
       run: cmake --build build --target package
