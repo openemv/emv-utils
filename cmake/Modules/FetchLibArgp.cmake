@@ -24,7 +24,7 @@ message(CHECK_START "Downloading libargp...")
 FetchContent_Declare(
 	libargp
 	GIT_REPOSITORY https://github.com/leonlynch/libargp.git
-	GIT_TAG 2bef8aecafeb97bad0ce522cac65d0dfab77f3b5
+	GIT_TAG 0a0c4df3431d4f268076d5784080b5c5b6434b8f
 )
 FetchContent_MakeAvailable(libargp)
 message(CHECK_PASS "done")
