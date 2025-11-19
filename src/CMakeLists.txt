@@ -248,8 +248,8 @@ install(
 		COMPONENT emv_development
 )
 if(WIN32 AND BUILD_WIN_STANDALONE)
-	if(${CMAKE_VERSION} VERSION_LESS "3.21")
-		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	if(${CMAKE_VERSION} VERSION_LESS "3.24")
+		message(FATAL_ERROR "CMake >=3.24 is required to install dependencies on Windows")
 	endif()
 
 	install(
@@ -260,13 +260,13 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 	install(
 		RUNTIME_DEPENDENCY_SET iso8859_deps
 		PRE_EXCLUDE_REGEXES
-			"api-ms-"
+			"^api-ms-"
+			"^lib(gcc|stdc\\+\\+|winpthread)"
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
-			$<$<STREQUAL:${ISO8859_IMPL},boost>:$<$<TARGET_EXISTS:Boost::locale>:$<TARGET_FILE_DIR:Boost::locale>>>
+			$<$<STREQUAL:${ISO8859_IMPL},boost>:$<$<TARGET_EXISTS:Boost::locale>:$<PATH:GET_PARENT_PATH,$<TARGET_PROPERTY:Boost::locale,LOCATION>>>>
 			$<$<STREQUAL:${ISO8859_IMPL},iconv>:$<$<BOOL:${Iconv_LIBRARIES}>:$<TARGET_FILE_DIR:Iconv::Iconv>>>
-
 		RUNTIME
 			COMPONENT emv_runtime
 	)
@@ -413,8 +413,8 @@ install(
 		COMPONENT emv_development
 )
 if(WIN32 AND BUILD_WIN_STANDALONE)
-	if(${CMAKE_VERSION} VERSION_LESS "3.21")
-		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	if(${CMAKE_VERSION} VERSION_LESS "3.24")
+		message(FATAL_ERROR "CMake >=3.24 is required to install dependencies on Windows")
 	endif()
 
 	install(
@@ -425,11 +425,12 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 	install(
 		RUNTIME_DEPENDENCY_SET emv_strings_deps
 		PRE_EXCLUDE_REGEXES
-			"api-ms-"
+			"^api-ms-"
+			"^lib(gcc|stdc\\+\\+|winpthread)"
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
-			$<$<TARGET_EXISTS:json-c::json-c>:$<TARGET_FILE_DIR:json-c::json-c>>
+			$<$<TARGET_EXISTS:json-c::json-c>:$<PATH:GET_PARENT_PATH,$<TARGET_PROPERTY:json-c::json-c,LOCATION>>>
 		RUNTIME
 			COMPONENT emv_runtime
 	)
