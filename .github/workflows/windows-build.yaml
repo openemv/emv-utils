@@ -58,7 +58,6 @@ jobs:
       if: ${{ matrix.fetch_deps == 'NO' }}
       run: |
         pacman --noconfirm -S --needed mingw-w64-${{matrix.env}}-mbedtls
-        echo "CMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES" >> $GITHUB_ENV
 
     - name: Install Qt5
       if: contains(matrix.deps, 'qt5')
@@ -81,8 +80,7 @@ jobs:
         cmake -G Ninja -B build \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
           -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
-          -DFETCH_MBEDTLS=${{ matrix.fetch_deps }} \
-          -DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=${{ env.CMAKE_REQUIRE_FIND_PACKAGE_MbedTLS }} \
+          ${{ matrix.fetch_deps == 'NO' && '-DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES' || '-DFETCH_MBEDTLS=YES' }} \
           -DFETCH_ARGP=YES \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \

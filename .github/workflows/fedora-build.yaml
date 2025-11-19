@@ -15,9 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 41", fedora_version: 41, deps: "none", build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "Fedora 41", fedora_version: 41, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "Fedora 42", fedora_version: 42, deps: "none", build_emv_tool: NO, build_emv_viewer: NO }
           - { name: "Fedora 42", fedora_version: 42, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "Fedora 43", fedora_version: 43, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
     runs-on: ubuntu-latest
@@ -67,8 +67,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 41", fedora_version: 41 }
           - { name: "Fedora 42", fedora_version: 42 }
+          - { name: "Fedora 43", fedora_version: 43 }
 
     name: ${{ matrix.name }} release
     runs-on: ubuntu-latest

@@ -15,12 +15,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 26", os: macos-26, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} (${{ matrix.osx_arch }}) build (${{ matrix.lib_type}}/${{ matrix.build_type }}/${{ matrix.deps }})
     runs-on: ${{ matrix.os }}
@@ -36,9 +36,9 @@ jobs:
       # Homebrew doesn't support universal binaries so only install dependencies for arch-specific builds
       if: ${{ matrix.fetch_deps == 'NO' }}
       run: |
-        brew install mbedtls
+        brew install mbedtls@3
         brew install argp-standalone
-        echo "CMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES" >> $GITHUB_ENV
+        echo "MbedTLS_DIR=$(brew --prefix mbedtls@3)/lib/cmake/MbedTLS" >> $GITHUB_ENV
 
     - name: Install PCSCLite using brew
       if: contains(matrix.deps, 'pcsclite')
@@ -71,8 +71,7 @@ jobs:
           -DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}" \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
           -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
-          -DFETCH_MBEDTLS=${{ matrix.fetch_deps }} \
-          -DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=${{ env.CMAKE_REQUIRE_FIND_PACKAGE_MbedTLS }} \
+          ${{ matrix.fetch_deps == 'NO' && '-DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES' || '-DFETCH_MBEDTLS=YES' }} \
           -DFETCH_ARGP=${{ matrix.fetch_deps }} \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
@@ -85,8 +84,8 @@ jobs:
       run: ctest --test-dir build -j 4 --output-on-failure
 
   build-macos-release:
-    name: MacOS 13 (release)
-    runs-on: macos-13
+    name: MacOS 15 Intel (release)
+    runs-on: macos-15-intel
 
     steps:
     - name: Install dependencies
