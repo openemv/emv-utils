@@ -117,7 +117,7 @@ static bool parseData(
 		// Determine whether invalid data is padding and prepare item details
 		// accordingly
 		if (ignorePadding &&
-			len - validBytes > 0 &&
+			len > validBytes &&
 			(
 				((len & 0x7) == 0 && len - validBytes < 8) ||
 				((len & 0xF) == 0 && len - validBytes < 16)
