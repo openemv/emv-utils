@@ -97,6 +97,37 @@ jobs:
     - name: Test with sanitizers
       run: ctest --test-dir build -j 4 --output-on-failure
 
+  build-ubuntu-hardening:
+    name: Ubuntu (hardening)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libmbedtls-dev libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev qtbase5-dev
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Configure CMake with hardening
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+          -DBUILD_SHARED_LIBS=YES \
+          -DEMV_UTILS_ENABLE_HARDENING=ON \
+          -DBUILD_EMV_DECODE=YES \
+          -DBUILD_EMV_TOOL=YES \
+          -DBUILD_EMV_VIEWER=YES
+
+    - name: Build
+      run: cmake --build build -j 4
+
+    - name: Test with hardening
+      run: ctest --test-dir build -j 4 --output-on-failure
+
   build-ubuntu-legacy-release:
     strategy:
       fail-fast: false
