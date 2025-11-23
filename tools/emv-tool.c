@@ -637,13 +637,24 @@ static void print_pcsc_readers(pcsc_ctx_t pcsc)
 
 static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other)
 {
-	time_t t = time(NULL);
-	struct tm* tm = localtime(&t);
+	time_t lt; // Calendar/Unix/POSIX time in local time
+#ifdef HAVE_LOCALTIME_R
+	struct tm ltm; // Time structure in local time
+#endif
+	struct tm* tm; // Result of localtime functions
 	uint8_t buf[6];
 
 	// Transaction sequence counter
 	// See EMV 4.4 Book 4, 6.5.5
 	emv_tlv_list_push(&emv->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER, 4, emv_uint_to_format_n(txn_seq_cnt, buf, 4), 0);
+
+	// Current date/time
+	lt = time(NULL);
+#ifdef HAVE_LOCALTIME_R
+	tm = localtime_r(&lt, &ltm);
+#else
+	tm = localtime(&lt);
+#endif
 
 	// Transaction date
 	if (txn_date[0] == 0xFF) {
