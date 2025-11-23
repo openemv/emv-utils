@@ -61,6 +61,25 @@ if(NOT HAVE_ARPA_INET_H AND NOT HAVE_WINSOCK_H)
 	endif()
 endif()
 
+# Check for time.h and localtime_r()
+include(CheckSymbolExists)
+CHECK_INCLUDE_FILE(time.h HAVE_TIME_H)
+if(BUILD_EMV_TOOL AND NOT HAVE_TIME_H)
+	message(FATAL_ERROR "Could NOT find time.h. This is required to build emv-tool")
+endif()
+check_symbol_exists(localtime_r time.h HAVE_LOCALTIME_R)
+set(TIME_H_DEFINITIONS_TRY _GNU_SOURCE) # Retry using _GNU_SOURCE
+if(NOT HAVE_LOCALTIME_R)
+	unset(HAVE_LOCALTIME_R CACHE)
+	list(APPEND CMAKE_REQUIRED_DEFINITIONS -D${TIME_H_DEFINITIONS_TRY})
+	check_symbol_exists(localtime_r time.h HAVE_LOCALTIME_R)
+	list(REMOVE_ITEM CMAKE_REQUIRED_DEFINITIONS -D${TIME_H_DEFINITIONS_TRY})
+	if(HAVE_LOCALTIME_R)
+		# Set as cache entry to persist across multiple builds
+		set(TIME_H_DEFINITIONS ${TIME_H_DEFINITIONS_TRY} CACHE INTERNAL "Definitions required for time.h")
+	endif()
+endif()
+
 # Print helpers object library
 add_library(print_helpers OBJECT EXCLUDE_FROM_ALL print_helpers.c)
 target_include_directories(print_helpers INTERFACE
@@ -104,6 +123,18 @@ if(BUILD_EMV_TOOL)
 			SOURCE ../src/pcsc.c
 			APPEND PROPERTY COMPILE_DEFINITIONS HAVE_WINSOCK_H
 		)
+	endif()
+	if(HAVE_LOCALTIME_R)
+		set_property(
+			SOURCE emv-tool.c
+			APPEND PROPERTY COMPILE_DEFINITIONS HAVE_LOCALTIME_R
+		)
+		if(TIME_H_DEFINITIONS)
+			set_property(
+				SOURCE emv-tool.c
+				APPEND PROPERTY COMPILE_DEFINITIONS ${TIME_H_DEFINITIONS}
+			)
+		endif()
 	endif()
 
 	add_executable(emv-tool emv-tool.c ../src/pcsc.c)
