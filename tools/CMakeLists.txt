@@ -888,14 +888,15 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	# Test decoding of various ASN.1 types
 	add_test(NAME emv_decode_asn1_test1
-		COMMAND emv-decode --tlv 305D0101000101FF0203FFFFFF02037FFFFF0500060388370306092A864886F70D01010B0900090140090141090142090143090380FC01090580FE5555550908032B312E30652D330A03FFFFFE0A037FFFFE0D04C27B03021A054A6F6E6573
+		COMMAND emv-decode --tlv 30610101000101FF0203FFFFFF0202FC1802037FFFFF0500060388370306092A864886F70D01010B0900090140090141090142090143090380FC01090580FE5555550908032B312E30652D330A03FFFFFE0A037FFFFE0D04C27B03021A054A6F6E6573
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_asn1_test1_regex
-		"^30 \\| ASN.1 Sequence : \\[93\\][\r\n]"
+		"^30 \\| ASN.1 Sequence : \\[97\\][\r\n]"
 		"  01 \\| ASN.1 Boolean : \\[1\\] 00 \\(False\\)[\r\n]"
 		"  01 \\| ASN.1 Boolean : \\[1\\] FF \\(True\\)[\r\n]"
 		"  02 \\| ASN.1 Integer : \\[3\\] FF FF FF \\(-1\\)[\r\n]"
+		"  02 \\| ASN.1 Integer : \\[2\\] FC 18 \\(-1000\\)[\r\n]"
 		"  02 \\| ASN.1 Integer : \\[3\\] 7F FF FF \\(8388607\\)[\r\n]"
 		"  05 \\| ASN.1 Null : \\[0\\][\r\n]"
 		"  06 \\| ASN.1 Object Identifier \\(OID\\) : \\[3\\] 88 37 03 \\(2\\.999\\.3\\)[\r\n]" # See ISO 8825-1:2021, 8.19.5
