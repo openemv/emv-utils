@@ -74,12 +74,19 @@ static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, co
 
 	tlv->tag = tag;
 	tlv->length = length;
-	tlv->value = malloc(length);
-	if (!tlv->value) {
-		free(tlv);
-		return NULL;
+	if (tlv->length) {
+		tlv->value = malloc(length);
+		if (!tlv->value) {
+			free(tlv);
+			return NULL;
+		}
+		if (value) {
+			memcpy(tlv->value, value, length);
+		}
+	} else {
+		tlv->value = NULL;
 	}
-	memcpy(tlv->value, value, length);
+
 	tlv->flags = flags;
 	tlv->next = NULL;
 
@@ -184,35 +191,46 @@ int emv_tlv_list_push_asn1_object(
 		return -1;
 	}
 
-	if (!oid || oid->length < 2) {
+	if (!oid ||
+		oid->length < 2 ||
+		oid->length > sizeof(oid->value) / sizeof(oid->value[0])
+	) {
 		return -2;
 	}
 
+
 	if (ber_length && !ber_bytes) {
 		return -3;
+	}
+	if (ber_length > 0xFFFF) {
+		// ASN.1 object content should not be excessively large
+		return -4;
 	}
 
 	// Assume a maximum of 5 octets per OID subidentifier
 	encoded_oid_length = oid->length * 5;
 	max_length = 1 + 1 + encoded_oid_length + ber_length;
 	value = malloc(max_length);
+	if (!value) {
+		return -5;
+	}
 
 	// Encode OID
 	value[0] = ASN1_OBJECT_IDENTIFIER;
 	r = iso8825_ber_oid_encode(oid, value + 2, &encoded_oid_length);
 	if (r) {
-		r = -5;
+		r = -6;
 		goto exit;
 	}
 	if (encoded_oid_length > 127) {
-		r = -6;
+		r = -7;
 		goto exit;
 	}
 	value[1] = encoded_oid_length;
 
 	// Copy remaining BER encoded bytes without validation
 	if (max_length - 2 - encoded_oid_length < ber_length) {
-		r = -7;
+		r = -8;
 		goto exit;
 	}
 	memcpy(value + 2 + encoded_oid_length, ber_bytes, ber_length);
@@ -225,7 +243,7 @@ int emv_tlv_list_push_asn1_object(
 		ISO8825_BER_CONSTRUCTED
 	);
 	if (r) {
-		r = -8;
+		r = -9;
 		goto exit;
 	}
 

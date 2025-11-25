@@ -91,6 +91,11 @@ int emv_oda_prepare_records(
 
 	while ((r = emv_afl_itr_next(&afl_itr, &afl_entry)) > 0) {
 		oda_record_count += afl_entry.oda_record_count;
+
+		// ODA record count should not be excessively large
+		if (oda_record_count > 0xFF) {
+			return EMV_ODA_ERROR_AFL_INVALID;
+		}
 	}
 	if (r < 0) {
 		emv_debug_trace_msg("emv_afl_itr_next() failed; r=%d", r);
