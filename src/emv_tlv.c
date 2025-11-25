@@ -74,12 +74,19 @@ static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, co
 
 	tlv->tag = tag;
 	tlv->length = length;
-	tlv->value = malloc(length);
-	if (!tlv->value) {
-		free(tlv);
-		return NULL;
+	if (tlv->length) {
+		tlv->value = malloc(length);
+		if (!tlv->value) {
+			free(tlv);
+			return NULL;
+		}
+		if (value) {
+			memcpy(tlv->value, value, length);
+		}
+	} else {
+		tlv->value = NULL;
 	}
-	memcpy(tlv->value, value, length);
+
 	tlv->flags = flags;
 	tlv->next = NULL;
 
@@ -184,9 +191,13 @@ int emv_tlv_list_push_asn1_object(
 		return -1;
 	}
 
-	if (!oid || oid->length < 2) {
+	if (!oid ||
+		oid->length < 2 ||
+		oid->length > sizeof(oid->value) / sizeof(oid->value[0])
+	) {
 		return -2;
 	}
+
 
 	if (ber_length && !ber_bytes) {
 		return -3;
@@ -196,6 +207,9 @@ int emv_tlv_list_push_asn1_object(
 	encoded_oid_length = oid->length * 5;
 	max_length = 1 + 1 + encoded_oid_length + ber_length;
 	value = malloc(max_length);
+	if (!value) {
+		return -4;
+	}
 
 	// Encode OID
 	value[0] = ASN1_OBJECT_IDENTIFIER;

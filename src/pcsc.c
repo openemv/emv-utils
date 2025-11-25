@@ -2,7 +2,7 @@
  * @file pcsc.c
  * @brief PC/SC abstraction
  *
- * Copyright 2021-2022, 2024 Leon Lynch
+ * Copyright 2021-2022, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -130,6 +130,10 @@ int pcsc_init(pcsc_ctx_t* ctx)
 
 	// Allocate and retrieve the reader list
 	pcsc->reader_strings = malloc(pcsc->reader_strings_size);
+	if (!pcsc->reader_strings) {
+		pcsc_release(ctx);
+		return -1;
+	}
 	result = SCardListReaders(pcsc->context, NULL, pcsc->reader_strings, &pcsc->reader_strings_size);
 	if (result != SCARD_S_SUCCESS) {
 		fprintf(stderr, "SCardListReaders() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
@@ -147,6 +151,10 @@ int pcsc_init(pcsc_ctx_t* ctx)
 
 	// Allocate and populate reader objects
 	pcsc->readers = calloc(pcsc->reader_count, sizeof(struct pcsc_reader_t));
+	if (!pcsc->readers) {
+		pcsc_release(ctx);
+		return -1;
+	}
 	memset(pcsc->readers, 0, pcsc->reader_count * sizeof(struct pcsc_reader_t));
 	current_reader_name = pcsc->reader_strings;
 	for (size_t i = 0; i < pcsc->reader_count; ++i) {
@@ -157,6 +165,10 @@ int pcsc_init(pcsc_ctx_t* ctx)
 
 	// Allocate and populate reader states
 	pcsc->reader_states = calloc(pcsc->reader_count, sizeof(SCARD_READERSTATE));
+	if (!pcsc->reader_states) {
+		pcsc_release(ctx);
+		return -1;
+	}
 	memset(pcsc->reader_states, 0, pcsc->reader_count * sizeof(SCARD_READERSTATE));
 	for (size_t i = 0; i < pcsc->reader_count; ++i) {
 		pcsc->reader_states[i].szReader = pcsc->readers[i].name;
