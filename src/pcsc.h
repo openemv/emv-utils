@@ -2,7 +2,7 @@
  * @file pcsc.h
  * @brief PC/SC abstraction
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -91,7 +91,7 @@ enum pcsc_card_type_t {
 /**
  * Initialise PC/SC context
  * @param ctx PC/SC context pointer
- * @return Zero for success. Less than zero for error.
+ * @return Zero for success. Less than zero for error. Greater than zero if no readers available.
  */
 int pcsc_init(pcsc_ctx_t* ctx);
 
