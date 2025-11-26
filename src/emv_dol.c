@@ -116,9 +116,14 @@ int emv_dol_compute_data_length(const void* ptr, size_t len)
 
 	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
 		total += entry.length;
+
+		// Concatenated data length should not be excessively large
+		if (total > 0xFFF) {
+			return -3;
+		}
 	}
 	if (r != 0) {
-		return -3;
+		return -4;
 	}
 
 	return total;
