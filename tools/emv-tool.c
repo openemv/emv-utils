@@ -802,14 +802,18 @@ int main(int argc, char** argv)
 	emv_debug_trace_msg("Debugging enabled; debug_verbose=%d; debug_sources_mask=0x%02X; debug_level=%u", debug_verbose, debug_sources_mask, debug_level);
 
 	r = pcsc_init(&pcsc);
-	if (r) {
+	if (r < 0) {
 		printf("PC/SC initialisation failed\n");
+		goto pcsc_exit;
+	}
+	if (r > 0) {
+		printf("No PC/SC readers available\n");
 		goto pcsc_exit;
 	}
 
 	pcsc_count = pcsc_get_reader_count(pcsc);
 	if (!pcsc_count) {
-		printf("No PC/SC readers detected\n");
+		printf("No PC/SC readers available\n");
 		goto pcsc_exit;
 	}
 

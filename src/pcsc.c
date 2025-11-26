@@ -120,28 +120,33 @@ int pcsc_init(pcsc_ctx_t* ctx)
 	if (result != SCARD_S_SUCCESS) {
 		fprintf(stderr, "SCardEstablishContext() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		pcsc_release(ctx);
-		return -1;
+		return -3;
 	}
 
 	// Get the size of the reader list
 	result = SCardListReaders(pcsc->context, NULL, NULL, &pcsc->reader_strings_size);
+	if (result == SCARD_E_NO_READERS_AVAILABLE) {
+		pcsc_release(ctx);
+		// No readers available
+		return 1;
+	}
 	if (result != SCARD_S_SUCCESS) {
 		fprintf(stderr, "SCardListReaders() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		pcsc_release(ctx);
-		return -1;
+		return -4;
 	}
 
 	// Allocate and retrieve the reader list
 	pcsc->reader_strings = malloc(pcsc->reader_strings_size);
 	if (!pcsc->reader_strings) {
 		pcsc_release(ctx);
-		return -1;
+		return -5;
 	}
 	result = SCardListReaders(pcsc->context, NULL, pcsc->reader_strings, &pcsc->reader_strings_size);
 	if (result != SCARD_S_SUCCESS) {
 		fprintf(stderr, "SCardListReaders() failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		pcsc_release(ctx);
-		return -1;
+		return -6;
 	}
 
 	// Parse and count readers
@@ -151,12 +156,17 @@ int pcsc_init(pcsc_ctx_t* ctx)
 		current_reader_name += strlen(current_reader_name) + 1;
 		pcsc->reader_count++;
 	}
+	if (!pcsc->reader_count) {
+		pcsc_release(ctx);
+		// No readers in list
+		return 2;
+	}
 
 	// Allocate and populate reader objects
 	pcsc->readers = calloc(pcsc->reader_count, sizeof(struct pcsc_reader_t));
 	if (!pcsc->readers) {
 		pcsc_release(ctx);
-		return -1;
+		return -7;
 	}
 	memset(pcsc->readers, 0, pcsc->reader_count * sizeof(struct pcsc_reader_t));
 	current_reader_name = pcsc->reader_strings;
@@ -170,7 +180,7 @@ int pcsc_init(pcsc_ctx_t* ctx)
 	pcsc->reader_states = calloc(pcsc->reader_count, sizeof(SCARD_READERSTATE));
 	if (!pcsc->reader_states) {
 		pcsc_release(ctx);
-		return -1;
+		return -8;
 	}
 	memset(pcsc->reader_states, 0, pcsc->reader_count * sizeof(SCARD_READERSTATE));
 	for (size_t i = 0; i < pcsc->reader_count; ++i) {
