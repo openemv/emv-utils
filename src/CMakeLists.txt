@@ -248,8 +248,8 @@ install(
 		COMPONENT emv_development
 )
 if(WIN32 AND BUILD_WIN_STANDALONE)
-	if(${CMAKE_VERSION} VERSION_LESS "3.21")
-		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	if(${CMAKE_VERSION} VERSION_LESS "3.27")
+		message(FATAL_ERROR "CMake >=3.27 is required to install dependencies on Windows")
 	endif()
 
 	install(
@@ -264,9 +264,7 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
-			$<$<STREQUAL:${ISO8859_IMPL},boost>:$<$<TARGET_EXISTS:Boost::locale>:$<TARGET_FILE_DIR:Boost::locale>>>
-			$<$<STREQUAL:${ISO8859_IMPL},iconv>:$<$<BOOL:${Iconv_LIBRARIES}>:$<TARGET_FILE_DIR:Iconv::Iconv>>>
-
+			$<TARGET_RUNTIME_DLL_DIRS:iso8859>
 		RUNTIME
 			COMPONENT emv_runtime
 	)
@@ -413,8 +411,8 @@ install(
 		COMPONENT emv_development
 )
 if(WIN32 AND BUILD_WIN_STANDALONE)
-	if(${CMAKE_VERSION} VERSION_LESS "3.21")
-		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	if(${CMAKE_VERSION} VERSION_LESS "3.27")
+		message(FATAL_ERROR "CMake >=3.27 is required to install dependencies on Windows")
 	endif()
 
 	install(
@@ -429,7 +427,7 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
-			$<$<TARGET_EXISTS:json-c::json-c>:$<TARGET_FILE_DIR:json-c::json-c>>
+			$<TARGET_RUNTIME_DLL_DIRS:emv_strings>
 		RUNTIME
 			COMPONENT emv_runtime
 	)
