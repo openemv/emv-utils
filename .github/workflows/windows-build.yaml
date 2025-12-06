@@ -160,6 +160,7 @@ jobs:
           -DCMAKE_C_COMPILER="${{ env.TOOLCHAIN_PATH }}/gcc.exe" \
           -DCMAKE_CXX_COMPILER="${{ env.TOOLCHAIN_PATH }}/g++.exe" \
           -DBUILD_SHARED_LIBS=YES \
+          -DBoost_USE_STATIC_LIBS=NO \
           -DFETCH_MBEDTLS=YES \
           -DFETCH_ARGP=YES \
           -DBUILD_EMV_DECODE=YES \
