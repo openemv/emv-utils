@@ -301,7 +301,7 @@ struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int ta
 bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list)
 {
 	if (!emv_tlv_list_is_valid(list)) {
-		return NULL;
+		return false;
 	}
 
 	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
