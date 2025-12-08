@@ -2,7 +2,7 @@
  * @file iso7816.c
  * @brief ISO/IEC 7816 definitions and helper functions
  *
- * Copyright 2021, 2023 Leon Lynch
+ * Copyright 2021, 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -193,6 +193,11 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		// See ISO 7816-4:2005, 8.1.1
 		switch (atr_info->T1) {
 			case ISO7816_ATR_T1_COMPACT_TLV_SI:
+				if (atr_info->historical_bytes_len < 3) {
+					// Insufficient historical bytes for status indicator
+					return 5;
+				}
+
 				// Store status indicator bytes for later parsing
 				atr_info->historical_bytes_len -= 3;
 				atr_info->status_indicator_bytes = atr_info->historical_bytes + atr_info->historical_bytes_len;
@@ -203,7 +208,7 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 			case ISO7816_ATR_T1_COMPACT_TLV:
 				r = iso7816_atr_parse_historical_bytes(atr_info->historical_bytes, atr_info->historical_bytes_len, atr_info);
 				if (r) {
-					return 5;
+					return 6;
 				}
 				break;
 
@@ -220,14 +225,14 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	// Sanity check
 	if (atr_idx > atr_info->atr_len) {
 		// Internal parsing error
-		return 6;
+		return 7;
 	}
 
 	// Extract and verify TCK, if mandatory
 	if (tck_mandatory) {
 		if (atr_idx >= atr_info->atr_len) {
 			// T=1 is available but TCK is missing
-			return 7;
+			return 8;
 		}
 
 		// Extract TCK
@@ -240,7 +245,7 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		}
 		if (verify != 0) {
 			// TCK is invalid
-			return 8;
+			return 9;
 		}
 	}
 
