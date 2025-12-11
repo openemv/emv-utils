@@ -23,6 +23,7 @@
 #include "iso7816_compact_tlv.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -709,8 +710,23 @@ static void iso7816_compute_wt(struct iso7816_atr_info_t* atr_info)
 	// From EMV Contact Interface Specification v1.0, 9.2.4.2.2:
 	// BWT = (((2^BWI x 960 x 372 x D / F) + 11)etu; where D is Di and F is Fi
 
-	// And finally, after all that thinking...
-	atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
+	// However, if the above computation is performed as-is, extreme values of BWI and D
+	// may cause a 32-bit overflow of the intermediate computation. Therefore, on
+	// platforms that are capable of 64-bit computation, use that, otherwise
+	// check whether BWI and D are reasonable before continuing with 32-bit computation.
+
+	// So finally, after all that thinking...
+#ifdef UINT64_MAX
+	atr_info->protocol_T1.BWT = 11 + (((uint64_t)(1 << BWI) * 960 * 372 * Di) / Fi);
+#else
+	// Ensure that the combination of BWI and Di will avoid a 32-bit overflow
+	if (BWI < 8 || (BWI == 8 && Di <= 32) || (BWI == 9 && Di <= 20)) {
+		atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
+	} else {
+		// Not possible to compute BWT correctly
+		atr_info->protocol_T1.BWT = 0;
+	}
+#endif
 }
 
 static int iso7816_atr_parse_historical_bytes(const void* historical_bytes, size_t historical_bytes_len, struct iso7816_atr_info_t* atr_info)
