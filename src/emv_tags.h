@@ -143,6 +143,10 @@ __BEGIN_DECLS
 /// EMV tag 95 Terminal Verification Results (TVR)
 #define EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS                (0x95)
 
+/// EMV tag 96 Kernel Identifier - Terminal
+/// @remark See EMV Contactless Book B v2.11, Annex A
+#define EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL                   (0x96)
+
 /// EMV tag 97 Transaction Certificate Data Object List (TDOL). Template 70 or 77.
 #define EMV_TAG_97_TDOL                                         (0x97)
 
@@ -330,6 +334,10 @@ __BEGIN_DECLS
 
 /// EMV tag 9F27 Cryptogram Information Data. Template 77 or 80.
 #define EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA                (0x9F27)
+
+/// EMV tag 9F2A Kernel Identifier. Template 61.
+/// @remark See EMV Contactless Book B v2.11, Annex A
+#define EMV_TAG_9F2A_KERNEL_IDENTIFIER                          (0x9F2A)
 
 /// EMV tag 9F32 Issuer Public Key Exponent. Template 70 or 77.
 #define EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT                 (0x9F32)

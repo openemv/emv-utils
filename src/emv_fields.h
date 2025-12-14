@@ -197,6 +197,20 @@ __BEGIN_DECLS
 #define EMV_ASRPD_TCEA                                          (0x0003) ///< Technical Cooperation ep2 Association
 #define EMV_ASRPD_UGSI                                          (0x0005) ///< Universal Global Scientific Industrial
 
+// Kernel Identifier (field 9F2A) byte 1
+// See EMV Contactless Book B v2.11, Table 3-4
+#define EMV_KERNEL_ID_TYPE_MASK                                 (0xC0) ///< Kernel Identifier mask for kernel type
+#define EMV_KERNEL_ID_TYPE_INTERNATIONAL                        (0x00) ///< Kernel type: International kernel
+#define EMV_KERNEL_ID_TYPE_RFU                                  (0x40) ///< Kernel type: RFU
+#define EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO                       (0x80) ///< Kernel type: Domestic kernel (EMVCo format)
+#define EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY                 (0xC0) ///< Kernel type: Domestic kernel (proprietary format)
+#define EMV_KERNEL_ID_SHORT_MASK                                (0x3F) ///< Kernel Identifier mask for Short Kernel ID
+
+// Kernel Identifier - Terminal (field 96) byte 4
+// See EMV Contactless Book B v2.11, Table 3-7
+#define EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT                (0x80) ///< Kernel 8 supported by reader
+#define EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT           (0x40) ///< Kernel 8 supported for the transaction
+
 // Application Interchange Profile (field 82) byte 1
 // See EMV 4.4 Book 3, Annex C1, Table 41
 // See EMV Contactless Book C-2 v2.11, Annex A.1.16

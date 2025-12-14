@@ -1140,6 +1140,25 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_oda_test2_regex}
 	)
 
+	# Test decoding of kernel identifier fields
+	add_test(NAME emv_decode_kernel_id_test
+		COMMAND emv-decode --tlv 9F2A01029F2A01039F2A038209789F2A01C59F2A0807000000000000009608080000C00000000096080700008000000000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_kernel_id_test_regex
+		"^9F2A \\| Kernel Identifier : \\[1\\] 02 \\(Kernel C-2, International\\)[\r\n]"
+		"9F2A \\| Kernel Identifier : \\[1\\] 03 \\(Kernel C-3, International\\)[\r\n]"
+		"9F2A \\| Kernel Identifier : \\[3\\] 82 09 78 \\(Kernel C-2, EMVCo, Euro\\)[\r\n]"
+		"9F2A \\| Kernel Identifier : \\[1\\] C5 \\(Kernel C-5, Proprietary\\)[\r\n]"
+		"9F2A \\| Kernel Identifier : \\[8\\] 07 00 00 00 00 00 00 00 \\(Kernel C-7, International\\)[\r\n]"
+		"96 \\| Kernel Identifier - terminal : \\[8\\] 08 00 00 C0 00 00 00 00 \\(Kernel C-8, International, K8 reader\\+transaction support\\)[\r\n]"
+		"96 \\| Kernel Identifier - terminal : \\[8\\] 07 00 00 80 00 00 00 00 \\(Kernel C-7, International, K8 reader support\\)[\r\n]$"
+	)
+	set_tests_properties(emv_decode_kernel_id_test
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_kernel_id_test_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

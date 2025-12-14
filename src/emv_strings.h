@@ -403,6 +403,36 @@ int emv_asrpd_get_string_list(
 );
 
 /**
+ * Stringify Kernel Identifier (field 9F2A)
+ * @param buf Kernel Identifier field. Must be 1 or 3-8 bytes.
+ * @param buf_len Length of Kernel Identifier field. Must be 1 or 3-8 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_kernel_id_get_string(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Kernel Identifier - Terminal (field 96)
+ * @param buf Kernel Identifier - Terminal field. Must be 8 bytes.
+ * @param buf_len Length of Kernel Identifier - Terminal field. Must be 8 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_kernel_id_terminal_get_string(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Application Interchange Profile (field 82)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param aip Application Interchange Profile (AIP) field. Must be 2 bytes.

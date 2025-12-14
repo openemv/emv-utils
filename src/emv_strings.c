@@ -54,6 +54,12 @@ struct str_itr_t {
 	size_t len;
 };
 
+struct emv_kernel_id_info_t {
+	uint8_t kernel_type;
+	uint8_t short_kernel_id;
+	char currency[128]; // Current longest string in iso_4217.json is 65 chars
+};
+
 // Helper functions
 static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format_t format, size_t max_format_len, char* value_str, size_t value_str_len);
 static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
@@ -61,6 +67,7 @@ static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) ATTRIBUTE_FORMAT_PRINTF(2, 3);
 static void emv_str_list_add_data(struct str_itr_t* itr, const char* str, const void* data, size_t data_len);
 static int emv_app_preferred_name_get_string(const uint8_t* buf, size_t buf_len, const struct emv_tlv_sources_t* sources, char* str, size_t str_len);
+static int emv_kernel_id_decode(const uint8_t* buf, size_t buf_len, struct emv_kernel_id_info_t* info);
 static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
@@ -387,6 +394,12 @@ int emv_tlv_get_info(
 				"Status of the different functions as seen from the terminal";
 			info->format = EMV_FORMAT_B;
 			return emv_tvr_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL:
+			info->tag_name = "Kernel Identifier - terminal";
+			info->tag_desc = "Identifies the kernel used for the transaction";
+			info->format = EMV_FORMAT_B;
+			return emv_kernel_id_terminal_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_97_TDOL:
 			info->tag_name = "Transaction Certificate Data Object List (TDOL)";
@@ -921,6 +934,14 @@ int emv_tlv_get_info(
 				return 0;
 			}
 			return emv_cid_get_string_list(tlv->value[0], value_str, value_str_len);
+
+		case EMV_TAG_9F2A_KERNEL_IDENTIFIER:
+			info->tag_name = "Kernel Identifier";
+			info->tag_desc =
+				"Indicates the card's preference for the kernel on which the "
+				"the contactless application can be processed";
+			info->format = EMV_FORMAT_B;
+			return emv_kernel_id_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT:
 			info->tag_name = "Issuer Public Key Exponent";
@@ -3021,6 +3042,203 @@ int emv_asrpd_get_string_list(
 		// Advance
 		asrpd += asrpd_entry_len;
 		asrpd_len -= asrpd_entry_len;
+	}
+
+	return 0;
+}
+
+static int emv_kernel_id_decode(
+	const uint8_t* buf,
+	size_t buf_len,
+	struct emv_kernel_id_info_t* info
+)
+{
+	int r;
+
+	if (!buf || !buf_len || !info) {
+		return -1;
+	}
+	memset(info, 0, sizeof(*info));
+
+	// Kernel Identifier must be 1 or 3-8 bytes
+	// See EMV Contactless Book B v2.11, Table 3-4 and Table 3-5
+	if (buf_len == 2 || buf_len > 8) {
+		return 1;
+	}
+
+	// Kernel Identifier byte 1 (kernel type and short kernel ID)
+	// See EMV Contactless Book B v2.11, Table 3-4
+	info->kernel_type = buf[0] & EMV_KERNEL_ID_TYPE_MASK;
+	info->short_kernel_id = buf[0] & EMV_KERNEL_ID_SHORT_MASK;
+
+	// Only decode currency for domestic EMVCo kernels with extended ID
+	// See EMV Contactless Book B v2.11, Table 3-5
+	if (info->kernel_type != EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO) {
+		return 0;
+	}
+	if (buf_len < 3) {
+		// Insufficient length remaining for currency code
+		return 1;
+	}
+
+	// Kernel Identifier byte 2-3 (currency code)
+	// See EMV Contactless Book B v2.11, Table 3-5
+	r = emv_currency_numeric_code_get_string(buf + 1, 2, info->currency, sizeof(info->currency));
+	if (r < 0) {
+		// Internal error
+		return r;
+	}
+
+	return 0;
+}
+
+int emv_kernel_id_get_string(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct emv_kernel_id_info_t info;
+	int len;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	r = emv_kernel_id_decode(buf, buf_len, &info);
+	if (r) {
+		return r;
+	}
+
+	// Stringify short kernel ID
+	// See EMV Contactless Book B v2.11, Table 3-4
+	if (info.short_kernel_id) {
+		r = snprintf(str, str_len, "Kernel C-%u", info.short_kernel_id);
+	} else {
+		r = snprintf(str, str_len, "Default kernel");
+	}
+	if (r < 0 || (size_t)r >= str_len) {
+		return -2;
+	}
+	len = r;
+
+	// Stringify kernel type and extended kernel ID
+	// See EMV Contactless Book B v2.11, Table 3-4 and Table 3-5
+	switch (info.kernel_type) {
+		case EMV_KERNEL_ID_TYPE_INTERNATIONAL:
+			snprintf(str + len, str_len - len, ", International");
+			break;
+
+		case EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO:
+			if (info.currency[0]) {
+				snprintf(str + len, str_len - len, ", EMVCo, %s", info.currency);
+			} else {
+				snprintf(str + len, str_len - len, ", EMVCo");
+			}
+			break;
+
+		case EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY:
+			snprintf(str + len, str_len - len, ", Proprietary");
+			break;
+
+		case EMV_KERNEL_ID_TYPE_RFU:
+			snprintf(str + len, str_len - len, ", RFU");
+			break;
+	}
+
+	return 0;
+}
+
+int emv_kernel_id_terminal_get_string(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct emv_kernel_id_info_t info;
+	int len;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (buf_len != 8) {
+		// Kernel Identifier - Terminal (field 96) must be 8 bytes
+		return 1;
+	}
+
+	r = emv_kernel_id_decode(buf, buf_len, &info);
+	if (r) {
+		return r;
+	}
+
+	// Stringify short kernel ID
+	// See EMV Contactless Book B v2.11, Table 3-4
+	if (info.short_kernel_id) {
+		r = snprintf(str, str_len, "Kernel C-%u", info.short_kernel_id);
+	} else {
+		r = snprintf(str, str_len, "Default kernel");
+	}
+	if (r < 0 || (size_t)r >= str_len) {
+		return -2;
+	}
+	len = r;
+
+	// Stringify kernel type and extended kernel ID
+	// See EMV Contactless Book B v2.11, Table 3-4 and Table 3-5
+	switch (info.kernel_type) {
+		case EMV_KERNEL_ID_TYPE_INTERNATIONAL:
+			r = snprintf(str + len, str_len - len, ", International");
+			break;
+
+		case EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO:
+			if (info.currency[0]) {
+				r = snprintf(str + len, str_len - len, ", EMVCo, %s", info.currency);
+			} else {
+				r = snprintf(str + len, str_len - len, ", EMVCo");
+			}
+			break;
+
+		case EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY:
+			r = snprintf(str + len, str_len - len, ", Proprietary");
+			break;
+
+		case EMV_KERNEL_ID_TYPE_RFU:
+			r = snprintf(str + len, str_len - len, ", RFU");
+			break;
+	}
+	if (r < 0 || (size_t)r >= str_len - len) {
+		return -3;
+	}
+	len += r;
+
+	// Stringify kernel 8 support if byte 4 is present
+	// See EMV Contactless Book B v2.11, Table 3-7
+	if (buf_len >= 4) {
+		bool k8_reader = buf[3] & EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT;
+		bool k8_transaction = buf[3] & EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT;
+
+		if (k8_reader && k8_transaction) {
+			snprintf(str + len, str_len - len, ", K8 reader+transaction support");
+		} else if (k8_reader) {
+			snprintf(str + len, str_len - len, ", K8 reader support");
+		} else if (k8_transaction) {
+			snprintf(str + len, str_len - len, ", K8 transaction support");
+		}
 	}
 
 	return 0;
