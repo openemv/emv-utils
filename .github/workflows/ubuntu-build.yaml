@@ -86,7 +86,7 @@ jobs:
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
-          -DEMV_UTILS_ENABLE_SANITIZERS=ON \
+          -DEMV_UTILS_ENABLE_SANITIZERS=YES \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=YES \
           -DBUILD_EMV_VIEWER=YES
@@ -117,7 +117,7 @@ jobs:
         cmake -B build \
           -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
           -DBUILD_SHARED_LIBS=YES \
-          -DEMV_UTILS_ENABLE_HARDENING=ON \
+          -DEMV_UTILS_ENABLE_HARDENING=YES \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=YES \
           -DBUILD_EMV_VIEWER=YES
