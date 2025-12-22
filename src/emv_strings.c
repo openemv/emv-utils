@@ -72,6 +72,9 @@ static int emv_decrypt_issuer_pkey(const uint8_t* issuer_cert, size_t issuer_cer
 static int emv_decrypt_ssad(const uint8_t* ssad, size_t ssad_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_issuer_pkey_t* issuer_pkey, struct emv_rsa_ssad_t* data);
 static int emv_decrypt_icc_pkey(const uint8_t* icc_cert, size_t icc_cert_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_issuer_pkey_t* issuer_pkey, struct emv_rsa_icc_pkey_t* icc_pkey);
 static int emv_decrypt_sdad(const uint8_t* sdad, size_t sdad_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_icc_pkey_t* icc_pkey, struct emv_rsa_sdad_t* data);
+static const char* emv_oda_format_get_string(uint8_t format);
+static const char* emv_pkey_hash_alg_get_string(uint8_t hash_id);
+static const char* emv_pkey_sig_alg_get_string(uint8_t alg_id);
 static int emv_iad_ccd_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_mchip_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
