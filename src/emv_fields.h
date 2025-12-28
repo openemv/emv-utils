@@ -211,6 +211,15 @@ __BEGIN_DECLS
 #define EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT                (0x80) ///< Kernel 8 supported by reader
 #define EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT           (0x40) ///< Kernel 8 supported for the transaction
 
+// POI Information (field 8B)
+// See EMV Contactless Book B v2.11, Annex A.1, Table A-2
+#define EMV_POI_INFO_TERMINAL_CATEGORY                          (0x0001) ///< POI Information: Terminal Category
+
+// Terminal Category values (fields 8B and 9F3E)
+// See EMV Contactless Book B v2.11, Annex A.1, Table A-2
+#define EMV_TERMINAL_CATEGORY_TRANSIT_GATE                      (0x0001) ///< Transit gate terminal
+#define EMV_TERMINAL_CATEGORY_LOYALTY                           (0x0002) ///< Loyalty terminal
+
 // Application Interchange Profile (field 82) byte 1
 // See EMV 4.4 Book 3, Annex C1, Table 41
 // See EMV Contactless Book C-2 v2.11, Annex A.1.16

@@ -68,6 +68,7 @@ static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) ATTRIB
 static void emv_str_list_add_data(struct str_itr_t* itr, const char* str, const void* data, size_t data_len);
 static int emv_app_preferred_name_get_string(const uint8_t* buf, size_t buf_len, const struct emv_tlv_sources_t* sources, char* str, size_t str_len);
 static int emv_kernel_id_decode(const uint8_t* buf, size_t buf_len, struct emv_kernel_id_info_t* info);
+static const char* emv_terminal_category_get_string(uint16_t category);
 static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
@@ -317,6 +318,14 @@ int emv_tlv_get_info(
 			info->tag_desc = "Code that defines the disposition of a message";
 			info->format = EMV_FORMAT_AN;
 			return emv_auth_response_code_get_string(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_8B_POI_INFORMATION:
+			info->tag_name = "POI Information";
+			info->tag_desc =
+				"Contains information about the terminal and the acceptance "
+				"environment.";
+			info->format = EMV_FORMAT_B;
+			return emv_poi_info_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_8C_CDOL1:
 			info->tag_name = "Card Risk Management Data Object List 1 (CDOL1)";
@@ -1068,6 +1077,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_N;
 			return 0;
 
+		case EMV_TAG_9F3E_TERMINAL_CATEGORIES_SUPPORTED_LIST:
+			info->tag_name = "Terminal Categories Supported List";
+			info->tag_desc =
+				"Contains a list of one or more terminal categories supported "
+				"by the card.";
+			info->format = EMV_FORMAT_B;
+			return emv_terminal_categories_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
 		case EMV_TAG_9F3F_SDOL:
 			info->tag_name = "Selection Data Object List (SDOL)";
 			info->tag_desc =
@@ -1368,6 +1385,74 @@ int emv_tlv_get_info(
 					"Unpredictable Number (Numeric) digits and Application "
 					"Transaction Counter (ATC) digits have to be copied.";
 				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F67: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F67_NATC_TRACK2 && // Helps IDE find this case statement
+				tlv->length == 1
+			) {
+				// Kernel 2 defines 9F67 as NATC(Track2) with a length of
+				// 1 byte
+				info->tag_name = "NATC(Track2)";
+				info->tag_desc =
+					"The value of NATC(Track2) represents the number of "
+					"digits of the Application Transaction Counter to be "
+					"included in the discretionary data field of Track 2 "
+					"Data.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == AMEX_TAG_9F67_FORM_FACTOR && // Helps IDE find this case statement
+				tlv->length == 3
+			) {
+				// Kernel 4 defines 9F67 as Form Factor with a length of
+				// 3 bytes
+				info->tag_name = "Form Factor";
+				info->tag_desc = "Identifies the form factor of the Card.";
+				info->format = EMV_FORMAT_N;
+				return emv_tlv_value_get_string(tlv, info->format, 6, value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F69: // Used for different purposes by different kernels
+			if (tlv->tag == VISA_TAG_9F69_CARD_AUTHENTICATION_RELATED_DATA && // Helps IDE find this case statement
+				tlv->length >= 5 && tlv->length <= 16 &&
+				tlv->value && tlv->value[0] == 0x01
+			) {
+				// Kernel 3 defines 9F69 as Card Authentication Related Data
+				// with a length of 5-16 bytes and first byte 0x01
+				info->tag_name = "Card Authentication Related Data";
+				info->tag_desc =
+					"Contains the fDDA Version Number, Card Unpredictable "
+					"Number, and Card Transaction Qualifiers.\n"
+					"For transactions where fDDA is performed, the Card "
+					"Authentication Related Data is returned in the last "
+					"record specified by the Application File Locator for "
+					"that transaction.";
+				info->format = EMV_FORMAT_B;
+				return emv_visa_card_auth_data_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			if (tlv->tag == MASTERCARD_TAG_9F69_UDOL) { // Helps IDE find this case statement
+				// Kernel 2 defines 9F69 as UDOL
+				info->tag_name = "UDOL";
+				info->tag_desc =
+					"The UDOL is the DOL that specifies the data objects to "
+					"be included in the data field of the COMPUTE "
+					"CRYPTOGRAPHIC CHECKSUM command. The UDOL must at least "
+					"include the Unpredictable Number (Numeric). The UDOL is "
+					"not mandatory for the Card. If it is not present in the "
+					"Card, then the Default UDOL is used.";
+				info->format = EMV_FORMAT_DOL;
 				return 0;
 			}
 
@@ -3328,6 +3413,145 @@ int emv_kernel_id_terminal_get_string(
 		} else if (k8_transaction) {
 			snprintf(str + len, str_len - len, ", K8 transaction support");
 		}
+	}
+
+	return 0;
+}
+
+static const char* emv_terminal_category_get_string(uint16_t category)
+{
+	// Terminal Categories
+	// See EMV Contactless Book B v2.11, Annex A.1, Table A-2
+	switch (category) {
+		case EMV_TERMINAL_CATEGORY_TRANSIT_GATE:
+			return "Transit gate";
+		case EMV_TERMINAL_CATEGORY_LOYALTY:
+			return "Loyalty";
+		default:
+			// Unknown terminal category
+			return NULL;
+	}
+}
+
+int emv_terminal_categories_get_string_list(
+	const uint8_t* term_cats,
+	size_t term_cats_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!term_cats || !term_cats_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (term_cats_len % 2 != 0) {
+		// Terminal Categories Supported List (field 9F3E) must be multiples of 2 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Terminal Categories Supported List (field 9F3E)
+	// See EMV Contactless Book B v2.11, Annex A
+	for (size_t i = 0; i < term_cats_len; i += 2) {
+		uint16_t category = (term_cats[i] << 8) + term_cats[i + 1];
+		const char* category_str = emv_terminal_category_get_string(category);
+
+		if (category_str) {
+			emv_str_list_add(&itr, "Terminal Category: %s", category_str);
+		} else {
+			emv_str_list_add(&itr, "Terminal Category: 0x%04X (RFU)", category);
+		}
+	}
+
+	return 0;
+}
+
+int emv_poi_info_get_string_list(
+	const uint8_t* poi_info,
+	size_t poi_info_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!poi_info || !poi_info_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (poi_info_len < 3) {
+		// POI Information (field 8B) must contain at least one ID and a
+		// length
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// POI Information (field 8B)
+	// See EMV Contactless Book B v2.11, Annex A
+	while (poi_info_len) {
+		uint16_t poi_id;
+		size_t poi_entry_len;
+
+		if (poi_info_len < 3) {
+			// Incomplete POI Information entry
+			return 2;
+		}
+
+		// Extract entry ID
+		poi_id = (((uint16_t)poi_info[0]) << 8) + poi_info[1];
+
+		// Validate entry length
+		poi_entry_len = 2 + 1 + poi_info[2];
+		if (poi_entry_len > poi_info_len) {
+			// Invalid POI Information length
+			return 3;
+		}
+
+		// Decode POI Information entry
+		// See EMV Contactless Book B v2.11, Annex A.1, Table A-1
+		switch (poi_id) {
+			case EMV_POI_INFO_TERMINAL_CATEGORY: {
+				uint16_t category;
+				const char* category_str;
+
+				if (poi_info[2] != 2) {
+					// Invalid Terminal Category length
+					str[0] = 0;
+					return 4;
+				}
+
+				category = (poi_info[3] << 8) + poi_info[4];
+				category_str = emv_terminal_category_get_string(category);
+
+				if (category_str) {
+					emv_str_list_add(&itr, "Terminal Category: %s", category_str);
+				} else {
+					emv_str_list_add(&itr, "Terminal Category: 0x%04X (RFU)", category);
+				}
+				break;
+			}
+
+			default:
+				emv_str_list_add(&itr, "Unknown POI Information ID 0x%04X", poi_id);
+		}
+
+		// Advance
+		poi_info += poi_entry_len;
+		poi_info_len -= poi_entry_len;
 	}
 
 	return 0;
@@ -6858,6 +7082,73 @@ int emv_mastercard_third_party_data_get_string_list(
 
 	} else if (tpd_ptr[0] == 0x00) {
 		emv_str_list_add(&itr, "Proprietary Data: Not used");
+	}
+
+	return 0;
+}
+
+int emv_visa_card_auth_data_get_string_list(
+	const uint8_t* card_auth_data,
+	size_t card_auth_data_len,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t itr;
+	char ctq_str[2048];
+
+	if (!card_auth_data || !card_auth_data_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (card_auth_data_len < 5 || card_auth_data_len > 16) {
+		// Visa Card Authentication Related Data (field 9F69) must be 5 to 16 bytes
+		return 1;
+	}
+
+	if (card_auth_data[0] != 0x01) {
+		// fDDA Version Number must be 0x01
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Visa Card Authentication Related Data (field 9F69) bytes 1-5
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+	emv_str_list_add(&itr, "fDDA Version Number: %u", card_auth_data[0]);
+	emv_str_list_add_data(&itr, "Card Unpredictable Number: ", &card_auth_data[1], 4);
+
+	// Visa Card Authentication Related Data (field 9F69) bytes 6-7 (if present)
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
+	if (card_auth_data_len >= 7) {
+		r = emv_ctq_get_string_list(
+			&card_auth_data[5],
+			2,
+			ctq_str,
+			sizeof(ctq_str)
+		);
+		if (r) {
+			return r;
+		}
+
+		// Append CTQ strings to output
+		if (ctq_str[0]) {
+			emv_str_list_add(&itr, "%s", ctq_str);
+		}
+	}
+
+	// Visa Card Authentication Related Data (field 9F69) bytes 8+ (if present)
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	if (card_auth_data_len > 7) {
+		emv_str_list_add_data(&itr, "Additional Data: ", &card_auth_data[7], card_auth_data_len - 7);
 	}
 
 	return 0;

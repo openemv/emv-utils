@@ -1159,6 +1159,69 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_kernel_id_test_regex}
 	)
 
+	# Test decoding of POI terminal category fields
+	add_test(NAME emv_decode_poi_terminal_category_test
+		COMMAND emv-decode --tlv 8B008B0A000102000100010200028B0500010200998B0B0001020001BEEF031212129F3E0200019F3E04000100029F3E020003
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_poi_terminal_category_test_regex
+		"^8B \\| POI Information : \\[0\\][\r\n]"
+		"8B \\| POI Information : \\[10\\] 00 01 02 00 01 00 01 02 00 02[\r\n]"
+		"  - Terminal Category: Transit gate[\r\n]"
+		"  - Terminal Category: Loyalty[\r\n]"
+		"8B \\| POI Information : \\[5\\] 00 01 02 00 99[\r\n]"
+		"  - Terminal Category: 0x0099 \\(RFU\\)[\r\n]"
+		"8B \\| POI Information : \\[11\\] 00 01 02 00 01 BE EF 03 12 12 12[\r\n]"
+		"  - Terminal Category: Transit gate[\r\n]"
+		"  - Unknown POI Information ID 0xBEEF[\r\n]"
+		"9F3E \\| Terminal Categories Supported List : \\[2\\] 00 01[\r\n]"
+		"  - Terminal Category: Transit gate[\r\n]"
+		"9F3E \\| Terminal Categories Supported List : \\[4\\] 00 01 00 02[\r\n]"
+		"  - Terminal Category: Transit gate[\r\n]"
+		"  - Terminal Category: Loyalty[\r\n]"
+		"9F3E \\| Terminal Categories Supported List : \\[2\\] 00 03[\r\n]"
+		"  - Terminal Category: 0x0003 \\(RFU\\)[\r\n]$"
+	)
+	set_tests_properties(emv_decode_poi_terminal_category_test
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_poi_terminal_category_test_regex}
+	)
+
+	# Test decoding of 9F69 for kernel C-2
+	add_test(NAME emv_decode_9F69_test1
+		COMMAND emv-decode --tlv 9F69069F37049F0206
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F69_test1_regex
+		"^9F69 \\| UDOL : \\[6\\] 9F 37 04 9F 02 06[\r\n]"
+		"  Data Object List:[\r\n]"
+		"    9F37 \\| Unpredictable Number \\[4\\][\r\n]"
+		"    9F02 \\| Amount, Authorised \\(Numeric\\) \\[6\\][\r\n]$"
+	)
+	set_tests_properties(emv_decode_9F69_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F69_test1_regex}
+	)
+
+	# Test decoding of 9F69 for kernel C-3
+	add_test(NAME emv_decode_9F69_test2
+		COMMAND emv-decode --tlv 9F690701ABCDEF123600
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F69_test2_regex
+		"^9F69 \\| Card Authentication Related Data : \\[7\\] 01 AB CD EF 12 36 00[\r\n]"
+		"  - fDDA Version Number: 1[\r\n]"
+		"  - Card Unpredictable Number: ABCDEF12[\r\n]"
+		"  - Go Online if Offline Data Authentication Fails and Reader is online capable[\r\n]"
+		"  - Switch Interface if Offline Data Authentication fails and Reader supports contact chip[\r\n]"
+		"  - Switch Interface for Cash Transactions[\r\n]"
+		"  - Switch Interface for Cashback Transactions[\r\n]$"
+	)
+	set_tests_properties(emv_decode_9F69_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F69_test2_regex}
+	)
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs
