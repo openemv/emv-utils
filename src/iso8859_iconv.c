@@ -2,7 +2,7 @@
  * @file iso8859_iconv.c
  * @brief ISO/IEC 8859 implementation using iconv
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -72,6 +72,11 @@ int iso8859_to_utf8(
 	iconv_close(cd);
 	if (r == (size_t)-1) {
 		return 2;
+	}
+	if (outbytesleft && outbytesleft <= utf8_len) {
+		utf8[utf8_len - outbytesleft] = 0;
+	} else {
+		utf8[utf8_len - 1] = 0;
 	}
 
 	return 0;

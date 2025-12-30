@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2023 Leon Lynch
+# Copyright 2023, 2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -18,17 +18,23 @@
 
 # Use PkgConfig to find json-c
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(PC_json-c QUIET json-c)
+pkg_check_modules(PC_json-c QUIET IMPORTED_TARGET json-c)
 
-find_path(json-c_INCLUDE_DIR
-	NAMES json.h json_c_version.h
-	PATHS ${PC_json-c_INCLUDE_DIRS}
-)
-
-find_library(json-c_LIBRARY
-	NAMES json-c
-	PATHS ${PC_json-c_LIBRARY_DIRS}
-)
+if(TARGET PkgConfig::PC_json-c)
+	# Use imported target to populate variables
+	get_target_property(json-c_INCLUDE_DIR PkgConfig::PC_json-c INTERFACE_INCLUDE_DIRECTORIES)
+	get_target_property(json-c_LIBRARY PkgConfig::PC_json-c INTERFACE_LINK_LIBRARIES)
+else()
+	# Otherwise find the files manually
+	find_path(json-c_INCLUDE_DIR
+		NAMES json.h json_c_version.h
+		PATHS ${PC_json-c_INCLUDE_DIRS}
+	)
+	find_library(json-c_LIBRARY
+		NAMES json-c
+		PATHS ${PC_json-c_LIBRARY_DIRS}
+	)
+endif()
 
 set(json-c_VERSION ${PC_json-c_VERSION})
 

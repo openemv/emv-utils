@@ -3,7 +3,7 @@
  * @brief EMV Data Object List (DOL) processing functions
  * @remark See EMV 4.4 Book 3, 5.4
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,7 +30,7 @@
 __BEGIN_DECLS
 
 // Forward declarations
-struct emv_tlv_list_t;
+struct emv_tlv_sources_t;
 
 /// EMV Data Object List (DOL) entry
 struct emv_dol_entry_t {
@@ -84,8 +84,7 @@ int emv_dol_compute_data_length(const void* ptr, size_t len);
  * Build concatenated data according to Data Object List (DOL)
  * @param ptr Encoded EMV Data Object List (DOL)
  * @param len Length of encoded EMV Data Object List (DOL) in bytes
- * @param sources Ordered list of EMV TLV lists used as data sources.
- * @param sources_count Number of entries in @p sources.
+ * @param sources EMV TLV sources to use when building concatenated data
  * @param data Concatenated data output
  * @param data_len Length of concatenated data output in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero if output data length too small.
@@ -93,8 +92,7 @@ int emv_dol_compute_data_length(const void* ptr, size_t len);
 int emv_dol_build_data(
 	const void* ptr,
 	size_t len,
-	const struct emv_tlv_list_t** sources,
-	size_t sources_count,
+	const struct emv_tlv_sources_t* sources,
 	void* data,
 	size_t* data_len
 );

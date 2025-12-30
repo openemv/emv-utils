@@ -22,13 +22,19 @@ If you wish to use these libraries for a project that is not compatible with
 the terms of the LGPL v2.1 license, please contact the author for alternative
 licensing options.
 
+Example output
+--------------
+![Example of emv-decoder usage](/emv-decoder-example.png)
+![Example of emv-viewer usage](/emv-viewer-example.png)
+See [usage](#usage) for more examples.
+
 Installation
 ------------
 
 * For Ubuntu 20.04 LTS (Focal), 22.04 LTS (Jammy), or 24.04 LTS (Noble) install
   the appropriate
   [release package](https://github.com/openemv/emv-utils/releases)
-* For Fedora 39 or Fedora 40, install the appropriate Fedora
+* For Fedora 41 or Fedora 42, install the appropriate Fedora
   [release package](https://github.com/openemv/emv-utils/releases)
 * For Gentoo, use the
   [OpenEMV overlay](https://github.com/openemv/openemv-overlay), set the
@@ -37,8 +43,9 @@ Installation
 * For MacOS with [Homebrew](https://brew.sh/), use the
   [OpenEMV tap](https://github.com/openemv/homebrew-tap) and install using
   `brew install openemv/tap/emv-utils`
-* For Windows, use [MSYS2](https://www.msys2.org/) and follow the build
-  instructions below
+* For Windows, use the
+  [installer](https://github.com/openemv/emv-utils/releases) or follow the
+  build instructions below to build using [MSYS2](https://www.msys2.org/)
 * For other platforms, architectures or configurations, follow the build
   instructions below
 
@@ -56,10 +63,11 @@ Dependencies
 * [iconv](https://www.gnu.org/software/libiconv/) can _optionally_ be selected
   for ISO 8859 support; see [ISO/IEC 8859 support](#isoiec-8859-support).
 * `emv-decode` and `emv-tool` will be built by default and require `argp`
-  (either via Glibc, a system-provided standalone or a downloaded
-  implementation; see [MacOS / Windows](#macos--windows)). Use the
-  `BUILD_EMV_DECODE` and `BUILD_EMV_TOOL` options to prevent `emv-decode` and
-  `emv-tool` from being built and avoid the dependency on `argp`.
+  (either via Glibc, a system-provided standalone, or downloaded during the
+  build from [libargp](https://github.com/leonlynch/libargp); see
+  [MacOS / Windows](#macos--windows)). Use the `BUILD_EMV_DECODE` and
+  `BUILD_EMV_TOOL` options to prevent `emv-decode` and  `emv-tool` from being
+  built and avoid the dependency on `argp`.
 * `emv-tool` requires PC/SC, either provided by `WinSCard` on Windows or by
   [PCSCLite](https://pcsclite.apdu.fr/) on Linux/MacOS. Use the
   `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built and avoid the
@@ -78,6 +86,7 @@ Dependencies
 
 This project also makes use of sub-projects that must be provided as git
 submodules using `git clone --recurse-submodules`:
+* [OpenEMV common crypto abstraction](https://github.com/openemv/crypto)
 * [mcc-codes](https://github.com/greggles/mcc-codes)
 
 Build
@@ -171,7 +180,7 @@ at build time using the CMake `ISO8859_IMPL` option. It allows these values:
 Qt
 --
 
-This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.7.x (although it
+This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.8.x (although it
 may be possible to use other versions of Qt) when building the `emv-viewer`
 application. However, on some platforms it may be necessary to use the `QT_DIR`
 option (and not the `Qt5_DIR` nor `Qt6_DIR` options) or `CMAKE_PREFIX_PATH`
@@ -224,6 +233,8 @@ cmake --build build --target package
 Usage
 -----
 
+### emv-decode
+
 The available command line options of the `emv-decode` application can be
 displayed using:
 ```shell
@@ -239,6 +250,12 @@ emv-decode --atr 3BDA18FF81B1FE751F030031F573C78A40009000B0
 To decode EMV TLV data, use the `--tlv` option. For example:
 ```shell
 emv-decode --tlv 701A9F390105571040123456789095D2512201197339300F82025900
+```
+
+Alternatively, binary (not ASCII-HEX) EMV TLV data can be read from stdin by
+specifying `--tlv -`. For example:
+```shell
+echo "701A9F390105571040123456789095D2512201197339300F82025900" | xxd -r -p | emv-decoder --tlv -
 ```
 
 To decode an EMV Data Object List (DOL), use the `--dol` option. For example:
@@ -276,30 +293,61 @@ emv-decode --iso8859-10 A1A2A3A4A5A6A7
 The `emv-decode` application can also decode various other EMV structures and
 fields. Use the `--help` option to display all available options.
 
+### emv-viewer
+
+The `emv-viewer` application can be launched via the desktop environment or it
+can be launched via the command line. The `emv-viewer` application does not
+support the decoding of individual fields like the `emv-decode` application
+does, but does allow the decoding of EMV TLV data in the same manner as the
+`emv-decode` application.
+
+The available command line options of the `emv-viewer` application can be
+displayed using:
+```shell
+emv-viewer --help
+```
+
+To decode EMV TLV data, use the `--tlv` option. For example:
+```shell
+emv-viewer --tlv 701A9F390105571040123456789095D2512201197339300F82025900
+```
+
+Alternatively, binary (not ASCII-HEX) EMV TLV data can be read from stdin by
+specifying `--tlv -`. For example:
+```shell
+echo "701A9F390105571040123456789095D2512201197339300F82025900" | xxd -r -p | emv-viewer --tlv -
+```
+
 Roadmap
 -------
 * Document `emv-tool` usage
 * Implement high level EMV processing API
 * Implement country, currency, language and MCC searching
-* Implement context-specific EMV string decoding, such as ISO 8859 code pages
-  for UTF-8 conversion and kernel-specific contactless fields
 * Implement Qt plugin for EMV decoding
 
 License
 -------
 
-Copyright 2021-2024 [Leon Lynch](https://github.com/leonlynch).
+Copyright 2021-2025 [Leon Lynch](https://github.com/leonlynch).
 
 This project is licensed under the terms of the LGPL v2.1 license with the
-exception of `emv-viewer` which is licensed under the terms of the GPL v3
-license.
+exception of `emv-decode`, `emv-tool` and `emv-viewer` which are licensed under
+the terms of the GPL v3 license.
 See [LICENSE](https://github.com/openemv/emv-utils/blob/master/LICENSE) and
 [LICENSE.gpl](https://github.com/openemv/emv-utils/blob/master/viewer/LICENSE.gpl)
 files.
 
+This project includes [crypto](https://github.com/openemv/crypto) as a git
+submodule and it is licensed under the terms of the MIT license. See
+[LICENSE](https://github.com/openemv/crypto/blob/master/LICENSE) file.
+
 This project includes [mcc-codes](https://github.com/greggles/mcc-codes) as a
-git submodule and it is licensed under The Unlicense license. See
+git submodule and it is licensed under the terms of The Unlicense license. See
 [LICENSE](https://github.com/greggles/mcc-codes/blob/main/LICENSE.txt) file.
+
+This project may download [libargp](https://github.com/leonlynch/libargp)
+during the build and it is licensed under the terms of the LGPL v3 license. See
+[LICENSE](https://github.com/leonlynch/libargp/blob/master/LICENSE) file.
 
 > [!NOTE]
 > EMV :registered: is a registered trademark in the U.S. and other countries

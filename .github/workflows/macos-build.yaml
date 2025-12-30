@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -15,12 +15,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 13", os: macos-13, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 14", os: macos-14, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 26", os: macos-26, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} (${{ matrix.osx_arch }}) build (${{ matrix.lib_type}}/${{ matrix.build_type }}/${{ matrix.deps }})
     runs-on: ${{ matrix.os }}
@@ -32,9 +32,13 @@ jobs:
         brew install iso-codes
         brew install json-c
 
-    - name: Install argp-standalone using brew
+    - name: Install MbedTLS and argp-standalone using brew
+      # Homebrew doesn't support universal binaries so only install dependencies for arch-specific builds
       if: ${{ matrix.fetch_deps == 'NO' }}
-      run: brew install argp-standalone
+      run: |
+        brew install mbedtls@3
+        brew install argp-standalone
+        echo "MbedTLS_DIR=$(brew --prefix mbedtls@3)/lib/cmake/MbedTLS" >> $GITHUB_ENV
 
     - name: Install PCSCLite using brew
       if: contains(matrix.deps, 'pcsclite')
@@ -67,19 +71,21 @@ jobs:
           -DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}" \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
           -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+          ${{ matrix.fetch_deps == 'NO' && '-DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES' || '-DFETCH_MBEDTLS=YES' }} \
           -DFETCH_ARGP=${{ matrix.fetch_deps }} \
+          -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build -j 4 --output-on-failure
 
   build-macos-release:
-    name: MacOS 13 (release)
-    runs-on: macos-13
+    name: MacOS 15 Intel (release)
+    runs-on: macos-15-intel
 
     steps:
     - name: Install dependencies
@@ -95,6 +101,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
+        fetch-depth: 0
         submodules: recursive
 
     - name: Get version from git tag
@@ -112,7 +119,9 @@ jobs:
         cmake -B build \
           -DCMAKE_OSX_ARCHITECTURES="x86_64" \
           -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+          -DFETCH_MBEDTLS=YES \
           -DFETCH_ARGP=YES \
+          -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=YES \
           -DBUILD_EMV_VIEWER=YES \
           -DBUILD_MACOSX_BUNDLE=YES \
@@ -120,10 +129,10 @@ jobs:
           -DSIGN_MACOSX_BUNDLE=openemv.org
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build -j 4 --output-on-failure
 
     - name: Package
       run: cmake --build build --target package

@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.cpp
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,10 +23,11 @@
 #include "emvtreeview.h"
 #include "emvtreeitem.h"
 
-#include <QtCore/QStringLiteral>
-#include <QtCore/QString>
 #include <QtCore/QByteArray>
+#include <QtCore/QList>
 #include <QtCore/QSettings>
+#include <QtCore/QString>
+#include <QtCore/QStringLiteral>
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
@@ -63,7 +64,9 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	// changes the value to be different from the initial state.
 	highlighter->setEmphasiseTags(tagsCheckBox->isChecked());
 	highlighter->setIgnorePadding(paddingCheckBox->isChecked());
-	treeView->setDecodeFields(decodeCheckBox->isChecked());
+	treeView->setIgnorePadding(paddingCheckBox->isChecked());
+	treeView->setDecodeFields(decodeFieldsCheckBox->isChecked());
+	treeView->setDecodeObjects(decodeObjectsCheckBox->isChecked());
 
 	// Load previous UI values
 	loadSettings();
@@ -73,7 +76,7 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 		dataEdit->setPlainText(overrideData);
 	}
 	if (overrideDecodeCheckBoxState > -1) {
-		decodeCheckBox->setCheckState(static_cast<Qt::CheckState>(overrideDecodeCheckBoxState));
+		decodeFieldsCheckBox->setCheckState(static_cast<Qt::CheckState>(overrideDecodeCheckBoxState));
 	}
 
 	// Default to showing legal text in description widget
@@ -84,6 +87,7 @@ void EmvViewerMainWindow::closeEvent(QCloseEvent* event)
 {
 	// Save current UI values
 	saveSettings();
+	event->accept();
 }
 
 void EmvViewerMainWindow::loadSettings()
@@ -106,14 +110,22 @@ void EmvViewerMainWindow::loadSettings()
 		check_box->setCheckState(state);
 	}
 
-	// Load window and splitter states from settings
+	// Load window and bottom splitter states from settings
 	restoreGeometry(settings.value(QStringLiteral("geometry")).toByteArray());
-	splitter->restoreState(settings.value(QStringLiteral("splitterState")).toByteArray());
 	if (settings.contains(QStringLiteral("splitterBottomState"))) {
 		splitterBottom->restoreState(settings.value(QStringLiteral("splitterBottomState")).toByteArray());
 	} else {
 		// Favour tree view child if no saved state available
 		splitterBottom->setSizes({99999, 1});
+	}
+
+	// Load input data and main splitter state
+	if (rememberCheckBox->isChecked()) {
+		dataEdit->setPlainText(settings.value(dataEdit->objectName()).toString());
+		splitter->restoreState(settings.value(QStringLiteral("splitterState")).toByteArray());
+	} else {
+		// Favour bottom child if no saved state available
+		splitter->setSizes({1, 99999});
 	}
 }
 
@@ -136,11 +148,15 @@ void EmvViewerMainWindow::saveSettings() const
 		settings.setValue(check_box->objectName(), check_box->checkState());
 	}
 
-	// Save window and splitter states
+	// Save window and bottom splitter states
 	settings.setValue(QStringLiteral("geometry"), saveGeometry());
-	settings.setValue(QStringLiteral("splitterState"), splitter->saveState());
 	settings.setValue(QStringLiteral("splitterBottomState"), splitterBottom->saveState());
 
+	// Save input data and main splitter state
+	if (rememberCheckBox->isChecked()) {
+		settings.setValue(dataEdit->objectName(), dataEdit->toPlainText());
+		settings.setValue(QStringLiteral("splitterState"), splitter->saveState());
+	}
 
 	settings.sync();
 }
@@ -150,12 +166,13 @@ void EmvViewerMainWindow::displayLegal()
 	// Display copyright, license and disclaimer notice
 	descriptionText->clear();
 	descriptionText->appendHtml(QStringLiteral(
-		"Copyright 2021-2024 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
+		"Copyright 2021-2025 <a href='https://github.com/leonlynch'>Leon Lynch</a><br/><br/>"
 		"<a href='https://github.com/openemv/emv-utils'>This program</a> is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.<br/>"
 		"<a href='https://github.com/openemv/emv-utils'>This program</a> is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.<br/>"
 		"See <a href='https://raw.githubusercontent.com/openemv/emv-utils/master/viewer/LICENSE.gpl'>LICENSE.gpl</a> file for more details.<br/><br/>"
 		"<a href='https://github.com/openemv/emv-utils'>This program</a> uses various libraries including:<br/>"
 		"- <a href='https://github.com/openemv/emv-utils'>emv-utils</a> (licensed under <a href='https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html'>LGPL v2.1</a>)<br/>"
+		"- <a href='https://github.com/Mbed-TLS/mbedtls'>MbedTLS</a> (licensed under <a href='http://www.apache.org/licenses/LICENSE-2.0'>Apache License v2</a>)<br/>"
 		"- <a href='https://www.qt.io'>Qt</a> (licensed under <a href='https://www.gnu.org/licenses/lgpl-3.0.html'>LGPL v3</a>)<br/>"
 		"<br/>"
 		"EMV\xAE is a registered trademark in the U.S. and other countries and an unregistered trademark elsewhere. The EMV trademark is owned by EMVCo, LLC. "
@@ -173,7 +190,6 @@ void EmvViewerMainWindow::parseData()
 	QString str;
 	int validLen;
 	QByteArray data;
-	bool paddingIsPossible = false;
 	unsigned int validBytes;
 
 	str = dataEdit->toPlainText();
@@ -202,49 +218,21 @@ void EmvViewerMainWindow::parseData()
 		validLen -= 1;
 	}
 
-	// Determine whether invalid data might be padding
-	if (paddingCheckBox->isChecked() && validLen == str.length()) {
-		// Input data is a valid hex string and therefore the possibility
-		// exists that if BER decoding fails, the remaining data might be
-		// cryptographic padding
-		paddingIsPossible = true;
-	}
-
 	data = QByteArray::fromHex(str.left(validLen).toUtf8());
 	validBytes = treeView->populateItems(data);
 	validLen = validBytes * 2;
 
 	if (validLen < str.length()) {
-		bool isPadding;
-		QString itemStr;
-		QColor itemColor;
-
-		// Determine whether invalid data is padding and prepare item details
-		// accordingly
-		if (paddingIsPossible &&
-			data.size() - validBytes > 0 &&
-			(
-				((data.size() & 0x7) == 0 && data.size() - validBytes < 8) ||
-				((data.size() & 0xF) == 0 && data.size() - validBytes < 16)
-			)
-		) {
-			// Invalid data is likely to be padding
-			isPadding = true;
-			itemStr = QStringLiteral("Padding: ");
-			itemColor = Qt::darkGray;
-		} else {
-			// Invalid data is either absent or unlikely to be padding
-			isPadding = false;
-			itemStr = QStringLiteral("Remaining invalid data: ");
-			itemColor = Qt::red;
-		}
-
+		// Remaining data is invalid and unlikely to be padding
 		QTreeWidgetItem* item = new QTreeWidgetItem(
 			treeView->invisibleRootItem(),
-			QStringList(itemStr + str.right(str.length() - validLen))
+			QStringList(
+				QStringLiteral("Remaining invalid data: ") +
+				str.right(str.length() - validLen)
+			)
 		);
-		item->setDisabled(isPadding);
-		item->setForeground(0, itemColor);
+		item->setDisabled(true);
+		item->setForeground(0, Qt::red);
 	}
 }
 
@@ -287,11 +275,20 @@ void EmvViewerMainWindow::on_paddingCheckBox_stateChanged(int state)
 	// view item associated with invalid data or padding as well.
 	highlighter->setIgnorePadding(state != Qt::Unchecked);
 	highlighter->rehighlight();
+
+	// Note that tree view data must be reparsed when padding state changes
+	treeView->setIgnorePadding(state != Qt::Unchecked);
+	parseData();
 }
 
-void EmvViewerMainWindow::on_decodeCheckBox_stateChanged(int state)
+void EmvViewerMainWindow::on_decodeFieldsCheckBox_stateChanged(int state)
 {
 	treeView->setDecodeFields(state != Qt::Unchecked);
+}
+
+void EmvViewerMainWindow::on_decodeObjectsCheckBox_stateChanged(int state)
+{
+	treeView->setDecodeObjects(state != Qt::Unchecked);
 }
 
 void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int column)
@@ -310,8 +307,8 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 		highlighter->rehighlight();
 		dataEdit->blockSignals(false);
 
-		// Show description of selected item
-		// Assume that a tag description always has a tag name
+		// Show description of selected item if it has a name.
+		// Otherwise show legal text.
 		descriptionText->clear();
 		if (!etItem->tagName().isEmpty()) {
 			descriptionText->appendHtml(
@@ -320,14 +317,14 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 				QStringLiteral("</b><br/><br/>") +
 				etItem->tagDescription()
 			);
+
+			// Let description scroll to top after updating content
+			QTimer::singleShot(0, [this]() {
+				descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
+			});
+
+			return;
 		}
-
-		// Let description scroll to top after updating content
-		QTimer::singleShot(0, [this]() {
-			descriptionText->verticalScrollBar()->triggerAction(QScrollBar::SliderToMinimum);
-		});
-
-		return;
 	}
 
 	displayLegal();

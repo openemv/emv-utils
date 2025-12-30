@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2021-2024 Leon Lynch
+# Copyright 2021-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -15,7 +15,7 @@ if (BUILD_TESTING)
 	add_test(emv_debug_test emv_debug_test)
 	string(CONCAT emv_debug_test_regex
 		"\\[APP\\] asdf=1337[\r\n]"
-		"\\[APP\\] This is a trace message: DEADBEEF[\r\n]"
+		"\\[APP\\] tests/emv_debug_test\.c\\[46\\]: This is a trace message: DEADBEEF[\r\n]"
 	)
 	set_tests_properties(emv_debug_test
 		PROPERTIES
@@ -50,6 +50,22 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_dol_test PRIVATE print_helpers emv)
 	add_test(emv_dol_test emv_dol_test)
 
+	add_executable(emv_capk_test emv_capk_test.c)
+	target_link_libraries(emv_capk_test PRIVATE emv)
+	add_test(emv_capk_test emv_capk_test)
+
+	add_executable(emv_rsa_test emv_rsa_test.c)
+	target_link_libraries(emv_rsa_test PRIVATE print_helpers emv)
+	add_test(emv_rsa_test emv_rsa_test)
+
+	add_executable(emv_rsa_cda_test emv_rsa_cda_test.c)
+	target_link_libraries(emv_rsa_cda_test PRIVATE print_helpers emv)
+	add_test(emv_rsa_cda_test emv_rsa_cda_test)
+
+	add_executable(emv_date_test emv_date_test.c)
+	target_link_libraries(emv_date_test PRIVATE emv)
+	add_test(emv_date_test emv_date_test)
+
 	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c)
 	target_link_libraries(emv_build_candidate_list_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_build_candidate_list_test emv_build_candidate_list_test)
@@ -65,6 +81,18 @@ if (BUILD_TESTING)
 	add_executable(emv_read_application_data_test emv_read_application_data_test.c)
 	target_link_libraries(emv_read_application_data_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_read_application_data_test emv_read_application_data_test)
+
+	add_executable(emv_processing_restrictions_test emv_processing_restrictions_test.c)
+	target_link_libraries(emv_processing_restrictions_test PRIVATE print_helpers emv)
+	add_test(emv_processing_restrictions_test emv_processing_restrictions_test)
+
+	add_executable(emv_terminal_risk_management_test emv_terminal_risk_management_test.c)
+	target_link_libraries(emv_terminal_risk_management_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_terminal_risk_management_test emv_terminal_risk_management_test)
+
+	add_executable(iso8825_oid_encode_test iso8825_oid_encode_test.c)
+	target_link_libraries(iso8825_oid_encode_test PRIVATE iso8825 print_helpers)
+	add_test(iso8825_oid_encode_test iso8825_oid_encode_test)
 
 	add_executable(isocodes_test isocodes_test.c)
 	find_package(Intl)

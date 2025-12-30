@@ -2,7 +2,7 @@
  * @file emv_app.c
  * @brief EMV application abstraction and helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -63,8 +63,8 @@ struct emv_app_t* emv_app_create_from_pse(
 
 	// Use ADF Name field for AID
 	app->aid = emv_tlv_list_find_const(&app->tlv_list, EMV_TAG_4F_APPLICATION_DF_NAME);
-	if (!app->aid) {
-		// Invalid FCI
+	if (!app->aid || app->aid->length < 5) {
+		// Invalid AID in ADF
 		goto error;
 	}
 
@@ -121,8 +121,8 @@ struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len)
 
 	// Use DF Name field for AID
 	app->aid = emv_tlv_list_find_const(&app->tlv_list, EMV_TAG_84_DF_NAME);
-	if (!app->aid) {
-		// Invalid FCI
+	if (!app->aid || app->aid->length < 5) {
+		// Invalid AID in FCI
 		goto error;
 	}
 
@@ -179,10 +179,11 @@ static int emv_app_extract_display_name(struct emv_app_t* app, const struct emv_
 			// defined in the ISO/IEC 8859 part designated in the Issuer Code
 			// Table
 			// See EMV 4.4 Book 1, 4.3
-			// See EMV 4.4 Book 1, Annex B
+			// See EMV 4.4 Book 4, Annex B
 			char app_preferred_name[16 + 1]; // Ensure enough space for NULL termination
 
 			// Copy only non-control characters
+			memset(app_preferred_name, 0, sizeof(app_preferred_name));
 			r = emv_format_ans_to_non_control_str(
 				tlv->value,
 				tlv->length,

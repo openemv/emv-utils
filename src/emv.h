@@ -2,7 +2,7 @@
  * @file emv.h
  * @brief High level EMV library interface
  *
- * Copyright 2023-2024 Leon Lynch
+ * Copyright 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,6 +23,7 @@
 #define EMV_H
 
 #include "emv_tlv.h"
+#include "emv_oda_types.h"
 
 #include <sys/cdefs.h>
 #include <stddef.h>
@@ -48,7 +49,7 @@ struct emv_app_t;
  */
 struct emv_ctx_t {
 	/**
-	 * @brief Terminal Transport Layer (TTL) context
+	 * @brief Terminal Transport Layer (TTL) context.
 	 *
 	 * Populated by @ref emv_ctx_init().
 	 */
@@ -75,6 +76,36 @@ struct emv_ctx_t {
 	struct emv_tlv_list_t supported_aids;
 
 	/**
+	 * @brief Target percentage to be used for random transaction selection
+	 * during terminal risk management. Value must be 0 to 99. Set to zero to
+	 * disable random transaction selection.
+	 *
+	 * Populate after @ref emv_ctx_init() and before EMV processing.
+	 * @todo In future, this will become a per-application configuration
+	 */
+	unsigned int random_selection_percentage;
+
+	/**
+	 * @brief Maximum target percentage to be used for biased random
+	 * transaction selection. Value must be 0 to 99 and must be greater than or
+	 * equal to @ref emv_ctx_t.random_selection_percentage.
+	 *
+	 * Populate after @ref emv_ctx_init() and before EMV processing.
+	 * @todo In future, this will become a per-application configuration
+	 */
+	unsigned int random_selection_max_percentage;
+
+	/**
+	 * @brief Threshold value for biased random transaction selection during
+	 * terminal risk management. Value must be zero or a positive number less
+	 * than the floor limit.
+	 *
+	 * Populate after @ref emv_ctx_init() and before EMV processing.
+	 * @todo In future, this will become a per-application configuration
+	 */
+	unsigned int random_selection_threshold;
+
+	/**
 	 * @brief Parameters for current transaction.
 	 *
 	 * Populate after @ref emv_ctx_init() and before EMV processing by
@@ -97,7 +128,7 @@ struct emv_ctx_t {
 	struct emv_tlv_list_t params;
 
 	/**
-	 * @brief Currently selected application
+	 * @brief Currently selected application.
 	 *
 	 * Populated by @ref emv_select_application() and used by
 	 * @ref emv_initiate_application_processing().
@@ -107,17 +138,54 @@ struct emv_ctx_t {
 	/**
 	 * @brief Integrated Circuit Card (ICC) data for current application.
 	 *
-	 * Populated by @ref emv_initiate_application_processing() and
-	 * @ref emv_read_application_data().
+	 * Populated and used by:
+	 * - @ref emv_initiate_application_processing()
+	 * - @ref emv_read_application_data()
+	 * - @ref emv_offline_data_authentication()
 	 */
 	struct emv_tlv_list_t icc;
 
 	/**
-	 * @brief Terminal data for the current transaction.
+	 * @brief Terminal data for current transaction.
 	 *
-	 * Populated by @ref emv_initiate_application_processing().
+	 * Populated and used by:
+	 * - @ref emv_initiate_application_processing()
+	 * - @ref emv_offline_data_authentication()
 	 */
 	struct emv_tlv_list_t terminal;
+
+	/**
+	 * @brief Offline Data Authentication (ODA) context.
+	 *
+	 * Populated and used by:
+	 * - @ref emv_read_application_data()
+	 * - @ref emv_offline_data_authentication()
+	 */
+	struct emv_oda_ctx_t oda;
+
+	/**
+	 * @brief Various cached fields for internal use
+	 *
+	 * Populated by @ref emv_initiate_application_processing() and used by
+	 * various functions.
+	 * @cond INTERNAL
+	 */
+	const struct emv_tlv_t* aid;
+	const struct emv_tlv_t* tvr;
+	const struct emv_tlv_t* tsi;
+	const struct emv_tlv_t* aip;
+	const struct emv_tlv_t* afl;
+	/// @endcond
+};
+
+/**
+ * @brief EMV transaction log entry
+ */
+struct emv_txn_log_entry_t {
+	uint8_t pan[10]; ///< Primary Account Number (PAN) in EMV format 'cn'
+	uint8_t pan_seq; ///< Primary Account Number (PAN) Sequence Number
+	uint8_t txn_date[3]; ///< Transaction date in EMV format 'n' as YYMMDD
+	uint32_t transaction_amount; ///< Transaction amount in binary format
 };
 
 /**
@@ -128,6 +196,7 @@ struct emv_ctx_t {
 enum emv_error_t {
 	EMV_ERROR_INTERNAL = -1, ///< Internal error
 	EMV_ERROR_INVALID_PARAMETER = -2, ///< Invalid function parameter
+	EMV_ERROR_INVALID_CONFIG = -3, ///< Invalid configuration
 };
 
 /**
@@ -278,12 +347,12 @@ int emv_select_application(
  * - @ref emv_ctx_t.config
  * - @ref emv_ctx_t.terminal
  *
- * @note This functions clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
+ * @note This function clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
  *       and then populates them appropriately. Upon success, the selected
  *       application's TLV data will be moved to @ref emv_ctx_t.icc and the
  *       output of GET PROCESSING OPTIONS will be appended. Upon success,
  *       @ref emv_ctx_t.terminal will be populated with various fields,
- *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE.
+ *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE and @ref EMV_TAG_9F06_AID.
  *
  * @remark See EMV 4.4 Book 3, 10.1
  * @remark See EMV 4.4 Book 4, 6.3.1
@@ -307,8 +376,12 @@ int emv_initiate_application_processing(
  * redundant TLV fields provided by the application records, and checking for
  * the mandatory fields.
  *
- * @note Upon success, this function will append the application data to the
- *       ICC data list
+ * While reading the application records, this function will also concatenate
+ * the data required for Offline Data Authentication (ODA) and update
+ * @ref emv_ctx_t.oda accordingly.
+ *
+ * @note Upon success, this function will append the application data to
+ *       @ref emv_ctx_t.icc
  *
  * @remark See EMV 4.4 Book 3, 10.2
  *
@@ -319,6 +392,109 @@ int emv_initiate_application_processing(
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_read_application_data(struct emv_ctx_t* ctx);
+
+/**
+ * Perform EMV Offline Data Authentication (ODA) by selecting and applying the
+ * appropriate ODA method.
+ *
+ * The ODA method is selected based on card support indicated by
+ * @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE and terminal support
+ * indicated by @ref EMV_TAG_9F33_TERMINAL_CAPABILITIES. This function will
+ * update @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION based on the selected
+ * method and update @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS based on the
+ * outcome.
+ *
+ * @remark See EMV 4.4 Book 3, 10.3
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_offline_data_authentication(struct emv_ctx_t* ctx);
+
+/**
+ * Perform EMV Processing Restrictions to determine the compatibility of this
+ * implementation and the current configuration with the card application.
+ *
+ * The following compatibility checks will be performed:
+ * - Application Version Number
+ * - Application Usage Control
+ * - Application Effective/Expiration Dates
+ *
+ * While performing the compatibility checks, this function will update
+ * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the outcomes of
+ * those compatibility checks.
+ *
+ * This function will use values of @ref EMV_TAG_9F35_TERMINAL_TYPE and
+ * @ref EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES to determine whether the
+ * processing restrictions for ATMs or non-ATMs should be applied. See
+ * See EMV 4.4 Book 4, Annex A1 for how this is determined.
+ *
+ * @remark See EMV 4.4 Book 3, 10.4
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_processing_restrictions(struct emv_ctx_t* ctx);
+
+/**
+ * Perform EMV Terminal Risk Management to identify risks to be considered for
+ * online authorisation. This function will perform terminal risk management
+ * regardless of whether the ICC indicates that it is mandatory in
+ * @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE.
+ *
+ * Terminal risk management consists of:
+ * - Floor limit checking
+ * - Random transaction selection
+ * - Velocity checking
+ *
+ * While performing terminal risk management, this function will update
+ * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the outcomes and
+ * update @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION to indicate that it
+ * has been performed.
+ *
+ * @remark See EMV 4.4 Book 3, 10.6
+ *
+ * @param ctx EMV processing context
+ * @param txn_log Ordered transaction log containing previously approved
+ *                transactions with the oldest entry first and the newest entry
+ *                last. NULL to ignore.
+ * @param txn_log_cnt Number of transactions entries in @p txn_log.
+ *                    Zero to ignore.
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_terminal_risk_management(struct emv_ctx_t* ctx,
+	const struct emv_txn_log_entry_t* txn_log,
+	size_t txn_log_cnt
+);
+
+/**
+ * Perform EMV Card Action Analysis to determined the risk management decision
+ * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM.
+ *
+ * If CDA or XDA were selected during Offline Data Authentication (ODA), this
+ * function will request the appropriate signature and process the resulting
+ * Signed Dynamic Application Data (SDAD) to extract the signed ICC fields.
+ *
+ * @note This function is not yet fully implemented and only supports offline
+ *       declines by requesting an Application Authentication Cryptogram (AAC).
+ *
+ * @remark See EMV 4.4 Book 3, 10.8
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_card_action_analysis(struct emv_ctx_t* ctx);
 
 __END_DECLS
 

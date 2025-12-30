@@ -2,7 +2,7 @@
  * @file emvhighlighter.cpp
  * @brief QSyntaxHighlighter derivative that applies highlighting to EMV data
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,22 +49,29 @@ void to_const_ref(const T&&) = delete;
  *
  * @param ptr Pointer to buffer
  * @param len Length of buffer
- * @param validBytes[out] Number of BER bytes successfully parsed
+ * @param totalValidBytes[out] Number of BER bytes successfully parsed
  * @param tagFunc Function to invoke for each tag, using tagFunc(offset, tag)
+ * @param paddingFunc Function to invoke for each instance of padding,
+ *                    using paddingFunc(offset, tag)
  * @return Boolean indicating whether all bytes were parsed and valid
  */
-template<typename F>
+template<
+	typename TagFuncType,
+	typename PaddingFuncType
+>
 static bool parseBerData(
 	const void* ptr,
 	std::size_t len,
-	std::size_t* validBytes,
-	F tagFunc
+	bool ignorePadding,
+	std::size_t* totalValidBytes,
+	TagFuncType tagFunc,
+	PaddingFuncType paddingFunc
 )
 {
 	int r;
+	std::size_t validBytes = 0;
 	struct iso8825_ber_itr_t itr;
 	struct iso8825_tlv_t tlv;
-	bool valid;
 
 	r = iso8825_ber_itr_init(ptr, len, &itr);
 	if (r) {
@@ -73,32 +80,65 @@ static bool parseBerData(
 	}
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+		unsigned int fieldLength = r;
 
 		// Notify caller of tag
-		tagFunc(*validBytes, tlv.tag);
+		tagFunc(*totalValidBytes, tlv.tag);
 
 		if (iso8825_ber_is_constructed(&tlv)) {
 			// If the field is constructed, only consider the tag and length
 			// to be valid until the value has been parsed. The fields inside
 			// the value will be added when they are parsed.
-			*validBytes += (r - tlv.length);
+			validBytes += (fieldLength - tlv.length);
+			*totalValidBytes += (fieldLength - tlv.length);
 
 			// Recursively parse constructed fields
-			valid = parseBerData(tlv.value, tlv.length, validBytes, tagFunc);
+			bool valid;
+			valid = parseBerData(
+				tlv.value,
+				tlv.length,
+				ignorePadding,
+				totalValidBytes,
+				tagFunc,
+				paddingFunc
+			);
 			if (!valid) {
-				qDebug("parseBerData() failed; validBytes=%zu", *validBytes);
+				qDebug("parseBerData() failed; totalValidBytes=%zu", *totalValidBytes);
+
+				// Return here instead of breaking out to avoid repeated
+				// processing of the error by recursive callers
 				return false;
 			}
+			validBytes += tlv.length;
 
 		} else {
 			// If the field is not constructed, consider all of the bytes to
 			// be valid BER encoded data
-			*validBytes += r;
+			validBytes += fieldLength;
+			*totalValidBytes += fieldLength;
 		}
 	}
 	if (r < 0) {
-		qDebug("iso8825_ber_itr_next() failed; r=%d", r);
-		return false;
+		// Determine whether invalid data is padding and notify caller
+		// accordingly
+		if (ignorePadding &&
+			len - validBytes > 0 &&
+			(
+				((len & 0x7) == 0 && len - validBytes < 8) ||
+				((len & 0xF) == 0 && len - validBytes < 16)
+			)
+		) {
+			// Invalid data is likely to be padding; notify caller
+			paddingFunc(*totalValidBytes, len - validBytes);
+
+			// If the remaining bytes appear to be padding, consider these
+			// bytes to be valid
+			*totalValidBytes += len - validBytes;
+
+		} else {
+			qDebug("iso8825_ber_itr_next() failed; r=%d", r);
+			return false;
+		}
 	}
 
 	return true;
@@ -172,7 +212,8 @@ void EmvHighlighter::parseBlocks()
 	// Parse BER encoded data, identify tag positions, and update number of
 	// valid characters
 	tagPositions.clear();
-	parseBerData(data.constData(), data.size(), &validBytes,
+	paddingPositions.clear();
+	parseBerData(data.constData(), data.size(), m_ignorePadding, &validBytes,
 		[this](unsigned int offset, unsigned int tag) {
 			unsigned int length;
 			// Compute tag length
@@ -189,7 +230,10 @@ void EmvHighlighter::parseBlocks()
 				length = 0;
 			}
 
-			tagPositions.push_back({ tag, offset * 2, length * 2});;
+			tagPositions.push_back({ offset * 2, length * 2 });
+		},
+		[this](unsigned int offset, unsigned length) {
+			paddingPositions.push_back({ offset * 2, length * 2 });
 		}
 	);
 	berStrLen = validBytes * 2;
@@ -227,29 +271,9 @@ void EmvHighlighter::highlightBlock(const QString& text)
 	QTextCharFormat tagFormat;
 	tagFormat.setFontWeight(QFont::Bold);
 	tagFormat.setForeground(QColor(0xFF268BD2)); // Solarized blue
+	QTextCharFormat paddingFormat;
+	paddingFormat.setForeground(Qt::darkGray);
 	QColor selectedColor(0xFF657B83); // Solarized Base00
-
-	// Determine whether invalid data is padding and update colour accordingly
-	if (m_ignorePadding &&
-		hexStrLen == strLen &&
-		hexStrLen - berStrLen > 0
-	) {
-		unsigned int totalBytes = hexStrLen / 2;
-		unsigned int extraBytes = (hexStrLen - berStrLen) / 2;
-
-		// Invalid data is assumed to be padding if it is either less than 8
-		// bytes when the total data length is a multiple of 8 bytes (for
-		// example DES) or if it is less than 16 bytes when the total data
-		// length is a multiple of 16 bytes (for example AES).
-
-		if (
-			((totalBytes & 0x7) == 0 && extraBytes < 8) ||
-			((totalBytes & 0xF) == 0 && extraBytes < 16)
-		) {
-			// Invalid data is likely to be padding
-			invalidColor = Qt::darkGray;
-		}
-	}
 
 	// Apply formatting of valid BER vs valid hex vs invalid vs padding
 	if (berStrLen >= blockData->startPos + blockData->length) {
@@ -289,7 +313,7 @@ void EmvHighlighter::highlightBlock(const QString& text)
 
 	if (m_emphasiseTags) {
 		// Apply formatting of tags
-		for (auto&& tagPos : to_const_ref(tagPositions)) {
+		for (auto&& pos : to_const_ref(tagPositions)) {
 			unsigned int digitIdx = 0;
 			for (int i = 0; i < text.length(); ++i) {
 				if (!std::isxdigit(text[i].unicode())) {
@@ -298,10 +322,30 @@ void EmvHighlighter::highlightBlock(const QString& text)
 				}
 
 				unsigned int currentIdx = blockData->startPos + digitIdx;
-				if (currentIdx >= tagPos.offset &&
-					currentIdx < (tagPos.offset + tagPos.length)
+				if (currentIdx >= pos.offset &&
+					currentIdx < (pos.offset + pos.length)
 				) {
 					setFormat(i, 1, tagFormat);
+				}
+
+				++digitIdx;
+			}
+		}
+
+		// Apply formatting of padding
+		for (auto&& pos : to_const_ref(paddingPositions)) {
+			unsigned int digitIdx = 0;
+			for (int i = 0; i < text.length(); ++i) {
+				if (!std::isxdigit(text[i].unicode())) {
+					// Ignore non-hex digits
+					continue;
+				}
+
+				unsigned int currentIdx = blockData->startPos + digitIdx;
+				if (currentIdx >= pos.offset &&
+					currentIdx < (pos.offset + pos.length)
+				) {
+					setFormat(i, 1, paddingFormat);
 				}
 
 				++digitIdx;

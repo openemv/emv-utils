@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -15,9 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 40", fedora_version: 40, deps: "none", build_emv_tool: NO }
-          - { name: "Fedora 40", fedora_version: 40, deps: "pcsclite/qt", build_emv_tool: YES }
-          - { name: "Fedora 41", fedora_version: 41, deps: "pcsclite/qt", build_emv_tool: YES }
+          - { name: "Fedora 42", fedora_version: 42, deps: "none", build_emv_tool: NO, build_emv_viewer: NO }
+          - { name: "Fedora 42", fedora_version: 42, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "Fedora 43", fedora_version: 43, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
     runs-on: ubuntu-latest
@@ -25,7 +25,7 @@ jobs:
 
     steps:
     - name: Install build tools and dependencies
-      run: sudo dnf -y install git cmake gcc g++ boost-devel iso-codes-devel json-c-devel
+      run: sudo dnf -y install git cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel
 
     - name: Install PCSCLite
       if: contains(matrix.deps, 'pcsclite')
@@ -52,22 +52,23 @@ jobs:
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE="Debug" \
+          -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build -j 4 --output-on-failure
 
   build-fedora-release:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: "Fedora 40", fedora_version: 40 }
-          - { name: "Fedora 41", fedora_version: 41 }
+          - { name: "Fedora 42", fedora_version: 42 }
+          - { name: "Fedora 43", fedora_version: 43 }
 
     name: ${{ matrix.name }} release
     runs-on: ubuntu-latest
@@ -76,7 +77,7 @@ jobs:
     steps:
     - name: Install build tools and dependencies
       run: |
-        sudo dnf -y install git gh cmake gcc g++ boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion doxygen rpm-build qt5-qtbase-devel
+        sudo dnf -y install git gh cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion-devel doxygen rpm-build qt5-qtbase-devel
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -102,15 +103,16 @@ jobs:
           -DCMAKE_INSTALL_PREFIX=/usr \
           -DBUILD_SHARED_LIBS=YES \
           -DBUILD_DOCS=YES \
+          -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=YES \
           -DBUILD_EMV_VIEWER=YES \
           -DCPACK_COMPONENTS_GROUPING=ALL_COMPONENTS_IN_ONE
 
     - name: Build
-      run: cmake --build build
+      run: cmake --build build -j 4
 
     - name: Test
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build -j 4 --output-on-failure
 
     - name: Package
       run: cmake --build build --target package

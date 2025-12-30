@@ -45,3 +45,15 @@
    fun:__gconv_open
    fun:iconv_open
 }
+
+{
+   SCardEstablishContext() allocations not cleaned up by SCardReleaseContext()
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_dl_open
+   ...
+   fun:load_lib
+   ...
+   fun:SCardEstablishContext
+}

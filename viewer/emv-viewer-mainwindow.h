@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.h
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,7 +56,8 @@ private slots: // connect-by-name helper functions
 	void on_dataEdit_textChanged();
 	void on_tagsCheckBox_stateChanged(int state);
 	void on_paddingCheckBox_stateChanged(int state);
-	void on_decodeCheckBox_stateChanged(int state);
+	void on_decodeFieldsCheckBox_stateChanged(int state);
+	void on_decodeObjectsCheckBox_stateChanged(int state);
 	void on_treeView_itemPressed(QTreeWidgetItem* item, int column);
 	void on_descriptionText_linkActivated(const QString& link);
 

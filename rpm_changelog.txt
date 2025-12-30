@@ -1,3 +1,19 @@
+* Sat Sep 20 2025 Leon Lynch <lynch.leon@gmail.com> - 0.3.0-1
+- Update to emv-utils-0.3.0
+
+* Sun Jun 08 2025 Leon Lynch <lynch.leon@gmail.com> - 0.2.3-1
+- Update to emv-utils-0.2.3
+
+* Sun Jun 01 2025 Leon Lynch <lynch.leon@gmail.com> - 0.2.2-1
+- Update to emv-utils-0.2.2
+
+* Sat Feb 22 2025 Leon Lynch <lynch.leon@gmail.com> - 0.2.1-1
+- Update to emv-utils-0.2.1
+
+* Sun Nov 24 2024 Leon Lynch <lynch.leon@gmail.com> - 0.2.0-1
+- Update to emv-utils-0.2.0
+- Require Qt-5.15.x for emv-viewer
+
 * Sun Mar 12 2023 Leon Lynch <lynch.leon@gmail.com> - 0.1.0-1
 - Update to emv-utils-0.1.0
 

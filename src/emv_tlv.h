@@ -2,7 +2,7 @@
  * @file emv_tlv.h
  * @brief EMV TLV structures and helper functions
  *
- * Copyright 2021, 2023-2024 Leon Lynch
+ * Copyright 2021, 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,6 +31,9 @@
 
 __BEGIN_DECLS
 
+// Forward declarations
+struct emv_ctx_t;
+
 /**
  * EMV TLV field
  * @note The first 4 members of this structure are intentionally identical to @ref iso8825_tlv_t
@@ -58,11 +61,36 @@ struct emv_tlv_list_t {
 	struct emv_tlv_t* back;                     ///< Pointer to end of list
 };
 
+/**
+ * EMV TLV sources
+ * @note This object must be populated manually and should not be modified
+ *       when an iterator is in use.
+ */
+struct emv_tlv_sources_t {
+	unsigned int count;                         ///< Number of source lists
+	const struct emv_tlv_list_t* list[4];       ///< Array of source lists
+};
+
+/**
+ * EMV TLV sources iterator
+ * @note Do not modify the EMV TLV sources object while using the iterator.
+ */
+struct emv_tlv_sources_itr_t {
+	/// @cond INTERNAL
+	const struct emv_tlv_sources_t* sources;
+	unsigned int idx;
+	const struct emv_tlv_t* tlv;
+	/// @endcond
+};
+
 /// Static initialiser for @ref emv_tlv_t
-#define EMV_TLV_INIT ((struct emv_tlv_t){ 0, 0, NULL, NULL })
+#define EMV_TLV_INIT ((struct emv_tlv_t){ { { 0, 0, NULL, 0 } }, NULL })
 
 /// Static initialiser for @ref emv_tlv_list_t
 #define EMV_TLV_LIST_INIT ((struct emv_tlv_list_t){ NULL, NULL })
+
+/// Static initialiser for @ref emv_tlv_sources_t
+#define EMV_TLV_SOURCES_INIT ((struct emv_tlv_sources_t){ 0, { NULL }})
 
 /**
  * Free EMV TLV field
@@ -101,6 +129,28 @@ int emv_tlv_list_push(
 	unsigned int length,
 	const uint8_t* value,
 	uint8_t flags
+);
+
+/**
+ * Push encoded ASN.1 object on to the back of an EMV TLV list.
+ *
+ * This function will create an EMV TLV field consisting of:
+ * - An outer constructed sequence (0x30) field
+ * - The provided @p oid as the first inner subfield
+ * - The provided @p ber_bytes as the remaining subfield(s)
+ * Also see @ref iso8825_ber_asn1_object_decode().
+ *
+ * @param list EMV TLV list
+ * @param oid Decoded object identifier (OID)
+ * @param ber_length Length of remaining BER encoded subfields
+ * @param ber_bytes Remaining BER encoded subfields
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_tlv_list_push_asn1_object(
+	struct emv_tlv_list_t* list,
+	const struct iso8825_oid_t* oid,
+	unsigned int ber_length,
+	const uint8_t* ber_bytes
 );
 
 /**
@@ -152,6 +202,64 @@ bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list);
 int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other);
 
 /**
+ * Initialise EMV TLV sources from EMV processing context.
+ * Sources will have this order:
+ * - Terminal data created during the current transaction takes precendence
+ * - ICC data obtained from the current card should not be overridden by config
+ *   or current transaction parameters
+ * - Transaction parameters can override config
+ * @param sources EMV TLV sources
+ * @param ctx EMV processing context
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_tlv_sources_init_from_ctx(
+	struct emv_tlv_sources_t* sources,
+	const struct emv_ctx_t* ctx
+);
+
+/**
+ * Find EMV TLV field in EMV TLV sources
+ * @param sources EMV TLV sources
+ * @param tag EMV tag to find
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+const struct emv_tlv_t* emv_tlv_sources_find_const(
+	const struct emv_tlv_sources_t* sources,
+	unsigned int tag
+);
+
+/**
+ * Initialise EMV TLV sources iterator
+ * @param sources EMV TLV sources
+ * @param itr EMV TLV sources iterator output
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_tlv_sources_itr_init(
+	const struct emv_tlv_sources_t* sources,
+	struct emv_tlv_sources_itr_t* itr
+);
+
+/**
+ * Advance to next EMV TLV field in sources
+ * @param itr EMV TLV sources iterator
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+const struct emv_tlv_t* emv_tlv_sources_itr_next_const(
+	struct emv_tlv_sources_itr_t* itr
+);
+
+/**
+ * Find next instance of a specific EMV TLV field
+ * @param itr EMV TLV sources iterator
+ * @param tag EMV tag to find
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+const struct emv_tlv_t* emv_tlv_sources_itr_find_next_const(
+	struct emv_tlv_sources_itr_t* itr,
+	unsigned int tag
+);
+
+/**
  * Parse EMV data.
  * This function will recursively parse ISO 8825-1 BER encoded EMV data and
  * output a flat list which omits the constructed/template fields.
@@ -169,15 +277,24 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list);
 
 /**
- * Determine whether a specific EMV tag with source 'Terminal' should be
- * encoded as format 'n'
+ * Determine whether a specific EMV tag should be encoded as format 'n'
  * @note This function is typically needed for Data Object List (DOL) processing
  * @remark See EMV 4.4 Book 3, Annex A1
  *
- * @param tag EMV tag with source 'Terminal'
+ * @param tag EMV tag
  * @return Boolean indicating EMV tag should be encoded as format 'n'
  */
-bool emv_tlv_is_terminal_format_n(unsigned int tag);
+bool emv_tlv_is_format_n(unsigned int tag);
+
+/**
+ * Determine whether a specific EMV tag should be encoded as format 'cn'
+ * @note This function is typically needed for Data Object List (DOL) processing
+ * @remark See EMV 4.4 Book 3, Annex A1
+ *
+ * @param tag EMV tag
+ * @return Boolean indicating EMV tag should be encoded as format 'cn'
+ */
+bool emv_tlv_is_format_cn(unsigned tag);
 
 /**
  * Convert EMV format "ans" to ISO/IEC 8859 string and omit control characters

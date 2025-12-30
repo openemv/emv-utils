@@ -51,8 +51,7 @@ public:
 	bool emphasiseTags() const { return m_emphasiseTags; }
 	bool ignorePadding() const { return m_ignorePadding; }
 
-	struct TagPosition {
-		unsigned int tag;
+	struct Position {
 		unsigned int offset;
 		unsigned int length;
 	};
@@ -65,7 +64,8 @@ private:
 	unsigned int strLen;
 	unsigned int hexStrLen;
 	unsigned int berStrLen;
-	QVector<TagPosition> tagPositions;
+	QVector<Position> tagPositions;
+	QVector<Position> paddingPositions;
 };
 
 #endif

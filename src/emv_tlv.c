@@ -2,7 +2,7 @@
  * @file emv_tlv.c
  * @brief EMV TLV structures and helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,15 +21,17 @@
 
 #include "emv_tlv.h"
 #include "iso8825_ber.h"
+#include "emv.h"
 #include "emv_tags.h"
 
 #include <stdbool.h>
-#include <stdlib.h> // for malloc() and free()
+#include <stdlib.h> // For malloc() and free()
 #include <string.h>
 #include <assert.h>
 
 // Helper functions
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list);
+static inline bool emv_tlv_sources_is_valid(const struct emv_tlv_sources_t* sources);
 static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, const uint8_t* value, uint8_t flags);
 
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list)
@@ -43,6 +45,18 @@ static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list)
 	}
 
 	if (!list->front && list->back) {
+		return false;
+	}
+
+	return true;
+}
+
+static inline bool emv_tlv_sources_is_valid(const struct emv_tlv_sources_t* sources)
+{
+	if (!sources || !sources->count) {
+		return false;
+	}
+	if (sources->count > sizeof(sources->list) / sizeof(sources->list[0])) {
 		return false;
 	}
 
@@ -155,6 +169,79 @@ int emv_tlv_list_push(
 	return 0;
 }
 
+int emv_tlv_list_push_asn1_object(
+	struct emv_tlv_list_t* list,
+	const struct iso8825_oid_t* oid,
+	unsigned int ber_length,
+	const uint8_t* ber_bytes
+) {
+	int r;
+	size_t encoded_oid_length;
+	size_t max_length;
+	uint8_t* value = NULL;
+
+	if (!emv_tlv_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (!oid || oid->length < 2) {
+		return -2;
+	}
+
+	if (ber_length && !ber_bytes) {
+		return -3;
+	}
+
+	// Assume a maximum of 5 octets per OID subidentifier
+	encoded_oid_length = oid->length * 5;
+	max_length = 1 + 1 + encoded_oid_length + ber_length;
+	value = malloc(max_length);
+
+	// Encode OID
+	value[0] = ASN1_OBJECT_IDENTIFIER;
+	r = iso8825_ber_oid_encode(oid, value + 2, &encoded_oid_length);
+	if (r) {
+		r = -5;
+		goto exit;
+	}
+	if (encoded_oid_length > 127) {
+		r = -6;
+		goto exit;
+	}
+	value[1] = encoded_oid_length;
+
+	// Copy remaining BER encoded bytes without validation
+	if (max_length - 2 - encoded_oid_length < ber_length) {
+		r = -7;
+		goto exit;
+	}
+	memcpy(value + 2 + encoded_oid_length, ber_bytes, ber_length);
+
+	r = emv_tlv_list_push(
+		list,
+		ISO8825_BER_CONSTRUCTED | ASN1_SEQUENCE,
+		2 + encoded_oid_length + ber_length,
+		value,
+		ISO8825_BER_CONSTRUCTED
+	);
+	if (r) {
+		r = -8;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	if (value) {
+		free(value);
+		value = NULL;
+	}
+
+	return r;
+}
+
 struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list)
 {
 	struct emv_tlv_t* tlv = NULL;
@@ -221,20 +308,191 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 	}
 
 	if (list->back) {
-		// If list not empty, attach list back to other front
+		// If the list is not empty, then attach the back of the list to the
+		// front of the other list
 		list->back->next = other->front;
 	} else {
-		// If list empty, attach list front to other front
+		// If the list is empty, then the front of the other list becomes the
+		// front of the combined list
 		list->front = other->front;
 	}
 	if (other->back) {
-		// If other not empty, other back becomes list back
+		// If the other list is not empty, then the back of the other list
+		// becomes the back of the combined list
 		list->back = other->back;
 	}
 	other->front = NULL;
 	other->back = NULL;
 
 	return 0;
+}
+
+int emv_tlv_sources_init_from_ctx(
+	struct emv_tlv_sources_t* sources,
+	const struct emv_ctx_t* ctx
+)
+{
+	if (!sources || !ctx) {
+		return -1;
+	}
+
+	if (!emv_tlv_list_is_valid(&ctx->params)) {
+		return -2;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->config)) {
+		return -3;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->terminal)) {
+		return -4;
+	}
+	if (!emv_tlv_list_is_valid(&ctx->icc)) {
+		return -5;
+	}
+
+	// Order data sources such that:
+	// - Terminal data created during the current transaction takes precendence
+	// - ICC data obtained from the current card should not be overridden by
+	//   config or current transaction parameters
+	// - Transaction parameters can override config
+	sources->count = 4;
+	sources->list[0] = &ctx->terminal;
+	sources->list[1] = &ctx->icc;
+	sources->list[2] = &ctx->params;
+	sources->list[3] = &ctx->config;
+
+	return 0;
+}
+
+const struct emv_tlv_t* emv_tlv_sources_find_const(
+	const struct emv_tlv_sources_t* sources,
+	unsigned int tag
+)
+{
+	if (!emv_tlv_sources_is_valid(sources)) {
+		return NULL;
+	}
+
+	for (unsigned int i = 0; i < sources->count; ++i) {
+		const struct emv_tlv_t* tlv;
+
+		tlv = emv_tlv_list_find_const(sources->list[i], tag);
+		if (tlv) {
+			return tlv;
+		}
+	}
+
+	return NULL;
+}
+
+int emv_tlv_sources_itr_init(
+	const struct emv_tlv_sources_t* sources,
+	struct emv_tlv_sources_itr_t* itr
+)
+{
+	if (!emv_tlv_sources_is_valid(sources)) {
+		return -1;
+	}
+	if (!itr) {
+		return -2;
+	}
+
+	memset(itr, 0, sizeof(*itr));
+	itr->sources = sources;
+	if (sources->count && sources->list[0]) {
+		// Used as the starting field for emv_tlv_sources_itr_find_next_const()
+		itr->tlv = sources->list[0]->front;
+	}
+
+	return 0;
+}
+
+const struct emv_tlv_t* emv_tlv_sources_itr_next_const(
+	struct emv_tlv_sources_itr_t* itr
+)
+{
+	const struct emv_tlv_sources_t* sources;
+	const struct emv_tlv_t* tlv;
+
+	if (!itr || !itr->sources) {
+		return NULL;
+	}
+	if (!emv_tlv_sources_is_valid(itr->sources)) {
+		return NULL;
+	}
+	sources = itr->sources;
+
+	if (itr->tlv != NULL) {
+		tlv = itr->tlv;
+
+		// Remember the next TLV
+		itr->tlv = itr->tlv->next;
+
+		return tlv;
+	}
+
+	for (++itr->idx; itr->idx < sources->count; ++itr->idx) {
+		const struct emv_tlv_t* tlv;
+
+		if (emv_tlv_list_is_empty(sources->list[itr->idx])) {
+			continue;
+		}
+
+		tlv = sources->list[itr->idx]->front;
+
+		if (tlv) {
+			// Remember the next TLV
+			itr->tlv = tlv->next;
+		}
+
+		return tlv;
+	}
+
+	return NULL;
+}
+
+const struct emv_tlv_t* emv_tlv_sources_itr_find_next_const(
+	struct emv_tlv_sources_itr_t* itr,
+	unsigned int tag
+)
+{
+	const struct emv_tlv_sources_t* sources;
+
+	if (!itr || !itr->sources) {
+		return NULL;
+	}
+	if (!emv_tlv_sources_is_valid(itr->sources)) {
+		return NULL;
+	}
+	sources = itr->sources;
+
+	// Iterate from the current TLV until the end of the current list
+	while (itr->tlv != NULL) {
+		const struct emv_tlv_t* tlv = itr->tlv;
+
+		if (tlv->tag == tag) {
+			// Remember the next TLV
+			itr->tlv = itr->tlv->next;
+
+			return tlv;
+		}
+
+		itr->tlv = itr->tlv->next;
+	}
+
+	// Otherwise iterate the remaining lists
+	for (++itr->idx; itr->idx < sources->count; ++itr->idx) {
+		const struct emv_tlv_t* tlv;
+
+		tlv = emv_tlv_list_find_const(sources->list[itr->idx], tag);
+		if (tlv) {
+			// Remember the next TLV
+			itr->tlv = tlv->next;
+
+			return tlv;
+		}
+	}
+
+	return NULL;
 }
 
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
@@ -271,27 +529,55 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 	return 0;
 }
 
-bool emv_tlv_is_terminal_format_n(unsigned int tag)
+bool emv_tlv_is_format_n(unsigned int tag)
 {
 	// EMV tags with source 'Terminal' and format 'n'
 	// See EMV 4.4 Book 3, Annex A1
 	switch (tag) {
+		case EMV_TAG_42_IIN:
 		case EMV_TAG_9A_TRANSACTION_DATE:
 		case EMV_TAG_9C_TRANSACTION_TYPE:
+		case EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE:
+		case EMV_TAG_5F25_APPLICATION_EFFECTIVE_DATE:
+		case EMV_TAG_5F28_ISSUER_COUNTRY_CODE:
 		case EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE:
+		case EMV_TAG_5F30_SERVICE_CODE:
+		case EMV_TAG_5F34_APPLICATION_PAN_SEQUENCE_NUMBER:
 		case EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT:
 		case EMV_TAG_5F57_ACCOUNT_TYPE:
 		case EMV_TAG_9F01_ACQUIRER_IDENTIFIER:
 		case EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC:
 		case EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC:
+		case EMV_TAG_9F0C_IINE:
+		case EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX:
 		case EMV_TAG_9F15_MCC:
+		case EMV_TAG_9F19_TOKEN_REQUESTOR_ID:
 		case EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE:
 		case EMV_TAG_9F21_TRANSACTION_TIME:
+		case EMV_TAG_9F25_LAST_4_DIGITS_OF_PAN:
 		case EMV_TAG_9F35_TERMINAL_TYPE:
 		case EMV_TAG_9F39_POS_ENTRY_MODE:
+		case EMV_TAG_9F3B_APPLICATION_REFERENCE_CURRENCY:
 		case EMV_TAG_9F3C_TRANSACTION_REFERENCE_CURRENCY:
 		case EMV_TAG_9F3D_TRANSACTION_REFERENCE_CURRENCY_EXPONENT:
 		case EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER:
+		case EMV_TAG_9F42_APPLICATION_CURRENCY_CODE:
+		case EMV_TAG_9F43_APPLICATION_REFERENCE_CURRENCY_EXPONENT:
+		case EMV_TAG_9F44_APPLICATION_CURRENCY_EXPONENT:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
+bool emv_tlv_is_format_cn(unsigned tag)
+{
+	// EMV tags with format 'cn'
+	// See EMV 4.4 Book 3, Annex A1
+	switch (tag) {
+		case EMV_TAG_5A_APPLICATION_PAN:
+		case EMV_TAG_9F20_TRACK2_DISCRETIONARY_DATA:
 			return true;
 
 		default:
@@ -472,7 +758,7 @@ int emv_format_n_to_uint(const uint8_t* buf, size_t buf_len, uint32_t* value)
 			// Invalid digit for EMV format "n"
 			return 1;
 		}
-		// Shift decimal digit into x
+		// Shift decimal digit into output value
 		*value = (*value * 10) + digit;
 
 		// Extract least significant nibble
@@ -481,7 +767,7 @@ int emv_format_n_to_uint(const uint8_t* buf, size_t buf_len, uint32_t* value)
 			// Invalid digit for EMV format "n"
 			return 2;
 		}
-		// Shift decimal digit into x
+		// Shift decimal digit into output value
 		*value = (*value * 10) + digit;
 	}
 

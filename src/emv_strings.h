@@ -2,7 +2,7 @@
  * @file emv_strings.h
  * @brief EMV string helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,6 +28,7 @@
 
 // Forward declarations
 struct emv_tlv_t;
+struct emv_tlv_sources_t;
 
 __BEGIN_DECLS
 
@@ -113,9 +114,9 @@ enum emv_format_t {
  * @remark See ISO 7816-4:2005, 5.2.4
  */
 struct emv_tlv_info_t {
-	const char* tag_name;                       ///< Tag name, if available. Otherwise NULL.
-	const char* tag_desc;                       ///< Tag description, if available. Otherwise NULL.
-	enum emv_format_t format;                   ///< Value format. @see emv_format_t
+	const char* tag_name;       ///< Tag name, if available. Otherwise NULL.
+	const char* tag_desc;       ///< Tag description, if available. Otherwise NULL.
+	enum emv_format_t format;   ///< Value format. @see emv_format_t
 };
 
 /**
@@ -133,9 +134,26 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
 /**
  * Retrieve EMV TLV information, if available, and convert value to human
  * readable UTF-8 string(s), if possible.
+ *
+ * Some EMV TLV fields depend on other fields for their information or human
+ * readable string(s) to be populated. This function will search for needed
+ * fields in @c sources. Examples of fields include:
+ * - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE depends on
+ *   @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER
+ * - @ref EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA depends on
+ *   @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
+ * - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE depends on
+ *   @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
+ * - @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA depends on
+ *   @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE and
+ *   @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER
+ * - @ref EMV_TAG_9F12_APPLICATION_PREFERRED_NAME depends on
+ *   @ref EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX
+ *
  * @note @c value_str output will be empty if human readable string is not available
  *
  * @param tlv Decoded EMV TLV structure
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
  * @param info EMV TLV information output. See @ref emv_tlv_info_t
  * @param value_str Value string buffer output. NULL to ignore.
  * @param value_str_len Length of value string buffer in bytes. Zero to ignore.
@@ -143,6 +161,7 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  */
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
+	const struct emv_tlv_sources_t* sources,
 	struct emv_tlv_info_t* info,
 	char* value_str,
 	size_t value_str_len
@@ -171,20 +190,6 @@ int emv_format_a_get_string(const uint8_t* buf, size_t buf_len, char* str, size_
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
  */
 int emv_format_an_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
-
-/**
- * Stringify EMV format "ans", with special characters limited to space
- * character, to UTF-8.
- * See @ref EMV_FORMAT_ANS regarding @ref EMV_TAG_50_APPLICATION_LABEL
- * @remark See ISO/IEC 8859
- *
- * @param buf Buffer containing EMV format "ans" data
- * @param buf_len Length of buffer in bytes
- * @param str String buffer output
- * @param str_len Length of string buffer in bytes
- * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
- */
-int emv_format_ans_only_space_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 
 /**
  * Stringify EMV format "ans" (using ISO/IEC 8859 common character set) to
@@ -538,6 +543,78 @@ int emv_cvm_results_get_string_list(
 );
 
 /**
+ * Stringify Issuer Public Key Certificate (field 90)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param issuer_cert Issuer Public Key Certificate field
+ * @param issuer_cert_len Length of Issuer Public Key Certificate field
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_issuer_cert_get_string_list(
+	const uint8_t* issuer_cert,
+	size_t issuer_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Signed Static Application Data (field 93)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param ssad Signed Static Application Data (SSAD) field
+ * @param ssad_len Length of Signed Static Application Data (SSAD) field
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_ssad_get_string_list(
+	const uint8_t* ssad,
+	size_t ssad_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Integrated Circuit Card (ICC) Public Key Certificate (field 9F46)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param icc_cert Integrated Circuit Card (ICC) Public Key Certificate field
+ * @param icc_cert_len Length of Integrated Circuit Card (ICC) Public Key Certificate field
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_icc_cert_get_string_list(
+	const uint8_t* icc_cert,
+	size_t icc_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Signed Dynamic Application Data (field 9F4B)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param sdad Signed Dynamic Application Data (SDAD) field
+ * @param sdad_len Length of Signed Dynamic Application Data (SDAD) field
+ * @param sources EMV TLV sources to use during decoding. NULL to ignore.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_sdad_get_string_list(
+	const uint8_t* sdad,
+	size_t sdad_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Terminal Verification Results (field 95)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param tvr Terminal Verification Results (TVR) field. Must be 5 bytes.
@@ -611,6 +688,22 @@ int emv_iad_get_string_list(
 int emv_terminal_risk_management_data_get_string_list(
 	const uint8_t* trmd,
 	size_t trmd_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Mastercard Application Capabilities Information (field 9F5D)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param aci Application Capabilities Information field. Must be 3 bytes.
+ * @param aci_len Length of Application Capabilities Information field. Must be 3 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_mastercard_app_caps_info_get_string_list(
+	const uint8_t* aci,
+	size_t aci_len,
 	char* str,
 	size_t str_len
 );

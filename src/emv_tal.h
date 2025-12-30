@@ -2,7 +2,7 @@
  * @file emv_tal.h
  * @brief EMV Terminal Application Layer (TAL)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,7 +34,8 @@ struct emv_app_list_t;
 struct emv_app_t;
 struct emv_tlv_list_t;
 struct emv_tlv_t;
-struct emv_afl_entry_t;
+struct emv_oda_ctx_t;
+
 
 /**
  * EMV Terminal Application Layer (TAL) errors.
@@ -52,7 +53,14 @@ enum emv_tal_error_t {
 	EMV_TAL_ERROR_AFL_INVALID = -8, ///< Application File Locator (AFL) is invalid
 	EMV_TAL_ERROR_READ_RECORD_FAILED = -9, ///< READ RECORD failed
 	EMV_TAL_ERROR_READ_RECORD_INVALID = -10, ///< READ RECORD provided invalid record
-	EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED = -11, ///< Faild to parse READ RECORD response
+	EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED = -11, ///< Failed to parse READ RECORD response
+	EMV_TAL_ERROR_GET_DATA_PARSE_FAILED = -12, ///< Failed to parse GET DATA response
+	EMV_TAL_ERROR_INT_AUTH_FAILED = -13, ///< INTERNAL AUTHENTICATE failed
+	EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED = -14, ///< Failed to parse INTERNAL AUTHENTICATE response
+	EMV_TAL_ERROR_INT_AUTH_FIELD_NOT_FOUND = -15, ///< Failed to find mandatory field in INTERNAL AUTHENTICATE response
+	EMV_TAL_ERROR_GENAC_FAILED = -16, ///< GENERATE APPLICATION CRYPTOGRAM failed
+	EMV_TAL_ERROR_GENAC_PARSE_FAILED = -17, ///< Failed to parse GENERATE APPLICATION CRYPTOGRAM response
+	EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND = -18, ///< Failed to find mandatory field in GENERATE APPLICATION CRYPTOGRAM response
 };
 
 /**
@@ -76,6 +84,7 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_APP_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for selected application
 	EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED, ///< Conditions of use not satisfied for selected application
 	EMV_TAL_RESULT_ODA_RECORD_INVALID, ///< Offline data authentication not possible due to an invalid record
+	EMV_TAL_RESULT_GET_DATA_FAILED, ///< Failed to retrieve data object
 };
 
 /**
@@ -183,21 +192,102 @@ int emv_tal_get_processing_options(
  * @param afl Application File Locator (AFL) field. Must be multiples of 4 bytes.
  * @param afl_len Length of Application File Locator (AFL) field. Must be multiples of 4 bytes.
  * @param list List to which decoded EMV TLV fields will be appended
+ * @param oda Offline Data Authentication (ODA) context. NULL to skip ODA processing.
  *
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
  *         card session. See @ref emv_tal_error_t
  * @return Greater than zero indicates that the terminal may continue the card
- *         card session but that some failure occurred. Typically this occurs
- *         when a record required for offline data authentication is invalid
- *         and this function indicates this using a return value of
+ *         session but that some failure occurred. Typically this occurs when
+ *         a record required for offline data authentication is invalid and
+ *         this function indicates this condition using a return value of
  *         @ref EMV_TAL_RESULT_ODA_RECORD_INVALID
  */
 int emv_tal_read_afl_records(
 	struct emv_ttl_t* ttl,
 	const uint8_t* afl,
 	size_t afl_len,
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
+);
+
+/**
+ * Perform GET DATA and parse response
+ * @remark See EMV 4.4 Book 3, 6.5.7
+ * @remark See EMV 4.4 Book 3, 7.3
+ *
+ * This command can retrieve these fields, if supported by the ICC:
+ * - @ref EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER
+ * - @ref EMV_TAG_9F13_LAST_ONLINE_ATC_REGISTER
+ * - @ref EMV_TAG_9F17_PIN_TRY_COUNTER
+ * - @ref EMV_TAG_9F4F_LOG_FORMAT
+ * - @ref EMV_TAG_BF4C_BIOMETRIC_TRY_COUNTERS_TEMPLATE
+ * - @ref EMV_TAG_BF4D_PREFERRED_ATTEMPTS_TEMPLATE
+ *
+ * If a constructed/template field is requested, this function will decode the
+ * inner fields and only append primitive fields to the output @p list.
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param tag Tag of requested data field
+ * @param list List to which decoded EMV TLV fields will be appended
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ * @return Greater than zero indicates that the terminal may continue the card
+ *         session but that some failure occurred. Typically this occurs when
+ *         the requested field is not available.
+ */
+int emv_tal_get_data(
+	struct emv_ttl_t* ttl,
+	uint16_t tag,
 	struct emv_tlv_list_t* list
+);
+
+/**
+ * Perform INTERNAL AUTHENTICATE and parse response
+ * @remark See EMV 4.4 Book 2, 6.5
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param data Concatenated data according to Dynamic Data Authentication
+ *             Data Object List (DDOL)
+ * @param data_len Length of concatenated DDOL data in bytes
+ * @param list List to which decoded EMV TLV fields will be appended
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ */
+int emv_tal_internal_authenticate(
+	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len,
+	struct emv_tlv_list_t* list
+);
+
+/**
+ * Perform GENERATE APPLICATION CRYPTOGRAM and parse response
+ * @remark See EMV 4.4 Book 3, 9
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param ref_ctrl Reference control parameter. See @ref emv-ttl-genac-ref-ctrl "bit values".
+ * @param data Concatenated data according to Dynamic Data Authentication
+ *             Data Object List (DDOL)
+ * @param data_len Length of concatenated DDOL data in bytes
+ * @param list List to which decoded EMV TLV fields will be appended
+ * @param oda Offline Data Authentication (ODA) context. NULL to skip ODA processing.
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ */
+int emv_tal_genac(
+	struct emv_ttl_t* ttl,
+	uint8_t ref_ctrl,
+	const void* data,
+	size_t data_len,
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 );
 
 __END_DECLS

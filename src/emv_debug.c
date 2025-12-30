@@ -2,7 +2,7 @@
  * @file emv_debug.c
  * @brief EMV debug implementation
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 // TODO: replace with HAL interface in future
 #ifdef HAVE_TIME_H
@@ -32,7 +33,7 @@
 #endif
 
 static unsigned int debug_sources_mask = EMV_DEBUG_SOURCE_NONE;
-static enum emv_debug_level_t debug_level = EMV_DEBUG_NONE;
+static enum emv_debug_level_t debug_level = EMV_DEBUG_LEVEL_NONE;
 static emv_debug_func_t debug_func = NULL;
 
 int emv_debug_init(
@@ -60,6 +61,7 @@ void emv_debug_internal(
 {
 	int r;
 	char str[1024];
+	unsigned int str_offset = 0;
 	struct timespec t;
 	uint32_t timestamp;
 
@@ -84,6 +86,23 @@ void emv_debug_internal(
 		return;
 	}
 
+#ifdef CONFIG_SRC_BASE
+	{
+		const size_t src_base_len = strlen(CONFIG_SRC_BASE);
+		// Remove project's base path from source path for trace messages
+		if (src_base_len < sizeof(str) &&
+			strncmp(CONFIG_SRC_BASE, str, src_base_len) == 0
+		) {
+			str_offset = src_base_len;
+			if (str[str_offset] == '/' || str[str_offset] == '\\') {
+				// If project's base path did not end with a slash, then
+				// skip over it
+				++str_offset;
+			}
+		}
+	}
+#endif
+
 	// TODO: replace with HAL interface in future
 #if defined(HAVE_TIMESPEC_GET)
 	timespec_get(&t, TIME_UTC);
@@ -96,5 +115,5 @@ void emv_debug_internal(
 	// Pack timespec fields into 32-bit timestamp with microsecond granularity
 	timestamp = (uint32_t)(((t.tv_sec * 1000000) + (t.tv_nsec / 1000)));
 
-	debug_func(timestamp, source, level, debug_type, str, buf, buf_len);
+	debug_func(timestamp, source, level, debug_type, str + str_offset, buf, buf_len);
 }

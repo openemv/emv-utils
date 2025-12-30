@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2024 Leon Lynch
+# Copyright 2022-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -61,7 +61,7 @@ find_package(json-c CONFIG)
 if(json-c_FOUND)
 	# The json-c CMake config doesn't print a find_package() message but it is
 	# always good to know where it was found
-	message(STATUS "Found json-c: ${json-c_CONFIG}")
+	find_package_handle_standard_args(json-c CONFIG_MODE)
 else()
 	# Try custom Findjson-c.cmake module
 	find_package(json-c REQUIRED)
@@ -114,8 +114,8 @@ set(iso7816_HEADERS # PUBLIC_HEADER property requires a list instead of individu
 	iso7816_apdu.h
 	iso7816_compact_tlv.h
 	iso7816_strings.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
+set(iso7816_HEADERS ${iso7816_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::iso7816 ALIAS iso7816)
 set_target_properties(iso7816
 	PROPERTIES
@@ -146,11 +146,13 @@ install(
 # ISO 8825 library
 add_library(iso8825
 	iso8825_ber.c
+	iso8825_strings.c
 )
 set(iso8825_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	iso8825_ber.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
+	iso8825_strings.h
 )
+set(iso8825_HEADERS ${iso8825_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::iso8825 ALIAS iso8825)
 set_target_properties(iso8825
 	PROPERTIES
@@ -185,8 +187,8 @@ add_library(iso8859)
 add_library(emv::iso8859 ALIAS iso8859)
 set(iso8859_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	iso8859.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
+set(iso8859_HEADERS ${iso8859_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 set_target_properties(iso8859
 	PROPERTIES
 		PUBLIC_HEADER "${iso8859_HEADERS}"
@@ -198,14 +200,17 @@ target_include_directories(iso8859 INTERFACE
 	$<INSTALL_INTERFACE:include/iso8859>
 )
 if(ISO8859_IMPL STREQUAL "boost")
-	find_package(Boost REQUIRED COMPONENTS locale)
+	find_package(Boost REQUIRED COMPONENTS locale CONFIG) # See policy CMP0167
+	# The Boost CMake config does not print a find_package() message but it is
+	# always good to know where it was found and which version was found
+	find_package_handle_standard_args(Boost CONFIG_MODE)
 	message(STATUS "Using Boost.Locale for iso8859 implementation")
 	target_sources(iso8859 PRIVATE iso8859_boost.cpp)
 	target_link_libraries(iso8859 PRIVATE Boost::locale)
 
 	# The EMV_UTILS_PACKAGE_DEPENDENCIES variable is set for the parent scope to
 	# facilitate the generation of CMake package configuration files.
-	list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "Boost COMPONENTS locale")
+	list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "Boost COMPONENTS locale CONFIG")
 	set(EMV_UTILS_PACKAGE_DEPENDENCIES ${EMV_UTILS_PACKAGE_DEPENDENCIES} PARENT_SCOPE)
 endif()
 if(ISO8859_IMPL STREQUAL "iconv")
@@ -231,7 +236,6 @@ install(
 	TARGETS
 		iso8859
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
-	RUNTIME_DEPENDENCY_SET iso8859_deps
 	PUBLIC_HEADER
 		DESTINATION "include/iso8859"
 		COMPONENT emv_development
@@ -244,21 +248,25 @@ install(
 		COMPONENT emv_development
 )
 if(WIN32 AND BUILD_WIN_STANDALONE)
-	if(${CMAKE_VERSION} VERSION_LESS "3.21")
-		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	if(${CMAKE_VERSION} VERSION_LESS "3.24")
+		message(FATAL_ERROR "CMake >=3.24 is required to install dependencies on Windows")
 	endif()
 
-	# Assume that MSYS2/MinGW environments have all DLLs in the same path
-	# as the compiler
-	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
+	install(
+		TARGETS
+			iso8859
+		RUNTIME_DEPENDENCY_SET iso8859_deps
+	)
 	install(
 		RUNTIME_DEPENDENCY_SET iso8859_deps
 		PRE_EXCLUDE_REGEXES
-			"api-ms-"
+			"^api-ms-"
+			"^lib(gcc|stdc\\+\\+|winpthread)"
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
-			${COMPILER_PATH}
+			$<$<STREQUAL:${ISO8859_IMPL},boost>:$<$<TARGET_EXISTS:Boost::locale>:$<PATH:GET_PARENT_PATH,$<TARGET_PROPERTY:Boost::locale,LOCATION>>>>
+			$<$<STREQUAL:${ISO8859_IMPL},iconv>:$<$<BOOL:${Iconv_LIBRARIES}>:$<TARGET_FILE_DIR:Iconv::Iconv>>>
 		RUNTIME
 			COMPONENT emv_runtime
 	)
@@ -274,6 +282,14 @@ add_library(emv
 	emv_ttl.c
 	emv_app.c
 	emv_tal.c
+	emv_capk.c
+	emv_rsa.c
+	emv_oda.c
+	emv_date.c
+)
+set_property(
+	SOURCE emv_debug.c
+	APPEND PROPERTY COMPILE_DEFINITIONS CONFIG_SRC_BASE="${CMAKE_SOURCE_DIR}"
 )
 set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
 	emv.h
@@ -285,8 +301,13 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_ttl.h
 	emv_app.h
 	emv_tal.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
+	emv_capk.h
+	emv_rsa.h
+	emv_oda.h
+	emv_oda_types.h
+	emv_date.h
 )
+set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::emv ALIAS emv)
 target_compile_definitions(emv PUBLIC EMV_DEBUG_ENABLED) # Enabled all debugging
 target_link_libraries(emv
@@ -295,6 +316,10 @@ target_link_libraries(emv
 	PRIVATE
 		iso7816
 		iso8859
+		crypto_mem
+		crypto_rand
+		crypto_sha
+		crypto_rsa
 )
 # The EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV variables are set
 # for the parent scope to facilitate the generation of pkgconfig files.
@@ -317,6 +342,10 @@ target_include_directories(emv
 install(
 	TARGETS
 		emv
+		crypto_mem
+		crypto_rand
+		crypto_sha
+		crypto_rsa
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
 	PUBLIC_HEADER
 		DESTINATION "include/emv"
@@ -340,8 +369,8 @@ set(emv_strings_HEADERS # PUBLIC_HEADER property requires a list instead of indi
 	emv_strings.h
 	isocodes_lookup.h
 	mcc_lookup.h
-	PARENT_SCOPE # Doxygen generator requires a list of headers
 )
+set(emv_strings_HEADERS ${emv_strings_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::emv_strings ALIAS emv_strings)
 # The EMVSTRINGS_PKGCONFIG_REQ_PRIV and EMVSTRINGS_PKGCONFIG_LIBS_PRIV variables are set
 # for the parent scope to facilitate the generation of pkgconfig files.
@@ -362,7 +391,9 @@ target_include_directories(emv_strings
 )
 target_link_libraries(emv_strings
 	PRIVATE
+		iso8825 # Used by emv_strings.c
 		iso7816 # Used by emv_strings.c
+		iso8859 # Used by emv_strings.c
 		emv # Used by emv_strings.c
 		json-c::json-c # Used by isocodes_lookup.c
 )
@@ -370,7 +401,6 @@ install(
 	TARGETS
 		emv_strings
 	EXPORT emvUtilsTargets # For use by install(EXPORT) command
-	RUNTIME_DEPENDENCY_SET emv_strings_deps
 	PUBLIC_HEADER
 		DESTINATION "include/emv"
 		COMPONENT emv_development
@@ -383,21 +413,24 @@ install(
 		COMPONENT emv_development
 )
 if(WIN32 AND BUILD_WIN_STANDALONE)
-	if(${CMAKE_VERSION} VERSION_LESS "3.21")
-		message(FATAL_ERROR "CMake >=3.21 is required to install dependencies on Windows")
+	if(${CMAKE_VERSION} VERSION_LESS "3.24")
+		message(FATAL_ERROR "CMake >=3.24 is required to install dependencies on Windows")
 	endif()
 
-	# Assume that MSYS2/MinGW environments have all DLLs in the same path
-	# as the compiler
-	get_filename_component(COMPILER_PATH ${CMAKE_CXX_COMPILER} PATH)
+	install(
+		TARGETS
+			emv_strings
+		RUNTIME_DEPENDENCY_SET emv_strings_deps
+	)
 	install(
 		RUNTIME_DEPENDENCY_SET emv_strings_deps
 		PRE_EXCLUDE_REGEXES
-			"api-ms-"
+			"^api-ms-"
+			"^lib(gcc|stdc\\+\\+|winpthread)"
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
-			${COMPILER_PATH}
+			$<$<TARGET_EXISTS:json-c::json-c>:$<PATH:GET_PARENT_PATH,$<TARGET_PROPERTY:json-c::json-c,LOCATION>>>
 		RUNTIME
 			COMPONENT emv_runtime
 	)

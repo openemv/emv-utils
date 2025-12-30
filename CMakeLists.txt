@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2021-2024 Leon Lynch
+# Copyright 2021-2025 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -8,7 +8,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(emv-utils
-	VERSION 0.1.0
+	VERSION 0.3.0
 	DESCRIPTION "EMV libraries and tools"
 	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
 	LANGUAGES C CXX
@@ -81,6 +81,18 @@ if(EMV_UTILS_IS_TOP_LEVEL)
 
 	# Only top-level project should include CTest module
 	include(CTest)
+endif()
+
+# Allow parent scope to provide crypto targets when not building shared libs
+if(EMV_UTILS_IS_TOP_LEVEL OR BUILD_SHARED_LIBS)
+	list(APPEND CRYPTO_TESTS crypto_sha crypto_rsa)
+	add_subdirectory(crypto)
+	add_subdirectory(crypto/test)
+elseif (NOT TARGET crypto_mem OR
+	NOT TARGET crypto_rand OR
+	NOT TARGET crypto_sha OR
+	NOT TARGET crypto_rsa)
+	message(FATAL_ERROR "Parent project must provide crypto libraries for static builds")
 endif()
 
 include(FindPackageHandleStandardArgs) # Provides find_package() messages
@@ -251,10 +263,13 @@ if(Doxygen_FOUND)
 	set(DOXYGEN_EXTRACT_STATIC YES)
 	# Allow inline functions
 	set(DOXYGEN_INLINE_SOURCES YES)
-	# Ignore uses of GCC __attribute__
+	# Ignore uses of GCC __attribute__ and enable documentation for
+	# debug macros
 	set(DOXYGEN_MACRO_EXPANSION YES)
 	set(DOXYGEN_EXPAND_ONLY_PREDEF YES)
-	set(DOXYGEN_PREDEFINED "__attribute__(x)=")
+	set(DOXYGEN_PREDEFINED "__attribute__(x)=\\
+			EMV_DEBUG_ENABLED
+	")
 
 	# Generate docs for public headers
 	if(BUILD_DOCS)

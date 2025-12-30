@@ -2,7 +2,7 @@
  * @file emv_tal.c
  * @brief EMV Terminal Application Layer (TAL)
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,6 +25,7 @@
 #include "emv_fields.h"
 #include "emv_tlv.h"
 #include "emv_app.h"
+#include "emv_oda.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_TAL
 #include "emv_debug.h"
@@ -45,7 +46,8 @@ static int emv_tal_parse_aef_record(
 static int emv_tal_read_sfi_records(
 	struct emv_ttl_t* ttl,
 	const struct emv_afl_entry_t* afl_entry,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 );
 
 int emv_tal_read_pse(
@@ -109,7 +111,7 @@ int emv_tal_read_pse(
 		return EMV_TAL_RESULT_PSE_SELECT_FAILED;
 	}
 
-	emv_debug_info_tlv("FCI", fci, fci_len);
+	emv_debug_info_ber("FCI", fci, fci_len);
 
 	// Parse File Control Information (FCI) provided by PSE DDF
 	// NOTE: FCI may contain padding (r > 0)
@@ -180,7 +182,7 @@ int emv_tal_read_pse(
 			continue;
 		}
 
-		emv_debug_info_tlv("AEF", aef_record, aef_record_len);
+		emv_debug_info_ber("AEF", aef_record, aef_record_len);
 
 		r = emv_tal_parse_aef_record(
 			&pse_tlv_list,
@@ -367,7 +369,7 @@ int emv_tal_find_supported_apps(
 			continue;
 		}
 
-		emv_debug_info_tlv("FCI", fci, fci_len);
+		emv_debug_info_ber("FCI", fci, fci_len);
 
 		// Extract FCI data
 		// See EMV 4.4 Book 1, 12.3.3, step 3
@@ -508,7 +510,7 @@ int emv_tal_select_app(
 		}
 	}
 
-	emv_debug_info_tlv("FCI", fci, fci_len);
+	emv_debug_info_ber("FCI", fci, fci_len);
 
 	// Parse FCI to confirm that selected application is valid
 	app = emv_app_create_from_fci(fci, fci_len);
@@ -605,7 +607,7 @@ int emv_tal_get_processing_options(
 		}
 	}
 
-	emv_debug_info_tlv("GPO response", gpo_response, gpo_response_len);
+	emv_debug_info_ber("GPO response", gpo_response, gpo_response_len);
 
 	// Determine GPO response format
 	r = iso8825_ber_decode(gpo_response, gpo_response_len, &gpo_tlv);
@@ -634,8 +636,6 @@ int emv_tal_get_processing_options(
 			emv_debug_error("Invalid GPO response format 1 length of %u", gpo_tlv.length);
 			return EMV_TAL_ERROR_GPO_PARSE_FAILED;
 		}
-		emv_debug_info_data("AIP", gpo_tlv.value, 2);
-		emv_debug_info_data("AFL", gpo_tlv.value + 2, gpo_tlv.length - 2);
 
 		// Create Application Interchange Profile (field 82)
 		r = emv_tlv_list_push(
@@ -670,9 +670,10 @@ int emv_tal_get_processing_options(
 			r = EMV_TAL_ERROR_INTERNAL;
 			goto exit;
 		}
-	}
 
-	if (gpo_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
+		emv_debug_info_tlv_list("Extracted format 1 fields", &gpo_list);
+
+	} else if (gpo_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
 		// GPO response format 2
 		// See EMV 4.4 Book 3, 6.5.8.4
 
@@ -693,6 +694,11 @@ int emv_tal_get_processing_options(
 				goto exit;
 			}
 		}
+
+	} else {
+		emv_debug_error("Invalid GPO response format");
+		r = EMV_TAL_ERROR_GPO_PARSE_FAILED;
+		goto exit;
 	}
 
 	// Populate AIP pointer
@@ -743,7 +749,8 @@ exit:
 static int emv_tal_read_sfi_records(
 	struct emv_ttl_t* ttl,
 	const struct emv_afl_entry_t* afl_entry,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 )
 {
 	int r;
@@ -758,7 +765,8 @@ static int emv_tal_read_sfi_records(
 		uint8_t record[EMV_RAPDU_DATA_MAX];
 		size_t record_len = sizeof(record);
 		uint16_t sw1sw2;
-		struct iso8825_tlv_t record_template;
+		bool record_oda = false;
+		struct emv_tlv_list_t record_list = EMV_TLV_LIST_INIT;
 
 		// READ RECORD
 		// See EMV 4.4 Book 3, 10.2
@@ -779,19 +787,32 @@ static int emv_tal_read_sfi_records(
 			return EMV_TAL_ERROR_READ_RECORD_FAILED;
 		}
 
+		// Determine whether record is intended for offline data authentication
+		if (!oda_record_invalid &&
+			afl_entry->oda_record_count &&
+			record_number - afl_entry->first_record < afl_entry->oda_record_count
+		) {
+			record_oda = true;
+		}
+
 		// The records for SFIs 1 - 10 must be encoded as field 70 and the
 		// records for SFIs beyond that range are outside of EMV except for the
 		// card Transaction Log
 		// See EMV 4.4 Book 3, 5.3.2.2
 		// See EMV 4.4 Book 3, 6.5.11.4
+		// See EMV 4.4 Book 3, 7.1
 
-		// The records read for offline data authentication must be encoded as
-		// field 70. If not, then offline data authentication will be
-		// considered to have been performed but failed
+		// The records intended for offline data authentication must be encoded
+		// as field 70. If not, then offline data authentication will be
+		// considered to have been performed but failed.
 		// See EMV 4.4 Book 3, 10.3 (page 98)
 
 		// Therefore, any record that is not encoded as field 70 should not be
-		// parsed for EMV fields and invalidates offline data authentication.
+		// parsed for EMV fields, and if that record is also intended for
+		// offline data authentication then further offline data authentication
+		// will be invalidated. However, this implementation chooses to parse
+		// proprietary records with an SFI outside 1 - 10 that are encoded as
+		// field 70.
 		if (record[0] != EMV_TAG_70_DATA_TEMPLATE) {
 			if (afl_entry->sfi >= 1 && afl_entry->sfi <= 10) {
 				// Invalid record for SFIs 1 - 10
@@ -800,15 +821,23 @@ static int emv_tal_read_sfi_records(
 				return EMV_TAL_ERROR_READ_RECORD_INVALID;
 			}
 
-			// Although offline data authentication is no longer possible,
-			// reading of records may continue
-			// See EMV 4.4 Book 3, 10.3 (page 98)
-			emv_debug_error("Offline data authentication not possible due to invalid record");
-			oda_record_invalid = true;
+			if (record_oda) {
+				// See EMV 4.4 Book 3, 10.3 (page 98)
+				emv_debug_error("Offline data authentication not possible due to proprietary record");
+				oda_record_invalid = true;
+			}
+
+			// This implementation chooses to continue reading records if a
+			// proprietary record has an SFI outside 1 - 10 and is not encoded
+			// as field 70, although it will not be parsed for EMV fields.
+			emv_debug_info("Skip proprietary record");
 			continue;
 		}
 
 		if (afl_entry->sfi >= 1 && afl_entry->sfi <= 10) {
+			struct iso8825_tlv_t record_template;
+			size_t record_template_len;
+
 			// Record should contain a single record template for SFIs 1 - 10
 			// See EMV 4.4 Book 3, 6.5.11.4
 			r = iso8825_ber_decode(record, record_len, &record_template);
@@ -820,28 +849,48 @@ static int emv_tal_read_sfi_records(
 				emv_debug_error("Failed to parse record template");
 				return EMV_TAL_ERROR_READ_RECORD_INVALID;
 			}
+			record_template_len = r;
 			if (record_template.tag != EMV_TAG_70_DATA_TEMPLATE) {
 				// Invalid record template for SFIs 1 - 10
 				// See EMV 4.4 Book 3, 6.5.11.4
 				emv_debug_error("Invalid record template tag 0x%02X", record_template.tag);
 				return EMV_TAL_ERROR_READ_RECORD_INVALID;
 			}
-			if (record_template.length + 3 < record_len) { // 3 bytes for ID and 2-byte length
+			if (record_template_len != record_len) {
 				// Record should contain a single record template without
 				// additional data after it
 				// See EMV 4.4 Book 3, 6.5.11.4
-				emv_debug_error("Invalid record template length %u", record_template.length);
+				emv_debug_error("Invalid record template total length %zu; expected %zu", record_template_len, record_len);
 				return EMV_TAL_ERROR_READ_RECORD_INVALID;
 			}
 
-			if (!oda_record_invalid) {
+			if (record_oda) {
 				emv_debug_info("Record template content used for offline data authentication");
-				// TODO: Compute offline data authentication here for SFIs 1 - 10
+
+				if (oda) {
+					// For SFIs 1 - 10, use record template content for ODA
+					// See EMV 4.4 Book 3, 10.3 (page 98)
+					r = emv_oda_append_record(oda, record_template.value, record_template.length);
+					if (r) {
+						emv_debug_trace_msg("emv_oda_append_record() failed; r=%d", r);
+						// emv_oda_append_record() also prints error
+						oda_record_invalid = true;
+					}
+				}
 			}
 		} else {
-			if (!oda_record_invalid) {
+			if (record_oda) {
 				emv_debug_info("Record used verbatim for offline data authentication");
-				// TODO: Compute offline data authentication here for SFIs 11 - 30
+				if (oda) {
+					// For SFIs 11 - 30, use record verbatim for ODA
+					// See EMV 4.4 Book 3, 10.3 (page 98)
+					r = emv_oda_append_record(oda, record, record_len);
+					if (r) {
+						emv_debug_trace_msg("emv_oda_append_record() failed; r=%d", r);
+						// emv_oda_append_record() also prints error
+						oda_record_invalid = true;
+					}
+				}
 			}
 		}
 
@@ -853,9 +902,13 @@ static int emv_tal_read_sfi_records(
 		// length should not be excluded during offline data authentication
 		// processing. This implementation therefore assumes that any record
 		// that has passed the preceding validations is suitable for parsing.
-		r = emv_tlv_parse(record, record_len, list);
+		r = emv_tlv_parse(record, record_len, &record_list);
 		if (r) {
 			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+
+			// Always cleanup record list
+			emv_tlv_list_clear(&record_list);
+
 			if (r < 0) {
 				// Internal error; terminate session
 				emv_debug_error("Internal error");
@@ -866,6 +919,19 @@ static int emv_tal_read_sfi_records(
 				emv_debug_error("Failed to parse application data record");
 				return EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED;
 			}
+		}
+		emv_debug_info_ber("READ RECORD [%u,%u] response", record, record_len, afl_entry->sfi, record_number);
+
+		r = emv_tlv_list_append(list, &record_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+			// Always cleanup record list
+			emv_tlv_list_clear(&record_list);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_TAL_ERROR_INTERNAL;
 		}
 	}
 
@@ -882,7 +948,8 @@ int emv_tal_read_afl_records(
 	struct emv_ttl_t* ttl,
 	const uint8_t* afl,
 	size_t afl_len,
-	struct emv_tlv_list_t* list
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
 )
 {
 	int r;
@@ -912,7 +979,7 @@ int emv_tal_read_afl_records(
 	}
 
 	while ((r = emv_afl_itr_next(&afl_itr, &afl_entry)) > 0) {
-		r = emv_tal_read_sfi_records(ttl, &afl_entry, list);
+		r = emv_tal_read_sfi_records(ttl, &afl_entry, list, oda);
 		if (r) {
 			emv_debug_trace_msg("emv_tal_read_sfi_records() failed; r=%d", r);
 			if (r == EMV_TAL_RESULT_ODA_RECORD_INVALID) {
@@ -941,4 +1008,524 @@ int emv_tal_read_afl_records(
 	} else {
 		return 0;
 	}
+}
+
+int emv_tal_get_data(
+	struct emv_ttl_t* ttl,
+	uint16_t tag,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+	uint8_t response[EMV_RAPDU_DATA_MAX];
+	size_t response_len = sizeof(response);
+	struct emv_tlv_list_t response_list = EMV_TLV_LIST_INIT;
+	uint16_t sw1sw2;
+
+	if (!ttl || !tag || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// GET DATA
+	// See EMV 4.4 Book 3, 6.5.7
+	emv_debug_info("GET DATA [%X]", tag);
+	r = emv_ttl_get_data(ttl, tag, response, &response_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_get_data() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+	// See EMV 4.4 Book 3, 6.5.7.5
+	if (sw1sw2 != 0x9000) {
+		// Unknown error; terminal may continue session
+		// See EMV 4.4 Book 3, 6.3.5 (page 50)
+		emv_debug_error("SW1SW2=0x%04hX", sw1sw2);
+		return EMV_TAL_RESULT_GET_DATA_FAILED;
+	}
+
+	emv_debug_info_ber("GET DATA response", response, response_len);
+
+	r = emv_tlv_parse(response, response_len, &response_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+		if (r < 0) {
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+		if (r > 0) {
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.7.4
+			emv_debug_error("Failed to parse GET DATA response");
+			r = EMV_TAL_ERROR_GET_DATA_PARSE_FAILED;
+			goto exit;
+		}
+	}
+
+	r = emv_tlv_list_append(list, &response_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
+
+	// Successful GET DATA processing
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&response_list);
+	return r;
+}
+
+int emv_tal_internal_authenticate(
+	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+	uint8_t response[EMV_RAPDU_DATA_MAX];
+	size_t response_len = sizeof(response);
+	uint16_t sw1sw2;
+	struct iso8825_tlv_t response_tlv;
+	struct emv_tlv_list_t response_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* sdad_tlv;
+
+	if (!ttl || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (data && data_len > EMV_CAPDU_DATA_MAX) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (!data && data_len) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// INTERNAL AUTHENTICATE
+	// See EMV 4.4 Book 2, 6.5
+	emv_debug_info_data("INTERNAL AUTHENTICATE", data, data_len);
+	r = emv_ttl_internal_authenticate(ttl, data, data_len, response, &response_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_internal_authenticate() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+	// See EMV 4.4 Book 3, 6.5.9.5
+	if (sw1sw2 != 0x9000) {
+		// Unknown error; terminate session
+		emv_debug_error("SW1SW2=0x%04hX", sw1sw2);
+		return EMV_TAL_ERROR_INT_AUTH_FAILED;
+	}
+
+	emv_debug_info_ber("INTERNAL AUTHENTICATE response", response, response_len);
+
+	// Determine response format
+	r = iso8825_ber_decode(response, response_len, &response_tlv);
+	if (r <= 0) {
+		emv_debug_trace_msg("iso8825_ber_decode() failed; r=%d", r);
+
+		// Parse error; terminate session
+		// See EMV 4.4 Book 3, 6.5.9.4
+		emv_debug_error("Failed to parse INTERNAL AUTHENTICATE response");
+		return EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED;
+	}
+
+	if (response_tlv.tag == EMV_TAG_80_RESPONSE_MESSAGE_TEMPLATE_FORMAT_1) {
+		// Response format 1
+		// See EMV 4.4 Book 3, 6.5.9.4
+
+		// Validate length
+		// See EMV 4.4 Book 2, 6.5.2, table 17
+		// Assume that ICC public key will not be less than 512-bit and
+		// therefore SDAD must be at least 64 bytes.
+		if (response_tlv.length < 64) {
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.9.4
+			emv_debug_error("Invalid INTERNAL AUTHENTICATE response format 1 length of %u", response_tlv.length);
+			return EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED;
+		}
+
+		// Create Signed Dynamic Application Data (field 9F4B)
+		r = emv_tlv_list_push(
+			&response_list,
+			EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA,
+			response_tlv.length,
+			response_tlv.value,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		emv_debug_info_tlv_list("Extracted format 1 fields", &response_list);
+
+	} else if (response_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
+		// Response format 2
+		// See EMV 4.4 Book 3, 6.5.9.4
+
+		r = emv_tlv_parse(response_tlv.value, response_tlv.length, &response_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_parse() failed; r=%d", r);
+			if (r < 0) {
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_TAL_ERROR_INTERNAL;
+				goto exit;
+			}
+			if (r > 0) {
+				// Parse error; terminate session
+				// See EMV 4.4 Book 3, 6.5.9.4
+				emv_debug_error("Failed to parse INTERNAL AUTHENTICATE response format 2");
+				r = EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED;
+				goto exit;
+			}
+		}
+
+	} else {
+		emv_debug_error("Invalid INTERNAL AUTHENTICATE response format");
+		r = EMV_TAL_ERROR_INT_AUTH_PARSE_FAILED;
+		goto exit;
+	}
+
+	// Ensure that Signed Dynamic Application Data (field 9F4B) is present
+	sdad_tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
+	if (!sdad_tlv) {
+		// Mandatory field missing; terminate session
+		// See EMV 4.4 Book 3, 6.5.9.4
+		emv_debug_error("SDAD not found in INTERNAL AUTHENTICATE response");
+		r = EMV_TAL_ERROR_INT_AUTH_FIELD_NOT_FOUND;
+		goto exit;
+	}
+
+	r = emv_tlv_list_append(list, &response_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
+
+	// Successful INTERNAL AUTHENTICATE processing
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&response_list);
+	return r;
+}
+
+int emv_tal_genac(
+	struct emv_ttl_t* ttl,
+	uint8_t ref_ctrl,
+	const void* data,
+	size_t data_len,
+	struct emv_tlv_list_t* list,
+	struct emv_oda_ctx_t* oda
+)
+{
+	int r;
+	uint8_t response[EMV_RAPDU_DATA_MAX];
+	size_t response_len = sizeof(response);
+	uint16_t sw1sw2;
+	struct iso8825_tlv_t response_tlv;
+	struct emv_tlv_list_t response_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* tlv;
+
+	if (!ttl || !list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (data && data_len > EMV_CAPDU_DATA_MAX) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	if (!data && data_len) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// GENERATE APPLICATION CRYPTOGRAM
+	// See EMV 4.4 Book 3, 9
+	emv_debug_info("GENAC [P1=0x%02X]", ref_ctrl);
+	r = emv_ttl_genac(ttl, ref_ctrl, data, data_len, response, &response_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_genac() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+	// See EMV 4.4 Book 3, 6.5.5.5
+	if (sw1sw2 != 0x9000) {
+		// Unknown error; terminate session
+		emv_debug_error("SW1SW2=0x%04hX", sw1sw2);
+		return EMV_TAL_ERROR_GENAC_FAILED;
+	}
+
+	emv_debug_info_ber("GENAC response", response, response_len);
+
+	// Determine response format
+	r = iso8825_ber_decode(response, response_len, &response_tlv);
+	if (r <= 0) {
+		emv_debug_trace_msg("iso8825_ber_decode() failed; r=%d", r);
+
+		// Parse error; terminate session
+		// See EMV 4.4 Book 3, 6.5.5.4
+		emv_debug_error("Failed to parse GENAC response");
+		return EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+	}
+
+	if (response_tlv.tag == EMV_TAG_80_RESPONSE_MESSAGE_TEMPLATE_FORMAT_1) {
+		// Response format 1
+		// See EMV 4.4 Book 3, 6.5.5.4
+
+		// Validate length
+		// See EMV 4.4 Book 3, 6.5.5.4, table 13
+		if (response_tlv.length < 1 + 2 + 8 ||
+			response_tlv.length > 1 + 2 + 8 + 32
+		) {
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.5.4
+			emv_debug_error("Invalid GENAC response format 1 length of %u", response_tlv.length);
+			return EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+		}
+
+		// Create Cryptogram Information Data (field 9F27)
+		r = emv_tlv_list_push(
+			&response_list,
+			EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA,
+			1,
+			response_tlv.value,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		// Create Application Transaction Counter (field 9F36)
+		r = emv_tlv_list_push(
+			&response_list,
+			EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER,
+			2,
+			response_tlv.value + 1,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		// Create Application Cryptogram (field 9F26)
+		r = emv_tlv_list_push(
+			&response_list,
+			EMV_TAG_9F26_APPLICATION_CRYPTOGRAM,
+			8,
+			response_tlv.value + 1 + 2,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		if (response_tlv.length > 1 + 2 + 8) {
+			// Create Issuer Application Data (field 9F10)
+			r = emv_tlv_list_push(
+				&response_list,
+				EMV_TAG_9F10_ISSUER_APPLICATION_DATA,
+				response_tlv.length - 1 - 2 - 8,
+				response_tlv.value + 1 + 2 + 8,
+				0
+			);
+			if (r) {
+				emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_TAL_ERROR_INTERNAL;
+				goto exit;
+			}
+		}
+
+		emv_debug_info_tlv_list("Extracted format 1 fields", &response_list);
+
+	} else if (response_tlv.tag == EMV_TAG_77_RESPONSE_MESSAGE_TEMPLATE_FORMAT_2) {
+		// Response format 2
+		// See EMV 4.4 Book 3, 6.5.5.4
+
+		// NOTE: This is parsed manually instead of using emv_tlv_parse() to
+		// find the encoded offset of SDAD (field 9F4B) such that the remaining
+		// encoded fields can be cached. Recursive parsing of constructed
+		// fields is also not required.
+
+		struct iso8825_ber_itr_t itr;
+		struct iso8825_tlv_t tlv;
+		unsigned int offset_after_sdad = 0;
+		unsigned int length_after_sdad = 0;
+
+		r = iso8825_ber_itr_init(response_tlv.value, response_tlv.length, &itr);
+		if (r) {
+			emv_debug_trace_msg("iso8825_ber_itr_init() failed; r=%d", r);
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_TAL_ERROR_INTERNAL;
+			goto exit;
+		}
+
+		while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+			if (oda &&
+				tlv.tag == EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA
+			) {
+				unsigned int offset_before_sdad =
+					itr.ptr - (void*)response_tlv.value - r;
+
+				if (offset_before_sdad <= sizeof(oda->genac_data)) {
+					// Found SDAD (field 9F4B) and buffer has enough space,
+					// therefore cache fields before SDAD
+					memcpy(
+						oda->genac_data,
+						response_tlv.value,
+						offset_before_sdad
+					);
+					oda->genac_data_len = offset_before_sdad;
+					offset_after_sdad = offset_before_sdad + r;
+					length_after_sdad = response_tlv.length - offset_after_sdad;
+				}
+			}
+
+			r = emv_tlv_list_push(
+				&response_list,
+				tlv.tag,
+				tlv.length,
+				tlv.value,
+				0
+			);
+			if (r) {
+				emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_TAL_ERROR_INTERNAL;
+				goto exit;
+			}
+		}
+		if (r < 0) {
+			emv_debug_trace_msg("iso8825_ber_itr_next() failed; r=%d", r);
+
+			// Parse error; terminate session
+			// See EMV 4.4 Book 3, 6.5.5.4
+			emv_debug_error("Failed to parse GENAC response format 2");
+			r = EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+			goto exit;
+		}
+
+		if (length_after_sdad) {
+			// Fields before SDAD (field 9F4B) have already been cached and
+			// more fields exists after SDAD, therefore cache fields after SDAD
+			memcpy(
+				oda->genac_data + oda->genac_data_len,
+				response_tlv.value + offset_after_sdad,
+				length_after_sdad
+			);
+			oda->genac_data_len += length_after_sdad;
+		}
+
+	} else {
+		emv_debug_error("Invalid GENAC response format");
+		r = EMV_TAL_ERROR_GENAC_PARSE_FAILED;
+		goto exit;
+	}
+
+	// Ensure that Cryptogram Information Data (field 9F27) is present
+	tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+	if (!tlv) {
+		// Mandatory field missing; terminate session
+		// See EMV 4.4 Book 3, 6.5.5.4
+		emv_debug_error("CID not found in GENAC response");
+		r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
+		goto exit;
+	}
+
+	// Ensure that Application Transaction Counter (field 9F36) is present
+	tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER);
+	if (!tlv) {
+		// Mandatory field missing; terminate session
+		// See EMV 4.4 Book 3, 6.5.5.4
+		emv_debug_error("ATC not found in GENAC response");
+		r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
+		goto exit;
+	}
+
+	if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) == EMV_TTL_GENAC_SIG_NONE) {
+		// Ensure that Application Cryptogram (field 9F26) is present
+		tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F26_APPLICATION_CRYPTOGRAM);
+		if (!tlv) {
+			// Mandatory field missing; terminate session
+			// See EMV 4.4 Book 3, 6.5.5.4
+			emv_debug_error("AC not found in GENAC response");
+			r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
+			goto exit;
+		}
+	} else {
+		// Ensure that Signed Dynamic Application Data (field 9F4B) is present
+		tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
+		if (!tlv) {
+			// Mandatory field missing; terminate session
+			// See EMV 4.4 Book 3, 6.5.5.4
+			emv_debug_error("SDAD not found in GENAC response");
+			r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
+			goto exit;
+		}
+	}
+
+	r = emv_tlv_list_append(list, &response_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
+
+	// Successful GENERATE APPLICATION CRYPTOGRAM processing
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&response_list);
+	return r;
 }

@@ -50,6 +50,16 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayoutSettings">
            <item>
+            <widget class="QCheckBox" name="rememberCheckBox">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Remember input data when EMV Viewer is closed. This function should be disabled for live data that is not allowed to be retained.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Remember input data</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QCheckBox" name="tagsCheckBox">
              <property name="toolTip">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Visually distinguish tag of each input field in input data.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -70,12 +80,22 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="decodeCheckBox">
+            <widget class="QCheckBox" name="decodeFieldsCheckBox">
              <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interpret each input field according to EMV. Disable to view only the ISO 8825 structure instead.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Interpret each input field according to EMV or ASN.1. Disable to view only the ISO 8825 structure instead.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
              <property name="text">
-              <string>Decode EMV fields</string>
+              <string>Decode EMV / ASN.1 fields</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="decodeObjectsCheckBox">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Decode ASN.1 objects that start with an OID field and contain at least one other member. Disable to view the object structure as-is.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Decode ASN.1 objects</string>
              </property>
             </widget>
            </item>

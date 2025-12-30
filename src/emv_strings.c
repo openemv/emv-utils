@@ -2,7 +2,7 @@
  * @file emv_strings.c
  * @brief EMV string helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,8 +23,13 @@
 #include "emv_tlv.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
+#include "emv_capk.h"
+#include "emv_rsa.h"
+#include "emv_ttl.h"
 #include "isocodes_lookup.h"
 #include "mcc_lookup.h"
+#include "iso8825_strings.h"
+#include "iso8859.h"
 #include "iso7816_apdu.h"
 #include "iso7816_strings.h"
 
@@ -54,6 +59,8 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) ATTRIBUTE_FORMAT_PRINTF(2, 3);
+static void emv_str_list_add_data(struct str_itr_t* itr, const char* str, const void* data, size_t data_len);
+static int emv_app_preferred_name_get_string(const uint8_t* buf, size_t buf_len, const struct emv_tlv_sources_t* sources, char* str, size_t str_len);
 static int emv_country_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_alpha3_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static int emv_country_numeric_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
@@ -61,6 +68,10 @@ static int emv_currency_numeric_code_get_string(const uint8_t* buf, size_t buf_l
 static int emv_language_alpha2_code_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len);
 static const char* emv_cvm_code_get_string(uint8_t cvm_code);
 static int emv_cvm_cond_code_get_string(uint8_t cvm_cond_code, const struct emv_cvmlist_amounts_t* amounts, char* str, size_t str_len);
+static int emv_decrypt_issuer_pkey(const uint8_t* issuer_cert, size_t issuer_cert_len, const struct emv_tlv_sources_t* sources, const struct emv_capk_t** capk, struct emv_rsa_issuer_pkey_t* pkey);
+static int emv_decrypt_ssad(const uint8_t* ssad, size_t ssad_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_issuer_pkey_t* issuer_pkey, struct emv_rsa_ssad_t* data);
+static int emv_decrypt_icc_pkey(const uint8_t* icc_cert, size_t icc_cert_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_issuer_pkey_t* issuer_pkey, struct emv_rsa_icc_pkey_t* icc_pkey);
+static int emv_decrypt_sdad(const uint8_t* sdad, size_t sdad_len, const struct emv_tlv_sources_t* sources, struct emv_rsa_icc_pkey_t* icc_pkey, struct emv_rsa_sdad_t* data);
 static int emv_iad_ccd_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_mchip_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
 static int emv_iad_vsdc_0_1_3_append_string_list(const uint8_t* iad, size_t iad_len, struct str_itr_t* itr);
@@ -68,6 +79,7 @@ static int emv_iad_vsdc_2_4_append_string_list(const uint8_t* iad, size_t iad_le
 static const char* emv_mastercard_device_type_get_string(const char* device_type);
 static const char* emv_arc_get_desc(const char* arc);
 static int emv_csu_append_string_list(const uint8_t* csu, size_t csu_len, struct str_itr_t* itr);
+static int emv_capdu_genac_get_string(const uint8_t* c_apdu, size_t c_apdu_len, char* str, size_t str_len);
 static int emv_capdu_get_data_get_string(const uint8_t* c_apdu, size_t c_apdu_len, char* str, size_t str_len);
 
 int emv_strings_init(const char* isocodes_path, const char* mcc_path)
@@ -89,6 +101,7 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path)
 
 int emv_tlv_get_info(
 	const struct emv_tlv_t* tlv,
+	const struct emv_tlv_sources_t* sources,
 	struct emv_tlv_info_t* info,
 	char* value_str,
 	size_t value_str_len
@@ -335,7 +348,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Issuer public key certified by a certification authority";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_issuer_cert_get_string_list(tlv->value, tlv->length, sources, value_str, value_str_len);
 
 		case EMV_TAG_91_ISSUER_AUTHENTICATION_DATA:
 			info->tag_name = "Issuer Authentication Data";
@@ -352,12 +365,12 @@ int emv_tlv_get_info(
 			return 0;
 
 		case EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA:
-			info->tag_name = "Signed Static Application Data";
+			info->tag_name = "Signed Static Application Data (SSAD)";
 			info->tag_desc =
 				"Digital signature on critical application "
 				"parameters for SDA";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_ssad_get_string_list(tlv->value, tlv->length, sources, value_str, value_str_len);
 
 		case EMV_TAG_94_APPLICATION_FILE_LOCATOR:
 			info->tag_name = "Application File Locator (AFL)";
@@ -374,6 +387,22 @@ int emv_tlv_get_info(
 				"Status of the different functions as seen from the terminal";
 			info->format = EMV_FORMAT_B;
 			return emv_tvr_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+
+		case EMV_TAG_97_TDOL:
+			info->tag_name = "Transaction Certificate Data Object List (TDOL)";
+			info->tag_desc =
+				"List of data objects (tag and length) to be used by the "
+				"terminal in generating the TC Hash Value";
+			info->format = EMV_FORMAT_DOL;
+			return 0;
+
+		case EMV_TAG_98_TC_HASH:
+			info->tag_name = "Transaction Certificate (TC) Hash Value";
+			info->tag_desc =
+				"Result of a hash function using input created from the list "
+				"of data objects specified in the TDOL";
+			info->format = EMV_FORMAT_B;
+			return 0;
 
 		case EMV_TAG_9A_TRANSACTION_DATE:
 			info->tag_name = "Transaction Date";
@@ -710,7 +739,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"Preferred mnemonic associated with the AID";
 			info->format = EMV_FORMAT_ANS;
-			return emv_tlv_value_get_string(tlv, info->format, 16, value_str, value_str_len);
+			return emv_app_preferred_name_get_string(tlv->value, tlv->length, sources, value_str, value_str_len);
 
 		case EMV_TAG_9F13_LAST_ONLINE_ATC_REGISTER:
 			info->tag_name =
@@ -833,7 +862,7 @@ int emv_tlv_get_info(
 			return emv_time_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
 		case EMV_TAG_9F22_CERTIFICATION_AUTHORITY_PUBLIC_KEY_INDEX:
-			info->tag_name = "Certification Authority Public Key (CAPK) Index";
+			info->tag_name = "Certification Authority Public Key (CAPK) Index - terminal";
 			info->tag_desc =
 				"Identifies the certification authority's public key in "
 				"conjunction with the RID";
@@ -1060,7 +1089,7 @@ int emv_tlv_get_info(
 			info->tag_desc =
 				"ICC Public Key certified by the issuer";
 			info->format = EMV_FORMAT_B;
-			return 0;
+			return emv_icc_cert_get_string_list(tlv->value, tlv->length, sources, value_str, value_str_len);;
 
 		case EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT:
 			info->tag_name = "Integrated Circuit Card (ICC) Public Key Exponent";
@@ -1094,6 +1123,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_TAG_LIST;
 			return 0;
 
+		case EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA:
+			info->tag_name = "Signed Dynamic Application Data (SDAD)";
+			info->tag_desc =
+				"Digital signature on critical application "
+				"parameters for DDA or CDA";
+			info->format = EMV_FORMAT_B;
+			return emv_sdad_get_string_list(tlv->value, tlv->length, sources, value_str, value_str_len);
+
 		case EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER:
 			info->tag_name = "Integrated Circuit Card (ICC) Dynamic Number";
 			info->tag_desc =
@@ -1117,8 +1154,97 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_ANS;
 			return emv_tlv_value_get_string(tlv, info->format, 0, value_str, value_str_len);
 
-		case EMV_TAG_9F66_TTQ:
-			if (tlv->length == 4) {
+		case EMV_TAG_9F4F_LOG_FORMAT:
+			info->tag_name = "Log Format";
+			info->tag_desc =
+				"List (in tag and length format) of data objects representing "
+				"the logged data elements that are passed to the terminal when "
+				"a transaction log record is read";
+			info->format = EMV_FORMAT_DOL;
+			return 0;
+
+		case 0x9F5D: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION && // Helps IDE find this case statement
+				tlv->length == 3
+			) {
+				// Kernel 2 defines 9F5D as Application Capabilities
+				// Information with a length of 3 bytes
+				info->tag_name = "Application Capabilities Information";
+				info->tag_desc =
+					"Lists a number of card features beyond regular payment.";
+				info->format = EMV_FORMAT_B;
+				return emv_mastercard_app_caps_info_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			if (tlv->tag == VISA_TAG_9F5D_AOSA && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 3 defines 9F5D as Available Offline Spending Amount
+				// (AOSA) with a length of 6 bytes
+				info->tag_name = "Available Offline Spending Amount (AOSA)";
+				info->tag_desc =
+					"Kernel 3 proprietary data element indicating the "
+					"remaining amount available to be spent offline. The AOSA "
+					"is a calculated field used to allow the reader to "
+					"provide on a receipt or display the amount of offline "
+					"spend that is available on the card.";
+				info->format = EMV_FORMAT_N;
+				return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F63: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F63_PUNATC_TRACK1 && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 2 defines 9F63 as PUNATC(Track1) with a length of
+				// 6 bytes
+				info->tag_name = "PUNATC(Track1)";
+				info->tag_desc =
+					"Indicates to the Kernel the positions in the "
+					"discretionary data field of Track 1 Data where the "
+					"Unpredictable Number (Numeric) digits and Application "
+					"Transaction Counter (ATC) digits have to be copied.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == VISA_TAG_9F63_OFFLINE_COUNTER_INITIAL_VALUE && // Helps IDE find this case statement
+				tlv->length == 1
+			) {
+				// Kernel 3 (VCPS) defines 9F63 as Offline Counter Initial
+				// Value with a length of 1 byte
+				info->tag_name = "Offline Counter Initial Value";
+				info->tag_desc =
+					"Contains the initial value of the Consecutive "
+					"Transaction Counter International (CTCI).";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == UNIONPAY_TAG_9F63_PRODUCT_IDENTIFICATION_INFORMATION && // Helps IDE find this case statement
+				tlv->length == 16
+			) {
+				// Kernel 7 defines 9F63 as Product Identification Information
+				// without specifying the length or description, but unverified
+				// internet sources indicate the length to be 16 bytes
+				info->tag_name = "Product Identification Information";
+				info->tag_desc = info->tag_name;
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F66: // Used for different purposes by different kernels
+			if (tlv->tag == EMV_TAG_9F66_TTQ && // Helps IDE find this case statement
+				tlv->length == 4
+			) {
 				// Entry Point kernel as well as kernel 3, 6 and 7 define 9F66
 				// as TTQ with a length of 4 bytes
 				info->tag_name = "Terminal Transaction Qualifiers (TTQ)";
@@ -1129,6 +1255,55 @@ int emv_tlv_get_info(
 					"for different purposes.";
 				info->format = EMV_FORMAT_B;
 				return emv_ttq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
+			}
+
+			if (tlv->tag == MASTERCARD_TAG_9F66_PUNATC_TRACK2 && // Helps IDE find this case statement
+				tlv->length == 2
+			) {
+				// Kernel 2 defines 9F66 as PUNATC(Track2) with a length of
+				// 2 bytes
+				info->tag_name = "PUNATC(Track2)";
+				info->tag_desc =
+					"Indicates to the Kernel the positions in the "
+					"discretionary data field of Track 2 Data where the "
+					"Unpredictable Number (Numeric) digits and Application "
+					"Transaction Counter (ATC) digits have to be copied.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
+		case 0x9F6B: // Used for different purposes by different kernels
+			if (tlv->tag == VISA_TAG_9F6B_CARD_CVM_LIMIT && // Helps IDE find this case statement
+				tlv->length == 6
+			) {
+				// Kernel 3 (VCPS) defines 9F6B as Card CVM Limit with a length
+				// of 6 bytes
+				info->tag_name = "Card CVM Limit";
+				info->tag_desc =
+					"Visa proprietary data element indicating that for "
+					"domestic contactless transactions where this value is "
+					"exceeded, a CVM is required by the card.";
+				info->format = EMV_FORMAT_N;
+				return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
+			}
+
+			if (tlv->tag == MASTERCARD_TAG_9F6B_TRACK2_DATA && // Helps IDE find this case statement
+				tlv->length > 6 && tlv->length <= 19
+			) {
+				// Kernel 2 defines 9F6B as Track 2 Data with a length of up to
+				// 19 bytes. Assume that it is more than 6 bytes because it
+				// would be unreasonable for track2 to be shorter than that.
+				info->tag_name = "Track 2 Data";
+				info->tag_desc =
+					"Contains the data objects of the track 2 according to "
+					"ISO/IEC 7813, excluding start sentinel, end sentinel and "
+					"Longitudinal Redundancy Check (LRC)";
+				info->format = EMV_FORMAT_VAR;
+				return emv_track2_equivalent_data_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
 			// Same as default case
@@ -1143,8 +1318,23 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return emv_ctq_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 
-		case AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES:
-			if (tlv->length == 1) {
+		case 0x9F6D: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F6D_MAG_APPLICATION_VERSION_NUMBER && // Helps IDE find this case statement
+				tlv->length == 2
+			) {
+				// Kernel 2 defines 9F6D as Mag-stripe Application Version
+				// Number (Reader) with a length of 2 bytes
+				info->tag_name = "Mag-stripe Application Version Number (Reader)";
+				info->tag_desc =
+					"Version number assigned by the payment system for the "
+					"specific Mag-stripe Mode functionality of the Kernel.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES &&
+				tlv->length == 1
+			) {
 				// Kernel 4 defines 9F6D as Contactless Reader Capabilities
 				// with a length of 1 byte
 				info->tag_name = "Contactless Reader Capabilities";
@@ -1180,7 +1370,7 @@ int emv_tlv_get_info(
 					"The Third Party data object may be used to carry "
 					"specific product information to be optionally used by "
 					"the terminal in processing transactions.";
-				info->format = EMV_FORMAT_B;
+				info->format = EMV_FORMAT_VAR;
 				return emv_mastercard_third_party_data_get_string_list(tlv->value, tlv->length, value_str, value_str_len);
 			}
 
@@ -1235,6 +1425,38 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 1;
 
+		case 0x9F7C: // Used for different purposes by different kernels
+			if (tlv->tag == MASTERCARD_TAG_9F7C_MERCHANT_CUSTOM_DATA && // Helps IDE find this case statement
+				tlv->length == 20
+			) {
+				// Kernel 2 defines 9F7C as Merchant Custom Data with a length
+				// of 20 bytes
+				info->tag_name = "Merchant Custom Data";
+				info->tag_desc =
+					"Proprietary merchant data that may be requested by the "
+					"card.";
+				info->format = EMV_FORMAT_B;
+				return 0;
+			}
+
+			if (tlv->tag == VISA_TAG_9F7C_CUSTOMER_EXCLUSIVE_DATA && // Helps IDE find this case statement
+				tlv->length <= 32
+			) {
+				// Kernel 3 defines 9F7C as Customer Exclusive Data (CED) with
+				// a length of up to 32 bytes. Note that this implementation
+				// cannot distinguish it from kernel 2's definition when the
+				// provided field has a length of 20 bytes.
+				info->tag_name = "Customer Exclusive Data (CED)";
+				info->tag_desc =
+					"Contains data for transmission to the issuer.";
+				info->format = EMV_FORMAT_VAR;
+				return 0;
+			}
+
+			// Same as default case
+			info->format = EMV_FORMAT_B;
+			return 1;
+
 		case EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA:
 			info->tag_name = "File Control Information (FCI) Issuer Discretionary Data";
 			info->tag_desc =
@@ -1242,9 +1464,48 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
-		default:
+		case EMV_TAG_BF4C_BIOMETRIC_TRY_COUNTERS_TEMPLATE:
+			info->tag_name = "Biometric Try Counters Template";
+			info->tag_desc =
+				"A template that contains one or more Biometric Try Counters";
+			info->format = EMV_FORMAT_VAR;
+			return 0;
+
+		case EMV_TAG_BF4D_PREFERRED_ATTEMPTS_TEMPLATE:
+			info->tag_name = "Preferred Attempts Template";
+			info->tag_desc =
+				"A template that contains the TLV-coded values for the "
+				"preferred attempts of any BIT of a Biometric Type";
+			info->format = EMV_FORMAT_VAR;
+			return 0;
+
+		default: {
+			// If it is not a known EMV field, attempt to decode it as an
+			// ASN.1 field
+			struct iso8825_tlv_info_t iso8825_info;
+			r = iso8825_tlv_get_info(
+				&tlv->ber,
+				&iso8825_info,
+				value_str,
+				value_str_len
+			);
+			if (iso8825_info.tag_name) {
+				// Known ASN.1 field
+				info->tag_name = iso8825_info.tag_name;
+				info->tag_desc = iso8825_info.tag_desc;
+
+				// Even if known field, value parsing may still have failed
+				info->format = EMV_FORMAT_B;
+				return r;
+			}
+
+			// Unknown field
 			info->format = EMV_FORMAT_B;
+			if (value_str && value_str_len) {
+				value_str[0] = 0; // Default to empty value string
+			}
 			return 1;
+		}
 	}
 }
 
@@ -1323,13 +1584,14 @@ static int emv_tlv_value_get_string(const struct emv_tlv_t* tlv, enum emv_format
 
 		case EMV_FORMAT_ANS:
 			if (tlv->tag == EMV_TAG_50_APPLICATION_LABEL) {
-				r = emv_format_ans_only_space_get_string(tlv->value, tlv->length, value_str, value_str_len);
+				r = emv_format_ans_to_alnum_space_str(tlv->value, tlv->length, value_str, value_str_len);
 			}
 			else if (tlv->tag == EMV_TAG_9F12_APPLICATION_PREFERRED_NAME) {
-				// TODO: Convert EMV_TAG_9F12_APPLICATION_PREFERRED_NAME from the appropriate ISO/IEC 8859 code page to UTF-8
-				memcpy(value_str, tlv->value, tlv->length);
-				value_str[tlv->length] = 0; // NULL terminate
-				return 0;
+				// NOTE: Use emv_app_preferred_name_get_string() instead for
+				// EMV_TAG_9F12_APPLICATION_PREFERRED_NAME to allow the use of
+				// of EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX when determining the
+				// ISO/IEC 8859 code page
+				r = emv_format_ans_to_non_control_str(tlv->value, tlv->length, value_str, value_str_len);
 			} else {
 				r = emv_format_ans_ccs_get_string(tlv->value, tlv->length, value_str, value_str_len);
 			}
@@ -1422,45 +1684,6 @@ int emv_format_an_get_string(const uint8_t* buf, size_t buf_len, char* str, size
 			(*buf >= 0x30 && *buf <= 0x39) || // 0-9
 			(*buf >= 0x41 && *buf <= 0x5A) || // A-Z
 			(*buf >= 0x61 && *buf <= 0x7A)    // a-z
-		) {
-			*str = *buf;
-
-			// Advance output
-			++str;
-			--str_len;
-		} else {
-			// Invalid digit
-			return 1;
-		}
-
-		++buf;
-		--buf_len;
-	}
-
-	*str = 0; // NULL terminate
-
-	return 0;
-}
-
-int emv_format_ans_only_space_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t str_len)
-{
-	if (!buf || !buf_len || !str || !str_len) {
-		return -1;
-	}
-
-	// Minimum string length
-	if (str_len < buf_len + 1) {
-		return -2;
-	}
-
-	while (buf_len) {
-		// Validate format "ans" with special characters limited to space
-		// character, which is effectively format "an" plus space character
-		if (
-			(*buf >= 0x30 && *buf <= 0x39) || // 0-9
-			(*buf >= 0x41 && *buf <= 0x5A) || // A-Z
-			(*buf >= 0x61 && *buf <= 0x7A) || // a-z
-			(*buf == 0x20)                    // Space
 		) {
 			*str = *buf;
 
@@ -1806,12 +2029,16 @@ int emv_date_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
 		}
 		date_str[(i * 2) + 1] = '0' + digit;
 	}
-	date_str[(buf_len * 2) + 1] = 0;
+	date_str[buf_len * 2] = 0; // NULL terminate
 
-	// Assume it's the 21st century; if it isn't, then hopefully we've at
-	// least addressed climate change...
-	str[offset++] = '2';
-	str[offset++] = '0';
+	// See EMV 4.4 Book 4, 6.7.3
+	if (buf[0] < 0x50) {
+		str[offset++] = '2';
+		str[offset++] = '0';
+	} else {
+		str[offset++] = '1';
+		str[offset++] = '9';
+	}
 	memcpy(str + offset, date_str, 2);
 	offset += 2;
 
@@ -1879,7 +2106,7 @@ int emv_time_get_string(const uint8_t* buf, size_t buf_len, char* str, size_t st
 		}
 		time_str[(i * 2) + 1] = '0' + digit;
 	}
-	time_str[(buf_len * 2) + 1] = 0;
+	time_str[buf_len * 2] = 0; // NULL terminate
 
 	// Hours
 	memcpy(str + offset, time_str, 2);
@@ -2044,6 +2271,45 @@ static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...)
 	// Advance iterator
 	itr->ptr += str_len;
 	itr->len -= str_len;
+
+	// NULL terminate string list
+	*itr->ptr = 0;
+}
+
+static void emv_str_list_add_data(
+	struct str_itr_t* itr,
+	const char* str,
+	const void* data,
+	size_t data_len
+)
+{
+	size_t str_len;
+
+	str_len = strlen(str);
+
+	// Ensure that the iterator has enough space for the string, the data,
+	// the delimiter, and the NULL termination
+	if (itr->len < str_len + (data_len * 2) + 2) {
+		return;
+	}
+
+	// Populate string
+	memcpy(itr->ptr, str, str_len);
+	itr->ptr += str_len;
+	itr->len -= str_len;
+
+	// Populate data
+	for (size_t i = 0; i < data_len; ++i) {
+		const uint8_t* d = data + i;
+		snprintf(itr->ptr, 3, "%02X", *d);
+		itr->ptr += 2;
+		itr->len -= 2;
+	}
+
+	// Delimiter
+	*itr->ptr = '\n';
+	++itr->ptr;
+	--itr->len;
 
 	// NULL terminate string list
 	*itr->ptr = 0;
@@ -2436,6 +2702,108 @@ int emv_addl_term_caps_get_string_list(
 	return 0;
 }
 
+static int emv_app_preferred_name_get_string(
+	const uint8_t* buf,
+	size_t buf_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	char app_preferred_name[16 + 1]; // Ensure enough space for NULL termination
+	unsigned int issuer_code_table = 0;
+
+	if (!buf || !buf_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	// Application Preferred Name is limited to non-control characters defined
+	// in the ISO/IEC 8859 part designated in the Issuer Code Table
+	// See EMV 4.4 Book 1, 4.3
+	// See EMV 4.4 Book 4, Annex B
+
+	// Copy only non-control characters
+	memset(app_preferred_name, 0, sizeof(app_preferred_name));
+	r = emv_format_ans_to_non_control_str(
+		buf,
+		buf_len,
+		app_preferred_name,
+		sizeof(app_preferred_name)
+	);
+	if (r) {
+		return -2;
+	}
+
+	// If the Application Preferred Name (field 9F12) happens to be in the
+	// sources, use the Issuer Code Table (field 9F11) that precedes it. This
+	// assumes that the AEF and FCI responses typically provide these fields in
+	// a consistent order such that when multiple sets are decoded, it is a
+	// reasonable assumption that the Issuer Code Table (field 9F11) always
+	// precedes the Application Preferred Name (field 9F12).
+	if (sources) {
+		struct emv_tlv_sources_itr_t itr;
+		const struct emv_tlv_t* tlv;
+		unsigned int latest_issuer_code_table = 0;
+
+		r = emv_tlv_sources_itr_init(sources, &itr);
+		if (r) {
+			return -3;
+		}
+
+		while ((tlv = emv_tlv_sources_itr_next_const(&itr)) != NULL) {
+
+			if (tlv->tag == EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX &&
+				tlv->length == 1 &&
+				tlv->value[0] != 0
+			) {
+				// Remember latest Issuer Code Table (field 9F11)
+				latest_issuer_code_table = tlv->value[0];
+				continue;
+			}
+
+			if (tlv->tag == EMV_TAG_9F12_APPLICATION_PREFERRED_NAME &&
+				tlv->length == buf_len &&
+				memcmp(tlv->value, buf, buf_len) == 0
+			) {
+				// Choose latest Issuer Code Table (field 9F11)
+				issuer_code_table = latest_issuer_code_table;
+				break;
+			}
+		}
+	}
+	if (!issuer_code_table) {
+		// Default to ISO 8859 code page 1
+		issuer_code_table = 1;
+	}
+
+	// Convert ISO 8859 to UTF-8
+	r = iso8859_to_utf8(
+		issuer_code_table,
+		(const uint8_t*)app_preferred_name,
+		strlen(app_preferred_name),
+		str,
+		str_len
+	);
+	if (r) {
+		str[0] = 0;
+		if (r < 0) {
+			// Internal error
+			return -4;
+		} else {
+			// Parse error
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 int emv_aid_get_string(
 	const uint8_t* aid,
 	size_t aid_len,
@@ -2598,25 +2966,56 @@ int emv_asrpd_get_string_list(
 			return 2;
 		}
 
-		asrpd_id = (asrpd[0] << 8) + asrpd[1];
-		switch (asrpd_id) {
-			case EMV_ASRPD_ECSG:
-				emv_str_list_add(&itr, "European Cards Stakeholders Group");
-				break;
-
-			case EMV_ASRPD_TCEA:
-				emv_str_list_add(&itr, "Technical Cooperation ep2 Association");
-				break;
-
-			default:
-				emv_str_list_add(&itr, "Unknown ASRPD identifier");
-		}
+		// Extract entry ID
+		asrpd_id = (((uint16_t)asrpd[0]) << 8) + asrpd[1];
 
 		// Validate entry length
 		asrpd_entry_len = 2 + 1 + asrpd[2];
 		if (asrpd_entry_len > asrpd_len) {
 			// Invalid ASRPD length
 			return 3;
+		}
+
+		// Decode ASRPD entry
+		switch (asrpd_id) {
+			case EMV_ASRPD_ECSG:
+				emv_str_list_add(&itr, "European Cards Stakeholders Group");
+				if (asrpd[2] == 0) {
+					// No data
+					break;
+				}
+				// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Application Selection Registered Proprietary Data
+				switch (asrpd[3]) {
+					case 0x01: emv_str_list_add(&itr, "Debit"); break;
+					case 0x02: emv_str_list_add(&itr, "Credit"); break;
+					case 0x03: emv_str_list_add(&itr, "Commercial"); break;
+					case 0x04: emv_str_list_add(&itr, "Prepaid"); break;
+					default: emv_str_list_add(&itr, "Unknown product type"); break;
+				}
+				break;
+
+			case EMV_ASRPD_TCEA:
+				emv_str_list_add(&itr, "Technical Cooperation ep2 Association");
+				if (asrpd[2] == 0) {
+					// No data
+					break;
+				}
+				// See Technical Cooperation ep2, March 24, 2020 (V.2.0)
+				switch (asrpd[3]) {
+					case 0x01: emv_str_list_add(&itr, "Debit"); break;
+					case 0x02: emv_str_list_add(&itr, "Credit"); break;
+					case 0x03: emv_str_list_add(&itr, "Commercial"); break;
+					case 0x04: emv_str_list_add(&itr, "Pre-paid"); break;
+					default: emv_str_list_add(&itr, "Unknown product type"); break;
+				}
+				break;
+
+			case EMV_ASRPD_UGSI:
+				emv_str_list_add(&itr, "Universal Global Scientific Industrial");
+				break;
+
+			default:
+				emv_str_list_add(&itr, "Unknown ASRPD identifier");
 		}
 
 		// Advance
@@ -2649,7 +3048,7 @@ int emv_aip_get_string_list(
 
 	// Application Interchange Profile (field 82) byte 1
 	// See EMV 4.4 Book 3, Annex C1, Table 41
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.16
 	if (aip[0] & EMV_AIP_XDA_SUPPORTED) {
 		emv_str_list_add(&itr, "Extended Data Authentication (XDA) is supported");
 	}
@@ -2676,8 +3075,8 @@ int emv_aip_get_string_list(
 	}
 
 	// Application Interchange Profile (field 82) byte 2
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.16
-	// See EMV Contactless Book C-3 v2.10, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.16
+	// See EMV Contactless Book C-3 v2.11, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
 	if (aip[1] & EMV_AIP_EMV_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Contactless EMV mode is supported");
 	}
@@ -3552,6 +3951,670 @@ int emv_cvm_results_get_string_list(
 		default:
 			emv_str_list_add(&itr, "CVM Result: %u", cvmresults[2]);
 			break;
+	}
+
+	return 0;
+}
+
+static int emv_decrypt_issuer_pkey(
+	const uint8_t* issuer_cert,
+	size_t issuer_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	const struct emv_capk_t** capk,
+	struct emv_rsa_issuer_pkey_t* pkey
+)
+{
+	int r;
+	struct emv_capk_itr_t capk_itr;
+
+	// Try all available CAPKs to decrypt issuer public key certificate
+	r = emv_capk_itr_init(&capk_itr);
+	if (r) {
+		return -2;
+	}
+	while ((*capk = emv_capk_itr_next(&capk_itr)) != NULL) {
+		r = emv_rsa_retrieve_issuer_pkey(
+			issuer_cert,
+			issuer_cert_len,
+			*capk,
+			NULL,
+			NULL,
+			pkey
+		);
+		if (r < 0) {
+			// Failed to decrypt issuer public key certificate
+			// Try next CAPK
+			continue;
+		}
+
+		// Issuer public certificate decrypted but public key not yet
+		// retrieved or validated
+		struct emv_tlv_sources_itr_t remainder_itr;
+		const struct emv_tlv_t* remainder_tlv = NULL;
+
+		// Try all instances of Issuer Public Key Remainder (field 92) but
+		// first try without it in case it is not needed
+		r = emv_tlv_sources_itr_init(sources, &remainder_itr);
+		if (r) {
+			return -2;
+		}
+		do {
+			struct emv_tlv_list_t icc = EMV_TLV_LIST_INIT;
+			struct emv_tlv_list_t params = EMV_TLV_LIST_INIT;
+
+			// Prepare additional data for full retrieval and validation
+			emv_tlv_list_push(&icc, EMV_TAG_5A_APPLICATION_PAN, sizeof(pkey->issuer_id), pkey->issuer_id, 0);
+			if (remainder_tlv) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER,
+					remainder_tlv->length,
+					remainder_tlv->value,
+					0
+				);
+			}
+			if (pkey->exponent_len == 1) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT,
+					1,
+					(uint8_t[]){ 0x03 },
+					0
+				);
+			} else if (pkey->exponent_len == 3) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT,
+					3,
+					(uint8_t[]){ 0x01, 0x00, 0x01 },
+					0
+				);
+			}
+			// Assume the oldest possible transaction date (1950-01-01)
+			emv_tlv_list_push(&params, EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]){ 0x50, 0x01, 0x01 }, 0);
+
+			// Attempt retrieval and validation
+			r = emv_rsa_retrieve_issuer_pkey(
+				issuer_cert,
+				issuer_cert_len,
+				*capk,
+				&icc,
+				&params,
+				pkey
+			);
+			// Always clear lists
+			emv_tlv_list_clear(&icc);
+			emv_tlv_list_clear(&params);
+			if (r) {
+				// Issuer public key retrieval or validation failed
+				// Try next Issuer Public Key Remainder (field 92)
+				continue;
+			}
+
+			// Issuer public key retrieved and validated
+			return 0;
+
+		} while (
+			(remainder_tlv = emv_tlv_sources_itr_find_next_const(
+				&remainder_itr,
+				EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER)
+			) != NULL
+		);
+
+		// Issuer public key certificate decrypted but public key
+		// retrieval or validation failed
+		return 0;
+	}
+
+	// Failed to decrypt issuer public key certificate
+	return 2;
+}
+
+static int emv_decrypt_ssad(
+	const uint8_t* ssad,
+	size_t ssad_len,
+	const struct emv_tlv_sources_t* sources,
+	struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	struct emv_rsa_ssad_t* data
+)
+{
+	int r;
+	struct emv_tlv_sources_itr_t itr;
+	const struct emv_tlv_t* tlv;
+	const struct emv_capk_t* capk;
+
+	// Try all instances of Issuer Public Key Certificate (field 90) to decrypt
+	// the Signed Static Application Data (SSAD)
+	r = emv_tlv_sources_itr_init(sources, &itr);
+	if (r) {
+		return -3;
+	}
+	while (
+		(tlv = emv_tlv_sources_itr_find_next_const(
+			&itr,
+			EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE)
+		) != NULL
+	) {
+		r = emv_decrypt_issuer_pkey(
+			tlv->value,
+			tlv->length,
+			sources,
+			&capk,
+			issuer_pkey
+		);
+		if (r) {
+			// Failed to decrypt Issuer Public Key Certificate (field 90)
+			continue;
+		}
+
+		r = emv_rsa_retrieve_ssad(
+			ssad,
+			ssad_len,
+			issuer_pkey,
+			NULL,
+			data
+		);
+		if (r < 0) {
+			// Failed to decrypt SSAD
+			// Try next Issuer Public Key Certificate (field 90)
+			continue;
+		}
+
+		// SSAD decrypted
+		return 0;
+	}
+
+	// Failed to decrypt SSAD
+	return 3;
+}
+
+static int emv_decrypt_icc_pkey(
+	const uint8_t* icc_cert,
+	size_t icc_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	struct emv_rsa_issuer_pkey_t* issuer_pkey,
+	struct emv_rsa_icc_pkey_t* icc_pkey
+)
+{
+	int r;
+	struct emv_tlv_sources_itr_t itr;
+	const struct emv_tlv_t* tlv;
+	const struct emv_capk_t* capk;
+
+	// Try all instances of Issuer Public Key Certificate (field 90) to decrypt
+	// the ICC Public Key Certificate
+	r = emv_tlv_sources_itr_init(sources, &itr);
+	if (r) {
+		return -4;
+	}
+	while (
+		(tlv = emv_tlv_sources_itr_find_next_const(
+			&itr,
+			EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE)
+		) != NULL
+	) {
+		r = emv_decrypt_issuer_pkey(
+			tlv->value,
+			tlv->length,
+			sources,
+			&capk,
+			issuer_pkey
+		);
+		if (r) {
+			// Failed to decrypt Issuer Public Key Certificate (field 90)
+			continue;
+		}
+
+		r = emv_rsa_retrieve_icc_pkey(
+			icc_cert,
+			icc_cert_len,
+			issuer_pkey,
+			NULL,
+			NULL,
+			NULL,
+			icc_pkey
+		);
+		if (r < 0) {
+			// Failed to decrypt ICC Public Key Certificate
+			// Try next Issuer Public Key Certificate (field 90)
+			continue;
+		}
+
+		// ICC Public Key Certificate decrypted but public key
+		// retrieval or validation failed
+		return 0;
+	}
+
+	// Failed to decrypt ICC Public Key Certificate
+	return 4;
+}
+
+static int emv_decrypt_sdad(
+	const uint8_t* sdad,
+	size_t sdad_len,
+	const struct emv_tlv_sources_t* sources,
+	struct emv_rsa_icc_pkey_t* icc_pkey,
+	struct emv_rsa_sdad_t* data
+)
+{
+	int r;
+	struct emv_tlv_sources_itr_t itr;
+	const struct emv_tlv_t* tlv;
+	struct emv_rsa_issuer_pkey_t issuer_pkey;
+
+	// Try all instances of ICC Public Key Certificate (field 9F46) to decrypt
+	// the Signed Dynamic Application Data (SDAD)
+	r = emv_tlv_sources_itr_init(sources, &itr);
+	if (r) {
+		return -5;
+	}
+	while (
+		(tlv = emv_tlv_sources_itr_find_next_const(
+			&itr,
+			EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE)
+		) != NULL
+	) {
+		r = emv_decrypt_icc_pkey(
+			tlv->value,
+			tlv->length,
+			sources,
+			&issuer_pkey,
+			icc_pkey
+		);
+		if (r) {
+			// Failed to decrypt ICC Public Key Certificate (field 9F46)
+			continue;
+		}
+
+		// ICC Public Key Certificate (field 9F46) decrypted but public key not
+		// yet retrieved or validated
+		struct emv_tlv_sources_itr_t remainder_itr;
+		const struct emv_tlv_t* remainder_tlv = NULL;
+
+		// Try all instances of ICC Public Key Remainder (field 9F48) but first
+		// try without it in case it is not needed
+		r = emv_tlv_sources_itr_init(sources, &remainder_itr);
+		if (r) {
+			return -5;
+		}
+		do {
+			struct emv_tlv_list_t icc = EMV_TLV_LIST_INIT;
+			struct emv_tlv_list_t params = EMV_TLV_LIST_INIT;
+
+			// Prepare additional data for full retrieval and validation
+			emv_tlv_list_push(&icc, EMV_TAG_5A_APPLICATION_PAN, sizeof(icc_pkey->pan), icc_pkey->pan, 0);
+			if (remainder_tlv) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER,
+					remainder_tlv->length,
+					remainder_tlv->value,
+					0
+				);
+			}
+			if (icc_pkey->exponent_len == 1) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT,
+					1,
+					(uint8_t[]){ 0x03 },
+					0
+				);
+			} else if (icc_pkey->exponent_len == 3) {
+				emv_tlv_list_push(
+					&icc,
+					EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT,
+					3,
+					(uint8_t[]){ 0x01, 0x00, 0x01 },
+					0
+				);
+			}
+			// Assume the oldest possible transaction date (1950-01-01)
+			emv_tlv_list_push(&params, EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]){ 0x50, 0x01, 0x01 }, 0);
+
+			// Attempt retrieval and validation
+			r = emv_rsa_retrieve_icc_pkey(
+				tlv->value,
+				tlv->length,
+				&issuer_pkey,
+				&icc,
+				&params,
+				NULL,
+				icc_pkey
+			);
+			// Always clear lists
+			emv_tlv_list_clear(&icc);
+			emv_tlv_list_clear(&params);
+			if (r != 10) {
+				// ICC public key retrieval unexpectedly failed
+				// Try next ICC Public Key Remainder (field 9F48)
+				continue;
+			}
+
+			// Attempt SDAD decryption
+			r = emv_rsa_retrieve_sdad(
+				sdad,
+				sdad_len,
+				icc_pkey,
+				NULL,
+				0,
+				data
+			);
+			if (r != 1) {
+				// SDAD decryption failed
+				// Try next ICC Public Key Remainder (field 9F48)
+				continue;
+			}
+
+			// SDAD decrypted
+			return 0;
+
+		} while (
+			(remainder_tlv = emv_tlv_sources_itr_find_next_const(
+				&remainder_itr,
+				EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER)
+			) != NULL
+		);
+
+		// Try next ICC Public Key Certificate (field 9F46)
+	}
+
+	// Failed to decrypt SDAD
+	return 5;
+}
+
+static const char* emv_oda_format_get_string(uint8_t format)
+{
+	switch (format) {
+		case EMV_RSA_FORMAT_ISSUER_CERT:
+			// See EMV 4.4 Book 2, 5.3, table 6
+			// See EMV 4.4 Book 2, 6.3, table 13
+			return "Issuer Public Key Certificate using RSA";
+
+		case EMV_RSA_FORMAT_SSAD:
+			// See EMV 4.4 Book 2, 5.4, table 7
+			return "Signed Static Application Data using RSA";
+
+		case EMV_RSA_FORMAT_ICC_CERT:
+			// See EMV 4.4 Book 2, 6.4, table 14
+			return "ICC Public Key Certificate using RSA";
+
+		case EMV_RSA_FORMAT_SDAD:
+			// See EMV 4.4 Book 2, 6.5.2, table 17
+			// See EMV 4.4 Book 2, 6.6.2, table 22
+			return "Signed Dynamic Application Data using RSA";
+
+		default:
+			return "Unknown";
+	}
+}
+
+static const char* emv_pkey_hash_alg_get_string(uint8_t hash_id)
+{
+	// See EMV 4.4 Book 2, Annex B2.3, table 47
+	switch (hash_id) {
+		case EMV_PKEY_HASH_SHA1: return "SHA-1";
+		case EMV_PKEY_HASH_SHA256: return "SHA-256";
+		case EMV_PKEY_HASH_SHA512: return "SHA-512";
+		case EMV_PKEY_HASH_SHA3_256: return "SHA3-256";
+		case EMV_PKEY_HASH_SHA3_512: return "SHA3-512";
+		case EMV_PKEY_HASH_SM3: return "SM3";
+		default: return "Unknown";
+	}
+}
+
+static const char* emv_pkey_sig_alg_get_string(uint8_t alg_id)
+{
+	// See EMV 4.4 Book 2, Annex B2.4.1, table 48
+	switch (alg_id) {
+		case EMV_PKEY_SIG_RSA_SHA1: return "RSA/SHA-1";
+		case EMV_PKEY_SIG_ECSDSA_SHA256_P256: return "EC-SDSA/SHA-256/P-256";
+		case EMV_PKEY_SIG_ECSDSA_SHA512_P521: return "EC-SDSA/SHA-512/P-521";
+		case EMV_PKEY_SIG_ECSDSA_SHA3_256_P256: return "EC-SDSA/SHA3-256/P-256";
+		case EMV_PKEY_SIG_ECSDSA_SHA3_512_P521: return "EC-SDSA/SHA3-512/P-521";
+		case EMV_PKEY_SIG_SM2DSA_SM3_SM2P256: return "SM2-DSA/SM3/SM2-P256";
+		default: return "Unknown";
+	}
+}
+
+int emv_issuer_cert_get_string_list(
+	const uint8_t* issuer_cert,
+	size_t issuer_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+	const struct emv_capk_t* capk;
+	struct emv_rsa_issuer_pkey_t pkey;
+
+	if (!issuer_cert || !issuer_cert_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (issuer_cert_len < 64) {
+		// Issuer Public Key Certificate (field 90) must be at least 512 bits for RSA
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	r = emv_decrypt_issuer_pkey(
+		issuer_cert,
+		issuer_cert_len,
+		sources,
+		&capk,
+		&pkey
+	);
+	if (r) {
+		return r;
+	}
+
+	emv_str_list_add(&str_itr, "Retrieved using CAPK %02X%02X%02X%02X%02X #%02X",
+		capk->rid[0], capk->rid[1], capk->rid[2], capk->rid[3], capk->rid[4],
+		capk->index
+	);
+	emv_str_list_add(&str_itr, "Certificate Format: %02X (%s)",
+		pkey.format, emv_oda_format_get_string(pkey.format)
+	);
+	emv_str_list_add_data(&str_itr, "Issuer Identifier: ",
+		pkey.issuer_id, sizeof(pkey.issuer_id)
+	);
+	emv_str_list_add(&str_itr, "Certificate Expiration (MM/YY): %02X/%02X", pkey.cert_exp[0], pkey.cert_exp[1]);
+	emv_str_list_add_data(&str_itr, "Certificate Serial Number: ",
+		pkey.cert_sn, sizeof(pkey.cert_sn)
+	);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X (%s)",
+		pkey.hash_id, emv_pkey_hash_alg_get_string(pkey.hash_id)
+	);
+	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X (%s)",
+		pkey.alg_id, emv_pkey_sig_alg_get_string(pkey.alg_id)
+	);
+	emv_str_list_add(&str_itr, "Public Key Length: %u bytes / %u bits", pkey.modulus_len, ((unsigned int)pkey.modulus_len)*8);
+	emv_str_list_add(&str_itr, "Public Key Exponent Length: %u bytes", pkey.exponent_len);
+
+	return 0;
+}
+
+int emv_ssad_get_string_list(
+	const uint8_t* ssad,
+	size_t ssad_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+	struct emv_rsa_issuer_pkey_t issuer_pkey;
+	struct emv_rsa_ssad_t data;
+
+	if (!ssad || !ssad_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (ssad_len < 64) {
+		// Signed Static Application Data (field 93) must be at least 512 bits for RSA
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	r = emv_decrypt_ssad(
+		ssad,
+		ssad_len,
+		sources,
+		&issuer_pkey,
+		&data
+	);
+	if (r) {
+		return r;
+	}
+
+	emv_str_list_add_data(&str_itr, "Retrieved using issuer certificate ",
+		issuer_pkey.cert_sn, sizeof(issuer_pkey.cert_sn)
+	);
+	emv_str_list_add(&str_itr, "Signed Data Format: %02X (%s)",
+		data.format, emv_oda_format_get_string(data.format)
+	);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X (%s)",
+		data.hash_id, emv_pkey_hash_alg_get_string(data.hash_id)
+	);
+	emv_str_list_add_data(&str_itr, "Data Authentication Code: ",
+		data.data_auth_code, sizeof(data.data_auth_code)
+	);
+
+	return 0;
+}
+
+int emv_icc_cert_get_string_list(
+	const uint8_t* icc_cert,
+	size_t icc_cert_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+	struct emv_rsa_issuer_pkey_t issuer_pkey;
+	struct emv_rsa_icc_pkey_t icc_pkey;
+	char pan_str[21]; // 20 digits + NULL termination
+
+	if (!icc_cert || !icc_cert_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (icc_cert_len < 64) {
+		// ICC Public Key Certificate (field 9F46) must be at least 512 bits for RSA
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	r = emv_decrypt_icc_pkey(
+		icc_cert,
+		icc_cert_len,
+		sources,
+		&issuer_pkey,
+		&icc_pkey
+	);
+	if (r) {
+		return r;
+	}
+	r = emv_format_cn_get_string(icc_pkey.pan, sizeof(icc_pkey.pan), pan_str, sizeof(pan_str));
+	if (r) {
+		// Empty string on error
+		pan_str[0] = 0;
+	}
+
+	emv_str_list_add_data(&str_itr, "Retrieved using issuer certificate ",
+		issuer_pkey.cert_sn, sizeof(issuer_pkey.cert_sn)
+	);
+	emv_str_list_add(&str_itr, "Certificate Format: %02X (%s)",
+		icc_pkey.format, emv_oda_format_get_string(icc_pkey.format)
+	);
+	emv_str_list_add(&str_itr, "Application PAN: %s", pan_str);
+	emv_str_list_add(&str_itr, "Certificate Expiration (MM/YY): %02X/%02X", icc_pkey.cert_exp[0], icc_pkey.cert_exp[1]);
+	emv_str_list_add_data(&str_itr, "Certificate Serial Number: ",
+		icc_pkey.cert_sn, sizeof(icc_pkey.cert_sn)
+	);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X (%s)",
+		icc_pkey.hash_id, emv_pkey_hash_alg_get_string(icc_pkey.hash_id)
+	);
+	emv_str_list_add(&str_itr, "Public Key Algorithm Indicator: %02X (%s)",
+		icc_pkey.alg_id, emv_pkey_sig_alg_get_string(icc_pkey.alg_id)
+	);
+	emv_str_list_add(&str_itr, "Public Key Length: %u bytes / %u bits", icc_pkey.modulus_len, ((unsigned int)icc_pkey.modulus_len)*8);
+	emv_str_list_add(&str_itr, "Public Key Exponent Length: %u bytes", icc_pkey.exponent_len);
+
+	return 0;
+}
+
+int emv_sdad_get_string_list(
+	const uint8_t* sdad,
+	size_t sdad_len,
+	const struct emv_tlv_sources_t* sources,
+	char* str,
+	size_t str_len
+)
+{
+	int r;
+	struct str_itr_t str_itr;
+	struct emv_rsa_icc_pkey_t icc_pkey;
+	struct emv_rsa_sdad_t data;
+	bool other_sdad_fields_exist = false;
+
+	if (!sdad || !sdad_len || !str || !str_len) {
+		return -1;
+	}
+
+	if (sdad_len < 64) {
+		// Signed Dynamic Application Data (field 9F4B) must be at least 512 bits for RSA
+		return 1;
+	}
+
+	emv_str_list_init(&str_itr, str, str_len);
+
+	r = emv_decrypt_sdad(
+		sdad,
+		sdad_len,
+		sources,
+		&icc_pkey,
+		&data
+	);
+	if (r) {
+		return r;
+	}
+
+	emv_str_list_add_data(&str_itr, "Retrieved using ICC certificate ",
+		icc_pkey.cert_sn, sizeof(icc_pkey.cert_sn)
+	);
+	emv_str_list_add(&str_itr, "Signed Data Format: %02X (%s)",
+		data.format,
+		emv_oda_format_get_string(data.format)
+	);
+	emv_str_list_add(&str_itr, "Hash Algorithm Indicator: %02X (%s)",
+		data.hash_id, emv_pkey_hash_alg_get_string(data.hash_id)
+	);
+	if (data.icc_dynamic_number_len) {
+		emv_str_list_add_data(&str_itr, "ICC Dynamic Number: ",
+			data.icc_dynamic_number, data.icc_dynamic_number_len
+		);
+	}
+	for (size_t i = 0; i < sizeof(data.cryptogram); ++i) {
+		if (data.cryptogram[i]) {
+			other_sdad_fields_exist = true;
+			break;
+		}
+	}
+	if (other_sdad_fields_exist) {
+		emv_str_list_add(&str_itr, "Cryptogram Information Data: %02X", data.cid);
+		emv_str_list_add_data(&str_itr, "Application Cryptogram: ",
+			data.cryptogram, sizeof(data.cryptogram)
+		);
 	}
 
 	return 0;
@@ -4839,6 +5902,127 @@ int emv_terminal_risk_management_data_get_string_list(
 	return 0;
 }
 
+int emv_mastercard_app_caps_info_get_string_list(
+	const uint8_t* aci,
+	size_t aci_len,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!aci || !aci_len) {
+		return -1;
+	}
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	if (aci_len != 3) {
+		// Mastercard Application Capabilities Information (field 9F5D) must be 3 bytes
+		return 1;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 1
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	switch (aci[0] & MASTERCARD_ACI_VERSION_MASK) {
+		case MASTERCARD_ACI_VERSION_0:
+			emv_str_list_add(&itr, "Application Capabilities Information: Version 0");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Application Capabilities Information: Unknown version %u",
+				(aci[0] & MASTERCARD_ACI_VERSION_MASK) >> MASTERCARD_ACI_VERSION_SHIFT
+			);
+			break;
+	}
+	switch (aci[0] & MASTERCARD_ACI_DATA_STORAGE_VERSION_MASK) {
+		case MASTERCARD_ACI_DATA_STORAGE_NOT_SUPPORTED:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage not supported");
+			break;
+
+		case MASTERCARD_ACI_DATA_STORAGE_VERSION_1:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage Version 1");
+			break;
+
+		case MASTERCARD_ACI_DATA_STORAGE_VERSION_2:
+			emv_str_list_add(&itr, "Application Capabilities Information: Data Storage Version 2");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Application Capabilities Information: Unknown Data Storage Version %u",
+				(aci[0] & MASTERCARD_ACI_DATA_STORAGE_VERSION_MASK)
+			);
+			break;
+	}
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 2
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	if (aci[1] & MASTERCARD_ACI_BYTE2_RFU) {
+		emv_str_list_add(&itr, "Application Capabilities Information: RFU");
+	}
+	if (aci[1] & MASTERCARD_ACI_FIELD_OFF_DETECTION_SUPPORTED) {
+		emv_str_list_add(&itr, "Application Capabilities Information: Support for field off detection");
+	} else {
+		emv_str_list_add(&itr, "Application Capabilities Information: Field off detection not supported");
+	}
+	if (aci[1] & MASTERCARD_ACI_CDA_TC_ARQC_AAC) {
+		emv_str_list_add(&itr, "Application Capabilities Information: CDA supported over TC, ARQC and AAC");
+	} else {
+		emv_str_list_add(&itr, "Application Capabilities Information: CDA supported as in EMV");
+	}
+
+	// Mastercard Application Capabilities Information (field 9F5D) byte 3
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	switch (aci[2]) {
+		case MASTERCARD_ACI_SDS_UNDEFINED:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: Undefined SDS configuration");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_32:
+			emv_str_list_add(&itr, "tandalone Data Storage (SDS) Scheme: All 10 tags 32 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_48:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 48 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_64:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 64 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_96:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 96 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_128:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 128 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_160:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 160 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_10_192:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All 10 tags 192 bytes");
+			break;
+
+		case MASTERCARD_ACI_SDS_32:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: All All SDS tags 32 bytes except '9F78' which is 64 bytes");
+			break;
+
+		default:
+			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: Unknown SDS configuration");
+			break;
+	}
+
+	return 0;
+}
+
 int emv_ttq_get_string_list(
 	const uint8_t* ttq,
 	size_t ttq_len,
@@ -4865,7 +6049,7 @@ int emv_ttq_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 1
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
 	if (ttq[0] & EMV_TTQ_MAGSTRIPE_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Mag-stripe mode supported");
 	} else {
@@ -4906,7 +6090,8 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 2
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
 	if (ttq[1] & EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED) {
 		emv_str_list_add(&itr, "Online cryptogram required");
 	} else {
@@ -4922,13 +6107,26 @@ int emv_ttq_get_string_list(
 	} else {
 		emv_str_list_add(&itr, "(Contact Chip) Offline PIN not supported");
 	}
+	if (ttq[1] & EMV_TTQ_FAST_MODE_SUPPORTED) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Fast Mode supported");
+	}
+	if (ttq[1] & EMV_TTQ_TRANSIT_TERMINAL) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Transit terminal");
+	}
 	if (ttq[1] & EMV_TTQ_BYTE2_RFU) {
 		emv_str_list_add(&itr, "RFU");
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 3
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-	// See EMV Contactless Book C-6 v2.6, Annex D.11
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+	// See EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16 (NOTE: for byte 3 bit 4)
 	if (ttq[2] & EMV_TTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED) {
 		emv_str_list_add(&itr, "Issuer Update Processing supported");
 	} else {
@@ -4939,10 +6137,16 @@ int emv_ttq_get_string_list(
 	} else {
 		emv_str_list_add(&itr, "Consumer Device CVM not supported");
 	}
+	if (ttq[2] & EMV_TTQ_CDCVM_FOR_TRANSIT_MCC_SUPPORTED) {
+		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
+		emv_str_list_add(&itr, "Consumer Device CVM for transit MCC supported");
+	}
 	if (ttq[2] & EMV_TTQ_CDCVM_REQUIRED) {
-		// NOTE: Only EMV Contactless Book C-6 v2.6, Annex D.11 defines this
-		// bit and it avoids confusion for other kernels if no string is
-		// provided when this bit is unset
+		// NOTE: Only EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16
+		// defines this bit and it avoids confusion for other kernels if no
+		// string is provided when this bit is unset
 		emv_str_list_add(&itr, "Consumer Device CVM required");
 	}
 	if (ttq[2] & EMV_TTQ_BYTE3_RFU) {
@@ -4950,10 +6154,10 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 4
-	// See EMV Contactless Book A v2.10, 5.7, Table 5-4
-	// See EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1
+	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1
 	if (ttq[3] & EMV_TTQ_FDDA_V1_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-7 v2.9, 3.2.2, Table 3-1 does not
+		// NOTE: EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1 does not
 		// specify a string when this bit is not set and it avoids confusion
 		// for other kernels if no string is provided when this bit is unset
 		emv_str_list_add(&itr, "fDDA v1.0 Supported");
@@ -4991,8 +6195,8 @@ int emv_ctq_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Card Transaction Qualifiers (field 9F6C) byte 1
-	// See EMV Contactless Book C-3 v2.10, Annex A.2
-	// See EMV Contactless Book C-7 v2.9, Annex A
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-7 v2.11, Annex A
 	if (ctq[0] & EMV_CTQ_ONLINE_PIN_REQUIRED) {
 		emv_str_list_add(&itr, "Online PIN Required");
 	}
@@ -5020,8 +6224,8 @@ int emv_ctq_get_string_list(
 	}
 
 	// Card Transaction Qualifiers (field 9F6C) byte 2
-	// See EMV Contactless Book C-3 v2.10, Annex A.2
-	// See EMV Contactless Book C-7 v2.9, Annex A
+	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-7 v2.11, Annex A
 	if (ctq[1] & EMV_CTQ_CDCVM_PERFORMED) {
 		emv_str_list_add(&itr, "Consumer Device CVM Performed");
 	}
@@ -5047,7 +6251,7 @@ int emv_amex_cl_reader_caps_get_string(
 	}
 
 	// Amex Contactless Reader Capabilities (field 9F6D)
-	// See EMV Contactless Book C-4 v2.10, 4.3.3, Table 4-2
+	// See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
 	switch (cl_reader_caps & AMEX_CL_READER_CAPS_MASK) {
 		case AMEX_CL_READER_CAPS_DEPRECATED:
 			strncpy(str, "Deprecated", str_len - 1);
@@ -5055,27 +6259,27 @@ int emv_amex_cl_reader_caps_get_string(
 			return 0;
 
 		case AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED:
-			strncpy(str, "Mag-stripe CVM Not Required", str_len - 1);
+			strncpy(str, "Contactless Mag-stripe CVM Not Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED:
-			strncpy(str, "Mag-stripe CVM Required", str_len - 1);
+			strncpy(str, "Contactless Mag-stripe CVM Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED:
-			strncpy(str, "Deprecated - EMV and Mag-stripe", str_len - 1);
+			strncpy(str, "Deprecated - Contactless EMV and Mag-stripe", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED:
-			strncpy(str, "EMV and Mag-stripe CVM Not Required", str_len - 1);
+			strncpy(str, "Contactless EMV and Mag-stripe CVM Not Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
 		case AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED:
-			strncpy(str, "EMV and Mag-stripe CVM Required", str_len - 1);
+			strncpy(str, "Contactless EMV and Mag-stripe CVM Required", str_len - 1);
 			str[str_len - 1] = 0;
 			return 0;
 
@@ -5176,8 +6380,8 @@ int emv_mastercard_third_party_data_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Mastercard Third Party Data (field 9F6E)
-	// See EMV Contactless Book C-2 v2.10, Annex A.1.171
-	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 12
+	// See EMV Contactless Book C-2 v2.11, Annex A.1.165
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 14
 	tpd_ptr = tpd;
 
 	// First two byte are the ISO 3166-1 numeric country code
@@ -5254,13 +6458,13 @@ int emv_mastercard_third_party_data_get_string_list(
 	}
 
 	// Decode Mastercard Product Extension
-	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 13
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 15
 	if (is_product_extension) {
 		// Extract Product Identifier
 		uint16_t product_identifier = (tpd_ptr[0] << 8) + tpd_ptr[1];
 		if (product_identifier == 0x0001) {
 			// Product Extension for Fleet Cards
-			// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 14
+			// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 16
 			emv_str_list_add(&itr, "Product Identifier: Fleet Card");
 
 			// Product Extension for Fleet Cards has length 8
@@ -5309,7 +6513,7 @@ int emv_mastercard_third_party_data_get_string_list(
 
 		if (product_identifier == 0x0002) {
 			// Product Extension for Transit
-			// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Chapter 5, Third Party Data, Table 15
+			// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 17
 			emv_str_list_add(&itr, "Product Identifier: Transit");
 
 			// Product Extension for Transit has length 5
@@ -5467,7 +6671,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_CONTACT_SUPPORTED) {
 		emv_str_list_add(&itr, "Contact mode supported");
 	}
@@ -5491,7 +6695,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[1] & AMEX_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED) {
 		emv_str_list_add(&itr, "Mobile CVM supported");
 	}
@@ -5509,7 +6713,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[2] & AMEX_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER) {
 		emv_str_list_add(&itr, "Reader is offline only");
 	}
@@ -5521,7 +6725,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	}
 
 	// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
-	// See EMV Contactless Book C-4 v2.10, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM) {
 		emv_str_list_add(&itr, "Terminal exempt from No CVM checks");
 	}
@@ -5537,7 +6741,7 @@ int emv_amex_enh_cl_reader_caps_get_string_list(
 	switch (enh_cl_reader_caps[3] & AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_MASK) {
 		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_22_23: emv_str_list_add(&itr, "C-4 kernel version 2.2 - 2.3"); break;
 		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26: emv_str_list_add(&itr, "C-4 kernel version 2.4 - 2.6"); break;
-		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7"); break;
+		case AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7 or later"); break;
 		default: emv_str_list_add(&itr, "C-4 kernel version unknown"); break;
 	}
 
@@ -5702,6 +6906,12 @@ static const struct {
 	{ "9D", "Bank not found" },
 	{ "9E", "Bank not effective" },
 	{ "9F", "Information not on file" },
+
+	// See EMV 4.4 Book 4, Annex A6, table 35
+	{ "Y1", "Offline approved" },
+	{ "Z1", "Offline declined" },
+	{ "Y3", "Unable to go online, offline approved" },
+	{ "Z3", "Unable to go online, offline declined" },
 };
 
 static const char* emv_arc_get_desc(const char* arc)
@@ -5938,6 +7148,46 @@ int emv_issuer_auth_data_get_string_list(
 	return 0;
 }
 
+static int emv_capdu_genac_get_string(
+	const uint8_t* c_apdu,
+	size_t c_apdu_len,
+	char* str,
+	size_t str_len
+)
+{
+	const char* genac_type_str;
+	const char* genac_sig_str;
+
+	if (c_apdu_len < 4 ||
+		(c_apdu[0] & ISO7816_CLA_PROPRIETARY) == 0 ||
+		c_apdu[1] != 0xAE
+	) {
+		// Not GENERATE AC
+		return -4;
+	}
+
+	// P1 represents reference control parameter
+	// See EMV 4.4 Book 3, 6.5.5.2, table 12
+	switch (c_apdu[2] & EMV_TTL_GENAC_TYPE_MASK) {
+		case EMV_TTL_GENAC_TYPE_AAC: genac_type_str = "AAC"; break;
+		case EMV_TTL_GENAC_TYPE_TC: genac_type_str = "TC"; break;
+		case EMV_TTL_GENAC_TYPE_ARQC: genac_type_str = "ARQC"; break;
+		default: genac_type_str = "unknown cryptogram"; break;
+	}
+	switch (c_apdu[2] & EMV_TTL_GENAC_SIG_MASK) {
+		case EMV_TTL_GENAC_SIG_NONE: genac_sig_str = "no signature"; break;
+		case EMV_TTL_GENAC_SIG_CDA: genac_sig_str = "CDA signature"; break;
+		case EMV_TTL_GENAC_SIG_XDA: genac_sig_str = "XDA signature"; break;
+		default: genac_sig_str = "unknown signature"; break;
+	}
+
+	snprintf(str, str_len, "GENERATE AC for %s with %s",
+		genac_type_str,
+		genac_sig_str
+	);
+	return 0;
+}
+
 static int emv_capdu_get_data_get_string(
 	const uint8_t* c_apdu,
 	size_t c_apdu_len,
@@ -5945,11 +7195,12 @@ static int emv_capdu_get_data_get_string(
 	size_t str_len
 )
 {
-	if ((c_apdu[0] & ISO7816_CLA_PROPRIETARY) == 0 ||
+	if (c_apdu_len < 4 ||
+		(c_apdu[0] & ISO7816_CLA_PROPRIETARY) == 0 ||
 		c_apdu[1] != 0xCA
 	) {
 		// Not GET DATA
-		return -3;
+		return -4;
 	}
 
 	// P1-P2 represents EMV field to retrieve
@@ -5968,6 +7219,10 @@ int emv_capdu_get_string(
 	if (!c_apdu || !c_apdu_len) {
 		return -1;
 	}
+	if (c_apdu_len < 4) {
+		// Invalid C-APDU length
+		return -2;
+	}
 
 	if (!str || !str_len) {
 		// Caller didn't want the value string
@@ -5979,7 +7234,7 @@ int emv_capdu_get_string(
 	if (str_len < 4) {
 		// C-APDU must be least 4 bytes
 		// See EMV Contact Interface Specification v1.0, 9.4.1
-		return -2;
+		return -3;
 	}
 
 	if (c_apdu[0] == 0xFF) {
@@ -6002,7 +7257,7 @@ int emv_capdu_get_string(
 			// See EMV 4.4 Book 3, 6.5.3.2
 			case 0x16: ins_str = "CARD BLOCK"; break;
 			// See EMV 4.4 Book 3, 6.5.5.2
-			case 0xAE: ins_str = "GENERATE AC"; break;
+			case 0xAE: return emv_capdu_genac_get_string(c_apdu, c_apdu_len, str, str_len);
 			// See EMV 4.4 Book 3, 6.5.7.2
 			case 0xCA: return emv_capdu_get_data_get_string(c_apdu, c_apdu_len, str, str_len);
 			// See EMV 4.4 Book 3, 6.5.8.2

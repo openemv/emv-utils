@@ -2,7 +2,7 @@
  * @file emvtreeitem.h
  * @brief QTreeWidgetItem derivative that represents an EMV field
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,13 +32,41 @@ static const int EmvTreeItemType = 8825;
 class EmvTreeItem : public QTreeWidgetItem
 {
 public:
+	/**
+	 * Constructor for a tree item that represents a TLV field with a possible
+	 * value string, for example an EMV field.
+	 */
 	EmvTreeItem(
 		QTreeWidgetItem* parent,
 		unsigned int srcOffset,
 		unsigned int srcLength,
 		const struct iso8825_tlv_t* tlv,
-		bool decode = true,
+		bool decodeFields = true,
+		bool decodeObjects = true,
 		bool autoExpand = true
+	);
+
+	/**
+	 * Constructor for a tree item that represents a non-TLV field with a
+	 * static name and no value string, for example non-TLV padding.
+	 */
+	EmvTreeItem(
+		QTreeWidgetItem* parent,
+		unsigned int srcOffset,
+		unsigned int srcLength,
+		QString str,
+		const void* value
+	);
+
+	/**
+	 * Constructor for a tree item that represents a TLV field's value bytes.
+	 * Note that this will reuse the parent item's name and description.
+	 */
+	EmvTreeItem(
+		EmvTreeItem* parent,
+		unsigned int srcOffset,
+		unsigned int srcLength,
+		const void* value
 	);
 
 	unsigned int srcOffset() const { return m_srcOffset; }
@@ -46,12 +74,15 @@ public:
 	QString tagName() const { return m_tagName; }
 	QString tagDescription() const { return m_tagDescription; }
 
+	bool hideWhenDecodingObject() const { return m_hideWhenDecodingObject; }
+	void setHideWhenDecodingObject(bool enabled) { m_hideWhenDecodingObject = enabled; }
+
 private:
 	void deleteChildren();
 
 public:
-	void render(bool showDecoded);
-	void setTlv(const struct iso8825_tlv_t* tlv, bool decode);
+	void render(bool showDecodedFields, bool showDecodedObjects);
+	void setTlv(const struct iso8825_tlv_t* tlv);
 
 private:
 	unsigned int m_srcOffset;
@@ -61,6 +92,9 @@ private:
 	bool m_constructed;
 	QString m_simpleFieldStr;
 	QString m_decodedFieldStr;
+	QString m_decodedObjectStr;
+	bool m_hideByDefault;
+	bool m_hideWhenDecodingObject;
 };
 
 #endif

@@ -2,21 +2,20 @@
  * @file emv-decode.c
  * @brief Simple EMV decoding tool
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2025 Leon Lynch
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this program. If not, see
- * <https://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "emv.h"
@@ -27,11 +26,18 @@
 #include "iso8859.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <argp.h>
+
+#ifdef _WIN32
+// For _setmode
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 // Helper functions
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
@@ -46,7 +52,7 @@ static size_t arg_str_len = 0;
 
 // Decoding modes
 enum emv_decode_mode_t {
-	EMV_DECODE_NONE = 0,
+	EMV_DECODE_NONE = -255, // Negative value to avoid short options
 	EMV_DECODE_ATR,
 	EMV_DECODE_SW1SW2,
 	EMV_DECODE_BER,
@@ -88,12 +94,18 @@ enum emv_decode_mode_t {
 	EMV_DECODE_ISO8859_13,
 	EMV_DECODE_ISO8859_14,
 	EMV_DECODE_ISO8859_15,
+	EMV_DECODE_IGNORE_PADDING,
+	EMV_DECODE_VERBOSE,
 	EMV_DECODE_VERSION,
+	EMV_DECODE_OVERRIDE_ISOCODES_PATH,
 	EMV_DECODE_OVERRIDE_MCC_JSON,
 };
 static enum emv_decode_mode_t emv_decode_mode = EMV_DECODE_NONE;
+static bool ignore_padding = false;
+static bool verbose = false;
 
 // Testing parameters
+static char* isocodes_path = NULL;
 static char* mcc_json = NULL;
 
 // argp option structure
@@ -164,9 +176,13 @@ static struct argp_option argp_options[] = {
 	{ "iso8859-14", EMV_DECODE_ISO8859_14, NULL, OPTION_HIDDEN },
 	{ "iso8859-15", EMV_DECODE_ISO8859_15, NULL, OPTION_HIDDEN },
 
+	{ "ignore-padding", EMV_DECODE_IGNORE_PADDING, NULL, 0, "Ignore invalid data if the input aligns with either the DES or AES cipher block size and invalid data is less than the cipher block size. Only applies to --ber and --tlv" },
+	{ "verbose", EMV_DECODE_VERBOSE, NULL, 0, "Enable verbose output. This will prevent the truncation of content bytes for longer fields. Only applies to --ber and --tlv" },
+
 	{ "version", EMV_DECODE_VERSION, NULL, 0, "Display emv-utils version" },
 
-	// Hidden option for testing
+	// Hidden options for testing
+	{ "isocodes-path", EMV_DECODE_OVERRIDE_ISOCODES_PATH, "path", OPTION_HIDDEN, "Override directory path of iso-codes JSON files" },
 	{ "mcc-json", EMV_DECODE_OVERRIDE_MCC_JSON, "path", OPTION_HIDDEN, "Override path of mcc-codes JSON file" },
 
 	{ 0 },
@@ -303,6 +319,21 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			return 0;
 		}
 
+		case EMV_DECODE_IGNORE_PADDING: {
+			ignore_padding = true;
+			return 0;
+		}
+
+		case EMV_DECODE_VERBOSE: {
+			verbose = true;
+			return 0;
+		}
+
+		case EMV_DECODE_OVERRIDE_ISOCODES_PATH: {
+			isocodes_path = strdup(arg);
+			return 0;
+		}
+
 		case EMV_DECODE_OVERRIDE_MCC_JSON: {
 			mcc_json = strdup(arg);
 			return 0;
@@ -344,6 +375,10 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 			str[str_idx++] = *hex;
 			++hex;
 		}
+		if (!str_idx) {
+			// No hex digits left
+			continue;
+		}
 		if (str_idx != 2) {
 			// Uneven number of hex digits
 			return 1;
@@ -370,6 +405,10 @@ static void* load_from_file(FILE* file, size_t* len)
 		*len = 0;
 		return NULL;
 	}
+
+#ifdef _WIN32
+	_setmode(_fileno(file), _O_BINARY);
+#endif
 
 	do {
 		// Grow buffer
@@ -405,13 +444,15 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	r = emv_strings_init(NULL, mcc_json);
+	print_set_verbose(verbose);
+
+	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
 		return 2;
 	}
 	if (r > 0) {
-		fprintf(stderr, "Failed to find iso-codes data; currency, country and language lookups will not be possible\n");
+		fprintf(stderr, "Failed to load iso-codes data or mcc-codes data; currency, country, language or MCC lookups may not be possible\n");
 	}
 
 	switch (emv_decode_mode) {
@@ -454,12 +495,22 @@ int main(int argc, char** argv)
 		}
 
 		case EMV_DECODE_BER: {
-			print_ber_buf(data, data_len, "  ", 0);
+			print_ber_buf(data, data_len, "  ", 0, ignore_padding);
 			break;
 		}
 
 		case EMV_DECODE_TLV: {
-			print_emv_buf(data, data_len, "  ", 0);
+			// Cache all available fields for better output
+			struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+			const struct emv_tlv_sources_t sources = { 1, { &list } };
+			emv_tlv_parse(data, data_len, &list);
+			print_set_sources(&sources);
+
+			// Actual output
+			print_emv_buf(data, data_len, "  ", 0, ignore_padding);
+
+			// Cleanup
+			emv_tlv_list_clear(&list);
 			break;
 		}
 
@@ -888,7 +939,10 @@ int main(int argc, char** argv)
 		}
 
 		case EMV_DECODE_ISO8859_X:
+		case EMV_DECODE_IGNORE_PADDING:
+		case EMV_DECODE_VERBOSE:
 		case EMV_DECODE_VERSION:
+		case EMV_DECODE_OVERRIDE_ISOCODES_PATH:
 		case EMV_DECODE_OVERRIDE_MCC_JSON:
 			// Implemented in argp_parser_helper()
 			break;
@@ -899,6 +953,9 @@ int main(int argc, char** argv)
 	}
 	if (arg_str) {
 		free(arg_str);
+	}
+	if (isocodes_path) {
+		free(isocodes_path);
 	}
 	if (mcc_json) {
 		free(mcc_json);

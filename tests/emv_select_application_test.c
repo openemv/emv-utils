@@ -2,7 +2,7 @@
  * @file emv_select_application_test.c
  * @brief Unit tests for EMV application selection
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -204,7 +204,7 @@ int main(void)
 
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
-		EMV_DEBUG_CARD,
+		EMV_DEBUG_LEVEL_CARD,
 		&print_emv_debug
 	);
 	if (r) {
@@ -478,7 +478,7 @@ int main(void)
 	// Silence debugging logs for rebuilding candidate application list
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_NONE,
-		EMV_DEBUG_NONE,
+		EMV_DEBUG_LEVEL_NONE,
 		NULL
 	);
 	if (r) {
@@ -527,7 +527,7 @@ int main(void)
 	// Reset debuggin logs
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
-		EMV_DEBUG_CARD,
+		EMV_DEBUG_LEVEL_CARD,
 		&print_emv_debug
 	);
 	if (r) {

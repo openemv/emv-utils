@@ -2,7 +2,7 @@
  * @file emv-viewer.cpp
  * @brief Simple EMV data viewer using Qt
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024-2025 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
  */
 
 #include <QtWidgets/QApplication>
+#include <QtCore/QByteArray>
 #include <QtCore/QCommandLineParser>
 #include <QtCore/QString>
 #include <QtCore/QStringLiteral>
@@ -26,6 +27,42 @@
 #include "emv_viewer_config.h"
 #include "emv_strings.h"
 #include "emv-viewer-mainwindow.h"
+
+#include <cstddef>
+#include <cstdio>
+
+#ifdef _WIN32
+// For _setmode
+#include <fcntl.h>
+#include <io.h>
+#endif
+
+static QString readHexStringFromStdin()
+{
+	QByteArray data;
+
+#ifdef _WIN32
+	_setmode(_fileno(stdin), _O_BINARY);
+#endif
+
+	// Read stdin using std::fread() instead of std::cin to avoid conflicts
+	// between different C++ runtimes when packaging for Windows.
+	do {
+		char buf[1024];
+		std::size_t len;
+
+		// Read next block
+		len = std::fread(buf, 1, sizeof(buf), stdin);
+		if (std::ferror(stdin)) {
+			break;
+		}
+
+		data.append(buf, len);
+	} while (!std::feof(stdin));
+
+	// Convert binary data to uppercase hex string
+	return data.toHex().toUpper().constData();
+}
 
 int main(int argc, char** argv)
 {
@@ -77,7 +114,13 @@ int main(int argc, char** argv)
 	}
 
 	QString ber = parser.value("ber");
+	if (ber.simplified() == "-") { // If option value is "-"
+		ber = readHexStringFromStdin();
+	}
 	QString tlv = parser.value("tlv");
+	if (tlv.simplified() == "-") { // If option value is "-"
+		tlv = readHexStringFromStdin();
+	}
 	QString overrideData;
 	int overrideDecodeCheckBoxState = -1;
 	if (!ber.isEmpty()) {
