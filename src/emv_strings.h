@@ -150,7 +150,10 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  * - @ref EMV_TAG_9F12_APPLICATION_PREFERRED_NAME depends on
  *   @ref EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX
  *
- * @note @c value_str output will be empty if human readable string is not available
+ * @note Strings in @c info.tag_desc may contain @c \\n for line breaks and
+ * @c \\n\\n for paragraph breaks.
+ * @note @c value_str output will be empty if a human readable string is not
+ * available.
  *
  * @param tlv Decoded EMV TLV structure
  * @param sources EMV TLV sources to use during decoding. NULL to ignore.
