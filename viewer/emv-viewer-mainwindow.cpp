@@ -315,7 +315,7 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 				QStringLiteral("<b>") +
 				etItem->tagName() +
 				QStringLiteral("</b><br/><br/>") +
-				etItem->tagDescription()
+				etItem->tagDescription().toHtmlEscaped().replace('\n', QStringLiteral("<br/>"))
 			);
 
 			// Let description scroll to top after updating content
