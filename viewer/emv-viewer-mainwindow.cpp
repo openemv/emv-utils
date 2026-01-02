@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.cpp
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,8 +32,6 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
 #include <QtGui/QDesktopServices>
-
-#include <cctype>
 
 EmvViewerMainWindow::EmvViewerMainWindow(
 	QWidget* parent,
@@ -185,60 +183,21 @@ void EmvViewerMainWindow::displayLegal()
 	});
 }
 
-void EmvViewerMainWindow::parseData()
+void EmvViewerMainWindow::updateTreeView()
 {
 	QString str;
-	int validLen;
-	QByteArray data;
-	unsigned int validBytes;
 
 	str = dataEdit->toPlainText();
 	if (str.isEmpty()) {
 		treeView->clear();
 		return;
 	}
-
-	// Remove all whitespace from hex string
-	str = str.simplified().remove(' ');
-	validLen = str.length();
-
-	// Ensure that hex string contains only hex digits
-	for (int i = 0; i < validLen; ++i) {
-		if (!std::isxdigit(str[i].unicode())) {
-			// Only parse up to invalid digit
-			validLen = i;
-			break;
-		}
-	}
-
-	// Ensure that hex string has even number of digits
-	if (validLen & 0x01) {
-		// Odd number of digits. Ignore last digit to see whether parsing can
-		// proceed regardless and indicate invalid data later.
-		validLen -= 1;
-	}
-
-	data = QByteArray::fromHex(str.left(validLen).toUtf8());
-	validBytes = treeView->populateItems(data);
-	validLen = validBytes * 2;
-
-	if (validLen < str.length()) {
-		// Remaining data is invalid and unlikely to be padding
-		QTreeWidgetItem* item = new QTreeWidgetItem(
-			treeView->invisibleRootItem(),
-			QStringList(
-				QStringLiteral("Remaining invalid data: ") +
-				str.right(str.length() - validLen)
-			)
-		);
-		item->setDisabled(true);
-		item->setForeground(0, Qt::red);
-	}
+	treeView->populateItems(str);
 }
 
 void EmvViewerMainWindow::on_updateTimer_timeout()
 {
-	parseData();
+	updateTreeView();
 }
 
 void EmvViewerMainWindow::on_dataEdit_textChanged()
@@ -278,7 +237,7 @@ void EmvViewerMainWindow::on_paddingCheckBox_stateChanged(int state)
 
 	// Note that tree view data must be reparsed when padding state changes
 	treeView->setIgnorePadding(state != Qt::Unchecked);
-	parseData();
+	updateTreeView();
 }
 
 void EmvViewerMainWindow::on_decodeFieldsCheckBox_stateChanged(int state)

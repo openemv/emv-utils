@@ -2,7 +2,7 @@
  * @file emvtreeview.cpp
  * @brief QTreeWidget derivative for viewing EMV data
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,8 @@
 #include "iso8825_ber.h"
 
 #include <QtWidgets/QTreeWidgetItemIterator>
+
+#include <cctype>
 
 EmvTreeView::EmvTreeView(QWidget* parent)
 : QTreeWidget(parent)
@@ -151,6 +153,58 @@ void EmvTreeView::clear()
 {
 	EmvTlvInfo::clearDefaultSources();
 	QTreeWidget::clear();
+}
+
+unsigned int EmvTreeView::populateItems(const QString& dataStr)
+{
+	QString str;
+	int validLen;
+	QByteArray data;
+	unsigned int validBytes;
+
+	if (dataStr.isEmpty()) {
+		clear();
+		return 0;
+	}
+
+	// Remove all whitespace from hex string
+	str = dataStr.simplified().remove(' ');
+	validLen = str.length();
+
+	// Ensure that hex string contains only hex digits
+	for (int i = 0; i < validLen; ++i) {
+		if (!std::isxdigit(str[i].unicode())) {
+			// Only parse up to invalid digit
+			validLen = i;
+			break;
+		}
+	}
+
+	// Ensure that hex string has even number of digits
+	if (validLen & 0x01) {
+		// Odd number of digits. Ignore last digit to see whether parsing can
+		// proceed regardless and indicate invalid data later.
+		validLen -= 1;
+	}
+
+	data = QByteArray::fromHex(str.left(validLen).toUtf8());
+	validBytes = populateItems(data);
+	validLen = validBytes * 2;
+
+	if (validLen < str.length()) {
+		// Remaining data is invalid and unlikely to be padding
+		QTreeWidgetItem* item = new QTreeWidgetItem(
+			invisibleRootItem(),
+			QStringList(
+				QStringLiteral("Remaining invalid data: ") +
+				str.right(str.length() - validLen)
+			)
+		);
+		item->setDisabled(true);
+		item->setForeground(0, Qt::red);
+	}
+
+	return validBytes;
 }
 
 unsigned int EmvTreeView::populateItems(const QByteArray& data)

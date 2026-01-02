@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.h
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ private:
 	void saveSettings() const;
 	void displayLegal();
 
-	void parseData();
+	void updateTreeView();
 
 private slots: // connect-by-name helper functions
 	void on_updateTimer_timeout();
