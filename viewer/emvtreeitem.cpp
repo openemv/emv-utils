@@ -2,7 +2,7 @@
  * @file emvtreeitem.cpp
  * @brief QTreeWidgetItem derivative that represents an EMV field
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -490,4 +490,46 @@ static QTreeWidgetItem* addValueRaw(
 	valueItem->setForeground(0, Qt::darkGray);
 
 	return valueItem;
+}
+
+static QString toClipboardText(
+	const QTreeWidgetItem* item,
+	const QString& prefix,
+	unsigned int depth,
+	bool processChildren
+)
+{
+	QString str;
+	QString indent;
+
+	if (!item || item->isHidden()) {
+		return QString();
+	}
+
+	for (unsigned int i = 0; i < depth; ++i) {
+		indent += prefix;
+	}
+
+	QString itemText = item->text(0);
+	QStringList lines = itemText.split('\n');
+	for (int i = 0; i < lines.size(); ++i) {
+		str += indent + lines[i] + "\n";
+	}
+
+	// Recursively process all children (string list, DOL, tag list, raw, etc)
+	if (processChildren) {
+		for (int i = 0; i < item->childCount(); ++i) {
+			str += ::toClipboardText(item->child(i), prefix, depth + 1, true);
+		}
+	}
+
+	return str;
+}
+
+QString EmvTreeItem::toClipboardText(const QString& prefix, unsigned int depth) const
+{
+	// Children of primitive fields are part of the rendering of the primitive
+	// field and should be added to the clipboard text. Omit children of
+	// constructed fields because they are separate fields.
+	return ::toClipboardText(this, prefix, depth, !m_constructed);
 }

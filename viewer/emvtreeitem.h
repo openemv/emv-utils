@@ -2,7 +2,7 @@
  * @file emvtreeitem.h
  * @brief QTreeWidgetItem derivative that represents an EMV field
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -83,6 +83,7 @@ private:
 public:
 	void render(bool showDecodedFields, bool showDecodedObjects);
 	void setTlv(const struct iso8825_tlv_t* tlv);
+	QString toClipboardText(const QString& prefix, unsigned int depth) const;
 
 private:
 	unsigned int m_srcOffset;
