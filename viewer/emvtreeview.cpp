@@ -272,3 +272,63 @@ void EmvTreeView::setDecodeObjects(bool enabled)
 		++itr;
 	}
 }
+
+static QString toClipboardText(
+	const QTreeWidgetItem* item,
+	const QString& prefix,
+	unsigned int depth
+)
+{
+	QString str;
+	QString indent;
+
+	if (!item || item->isHidden()) {
+		return QString();
+	}
+
+	for (unsigned int i = 0; i < depth; ++i) {
+		indent += prefix;
+	}
+
+	QString itemText = item->text(0);
+	QStringList lines = itemText.split('\n');
+	for (int i = 0; i < lines.size(); ++i) {
+		str += indent + lines[i] + "\n";
+	}
+
+	for (int i = 0; i < item->childCount(); ++i) {
+		str += ::toClipboardText(item->child(i), prefix, depth + 1);
+	}
+
+	return str;
+}
+
+QString EmvTreeView::toClipboardText(
+	const QString& prefix,
+	unsigned int depth
+) const
+{
+	QString str;
+	const QTreeWidgetItem* item = invisibleRootItem();
+
+	// Children are iterated here instead of passing invisibleRootItem()
+	// directly to ::toClipboardText() because the invisible root has no depth
+	// and therefore the children should start at the current depth
+	for (int i = 0; i < item->childCount(); ++i) {
+		str += ::toClipboardText(item->child(i), prefix, depth);
+	}
+
+	return str;
+}
+
+QString EmvTreeView::toClipboardText(const QTreeWidgetItem* item, const QString& prefix, unsigned int depth) const
+{
+	QString str;
+	QString indent;
+
+	if (!item) {
+		return toClipboardText(prefix, depth);
+	}
+
+	return ::toClipboardText(item, prefix, depth);
+}

@@ -35,6 +35,10 @@ class EmvTreeView : public QTreeWidget
 public:
 	EmvTreeView(QWidget* parent);
 
+	bool ignorePadding() const { return m_ignorePadding; }
+	bool decodeFields() const { return m_decodeFields; }
+	bool decodeObjects() const { return m_decodeObjects; }
+
 public slots:
 	void clear();
 	unsigned int populateItems(const QString& dataStr);
@@ -44,9 +48,8 @@ public slots:
 	void setDecodeObjects(bool enabled);
 
 public:
-	bool ignorePadding() const { return m_ignorePadding; }
-	bool decodeFields() const { return m_decodeFields; }
-	bool decodeObjects() const { return m_decodeObjects; }
+	QString toClipboardText(const QString& prefix, unsigned int depth) const;
+	QString toClipboardText(const QTreeWidgetItem* item, const QString& prefix, unsigned int depth) const;
 
 private:
 	bool m_ignorePadding = false;
