@@ -31,6 +31,7 @@ class EmvTreeView : public QTreeWidget
 	Q_PROPERTY(bool ignorePadding READ ignorePadding WRITE setIgnorePadding)
 	Q_PROPERTY(bool decodeFields READ decodeFields WRITE setDecodeFields)
 	Q_PROPERTY(bool decodeObjects READ decodeObjects WRITE setDecodeObjects)
+	Q_PROPERTY(bool copyButtonEnabled READ copyButtonEnabled WRITE setCopyButtonEnabled)
 
 public:
 	EmvTreeView(QWidget* parent);
@@ -38,6 +39,10 @@ public:
 	bool ignorePadding() const { return m_ignorePadding; }
 	bool decodeFields() const { return m_decodeFields; }
 	bool decodeObjects() const { return m_decodeObjects; }
+	bool copyButtonEnabled() const { return m_copyButtonEnabled; }
+
+protected:
+	virtual void currentChanged(const QModelIndex& current, const QModelIndex& previous) override;
 
 public slots:
 	void clear();
@@ -46,6 +51,7 @@ public slots:
 	void setIgnorePadding(bool enabled) { m_ignorePadding = enabled; }
 	void setDecodeFields(bool enabled);
 	void setDecodeObjects(bool enabled);
+	void setCopyButtonEnabled(bool enabled) { m_copyButtonEnabled = enabled; }
 
 public:
 	QString toClipboardText(const QString& prefix, unsigned int depth) const;
@@ -55,6 +61,7 @@ private:
 	bool m_ignorePadding = false;
 	bool m_decodeFields = true;
 	bool m_decodeObjects = false;
+	bool m_copyButtonEnabled = false;
 };
 
 #endif
