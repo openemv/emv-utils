@@ -65,6 +65,7 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	treeView->setIgnorePadding(paddingCheckBox->isChecked());
 	treeView->setDecodeFields(decodeFieldsCheckBox->isChecked());
 	treeView->setDecodeObjects(decodeObjectsCheckBox->isChecked());
+	treeView->setCopyButtonEnabled(true);
 
 	// Load previous UI values
 	loadSettings();
