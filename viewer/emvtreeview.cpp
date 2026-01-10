@@ -24,13 +24,99 @@
 
 #include "iso8825_ber.h"
 
+#include <QtCore/QSize>
+#include <QtCore/QTimer>
+#include <QtGui/QFontMetrics>
+#include <QtGui/QIcon>
+#include <QtWidgets/QHeaderView>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QTreeWidgetItemIterator>
 
 #include <cctype>
 
+class EmvTreeItemButton : public QPushButton
+{
+public:
+	EmvTreeItemButton(QWidget* parent)
+	: QPushButton(parent)
+	{
+		setFlat(true);
+	}
+
+	virtual QSize sizeHint() const override {
+		// Override sizeHint with font height to prevent single row items
+		// from expanding when the button is added
+		int textHeight = fontMetrics().height();
+		return QSize(16, textHeight);
+	}
+};
+
+class EmvTreeItemCopyButton : public EmvTreeItemButton {
+public:
+	EmvTreeItemCopyButton(QWidget* parent)
+	: EmvTreeItemButton(parent) {
+
+		QIcon icon = QIcon::fromTheme(QStringLiteral("edit-copy"));
+		if (!icon.isNull()) {
+			setIcon(icon);
+		} else {
+			// Use Unicode clipboard symbol as text when theme icon is not
+			// available
+			setText(QStringLiteral("\u2398"));
+		}
+
+		setToolTip(tr("Copy selected field to clipboard"));
+	}
+};
+
 EmvTreeView::EmvTreeView(QWidget* parent)
 : QTreeWidget(parent)
 {
+	// Defer header/column configuration until after UI file has been processed
+	// and columns exist
+	QTimer::singleShot(0, this, [this]() {
+		header()->setStretchLastSection(false);
+		header()->setSectionResizeMode(0, QHeaderView::Stretch);
+		header()->setSectionResizeMode(1, QHeaderView::Fixed);
+		setColumnWidth(1, 16);
+	});
+}
+
+void EmvTreeView::currentChanged(const QModelIndex& current, const QModelIndex& previous)
+{
+	QTreeWidget::currentChanged(current, previous);
+
+	// Clicking different columns in the same row selects different indexes of
+	// the same item
+	if (current.isValid() && previous.isValid() &&
+		itemFromIndex(current) == itemFromIndex(previous)
+	) {
+		return;
+	}
+
+	// Remove button from previous selected item
+	if (previous.isValid()) {
+		QTreeWidgetItem* previousItem = itemFromIndex(previous);
+		if (previousItem) {
+			QWidget* oldWidget = itemWidget(previousItem, 1);
+			if (oldWidget) {
+				// Removing the widget will also delete it although the Qt
+				// documentation does not mention this. It is likely because
+				// setItemWidget() takes ownership and then removeItemWidget()
+				// releases that ownership
+				removeItemWidget(previousItem, 1);
+			}
+		}
+	}
+
+	// Add button to current selected item
+	if (current.isValid() && m_copyButtonEnabled) {
+		QTreeWidgetItem* currentItem = itemFromIndex(current);
+		if (currentItem) {
+			EmvTreeItemCopyButton* button = new EmvTreeItemCopyButton(this);
+			setItemWidget(currentItem, 1, button);
+		}
+	}
 }
 
 static bool parseData(
