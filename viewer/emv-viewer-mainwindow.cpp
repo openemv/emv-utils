@@ -301,6 +301,12 @@ void EmvViewerMainWindow::on_treeView_itemCopyClicked(QTreeWidgetItem* item)
 	QApplication::clipboard()->setText(str);
 }
 
+void EmvViewerMainWindow::on_actionCopyAll_triggered()
+{
+	QString str = treeView->toClipboardText(QStringLiteral("  "), 0);
+	QApplication::clipboard()->setText(str);
+}
+
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)
 {
 	// Open link using external application
