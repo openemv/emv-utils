@@ -53,6 +53,9 @@ public slots:
 	void setDecodeObjects(bool enabled);
 	void setCopyButtonEnabled(bool enabled) { m_copyButtonEnabled = enabled; }
 
+signals:
+	void itemCopyClicked(QTreeWidgetItem* item);
+
 public:
 	QString toClipboardText(const QString& prefix, unsigned int depth) const;
 	QString toClipboardText(const QTreeWidgetItem* item, const QString& prefix, unsigned int depth) const;

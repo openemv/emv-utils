@@ -31,6 +31,7 @@
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
+#include <QtGui/QClipboard>
 #include <QtGui/QDesktopServices>
 
 EmvViewerMainWindow::EmvViewerMainWindow(
@@ -288,6 +289,16 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 	}
 
 	displayLegal();
+}
+
+void EmvViewerMainWindow::on_treeView_itemCopyClicked(QTreeWidgetItem* item)
+{
+	if (!item) {
+		return;
+	}
+
+	QString str = treeView->toClipboardText(item, QStringLiteral("  "), 0);
+	QApplication::clipboard()->setText(str);
 }
 
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)

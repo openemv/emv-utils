@@ -114,6 +114,9 @@ void EmvTreeView::currentChanged(const QModelIndex& current, const QModelIndex& 
 		QTreeWidgetItem* currentItem = itemFromIndex(current);
 		if (currentItem) {
 			EmvTreeItemCopyButton* button = new EmvTreeItemCopyButton(this);
+			connect(button, &QPushButton::clicked, this, [this, currentItem]() {
+				emit itemCopyClicked(currentItem);
+			});
 			setItemWidget(currentItem, 1, button);
 		}
 	}
