@@ -60,6 +60,7 @@ private slots: // connect-by-name helper functions
 	void on_decodeObjectsCheckBox_stateChanged(int state);
 	void on_treeView_itemPressed(QTreeWidgetItem* item, int column);
 	void on_treeView_itemCopyClicked(QTreeWidgetItem* item);
+	void on_actionCopyAll_triggered();
 	void on_descriptionText_linkActivated(const QString& link);
 
 protected:
