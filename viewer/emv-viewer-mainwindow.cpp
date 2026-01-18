@@ -31,8 +31,11 @@
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
+#include <QtWidgets/QStatusBar>
 #include <QtGui/QClipboard>
 #include <QtGui/QDesktopServices>
+
+static constexpr int STATUS_MESSAGE_TIMEOUT_MS = 2000; // Milliseconds
 
 EmvViewerMainWindow::EmvViewerMainWindow(
 	QWidget* parent,
@@ -252,6 +255,33 @@ void EmvViewerMainWindow::on_decodeObjectsCheckBox_stateChanged(int state)
 	treeView->setDecodeObjects(state != Qt::Unchecked);
 }
 
+void EmvViewerMainWindow::on_treeView_populateItemsCompleted(
+	unsigned int validBytes,
+	unsigned int fieldCount,
+	unsigned int invalidChars
+)
+{
+	QString msg;
+
+	if (validBytes == 0 && invalidChars == 0) {
+		// Empty input
+		return;
+	}
+
+	if (invalidChars > 0) {
+		msg = tr("Parsed %1 bytes: found %2 fields and %3 invalid characters")
+			.arg(validBytes)
+			.arg(fieldCount)
+			.arg(invalidChars);
+	} else {
+		msg = tr("Parsed %1 bytes: found %2 fields")
+			.arg(validBytes)
+			.arg(fieldCount);
+	}
+
+	QMainWindow::statusBar()->showMessage(msg);
+}
+
 void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int column)
 {
 	if (item->type() == EmvTreeItemType) {
@@ -299,12 +329,16 @@ void EmvViewerMainWindow::on_treeView_itemCopyClicked(QTreeWidgetItem* item)
 
 	QString str = treeView->toClipboardText(item, QStringLiteral("  "), 0);
 	QApplication::clipboard()->setText(str);
+
+	QMainWindow::statusBar()->showMessage(tr("Copied selected item to clipboard"), STATUS_MESSAGE_TIMEOUT_MS);
 }
 
 void EmvViewerMainWindow::on_actionCopyAll_triggered()
 {
 	QString str = treeView->toClipboardText(QStringLiteral("  "), 0);
 	QApplication::clipboard()->setText(str);
+
+	QMainWindow::statusBar()->showMessage(tr("Copied all items to clipboard"), STATUS_MESSAGE_TIMEOUT_MS);
 }
 
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)

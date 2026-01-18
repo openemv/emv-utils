@@ -129,7 +129,8 @@ static bool parseData(
 	bool ignorePadding,
 	bool decodeFields,
 	bool decodeObjects,
-	unsigned int* totalValidBytes
+	unsigned int* totalValidBytes,
+	unsigned int* totalFields
 )
 {
 	int r;
@@ -145,6 +146,8 @@ static bool parseData(
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
 		unsigned int fieldLength = r;
+
+		++*totalFields;
 
 		EmvTreeItem* item = new EmvTreeItem(
 			parent,
@@ -171,7 +174,8 @@ static bool parseData(
 				ignorePadding,
 				decodeFields,
 				decodeObjects,
-				totalValidBytes
+				totalValidBytes,
+				totalFields
 			);
 			if (!valid) {
 				qDebug("parseData() failed; totalValidBytes=%u", *totalValidBytes);
@@ -253,6 +257,7 @@ unsigned int EmvTreeView::populateItems(const QString& dataStr)
 
 	if (dataStr.isEmpty()) {
 		clear();
+		emit populateItemsCompleted(0, 0, 0);
 		return 0;
 	}
 
@@ -277,28 +282,16 @@ unsigned int EmvTreeView::populateItems(const QString& dataStr)
 	}
 
 	data = QByteArray::fromHex(str.left(validLen).toUtf8());
-	validBytes = populateItems(data);
-	validLen = validBytes * 2;
-
-	if (validLen < str.length()) {
-		// Remaining data is invalid and unlikely to be padding
-		QTreeWidgetItem* item = new QTreeWidgetItem(
-			invisibleRootItem(),
-			QStringList(
-				QStringLiteral("Remaining invalid data: ") +
-				str.right(str.length() - validLen)
-			)
-		);
-		item->setDisabled(true);
-		item->setForeground(0, Qt::red);
-	}
+	validBytes = populateItems(data, str.right(str.length() - validLen));
 
 	return validBytes;
 }
 
-unsigned int EmvTreeView::populateItems(const QByteArray& data)
+unsigned int EmvTreeView::populateItems(const QByteArray& data, const QString& invalidStr)
 {
 	unsigned int totalValidBytes = 0;
+	unsigned int totalFields = 0;
+	unsigned int invalidChars = 0;
 
 	// For now, clear the widget before repopulating it. In future, the widget
 	// should be updated incrementally instead.
@@ -314,8 +307,28 @@ unsigned int EmvTreeView::populateItems(const QByteArray& data)
 		m_ignorePadding,
 		m_decodeFields,
 		m_decodeObjects,
-		&totalValidBytes
+		&totalValidBytes,
+		&totalFields
 	);
+
+	if (totalValidBytes < static_cast<unsigned int>(data.length()) ||
+		invalidStr.length() != 0
+	) {
+		// Remaining data is invalid and unlikely to be padding
+		invalidChars = (data.length() - totalValidBytes) * 2 + invalidStr.length();
+		QTreeWidgetItem* item = new QTreeWidgetItem(
+			invisibleRootItem(),
+			QStringList(
+				QStringLiteral("Remaining invalid data: ") +
+				data.right(data.length() - totalValidBytes).toHex() +
+				invalidStr
+			)
+		);
+		item->setDisabled(true);
+		item->setForeground(0, Qt::red);
+	}
+
+	emit populateItemsCompleted(totalValidBytes, totalFields, invalidChars);
 
 	return totalValidBytes;
 }

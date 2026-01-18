@@ -47,7 +47,7 @@ protected:
 public slots:
 	void clear();
 	unsigned int populateItems(const QString& dataStr);
-	unsigned int populateItems(const QByteArray& data);
+	unsigned int populateItems(const QByteArray& data, const QString& invalidStr = QString());
 	void setIgnorePadding(bool enabled) { m_ignorePadding = enabled; }
 	void setDecodeFields(bool enabled);
 	void setDecodeObjects(bool enabled);
@@ -55,6 +55,7 @@ public slots:
 
 signals:
 	void itemCopyClicked(QTreeWidgetItem* item);
+	void populateItemsCompleted(unsigned int validBytes, unsigned int fieldCount, unsigned int invalidChars);
 
 public:
 	QString toClipboardText(const QString& prefix, unsigned int depth) const;

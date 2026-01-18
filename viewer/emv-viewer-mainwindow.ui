@@ -196,6 +196,7 @@
     </item>
    </layout>
   </widget>
+  <widget class="QStatusBar" name="statusBar"/>
   <action name="actionCopyAll">
    <property name="icon">
     <iconset theme="edit-copy"/>
