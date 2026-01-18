@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.cpp
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -293,7 +293,7 @@ void EmvViewerMainWindow::on_decodeObjectsCheckBox_stateChanged(int state)
 
 void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int column)
 {
-	if (item->type() == EmvTreeItemType) {
+	if (item && item->type() == EmvTreeItemType) {
 		EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
 
 		// Highlight selected item in input data. Note that rehighlight() will
