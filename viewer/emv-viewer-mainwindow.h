@@ -28,6 +28,8 @@
 
 // Forward declarations
 class QTimer;
+class QLineEdit;
+class QToolButton;
 class EmvHighlighter;
 
 class EmvViewerMainWindow : public QMainWindow, private Ui::MainWindow
@@ -62,11 +64,15 @@ private slots: // connect-by-name helper functions
 	void on_treeView_itemPressed(QTreeWidgetItem* item, int column);
 	void on_treeView_itemCopyClicked(QTreeWidgetItem* item);
 	void on_actionCopyAll_triggered();
+	void on_actionFind_triggered();
 	void on_descriptionText_linkActivated(const QString& link);
 
 protected:
 	QTimer* updateTimer;
 	EmvHighlighter* highlighter;
+	QLineEdit* searchLineEdit;
+	QToolButton* searchNextButton;
+	QToolButton* searchPreviousButton;
 };
 
 #endif

@@ -30,8 +30,11 @@
 #include <QtCore/QStringLiteral>
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QStatusBar>
+#include <QtGui/QIcon>
 #include <QtGui/QClipboard>
 #include <QtGui/QDesktopServices>
 
@@ -70,6 +73,42 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	treeView->setDecodeFields(decodeFieldsCheckBox->isChecked());
 	treeView->setDecodeObjects(decodeObjectsCheckBox->isChecked());
 	treeView->setCopyButtonEnabled(true);
+
+	// Add search widgets to the toolbar here instead of in the UI file because
+	// setupUi() always adds the actions to the toolbar at the end, making it
+	// impossible for the actions to appear before the search widgets
+
+	searchLineEdit = new QLineEdit(this);
+	searchLineEdit->setObjectName(QStringLiteral("searchLineEdit"));
+	searchLineEdit->setPlaceholderText(tr("Find in fields..."));
+	searchLineEdit->setClearButtonEnabled(true);
+	treeViewToolBar->addWidget(searchLineEdit);
+
+	searchPreviousButton = new QToolButton(this);
+	searchPreviousButton->setObjectName(QStringLiteral("searchPreviousButton"));
+	searchPreviousButton->setEnabled(false);
+	searchPreviousButton->setToolTip(tr("Jump to previous match (Shift+F3)"));
+	QIcon previousIcon = QIcon::fromTheme(QStringLiteral("go-up"));
+	if (!previousIcon.isNull()) {
+		searchPreviousButton->setIcon(previousIcon);
+	} else {
+		// Use Unicode up arrow as text when theme icon is not available
+		searchPreviousButton->setText(QStringLiteral("\u2191"));
+	}
+	treeViewToolBar->addWidget(searchPreviousButton);
+
+	searchNextButton = new QToolButton(this);
+	searchNextButton->setObjectName(QStringLiteral("searchNextButton"));
+	searchNextButton->setEnabled(false);
+	searchNextButton->setToolTip(tr("Jump to next match (F3)"));
+	QIcon nextIcon = QIcon::fromTheme(QStringLiteral("go-down"));
+	if (!nextIcon.isNull()) {
+		searchNextButton->setIcon(nextIcon);
+	} else {
+		// Use Unicode down arrow as text when theme icon is not available
+		searchNextButton->setText(QStringLiteral("\u2193"));
+	}
+	treeViewToolBar->addWidget(searchNextButton);
 
 	// Load previous UI values
 	loadSettings();
@@ -340,6 +379,12 @@ void EmvViewerMainWindow::on_actionCopyAll_triggered()
 	QApplication::clipboard()->setText(str);
 
 	QMainWindow::statusBar()->showMessage(tr("Copied all items to clipboard"), STATUS_MESSAGE_TIMEOUT_MS);
+}
+
+void EmvViewerMainWindow::on_actionFind_triggered()
+{
+	searchLineEdit->setFocus();
+	searchLineEdit->selectAll();
 }
 
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)
