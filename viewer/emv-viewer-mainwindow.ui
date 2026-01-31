@@ -218,7 +218,10 @@
     <string>Find</string>
    </property>
    <property name="toolTip">
-    <string>Find in fields</string>
+    <string>Find in fields (Ctrl+F)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+F</string>
    </property>
   </action>
  </widget>

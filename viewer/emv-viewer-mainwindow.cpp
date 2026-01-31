@@ -36,8 +36,15 @@
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QTreeWidgetItemIterator>
 #include <QtGui/QIcon>
+#include <QtGui/QKeyEvent>
 #include <QtGui/QClipboard>
 #include <QtGui/QDesktopServices>
+
+#if QT_VERSION_MAJOR >= 6
+#include <QtGui/QShortcut>
+#else
+#include <QtWidgets/QShortcut>
+#endif
 
 static constexpr int STATUS_MESSAGE_TIMEOUT_MS = 2000; // Milliseconds
 
@@ -123,6 +130,19 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	treeViewToolBar->addWidget(searchNextButton);
 	connect(searchNextButton, &QToolButton::clicked, this, &EmvViewerMainWindow::searchNext);
 
+	// Connect keyboard shortcuts for search functionality
+	QShortcut* f3Shortcut = new QShortcut(QKeySequence(Qt::Key_F3), this);
+	connect(f3Shortcut, &QShortcut::activated, this, &EmvViewerMainWindow::searchNext);
+	QShortcut* shiftF3Shortcut = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F3), this);
+	connect(shiftF3Shortcut, &QShortcut::activated, this, &EmvViewerMainWindow::searchPrevious);
+	QShortcut* ctrlGShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_G), this);
+	connect(ctrlGShortcut, &QShortcut::activated, this, &EmvViewerMainWindow::searchNext);
+	QShortcut* ctrlShiftGShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_G), this);
+	connect(ctrlShiftGShortcut, &QShortcut::activated, this, &EmvViewerMainWindow::searchPrevious);
+
+	// Install event filter on search field for Escape key
+	searchLineEdit->installEventFilter(this);
+
 	// Load previous UI values
 	loadSettings();
 
@@ -143,6 +163,20 @@ void EmvViewerMainWindow::closeEvent(QCloseEvent* event)
 	// Save current UI values
 	saveSettings();
 	event->accept();
+}
+
+bool EmvViewerMainWindow::eventFilter(QObject* obj, QEvent* event)
+{
+	if (obj == searchLineEdit && event->type() == QEvent::KeyPress) {
+		QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+		if (keyEvent->key() == Qt::Key_Escape) {
+			clearSearch();
+			treeView->setFocus();
+			return true;
+		}
+	}
+
+	return QMainWindow::eventFilter(obj, event);
 }
 
 void EmvViewerMainWindow::loadSettings()
