@@ -34,6 +34,7 @@
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QStatusBar>
+#include <QtWidgets/QTreeWidgetItemIterator>
 #include <QtGui/QIcon>
 #include <QtGui/QClipboard>
 #include <QtGui/QDesktopServices>
@@ -53,6 +54,13 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	updateTimer = new QTimer(this);
 	updateTimer->setObjectName(QStringLiteral("updateTimer"));
 	updateTimer->setSingleShot(true);
+
+	// Prepare timer used for search input updates. Do this before setupUi()
+	// calls QMetaObject::connectSlotsByName() to ensure that auto-connect
+	// works for on_searchTimer_timeout().
+	searchTimer = new QTimer(this);
+	searchTimer->setObjectName(QStringLiteral("searchTimer"));
+	searchTimer->setSingleShot(true);
 
 	// Setup UI widgets
 	setupUi(this);
@@ -83,6 +91,9 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	searchLineEdit->setPlaceholderText(tr("Find in fields..."));
 	searchLineEdit->setClearButtonEnabled(true);
 	treeViewToolBar->addWidget(searchLineEdit);
+	connect(searchLineEdit, &QLineEdit::textChanged, this, [this]() {
+		searchTimer->start(300);
+	});
 
 	searchPreviousButton = new QToolButton(this);
 	searchPreviousButton->setObjectName(QStringLiteral("searchPreviousButton"));
@@ -96,6 +107,7 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 		searchPreviousButton->setText(QStringLiteral("\u2191"));
 	}
 	treeViewToolBar->addWidget(searchPreviousButton);
+	connect(searchPreviousButton, &QToolButton::clicked, this, &EmvViewerMainWindow::searchPrevious);
 
 	searchNextButton = new QToolButton(this);
 	searchNextButton->setObjectName(QStringLiteral("searchNextButton"));
@@ -109,6 +121,7 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 		searchNextButton->setText(QStringLiteral("\u2193"));
 	}
 	treeViewToolBar->addWidget(searchNextButton);
+	connect(searchNextButton, &QToolButton::clicked, this, &EmvViewerMainWindow::searchNext);
 
 	// Load previous UI values
 	loadSettings();
@@ -237,11 +250,146 @@ void EmvViewerMainWindow::updateTreeView()
 		return;
 	}
 	treeView->populateItems(str);
+
+	if (!searchLineEdit->text().isEmpty()) {
+		// Restart search after tree update
+		startSearch();
+	}
+}
+
+void EmvViewerMainWindow::startSearch()
+{
+	// Reset search state
+	searchMatches.clear();
+	currentSearchIndex = -1;
+
+	QString searchText = searchLineEdit->text();
+	if (searchText.isEmpty()) {
+		updateSearchStatus();
+		return;
+	}
+
+	// Find all search matches and remember the first index after the
+	// currently selected item
+	QTreeWidgetItemIterator itr(treeView, QTreeWidgetItemIterator::NotHidden);
+	bool rememberNextIndex = false;
+	int firstSearchIndex = 0;
+	while (*itr) {
+		QTreeWidgetItem* item = *itr;
+		QString itemText = item->text(0);
+
+		if (item == treeView->currentItem()) {
+			rememberNextIndex = true;
+		}
+
+		if (itemText.contains(searchText, Qt::CaseInsensitive)) {
+			searchMatches.append(item);
+
+			if (rememberNextIndex) {
+				firstSearchIndex = searchMatches.size() - 1;
+				rememberNextIndex = false;
+			}
+		}
+
+		++itr;
+	}
+
+	updateSearchStatus();
+
+	if (!searchMatches.isEmpty()) {
+		selectSearchMatch(firstSearchIndex);
+	}
+}
+
+void EmvViewerMainWindow::searchNext()
+{
+	if (searchMatches.isEmpty()) {
+		return;
+	}
+
+	int nextSearchIndex = currentSearchIndex + 1;
+
+	if (nextSearchIndex >= searchMatches.size()) {
+		nextSearchIndex = 0;
+	}
+
+	selectSearchMatch(nextSearchIndex);
+}
+
+void EmvViewerMainWindow::searchPrevious()
+{
+	if (searchMatches.isEmpty()) {
+		return;
+	}
+
+	int prevSearchIndex = currentSearchIndex - 1;
+
+	if (prevSearchIndex < 0) {
+		prevSearchIndex = searchMatches.size() - 1;
+	}
+
+	selectSearchMatch(prevSearchIndex);
+}
+
+void EmvViewerMainWindow::selectSearchMatch(int index)
+{
+	QTreeWidgetItem* item;
+
+	if (index < 0 || index >= searchMatches.size()) {
+		return;
+	}
+	currentSearchIndex = index;
+	item = searchMatches.at(index);
+
+	// Expand parents to make match visible
+	QTreeWidgetItem* parent = item->parent();
+	while (parent) {
+		parent->setExpanded(true);
+		parent = parent->parent();
+	}
+
+	// Scroll to and select match
+	treeView->scrollToItem(item);
+	treeView->setCurrentItem(item);
+
+	updateSearchStatus();
+}
+
+void EmvViewerMainWindow::updateSearchStatus()
+{
+	bool hasMatches = !searchMatches.isEmpty();
+	bool hasSearchText = !searchLineEdit->text().isEmpty();
+
+	searchNextButton->setEnabled(hasMatches);
+	searchPreviousButton->setEnabled(hasMatches);
+
+	if (!hasSearchText) {
+		QMainWindow::statusBar()->clearMessage();
+	} else if (!hasMatches) {
+		QMainWindow::statusBar()->showMessage(tr("No matches found"));
+	} else {
+		QMainWindow::statusBar()->showMessage(
+			tr("Match %1 of %2").arg(currentSearchIndex + 1).arg(searchMatches.size())
+		);
+	}
+}
+
+void EmvViewerMainWindow::clearSearch()
+{
+	searchLineEdit->clear();
+	searchMatches.clear();
+	currentSearchIndex = -1;
+	QMainWindow::statusBar()->clearMessage();
 }
 
 void EmvViewerMainWindow::on_updateTimer_timeout()
 {
 	updateTreeView();
+}
+
+void EmvViewerMainWindow::on_searchTimer_timeout()
+{
+	startSearch();
 }
 
 void EmvViewerMainWindow::on_dataEdit_textChanged()

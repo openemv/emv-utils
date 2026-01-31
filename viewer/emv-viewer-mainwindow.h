@@ -53,8 +53,16 @@ private:
 
 	void updateTreeView();
 
+	void startSearch();
+	void searchNext();
+	void searchPrevious();
+	void selectSearchMatch(int index);
+	void updateSearchStatus();
+	void clearSearch();
+
 private slots: // connect-by-name helper functions
 	void on_updateTimer_timeout();
+	void on_searchTimer_timeout();
 	void on_dataEdit_textChanged();
 	void on_tagsCheckBox_stateChanged(int state);
 	void on_paddingCheckBox_stateChanged(int state);
@@ -69,10 +77,15 @@ private slots: // connect-by-name helper functions
 
 protected:
 	QTimer* updateTimer;
+	QTimer* searchTimer;
 	EmvHighlighter* highlighter;
 	QLineEdit* searchLineEdit;
 	QToolButton* searchNextButton;
 	QToolButton* searchPreviousButton;
+
+private: // Search state
+	QList<QTreeWidgetItem*> searchMatches;
+	int currentSearchIndex = -1;
 };
 
 #endif
