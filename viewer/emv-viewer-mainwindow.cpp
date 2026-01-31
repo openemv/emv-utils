@@ -312,6 +312,13 @@ void EmvViewerMainWindow::startSearch()
 		QTreeWidgetItem* item = *itr;
 		QString itemText = item->text(0);
 
+		if (searchDescriptionsCheckBox->isChecked() &&
+			item->type() == EmvTreeItemType
+		) {
+			const EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
+			itemText += " " + etItem->tagDescription();
+		}
+
 		if (item == treeView->currentItem()) {
 			rememberNextIndex = true;
 		}
@@ -475,6 +482,11 @@ void EmvViewerMainWindow::on_decodeFieldsCheckBox_stateChanged(int state)
 void EmvViewerMainWindow::on_decodeObjectsCheckBox_stateChanged(int state)
 {
 	treeView->setDecodeObjects(state != Qt::Unchecked);
+}
+
+void EmvViewerMainWindow::on_searchDescriptionsCheckBox_stateChanged(int state)
+{
+	startSearch();
 }
 
 void EmvViewerMainWindow::on_treeView_populateItemsCompleted(

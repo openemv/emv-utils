@@ -69,6 +69,7 @@ private slots: // connect-by-name helper functions
 	void on_paddingCheckBox_stateChanged(int state);
 	void on_decodeFieldsCheckBox_stateChanged(int state);
 	void on_decodeObjectsCheckBox_stateChanged(int state);
+	void on_searchDescriptionsCheckBox_stateChanged(int state);
 	void on_treeView_populateItemsCompleted(unsigned int validBytes, unsigned int fieldCount, unsigned int invalidChars);
 	void on_treeView_itemPressed(QTreeWidgetItem* item, int column);
 	void on_treeView_itemCopyClicked(QTreeWidgetItem* item);

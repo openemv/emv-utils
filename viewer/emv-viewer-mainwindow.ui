@@ -100,6 +100,16 @@
             </widget>
            </item>
            <item>
+            <widget class="QCheckBox" name="searchDescriptionsCheckBox">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Include field descriptions when searching. Otherwise only search field tags, names and decoded values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Search field descriptions</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <spacer name="settingsVerticalSpacer">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
