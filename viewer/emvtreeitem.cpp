@@ -54,6 +54,8 @@ static QString buildDecodedObjectString(const EmvTlvInfo& info);
 static QString buildFieldString(const EmvTlvInfo& info, qsizetype length = -1);
 static QTreeWidgetItem* addValueStringList(
 	EmvTreeItem* item,
+	unsigned int srcOffset,
+	std::size_t len,
 	const EmvTlvInfo& info
 );
 static QTreeWidgetItem* addValueDol(
@@ -149,6 +151,32 @@ EmvTreeItem::EmvTreeItem(
 	render(false, false);
 }
 
+EmvTreeItem::EmvTreeItem(
+	EmvTreeItem* parent,
+	unsigned int srcOffset,
+	unsigned int srcLength,
+	QString&& valueStringList
+)
+: QTreeWidgetItem(parent, EmvTreeItemType),
+  m_srcOffset(srcOffset),
+  m_srcLength(srcLength),
+  m_isTlvField(false),
+  m_isPadding(false),
+  m_constructed(false),
+  m_hideWhenDecodingObject(false)
+{
+	// Reuse parent's name and description for when it is selected
+	if (parent) {
+		m_tagName = parent->m_tagName;
+		m_tagDescription = parent->m_tagDescription;
+	}
+
+	m_simpleFieldStr = m_decodedFieldStr = valueStringList;
+
+	// Render the widget as-is
+	render(false, false);
+}
+
 void EmvTreeItem::deleteChildren()
 {
 	QList<QTreeWidgetItem*> list;
@@ -225,7 +253,12 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv)
 		}
 
 		if (info.valueStrIsList()) {
-			addValueStringList(this, info);
+			addValueStringList(
+				this,
+				m_srcOffset + m_srcLength - tlv->length,
+				tlv->length,
+				info
+			);
 		} else if (info.format() == EmvFormat::DOL) {
 			addValueDol(this, tlv->value, tlv->length);
 		} else if (info.format() == EmvFormat::TAG_LIST) {
@@ -367,6 +400,8 @@ static QString buildFieldString(const EmvTlvInfo& info, qsizetype length)
 
 static QTreeWidgetItem* addValueStringList(
 	EmvTreeItem* item,
+	unsigned int srcOffset,
+	std::size_t len,
 	const EmvTlvInfo& info
 )
 {
@@ -374,13 +409,13 @@ static QTreeWidgetItem* addValueStringList(
 		return nullptr;
 	}
 
-	QTreeWidgetItem* valueItem = new QTreeWidgetItem(
+	EmvTreeItem* valueItem = new EmvTreeItem(
 		item,
-		QStringList(
-			info.valueStr().trimmed() // Trim trailing newline
-		)
+		srcOffset,
+		len,
+		info.valueStr().trimmed() // Trim trailing newline
 	);
-	valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+	valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 	return valueItem;
 }

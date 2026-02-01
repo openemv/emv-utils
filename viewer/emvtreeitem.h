@@ -69,6 +69,17 @@ public:
 		const void* value
 	);
 
+	/**
+	 * Constructor for a tree item that represents a TLV field's value string
+	 * list. Note that this will reuse the parent item's name and description.
+	 */
+	EmvTreeItem(
+		EmvTreeItem* parent,
+		unsigned int srcOffset,
+		unsigned int srcLength,
+		QString&& valueStringList
+	);
+
 	unsigned int srcOffset() const { return m_srcOffset; }
 	unsigned int srcLength() const { return m_srcLength; }
 	bool isTlvField() const { return m_isTlvField; }
