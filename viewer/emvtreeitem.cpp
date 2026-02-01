@@ -2,7 +2,7 @@
  * @file emvtreeitem.cpp
  * @brief QTreeWidgetItem derivative that represents an EMV field
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -85,7 +85,8 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
-  m_hideByDefault(false),
+  m_isTlvField(true),
+  m_isPadding(false),
   m_hideWhenDecodingObject(false)
 {
 	setTlv(tlv);
@@ -109,8 +110,9 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
+  m_isTlvField(false),
+  m_isPadding(true),
   m_constructed(false),
-  m_hideByDefault(false),
   m_hideWhenDecodingObject(false)
 {
 	m_simpleFieldStr = m_decodedFieldStr =
@@ -129,8 +131,9 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
+  m_isTlvField(false),
+  m_isPadding(false),
   m_constructed(false),
-  m_hideByDefault(true),
   m_hideWhenDecodingObject(false)
 {
 	// Reuse parent's name and description for when it is selected
@@ -145,7 +148,6 @@ EmvTreeItem::EmvTreeItem(
 	// Render the widget as-is
 	render(false, false);
 }
-
 
 void EmvTreeItem::deleteChildren()
 {
@@ -176,7 +178,7 @@ void EmvTreeItem::render(bool showDecodedFields, bool showDecodedObjects)
 
 	} else {
 		setText(0, m_simpleFieldStr);
-		setHidden(m_hideByDefault);
+		setHidden(!m_isTlvField && !m_isPadding);
 
 		// Hide decoded values
 		if (!m_constructed) {

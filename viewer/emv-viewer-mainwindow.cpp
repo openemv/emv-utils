@@ -316,7 +316,9 @@ void EmvViewerMainWindow::startSearch()
 			item->type() == EmvTreeItemType
 		) {
 			const EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
-			itemText += " " + etItem->tagDescription();
+			if (etItem->isTlvField()) {
+				itemText += " " + etItem->tagDescription();
+			}
 		}
 
 		if (item == treeView->currentItem()) {
