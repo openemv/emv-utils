@@ -437,7 +437,7 @@ static QTreeWidgetItem* addValueDol(
 		)
 	);
 	dolItem->setExpanded(true);
-	dolItem->setFlags(Qt::ItemIsEnabled);
+	dolItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 	r = emv_dol_itr_init(ptr, len, &itr);
 	if (r) {
@@ -454,7 +454,7 @@ static QTreeWidgetItem* addValueDol(
 				buildFieldString(info, entry.length)
 			)
 		);
-		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 	}
 	if (r < 0) {
 		qDebug("emv_dol_itr_next() failed; r=%d", r);
@@ -480,7 +480,7 @@ static QTreeWidgetItem* addValueTagList(
 		)
 	);
 	tlItem->setExpanded(true);
-	tlItem->setFlags(Qt::ItemIsEnabled);
+	tlItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 	while ((r = iso8825_ber_tag_decode(ptr, len, &tag)) > 0) {
 		EmvTlvInfo info(tag);
@@ -491,7 +491,7 @@ static QTreeWidgetItem* addValueTagList(
 				buildFieldString(info)
 			)
 		);
-		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 		// Advance
 		ptr = static_cast<const char*>(ptr) + r;

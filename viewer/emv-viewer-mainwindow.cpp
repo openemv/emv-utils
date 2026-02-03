@@ -518,10 +518,10 @@ void EmvViewerMainWindow::on_treeView_populateItemsCompleted(
 	QMainWindow::statusBar()->showMessage(msg);
 }
 
-void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int column)
+void EmvViewerMainWindow::on_treeView_currentItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous)
 {
-	if (item->type() == EmvTreeItemType) {
-		EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
+	if (current && current->type() == EmvTreeItemType) {
+		EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(current);
 
 		// Highlight selected item in input data. Note that rehighlight() will
 		// also trigger the textChanged() signal and therefore signals must be
