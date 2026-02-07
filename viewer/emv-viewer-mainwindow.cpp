@@ -39,6 +39,7 @@
 #include <QtGui/QKeyEvent>
 #include <QtGui/QClipboard>
 #include <QtGui/QDesktopServices>
+#include <QtGui/QTextCursor>
 
 #if QT_VERSION_MAJOR >= 6
 #include <QtGui/QShortcut>
@@ -248,6 +249,51 @@ void EmvViewerMainWindow::saveSettings() const
 	}
 
 	settings.sync();
+}
+
+void EmvViewerMainWindow::ensureSelectedInputVisible(const EmvTreeItem* item)
+{
+	if (!item) {
+		return;
+	}
+
+	// Scroll input data to show the selected item. Note that temporarily
+	// moving the cursor is not entirely reliable due to Qt's handling of line
+	// wrapping and on-demand text block processing. This implementation
+	// moves the temporary cursors to an additional line before and after the
+	// selection to ensure that the selection is visible.
+
+	// Compute average characters per line
+	QFontMetrics fm = dataEdit->fontMetrics();
+	int avgCharWidth = fm.averageCharWidth();
+	int maxCharWidth = fm.maxWidth();
+	int charWidth = avgCharWidth > 0 ? avgCharWidth : maxCharWidth;
+	int charsPerLine;
+	if (charWidth > 0) {
+		charsPerLine = dataEdit->viewport()->width() / charWidth;
+	} else {
+		// If Qt's font metrics fail, guess
+		charsPerLine = 80;
+	}
+
+	// Compute cursor positions
+	int startPos = item->srcOffset() * 2;
+	int endPos = startPos + item->srcLength() * 2;
+	int cursorStart = qMax(0, startPos - charsPerLine);
+	int cursorEnd = qMin(dataEdit->document()->characterCount() - 1, endPos + charsPerLine);
+
+	// Jump to cursor positions
+	QTextCursor cursor = dataEdit->textCursor();
+	QTextCursor jumpCursor(dataEdit->document());
+	jumpCursor.setPosition(cursorStart);
+	dataEdit->setTextCursor(jumpCursor);
+	jumpCursor.setPosition(cursorEnd);
+	dataEdit->setTextCursor(jumpCursor);
+
+	// Make it so
+	int verticalScroll = dataEdit->verticalScrollBar()->value();
+	dataEdit->setTextCursor(cursor);
+	dataEdit->verticalScrollBar()->setValue(verticalScroll);
 }
 
 void EmvViewerMainWindow::displayLegal()
@@ -533,6 +579,7 @@ void EmvViewerMainWindow::on_treeView_currentItemChanged(QTreeWidgetItem* curren
 		);
 		highlighter->rehighlight();
 		dataEdit->blockSignals(false);
+		ensureSelectedInputVisible(etItem);
 
 		// Show description of selected item if it has a name.
 		// Otherwise show legal text.

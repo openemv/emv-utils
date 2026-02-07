@@ -31,6 +31,7 @@ class QTimer;
 class QLineEdit;
 class QToolButton;
 class EmvHighlighter;
+class EmvTreeItem;
 
 class EmvViewerMainWindow : public QMainWindow, private Ui::MainWindow
 {
@@ -50,6 +51,7 @@ protected:
 private:
 	void loadSettings();
 	void saveSettings() const;
+	void ensureSelectedInputVisible(const EmvTreeItem* item);
 	void displayLegal();
 
 	void updateTreeView();
