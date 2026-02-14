@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2025 Leon Lynch
+# Copyright 2022-2026 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -95,8 +95,8 @@ jobs:
         brew install json-c
         brew install pcsc-lite
         echo "PKG_CONFIG_PATH=$(brew --prefix pcsc-lite)/lib/pkgconfig" >> $GITHUB_ENV
-        brew install qt@5
-        echo "QT_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+        brew install qt@6
+        echo "QT_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
 
     - name: Checkout
       uses: actions/checkout@v4

@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2025 Leon Lynch
+# Copyright 2022-2026 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -31,9 +31,9 @@ jobs:
       if: contains(matrix.deps, 'pcsclite')
       run: sudo dnf -y install pcsc-lite-devel
 
-    - name: Install Qt5
+    - name: Install Qt6
       if: contains(matrix.deps, 'qt')
-      run: sudo dnf -y install qt5-qtbase-devel
+      run: sudo dnf -y install qt6-qtbase-devel
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
     steps:
     - name: Install build tools and dependencies
       run: |
-        sudo dnf -y install git gh cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion-devel doxygen rpm-build qt5-qtbase-devel
+        sudo dnf -y install git gh cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion-devel doxygen rpm-build qt6-qtbase-devel
 
     - name: Checkout
       uses: actions/checkout@v4
