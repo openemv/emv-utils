@@ -2,7 +2,7 @@
  * @file pcsc.c
  * @brief PC/SC abstraction
  *
- * Copyright 2021-2022, 2024-2025 Leon Lynch
+ * Copyright 2021-2022, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -163,7 +163,7 @@ int pcsc_init(pcsc_ctx_t* ctx)
 	}
 
 	// Allocate and populate reader objects
-	pcsc->readers = calloc(pcsc->reader_count, sizeof(struct pcsc_reader_t));
+	pcsc->readers = malloc(pcsc->reader_count * sizeof(struct pcsc_reader_t));
 	if (!pcsc->readers) {
 		pcsc_release(ctx);
 		return -7;
@@ -177,7 +177,7 @@ int pcsc_init(pcsc_ctx_t* ctx)
 	}
 
 	// Allocate and populate reader states
-	pcsc->reader_states = calloc(pcsc->reader_count, sizeof(SCARD_READERSTATE));
+	pcsc->reader_states = malloc(pcsc->reader_count * sizeof(SCARD_READERSTATE));
 	if (!pcsc->reader_states) {
 		pcsc_release(ctx);
 		return -8;
