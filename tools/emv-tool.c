@@ -2,7 +2,7 @@
  * @file emv-tool.c
  * @brief Simple EMV processing tool
  *
- * Copyright 2021, 2023-2025 Leon Lynch
+ * Copyright 2021, 2023-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1060,6 +1060,7 @@ int main(int argc, char** argv)
 
 			default:
 				// Unsupported scheme
+				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x00 }, 0);
 				break;
 		}
 	}

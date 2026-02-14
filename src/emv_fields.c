@@ -2,7 +2,7 @@
  * @file emv_fields.c
  * @brief EMV field helper functions
  *
- * Copyright 2021-2024 Leon Lynch
+ * Copyright 2021-2024, 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -321,7 +321,10 @@ int emv_aid_get_info(
 		return 0;
 	}
 
-	return -1;
+	// Unknown
+	info->scheme = EMV_CARD_SCHEME_UNKNOWN;
+	info->product = EMV_CARD_PRODUCT_UNKNOWN;
+	return 0;
 }
 
 int emv_afl_itr_init(const void* afl, size_t afl_len, struct emv_afl_itr_t* itr)

@@ -2,7 +2,7 @@
  * @file emv_aid_info_test.c
  * @brief Unit tests for AID info helper function
  *
- * Copyright 2023 Leon Lynch
+ * Copyright 2023, 2026 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -103,6 +103,17 @@ int main(void)
 	}
 	if (info.scheme != EMV_CARD_SCHEME_GIMUEMOA || info.product != EMV_CARD_PRODUCT_UNKNOWN) {
 		fprintf(stderr, "emv_aid_get_info() failed to identify scheme or product\n");
+		return 1;
+	}
+
+	// Test unknown card scheme
+	r = emv_aid_get_info((uint8_t[]){ 0xA0, 0x00, 0x00, 0x99, 0x12, 0x23, 0x45 }, 7, &info);
+	if (r) {
+		fprintf(stderr, "emv_aid_get_info() failed; r=%d\n", r);
+		return 1;
+	}
+	if (info.scheme != EMV_CARD_SCHEME_UNKNOWN || info.product != EMV_CARD_PRODUCT_UNKNOWN) {
+		fprintf(stderr, "emv_aid_get_info() failed to indicate that scheme and product are unknown\n");
 		return 1;
 	}
 }
