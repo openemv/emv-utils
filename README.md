@@ -68,10 +68,10 @@ Dependencies
   [MacOS / Windows](#macos--windows)). Use the `BUILD_EMV_DECODE` and
   `BUILD_EMV_TOOL` options to prevent `emv-decode` and  `emv-tool` from being
   built and avoid the dependency on `argp`.
-* `emv-tool` requires PC/SC, either provided by `WinSCard` on Windows or by
-  [PCSCLite](https://pcsclite.apdu.fr/) on Linux/MacOS. Use the
-  `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built and avoid the
-  dependency on PC/SC.
+* `emv-tool` requires PC/SC, either provided by `WinSCard` on Windows, by
+  PCSC.framework on MacOS, or by [PCSCLite](https://pcsclite.apdu.fr/) on
+  Linux. Use the `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built
+  and avoid the dependency on PC/SC.
 * `emv-viewer` can _optionally_ be built if [Qt](https://www.qt.io/) (see
   [Qt](#qt) for details) is available at build-time. If it is not available,
   `emv-viewer` will not be built. Use the `BUILD_EMV_VIEWER` option to ensure

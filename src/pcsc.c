@@ -2,7 +2,7 @@
  * @file pcsc.c
  * @brief PC/SC abstraction
  *
- * Copyright 2021-2022, 2024 Leon Lynch
+ * Copyright 2021-2022, 2024, 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -198,6 +198,11 @@ static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
 		&protocol
 	);
 	if (result != SCARD_S_SUCCESS) {
+#ifdef __APPLE__
+		// Apple's PCSC.framework does not support PC/SC Part 10 features at
+		// all and there is little value in showing an error message
+		return 1;
+#endif
 		fprintf(stderr, "SCardConnect(SCARD_SHARE_DIRECT) failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
 		return -2;
 	}

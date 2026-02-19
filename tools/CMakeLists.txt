@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2025 Leon Lynch
+# Copyright 2022-2026 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -27,7 +27,8 @@ if(NOT argp_FOUND)
 	endif()
 endif()
 
-# Check for PC/SC API using PCSCLite on Linux and MacOS or Win32 API on Windows
+# Check for PC/SC API using Win32 API on Windows, PCSC.framework on MacOS,
+# and PCSCLite on Linux
 if(WIN32)
 	include(CheckIncludeFile)
 	check_include_file(winscard.h HAVE_WINSCARD_H)
@@ -35,12 +36,24 @@ if(WIN32)
 		message(FATAL_ERROR "Could NOT find winscard.h. This is required to build emv-tool.")
 	endif()
 	set(PCSC_LIBRARIES WinSCard)
+elseif(APPLE)
+	# Apple's PCSC framework is incompatible with upstream pcsc-lite
+	find_library(PCSC_FRAMEWORK PCSC)
+	if(NOT PCSC_FRAMEWORK AND BUILD_EMV_TOOL)
+		message(FATAL_ERROR "Could NOT find PCSC.framework. This is required to build emv-tool.")
+	endif()
+	find_path(PCSC_FRAMEWORK_INCLUDE_DIR NAMES winscard.h)
+	if(NOT PCSC_FRAMEWORK_INCLUDE_DIR AND BUILD_EMV_TOOL)
+		message(FATAL_ERROR "Could NOT find winscard.h in PCSC.framework. This is required to build emv-tool.")
+	endif()
+	if(PCSC_FRAMEWORK AND PCSC_FRAMEWORK_INCLUDE_DIR)
+		message(STATUS "Found PCSC.framework: ${PCSC_FRAMEWORK}")
+	endif()
+	set(PCSC_LIBRARIES "${PCSC_FRAMEWORK}")
 else()
 	find_package(PCSCLite 1.8)
-	if(NOT PCSCLite_FOUND)
-		if(BUILD_EMV_TOOL)
-			message(FATAL_ERROR "Could NOT find PCSCLite. This is required to build emv-tool.")
-		endif()
+	if(NOT PCSCLite_FOUND AND BUILD_EMV_TOOL)
+		message(FATAL_ERROR "Could NOT find PCSCLite. This is required to build emv-tool.")
 	endif()
 	set(PCSC_LIBRARIES PCSCLite::PCSCLite)
 endif()
@@ -107,6 +120,12 @@ if(BUILD_EMV_TOOL)
 	endif()
 
 	add_executable(emv-tool emv-tool.c ../src/pcsc.c)
+	if(PCSC_FRAMEWORK_INCLUDE_DIR)
+		# Avoid conflicts between Apple's PCSC.h and this project's pcsc.h by
+		# adding the Apple PCSC framework as a system include directory to
+		# allow the project include directories to take precedence.
+		target_include_directories(emv-tool SYSTEM PRIVATE ${PCSC_FRAMEWORK_INCLUDE_DIR})
+	endif()
 	target_link_libraries(emv-tool PRIVATE print_helpers emv emv_strings)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-tool PRIVATE libargp::argp)
