@@ -199,8 +199,7 @@ static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
 	);
 	if (result != SCARD_S_SUCCESS) {
 		fprintf(stderr, "SCardConnect(SCARD_SHARE_DIRECT) failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
-		r = -2;
-		goto exit;
+		return -2;
 	}
 
 	// Request reader features
