@@ -195,8 +195,8 @@ MacOS / Windows
 ---------------
 
 On platforms such as MacOS or Windows where static linking is desirable and
-dependencies such as `argp` may be unavailable, the `FETCH_ARGP` option can be
-specified when generating the build system.
+dependencies such as MbedTLS or `argp` may be unavailable, the `FETCH_MBEDTLS`
+and `FETCH_ARGP` options can be specified when generating the build system.
 
 In addition, MacOS universal binaries can be built by specifying the desired
 architectures using the `CMAKE_OSX_ARCHITECTURES` option.
@@ -215,7 +215,7 @@ this is an example of how a self-contained, static, native bundle and installer
 can be built from scratch for MacOS:
 ```shell
 rm -Rf build &&
-cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_MACOSX_BUNDLE=YES &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_MBEDTLS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_MACOSX_BUNDLE=YES &&
 cmake --build build --target package
 ```
 
@@ -226,7 +226,7 @@ deploy its own dependencies, this is an example of how a self-contained
 installer can be built for Windows:
 ```shell
 rm -Rf build &&
-cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DBUILD_SHARED_LIBS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_WIN_STANDALONE=YES &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DBUILD_SHARED_LIBS=YES -DFETCH_MBEDTLS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_WIN_STANDALONE=YES &&
 cmake --build build --target package
 ```
 
@@ -328,7 +328,7 @@ Roadmap
 License
 -------
 
-Copyright 2021-2025 [Leon Lynch](https://github.com/leonlynch).
+Copyright 2021-2026 [Leon Lynch](https://github.com/leonlynch).
 
 This project is licensed under the terms of the LGPL v2.1 license with the
 exception of `emv-decode`, `emv-tool` and `emv-viewer` which are licensed under
