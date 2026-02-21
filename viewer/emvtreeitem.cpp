@@ -2,7 +2,7 @@
  * @file emvtreeitem.cpp
  * @brief QTreeWidgetItem derivative that represents an EMV field
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,6 +54,8 @@ static QString buildDecodedObjectString(const EmvTlvInfo& info);
 static QString buildFieldString(const EmvTlvInfo& info, qsizetype length = -1);
 static QTreeWidgetItem* addValueStringList(
 	EmvTreeItem* item,
+	unsigned int srcOffset,
+	std::size_t len,
 	const EmvTlvInfo& info
 );
 static QTreeWidgetItem* addValueDol(
@@ -85,7 +87,8 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
-  m_hideByDefault(false),
+  m_isTlvField(true),
+  m_isPadding(false),
   m_hideWhenDecodingObject(false)
 {
 	setTlv(tlv);
@@ -109,8 +112,9 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
+  m_isTlvField(false),
+  m_isPadding(true),
   m_constructed(false),
-  m_hideByDefault(false),
   m_hideWhenDecodingObject(false)
 {
 	m_simpleFieldStr = m_decodedFieldStr =
@@ -129,8 +133,9 @@ EmvTreeItem::EmvTreeItem(
 : QTreeWidgetItem(parent, EmvTreeItemType),
   m_srcOffset(srcOffset),
   m_srcLength(srcLength),
+  m_isTlvField(false),
+  m_isPadding(false),
   m_constructed(false),
-  m_hideByDefault(true),
   m_hideWhenDecodingObject(false)
 {
 	// Reuse parent's name and description for when it is selected
@@ -146,6 +151,31 @@ EmvTreeItem::EmvTreeItem(
 	render(false, false);
 }
 
+EmvTreeItem::EmvTreeItem(
+	EmvTreeItem* parent,
+	unsigned int srcOffset,
+	unsigned int srcLength,
+	QString&& valueStringList
+)
+: QTreeWidgetItem(parent, EmvTreeItemType),
+  m_srcOffset(srcOffset),
+  m_srcLength(srcLength),
+  m_isTlvField(false),
+  m_isPadding(false),
+  m_constructed(false),
+  m_hideWhenDecodingObject(false)
+{
+	// Reuse parent's name and description for when it is selected
+	if (parent) {
+		m_tagName = parent->m_tagName;
+		m_tagDescription = parent->m_tagDescription;
+	}
+
+	m_simpleFieldStr = m_decodedFieldStr = valueStringList;
+
+	// Render the widget as-is
+	render(false, false);
+}
 
 void EmvTreeItem::deleteChildren()
 {
@@ -176,7 +206,7 @@ void EmvTreeItem::render(bool showDecodedFields, bool showDecodedObjects)
 
 	} else {
 		setText(0, m_simpleFieldStr);
-		setHidden(m_hideByDefault);
+		setHidden(!m_isTlvField && !m_isPadding);
 
 		// Hide decoded values
 		if (!m_constructed) {
@@ -223,7 +253,12 @@ void EmvTreeItem::setTlv(const struct iso8825_tlv_t* tlv)
 		}
 
 		if (info.valueStrIsList()) {
-			addValueStringList(this, info);
+			addValueStringList(
+				this,
+				m_srcOffset + m_srcLength - tlv->length,
+				tlv->length,
+				info
+			);
 		} else if (info.format() == EmvFormat::DOL) {
 			addValueDol(this, tlv->value, tlv->length);
 		} else if (info.format() == EmvFormat::TAG_LIST) {
@@ -365,6 +400,8 @@ static QString buildFieldString(const EmvTlvInfo& info, qsizetype length)
 
 static QTreeWidgetItem* addValueStringList(
 	EmvTreeItem* item,
+	unsigned int srcOffset,
+	std::size_t len,
 	const EmvTlvInfo& info
 )
 {
@@ -372,13 +409,13 @@ static QTreeWidgetItem* addValueStringList(
 		return nullptr;
 	}
 
-	QTreeWidgetItem* valueItem = new QTreeWidgetItem(
+	EmvTreeItem* valueItem = new EmvTreeItem(
 		item,
-		QStringList(
-			info.valueStr().trimmed() // Trim trailing newline
-		)
+		srcOffset,
+		len,
+		info.valueStr().trimmed() // Trim trailing newline
 	);
-	valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+	valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 	return valueItem;
 }
@@ -400,7 +437,7 @@ static QTreeWidgetItem* addValueDol(
 		)
 	);
 	dolItem->setExpanded(true);
-	dolItem->setFlags(Qt::ItemIsEnabled);
+	dolItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 	r = emv_dol_itr_init(ptr, len, &itr);
 	if (r) {
@@ -417,7 +454,7 @@ static QTreeWidgetItem* addValueDol(
 				buildFieldString(info, entry.length)
 			)
 		);
-		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 	}
 	if (r < 0) {
 		qDebug("emv_dol_itr_next() failed; r=%d", r);
@@ -443,7 +480,7 @@ static QTreeWidgetItem* addValueTagList(
 		)
 	);
 	tlItem->setExpanded(true);
-	tlItem->setFlags(Qt::ItemIsEnabled);
+	tlItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 	while ((r = iso8825_ber_tag_decode(ptr, len, &tag)) > 0) {
 		EmvTlvInfo info(tag);
@@ -454,7 +491,7 @@ static QTreeWidgetItem* addValueTagList(
 				buildFieldString(info)
 			)
 		);
-		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled);
+		valueItem->setFlags(Qt::ItemNeverHasChildren | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
 		// Advance
 		ptr = static_cast<const char*>(ptr) + r;

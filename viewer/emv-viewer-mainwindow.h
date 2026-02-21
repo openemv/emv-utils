@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.h
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,10 @@
 
 // Forward declarations
 class QTimer;
+class QLineEdit;
+class QToolButton;
 class EmvHighlighter;
+class EmvTreeItem;
 
 class EmvViewerMainWindow : public QMainWindow, private Ui::MainWindow
 {
@@ -43,27 +46,50 @@ public:
 
 protected:
 	void closeEvent(QCloseEvent* event) override;
+	bool eventFilter(QObject* obj, QEvent* event) override;
 
 private:
 	void loadSettings();
 	void saveSettings() const;
+	void ensureSelectedInputVisible(const EmvTreeItem* item);
 	void displayLegal();
 
-	void parseData();
+	void updateTreeView();
+
+	void startSearch();
+	void searchNext();
+	void searchPrevious();
+	void selectSearchMatch(int index);
+	void updateSearchStatus();
+	void clearSearch();
 
 private slots: // connect-by-name helper functions
 	void on_updateTimer_timeout();
+	void on_searchTimer_timeout();
 	void on_dataEdit_textChanged();
 	void on_tagsCheckBox_stateChanged(int state);
 	void on_paddingCheckBox_stateChanged(int state);
 	void on_decodeFieldsCheckBox_stateChanged(int state);
 	void on_decodeObjectsCheckBox_stateChanged(int state);
-	void on_treeView_itemPressed(QTreeWidgetItem* item, int column);
+	void on_searchDescriptionsCheckBox_stateChanged(int state);
+	void on_treeView_populateItemsCompleted(unsigned int validBytes, unsigned int fieldCount, unsigned int invalidChars);
+	void on_treeView_currentItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
+	void on_treeView_itemCopyClicked(QTreeWidgetItem* item);
+	void on_actionCopyAll_triggered();
+	void on_actionFind_triggered();
 	void on_descriptionText_linkActivated(const QString& link);
 
 protected:
 	QTimer* updateTimer;
+	QTimer* searchTimer;
 	EmvHighlighter* highlighter;
+	QLineEdit* searchLineEdit;
+	QToolButton* searchNextButton;
+	QToolButton* searchPreviousButton;
+
+private: // Search state
+	QList<QTreeWidgetItem*> searchMatches;
+	int currentSearchIndex = -1;
 };
 
 #endif

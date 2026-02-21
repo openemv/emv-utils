@@ -2,7 +2,7 @@
  * @file emv-viewer-mainwindow.cpp
  * @brief Main window of EMV Viewer
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,10 +30,24 @@
 #include <QtCore/QStringLiteral>
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QScrollBar>
+#include <QtWidgets/QStatusBar>
+#include <QtWidgets/QTreeWidgetItemIterator>
+#include <QtGui/QIcon>
+#include <QtGui/QKeyEvent>
+#include <QtGui/QClipboard>
 #include <QtGui/QDesktopServices>
+#include <QtGui/QTextCursor>
 
-#include <cctype>
+#if QT_VERSION_MAJOR >= 6
+#include <QtGui/QShortcut>
+#else
+#include <QtWidgets/QShortcut>
+#endif
+
+static constexpr int STATUS_MESSAGE_TIMEOUT_MS = 2000; // Milliseconds
 
 EmvViewerMainWindow::EmvViewerMainWindow(
 	QWidget* parent,
@@ -48,6 +62,13 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	updateTimer = new QTimer(this);
 	updateTimer->setObjectName(QStringLiteral("updateTimer"));
 	updateTimer->setSingleShot(true);
+
+	// Prepare timer used for search input updates. Do this before setupUi()
+	// calls QMetaObject::connectSlotsByName() to ensure that auto-connect
+	// works for on_searchTimer_timeout().
+	searchTimer = new QTimer(this);
+	searchTimer->setObjectName(QStringLiteral("searchTimer"));
+	searchTimer->setSingleShot(true);
 
 	// Setup UI widgets
 	setupUi(this);
@@ -67,6 +88,61 @@ EmvViewerMainWindow::EmvViewerMainWindow(
 	treeView->setIgnorePadding(paddingCheckBox->isChecked());
 	treeView->setDecodeFields(decodeFieldsCheckBox->isChecked());
 	treeView->setDecodeObjects(decodeObjectsCheckBox->isChecked());
+	treeView->setCopyButtonEnabled(true);
+
+	// Add search widgets to the toolbar here instead of in the UI file because
+	// setupUi() always adds the actions to the toolbar at the end, making it
+	// impossible for the actions to appear before the search widgets
+
+	searchLineEdit = new QLineEdit(this);
+	searchLineEdit->setObjectName(QStringLiteral("searchLineEdit"));
+	searchLineEdit->setPlaceholderText(tr("Find in fields..."));
+	searchLineEdit->setClearButtonEnabled(true);
+	treeViewToolBar->addWidget(searchLineEdit);
+	connect(searchLineEdit, &QLineEdit::textChanged, this, [this]() {
+		searchTimer->start(300);
+	});
+
+	searchPreviousButton = new QToolButton(this);
+	searchPreviousButton->setObjectName(QStringLiteral("searchPreviousButton"));
+	searchPreviousButton->setEnabled(false);
+	searchPreviousButton->setToolTip(tr("Jump to previous match (Shift+F3)"));
+	QIcon previousIcon = QIcon::fromTheme(QStringLiteral("go-up"));
+	if (!previousIcon.isNull()) {
+		searchPreviousButton->setIcon(previousIcon);
+	} else {
+		// Use Unicode up arrow as text when theme icon is not available
+		searchPreviousButton->setText(QStringLiteral("\u2191"));
+	}
+	treeViewToolBar->addWidget(searchPreviousButton);
+	connect(searchPreviousButton, &QToolButton::clicked, this, &EmvViewerMainWindow::searchPrevious);
+
+	searchNextButton = new QToolButton(this);
+	searchNextButton->setObjectName(QStringLiteral("searchNextButton"));
+	searchNextButton->setEnabled(false);
+	searchNextButton->setToolTip(tr("Jump to next match (F3)"));
+	QIcon nextIcon = QIcon::fromTheme(QStringLiteral("go-down"));
+	if (!nextIcon.isNull()) {
+		searchNextButton->setIcon(nextIcon);
+	} else {
+		// Use Unicode down arrow as text when theme icon is not available
+		searchNextButton->setText(QStringLiteral("\u2193"));
+	}
+	treeViewToolBar->addWidget(searchNextButton);
+	connect(searchNextButton, &QToolButton::clicked, this, &EmvViewerMainWindow::searchNext);
+
+	// Connect keyboard shortcuts for search functionality
+	QShortcut* f3Shortcut = new QShortcut(QKeySequence(Qt::Key_F3), this);
+	connect(f3Shortcut, &QShortcut::activated, this, &EmvViewerMainWindow::searchNext);
+	QShortcut* shiftF3Shortcut = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F3), this);
+	connect(shiftF3Shortcut, &QShortcut::activated, this, &EmvViewerMainWindow::searchPrevious);
+	QShortcut* ctrlGShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_G), this);
+	connect(ctrlGShortcut, &QShortcut::activated, this, &EmvViewerMainWindow::searchNext);
+	QShortcut* ctrlShiftGShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_G), this);
+	connect(ctrlShiftGShortcut, &QShortcut::activated, this, &EmvViewerMainWindow::searchPrevious);
+
+	// Install event filter on search field for Escape key
+	searchLineEdit->installEventFilter(this);
 
 	// Load previous UI values
 	loadSettings();
@@ -88,6 +164,20 @@ void EmvViewerMainWindow::closeEvent(QCloseEvent* event)
 	// Save current UI values
 	saveSettings();
 	event->accept();
+}
+
+bool EmvViewerMainWindow::eventFilter(QObject* obj, QEvent* event)
+{
+	if (obj == searchLineEdit && event->type() == QEvent::KeyPress) {
+		QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+		if (keyEvent->key() == Qt::Key_Escape) {
+			clearSearch();
+			treeView->setFocus();
+			return true;
+		}
+	}
+
+	return QMainWindow::eventFilter(obj, event);
 }
 
 void EmvViewerMainWindow::loadSettings()
@@ -161,6 +251,51 @@ void EmvViewerMainWindow::saveSettings() const
 	settings.sync();
 }
 
+void EmvViewerMainWindow::ensureSelectedInputVisible(const EmvTreeItem* item)
+{
+	if (!item) {
+		return;
+	}
+
+	// Scroll input data to show the selected item. Note that temporarily
+	// moving the cursor is not entirely reliable due to Qt's handling of line
+	// wrapping and on-demand text block processing. This implementation
+	// moves the temporary cursors to an additional line before and after the
+	// selection to ensure that the selection is visible.
+
+	// Compute average characters per line
+	QFontMetrics fm = dataEdit->fontMetrics();
+	int avgCharWidth = fm.averageCharWidth();
+	int maxCharWidth = fm.maxWidth();
+	int charWidth = avgCharWidth > 0 ? avgCharWidth : maxCharWidth;
+	int charsPerLine;
+	if (charWidth > 0) {
+		charsPerLine = dataEdit->viewport()->width() / charWidth;
+	} else {
+		// If Qt's font metrics fail, guess
+		charsPerLine = 80;
+	}
+
+	// Compute cursor positions
+	int startPos = item->srcOffset() * 2;
+	int endPos = startPos + item->srcLength() * 2;
+	int cursorStart = qMax(0, startPos - charsPerLine);
+	int cursorEnd = qMin(dataEdit->document()->characterCount() - 1, endPos + charsPerLine);
+
+	// Jump to cursor positions
+	QTextCursor cursor = dataEdit->textCursor();
+	QTextCursor jumpCursor(dataEdit->document());
+	jumpCursor.setPosition(cursorStart);
+	dataEdit->setTextCursor(jumpCursor);
+	jumpCursor.setPosition(cursorEnd);
+	dataEdit->setTextCursor(jumpCursor);
+
+	// Make it so
+	int verticalScroll = dataEdit->verticalScrollBar()->value();
+	dataEdit->setTextCursor(cursor);
+	dataEdit->verticalScrollBar()->setValue(verticalScroll);
+}
+
 void EmvViewerMainWindow::displayLegal()
 {
 	// Display copyright, license and disclaimer notice
@@ -185,60 +320,165 @@ void EmvViewerMainWindow::displayLegal()
 	});
 }
 
-void EmvViewerMainWindow::parseData()
+void EmvViewerMainWindow::updateTreeView()
 {
 	QString str;
-	int validLen;
-	QByteArray data;
-	unsigned int validBytes;
 
 	str = dataEdit->toPlainText();
 	if (str.isEmpty()) {
 		treeView->clear();
 		return;
 	}
+	treeView->populateItems(str);
 
-	// Remove all whitespace from hex string
-	str = str.simplified().remove(' ');
-	validLen = str.length();
+	if (!searchLineEdit->text().isEmpty()) {
+		// Restart search after tree update
+		startSearch();
+	}
+}
 
-	// Ensure that hex string contains only hex digits
-	for (int i = 0; i < validLen; ++i) {
-		if (!std::isxdigit(str[i].unicode())) {
-			// Only parse up to invalid digit
-			validLen = i;
-			break;
+void EmvViewerMainWindow::startSearch()
+{
+	// Reset search state
+	searchMatches.clear();
+	currentSearchIndex = -1;
+
+	QString searchText = searchLineEdit->text();
+	if (searchText.isEmpty()) {
+		updateSearchStatus();
+		return;
+	}
+
+	// Find all search matches and remember the first index after the
+	// currently selected item
+	QTreeWidgetItemIterator itr(treeView, QTreeWidgetItemIterator::NotHidden);
+	bool rememberNextIndex = false;
+	int firstSearchIndex = 0;
+	while (*itr) {
+		QTreeWidgetItem* item = *itr;
+		QString itemText = item->text(0);
+
+		if (searchDescriptionsCheckBox->isChecked() &&
+			item->type() == EmvTreeItemType
+		) {
+			const EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
+			if (etItem->isTlvField()) {
+				itemText += " " + etItem->tagDescription();
+			}
 		}
+
+		if (item == treeView->currentItem()) {
+			rememberNextIndex = true;
+		}
+
+		if (itemText.contains(searchText, Qt::CaseInsensitive)) {
+			searchMatches.append(item);
+
+			if (rememberNextIndex) {
+				firstSearchIndex = searchMatches.size() - 1;
+				rememberNextIndex = false;
+			}
+		}
+
+		++itr;
 	}
 
-	// Ensure that hex string has even number of digits
-	if (validLen & 0x01) {
-		// Odd number of digits. Ignore last digit to see whether parsing can
-		// proceed regardless and indicate invalid data later.
-		validLen -= 1;
+	updateSearchStatus();
+
+	if (!searchMatches.isEmpty()) {
+		selectSearchMatch(firstSearchIndex);
+	}
+}
+
+void EmvViewerMainWindow::searchNext()
+{
+	if (searchMatches.isEmpty()) {
+		return;
 	}
 
-	data = QByteArray::fromHex(str.left(validLen).toUtf8());
-	validBytes = treeView->populateItems(data);
-	validLen = validBytes * 2;
+	int nextSearchIndex = currentSearchIndex + 1;
 
-	if (validLen < str.length()) {
-		// Remaining data is invalid and unlikely to be padding
-		QTreeWidgetItem* item = new QTreeWidgetItem(
-			treeView->invisibleRootItem(),
-			QStringList(
-				QStringLiteral("Remaining invalid data: ") +
-				str.right(str.length() - validLen)
-			)
+	if (nextSearchIndex >= searchMatches.size()) {
+		nextSearchIndex = 0;
+	}
+
+	selectSearchMatch(nextSearchIndex);
+}
+
+void EmvViewerMainWindow::searchPrevious()
+{
+	if (searchMatches.isEmpty()) {
+		return;
+	}
+
+	int prevSearchIndex = currentSearchIndex - 1;
+
+	if (prevSearchIndex < 0) {
+		prevSearchIndex = searchMatches.size() - 1;
+	}
+
+	selectSearchMatch(prevSearchIndex);
+}
+
+void EmvViewerMainWindow::selectSearchMatch(int index)
+{
+	QTreeWidgetItem* item;
+
+	if (index < 0 || index >= searchMatches.size()) {
+		return;
+	}
+	currentSearchIndex = index;
+	item = searchMatches.at(index);
+
+	// Expand parents to make match visible
+	QTreeWidgetItem* parent = item->parent();
+	while (parent) {
+		parent->setExpanded(true);
+		parent = parent->parent();
+	}
+
+	// Scroll to and select match
+	treeView->scrollToItem(item);
+	treeView->setCurrentItem(item);
+
+	updateSearchStatus();
+}
+
+void EmvViewerMainWindow::updateSearchStatus()
+{
+	bool hasMatches = !searchMatches.isEmpty();
+	bool hasSearchText = !searchLineEdit->text().isEmpty();
+
+	searchNextButton->setEnabled(hasMatches);
+	searchPreviousButton->setEnabled(hasMatches);
+
+	if (!hasSearchText) {
+		QMainWindow::statusBar()->clearMessage();
+	} else if (!hasMatches) {
+		QMainWindow::statusBar()->showMessage(tr("No matches found"));
+	} else {
+		QMainWindow::statusBar()->showMessage(
+			tr("Match %1 of %2").arg(currentSearchIndex + 1).arg(searchMatches.size())
 		);
-		item->setDisabled(true);
-		item->setForeground(0, Qt::red);
 	}
+}
+
+void EmvViewerMainWindow::clearSearch()
+{
+	searchLineEdit->clear();
+	searchMatches.clear();
+	currentSearchIndex = -1;
+	QMainWindow::statusBar()->clearMessage();
 }
 
 void EmvViewerMainWindow::on_updateTimer_timeout()
 {
-	parseData();
+	updateTreeView();
+}
+
+void EmvViewerMainWindow::on_searchTimer_timeout()
+{
+	startSearch();
 }
 
 void EmvViewerMainWindow::on_dataEdit_textChanged()
@@ -249,6 +489,7 @@ void EmvViewerMainWindow::on_dataEdit_textChanged()
 	// signal and therefore signals must be blocked for the duration of
 	// rehighlight().
 	dataEdit->blockSignals(true);
+	highlighter->clearSelection();
 	highlighter->parseBlocks();
 	highlighter->rehighlight();
 	dataEdit->blockSignals(false);
@@ -278,7 +519,7 @@ void EmvViewerMainWindow::on_paddingCheckBox_stateChanged(int state)
 
 	// Note that tree view data must be reparsed when padding state changes
 	treeView->setIgnorePadding(state != Qt::Unchecked);
-	parseData();
+	updateTreeView();
 }
 
 void EmvViewerMainWindow::on_decodeFieldsCheckBox_stateChanged(int state)
@@ -291,10 +532,42 @@ void EmvViewerMainWindow::on_decodeObjectsCheckBox_stateChanged(int state)
 	treeView->setDecodeObjects(state != Qt::Unchecked);
 }
 
-void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int column)
+void EmvViewerMainWindow::on_searchDescriptionsCheckBox_stateChanged(int state)
 {
-	if (item->type() == EmvTreeItemType) {
-		EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(item);
+	startSearch();
+}
+
+void EmvViewerMainWindow::on_treeView_populateItemsCompleted(
+	unsigned int validBytes,
+	unsigned int fieldCount,
+	unsigned int invalidChars
+)
+{
+	QString msg;
+
+	if (validBytes == 0 && invalidChars == 0) {
+		// Empty input
+		return;
+	}
+
+	if (invalidChars > 0) {
+		msg = tr("Parsed %1 bytes: found %2 fields and %3 invalid characters")
+			.arg(validBytes)
+			.arg(fieldCount)
+			.arg(invalidChars);
+	} else {
+		msg = tr("Parsed %1 bytes: found %2 fields")
+			.arg(validBytes)
+			.arg(fieldCount);
+	}
+
+	QMainWindow::statusBar()->showMessage(msg);
+}
+
+void EmvViewerMainWindow::on_treeView_currentItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous)
+{
+	if (current && current->type() == EmvTreeItemType) {
+		EmvTreeItem* etItem = reinterpret_cast<EmvTreeItem*>(current);
 
 		// Highlight selected item in input data. Note that rehighlight() will
 		// also trigger the textChanged() signal and therefore signals must be
@@ -306,6 +579,7 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 		);
 		highlighter->rehighlight();
 		dataEdit->blockSignals(false);
+		ensureSelectedInputVisible(etItem);
 
 		// Show description of selected item if it has a name.
 		// Otherwise show legal text.
@@ -315,7 +589,7 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 				QStringLiteral("<b>") +
 				etItem->tagName() +
 				QStringLiteral("</b><br/><br/>") +
-				etItem->tagDescription()
+				etItem->tagDescription().toHtmlEscaped().replace('\n', QStringLiteral("<br/>"))
 			);
 
 			// Let description scroll to top after updating content
@@ -328,6 +602,32 @@ void EmvViewerMainWindow::on_treeView_itemPressed(QTreeWidgetItem* item, int col
 	}
 
 	displayLegal();
+}
+
+void EmvViewerMainWindow::on_treeView_itemCopyClicked(QTreeWidgetItem* item)
+{
+	if (!item) {
+		return;
+	}
+
+	QString str = treeView->toClipboardText(item, QStringLiteral("  "), 0);
+	QApplication::clipboard()->setText(str);
+
+	QMainWindow::statusBar()->showMessage(tr("Copied selected item to clipboard"), STATUS_MESSAGE_TIMEOUT_MS);
+}
+
+void EmvViewerMainWindow::on_actionCopyAll_triggered()
+{
+	QString str = treeView->toClipboardText(QStringLiteral("  "), 0);
+	QApplication::clipboard()->setText(str);
+
+	QMainWindow::statusBar()->showMessage(tr("Copied all items to clipboard"), STATUS_MESSAGE_TIMEOUT_MS);
+}
+
+void EmvViewerMainWindow::on_actionFind_triggered()
+{
+	searchLineEdit->setFocus();
+	searchLineEdit->selectAll();
 }
 
 void EmvViewerMainWindow::on_descriptionText_linkActivated(const QString& link)
