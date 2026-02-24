@@ -2,7 +2,7 @@
  * @file emv-decode.c
  * @brief Simple EMV decoding tool
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -225,11 +225,13 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				data = load_from_file(stdin, &data_len);
 				if (!data || !data_len) {
 					argp_error(state, "Failed to read INPUT from stdin");
+					return EINVAL;
 				}
 			} else {
 				// Read INPUT as hex data
 				if (arg_len < 2) {
 					argp_error(state, "INPUT must consist of at least 1 byte (thus 2 hex digits)");
+					return EINVAL;
 				}
 
 				// Ensure that the buffer has enough space for odd length hex strings
@@ -239,9 +241,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				r = parse_hex(arg, data, &data_len);
 				if (r < 0) {
 					argp_error(state, "INPUT must consist of hex digits");
+					return EINVAL;
 				}
 				if (r > 0) {
 					argp_error(state, "INPUT must have even number of hex digits");
+					return EINVAL;
 				}
 			}
 
@@ -295,6 +299,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_ISO8859_15:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
+				return EINVAL;
 			}
 
 			emv_decode_mode = key;

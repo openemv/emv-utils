@@ -2,7 +2,7 @@
  * @file emv-tool.c
  * @brief Simple EMV processing tool
  *
- * Copyright 2021, 2023-2025 Leon Lynch
+ * Copyright 2021, 2023-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -174,12 +174,14 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			r = sscanf(arg, "%4d-%2d-%2d", &year, &month, &day);
 			if (r != 3) {
 				argp_error(state, "Transaction date (--txn-date) argument must be YYYY-MM-DD");
+				return EINVAL;
 			}
 			if (year < 1950 || year > 2049 ||
 				month < 1 || month > 12 ||
 				day < 1 || day > 31
 			) {
 				argp_error(state, "Transaction date (--txn-date) argument must contain a valid date");
+				return EINVAL;
 			}
 			if (year < 2000) { // See EMV 4.4 Book 4, 6.7.3
 				year_short = year - 1900;
@@ -201,12 +203,14 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			r = sscanf(arg, "%2d:%2d:%2d", &hours, &minutes, &seconds);
 			if (r != 3) {
 				argp_error(state, "Transaction time (--txn-time) argument must be hh:mm:ss");
+				return EINVAL;
 			}
 			if (hours < 0 || hours > 23 ||
 				minutes < 0 || minutes > 59 ||
 				seconds < 0 || seconds > 59
 			) {
 				argp_error(state, "Transaction time (--txn-time) argument must contain a valid time");
+				return EINVAL;
 			}
 			txn_time[0] = ((hours / 10) << 4) | (hours % 10);
 			txn_time[1] = ((minutes / 10) << 4) | (minutes % 10);
@@ -222,12 +226,14 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			if (arg_len != 2) {
 				argp_error(state, "Transaction type (--txn-type) argument must be 2 numeric digits");
+				return EINVAL;
 			}
 
 			// Transaction Type (field 9C) is EMV format "n", so parse as hex
 			value = strtoul(arg, &endptr, 16);
 			if (!arg[0] || *endptr) {
 				argp_error(state, "Transaction type (--txn-type) argument must be 2 numeric digits");
+				return EINVAL;
 			}
 			txn_type = value;
 
@@ -241,16 +247,19 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			if (arg_len == 0) {
 				argp_error(state, "Transaction amount (--txn-amount) argument must be numeric digits");
+				return EINVAL;
 			}
 
 			// Amount, Authorised (field 81) is EMV format "b", so parse as decimal
 			value = strtoul(arg, &endptr, 10);
 			if (!arg[0] || *endptr) {
 				argp_error(state, "Transaction amount (--txn-amount) argument must be numeric digits");
+				return EINVAL;
 			}
 
 			if (value > 0xFFFFFFFF) {
 				argp_error(state, "Transaction amount (--txn-amount) argument must fit in a 32-bit field");
+				return EINVAL;
 			}
 			txn_amount = value;
 
@@ -264,16 +273,19 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			if (arg_len == 0) {
 				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must be numeric digits");
+				return EINVAL;
 			}
 
 			// Amount, Other (field 9F04) is EMV format "b", so parse as decimal
 			value = strtoul(arg, &endptr, 10);
 			if (!arg[0] || *endptr) {
 				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must be numeric digits");
+				return EINVAL;
 			}
 
 			if (value > 0xFFFFFFFF) {
 				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must fit in a 32-bit field");
+				return EINVAL;
 			}
 			txn_amount_other = value;
 
@@ -301,6 +313,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				if (i >= sizeof(debug_source_opt) / sizeof(debug_source_opt[0])) {
 					// Failed to find debug source string in list
 					argp_error(state, "Unknown debug source (--debug-source) argument \"%s\"", str);
+					return EINVAL;
 				}
 
 				// Found debug source string in list; set in mask
@@ -323,6 +336,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			// Failed to find debug level string in list
 			argp_error(state, "Unknown debug level (--debug-level) argument \"%s\"", arg);
+			return EINVAL;
 		}
 
 		case EMV_TOOL_VERSION: {
@@ -770,6 +784,7 @@ int main(int argc, char** argv)
 	) {
 		fprintf(stderr, "Transaction amount (--txn-amount) argument must be non-zero\n");
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
 	}
 
 	if (txn_type == EMV_TRANSACTION_TYPE_CASHBACK &&
@@ -777,6 +792,7 @@ int main(int argc, char** argv)
 	) {
 		fprintf(stderr, "Secondary transaction amount (--txn-amount-other) must be non-zero for cashback transaction\n");
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
 	}
 
 	print_set_verbose(debug_verbose);
