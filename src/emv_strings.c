@@ -3258,6 +3258,11 @@ int emv_track2_equivalent_data_get_string(
 		return 0;
 	}
 
+	if (str_len < (track2_len * 2) + 1) {
+		// Insufficient length for track2 string
+		return -2;
+	}
+
 	// The easiest way to convert track2 data to a string is to simply extract
 	// each nibble and add 0x30 ('0') to create the equivalent ASCII character
 	// All ASCII digits from 0x30 to 0x3F are printable and it is only
@@ -3275,7 +3280,7 @@ int emv_track2_equivalent_data_get_string(
 		str[(i * 2)] = '0' + digit;
 
 		// Convert least significant nibble
-		digit = track2[i] & 0xf;
+		digit = track2[i] & 0xF;
 		if (digit == 0xF) {
 			// Padding; ignore rest of buffer; NULL terminate
 			str[(i * 2) + 1] = 0;
