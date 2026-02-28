@@ -2,7 +2,7 @@
  * @file emv_tlv.c
  * @brief EMV TLV structures and helper functions
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -429,7 +429,6 @@ const struct emv_tlv_t* emv_tlv_sources_itr_next_const(
 )
 {
 	const struct emv_tlv_sources_t* sources;
-	const struct emv_tlv_t* tlv;
 
 	if (!itr || !itr->sources) {
 		return NULL;
@@ -440,7 +439,7 @@ const struct emv_tlv_t* emv_tlv_sources_itr_next_const(
 	sources = itr->sources;
 
 	if (itr->tlv != NULL) {
-		tlv = itr->tlv;
+		const struct emv_tlv_t* tlv = itr->tlv;
 
 		// Remember the next TLV
 		itr->tlv = itr->tlv->next;

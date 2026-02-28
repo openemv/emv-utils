@@ -2,7 +2,7 @@
  * @file emv_strings.c
  * @brief EMV string helper functions
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -901,7 +901,7 @@ int emv_tlv_get_info(
 				"The last four digits of the PAN, as defined in "
 				"the EMV Payment Tokenisation Framework";
 			info->format = EMV_FORMAT_N;
-		return emv_tlv_value_get_string(tlv, info->format, 4, value_str, value_str_len);
+			return emv_tlv_value_get_string(tlv, info->format, 4, value_str, value_str_len);
 
 		case EMV_TAG_9F26_APPLICATION_CRYPTOGRAM:
 			info->tag_name = "Application Cryptogram";
@@ -1335,7 +1335,7 @@ int emv_tlv_get_info(
 				return 0;
 			}
 
-			if (tlv->tag == AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES &&
+			if (tlv->tag == AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES && // Helps IDE find this case statement
 				tlv->length == 1
 			) {
 				// Kernel 4 defines 9F6D as Contactless Reader Capabilities

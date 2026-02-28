@@ -958,7 +958,6 @@ int main(int argc, char** argv)
 
 		if (application_selection_required) {
 			unsigned int app_count = 0;
-			int r;
 			char s[4]; // two digits, newline and null
 			unsigned int input = 0;
 
