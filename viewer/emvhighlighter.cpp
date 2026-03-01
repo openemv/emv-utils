@@ -2,7 +2,7 @@
  * @file emvhighlighter.cpp
  * @brief QSyntaxHighlighter derivative that applies highlighting to EMV data
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@
 #include <QtGui/QColor>
 #include <QtGui/QFont>
 
+#include <type_traits>
 #include <cstddef>
 #include <cctype>
 
@@ -122,7 +123,7 @@ static bool parseBerData(
 		// Determine whether invalid data is padding and notify caller
 		// accordingly
 		if (ignorePadding &&
-			len - validBytes > 0 &&
+			len > validBytes &&
 			(
 				((len & 0x7) == 0 && len - validBytes < 8) ||
 				((len & 0xF) == 0 && len - validBytes < 16)

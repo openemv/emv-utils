@@ -2,7 +2,7 @@
  * @file emv_tal.c
  * @brief EMV Terminal Application Layer (TAL)
  *
- * Copyright 2021, 2024-2025 Leon Lynch
+ * Copyright 2021, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -242,7 +242,7 @@ static int emv_tal_parse_aef_record(
 	}
 	if (aef_template_tlv.tag != EMV_TAG_70_DATA_TEMPLATE) {
 		// No AEF template in PSE record; ignore and continue
-		emv_debug_error("Unexpected data element 0x%02X in PSE AEF record", tlv.tag);
+		emv_debug_error("Unexpected data element 0x%02X in PSE AEF record", aef_template_tlv.tag);
 		return EMV_TAL_RESULT_PSE_AEF_INVALID;
 	}
 
@@ -562,7 +562,7 @@ int emv_tal_get_processing_options(
 		// Invalid parameters; terminate session
 		return EMV_TAL_ERROR_INVALID_PARAMETER;
 	}
-	if (data && (data_len < 2 || data_len > 255)) { // See EMV_CAPDU_DATA_MAX
+	if (data && (data_len < 2 || data_len > EMV_CAPDU_DATA_MAX)) {
 		// Invalid parameters; terminate session
 		return EMV_TAL_ERROR_INVALID_PARAMETER;
 	}
@@ -1394,7 +1394,7 @@ int emv_tal_genac(
 		// fields is also not required.
 
 		struct iso8825_ber_itr_t itr;
-		struct iso8825_tlv_t tlv;
+		struct iso8825_tlv_t template_tlv;
 		unsigned int offset_after_sdad = 0;
 		unsigned int length_after_sdad = 0;
 
@@ -1407,9 +1407,9 @@ int emv_tal_genac(
 			goto exit;
 		}
 
-		while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+		while ((r = iso8825_ber_itr_next(&itr, &template_tlv)) > 0) {
 			if (oda &&
-				tlv.tag == EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA
+				template_tlv.tag == EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA
 			) {
 				unsigned int offset_before_sdad =
 					itr.ptr - (void*)response_tlv.value - r;
@@ -1430,9 +1430,9 @@ int emv_tal_genac(
 
 			r = emv_tlv_list_push(
 				&response_list,
-				tlv.tag,
-				tlv.length,
-				tlv.value,
+				template_tlv.tag,
+				template_tlv.length,
+				template_tlv.value,
 				0
 			);
 			if (r) {

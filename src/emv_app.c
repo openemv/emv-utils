@@ -2,7 +2,7 @@
  * @file emv_app.c
  * @brief EMV application abstraction and helper functions
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -36,7 +36,7 @@ static int emv_app_extract_priority_indicator(struct emv_app_t* app);
 static inline bool emv_app_list_is_valid(const struct emv_app_list_t* list);
 
 struct emv_app_t* emv_app_create_from_pse(
-	struct emv_tlv_list_t* pse_tlv_list,
+	const struct emv_tlv_list_t* pse_tlv_list,
 	const void* pse_dir_entry,
 	size_t pse_dir_entry_len
 )

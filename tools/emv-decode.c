@@ -2,7 +2,7 @@
  * @file emv-decode.c
  * @brief Simple EMV decoding tool
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -225,11 +225,13 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				data = load_from_file(stdin, &data_len);
 				if (!data || !data_len) {
 					argp_error(state, "Failed to read INPUT from stdin");
+					return EINVAL;
 				}
 			} else {
 				// Read INPUT as hex data
 				if (arg_len < 2) {
 					argp_error(state, "INPUT must consist of at least 1 byte (thus 2 hex digits)");
+					return EINVAL;
 				}
 
 				// Ensure that the buffer has enough space for odd length hex strings
@@ -239,9 +241,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				r = parse_hex(arg, data, &data_len);
 				if (r < 0) {
 					argp_error(state, "INPUT must consist of hex digits");
+					return EINVAL;
 				}
 				if (r > 0) {
 					argp_error(state, "INPUT must have even number of hex digits");
+					return EINVAL;
 				}
 			}
 
@@ -295,6 +299,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_ISO8859_15:
 			if (emv_decode_mode != EMV_DECODE_NONE) {
 				argp_error(state, "Only one decoding OPTION may be specified");
+				return EINVAL;
 			}
 
 			emv_decode_mode = key;
@@ -431,17 +436,18 @@ static void* load_from_file(FILE* file, size_t* len)
 int main(int argc, char** argv)
 {
 	int r;
+	int ret = EXIT_SUCCESS;
 
 	if (argc == 1) {
 		// No command line arguments
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	r = argp_parse(&argp_config, argc, argv, 0, 0, 0);
 	if (r) {
 		fprintf(stderr, "Failed to parse command line\n");
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	print_set_verbose(verbose);
@@ -449,7 +455,7 @@ int main(int argc, char** argv)
 	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
-		return 2;
+		return EXIT_FAILURE;
 	}
 	if (r > 0) {
 		fprintf(stderr, "Failed to load iso-codes data or mcc-codes data; currency, country, language or MCC lookups may not be possible\n");
@@ -459,6 +465,7 @@ int main(int argc, char** argv)
 		case EMV_DECODE_NONE: {
 			// No command line arguments
 			argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+			ret = EXIT_FAILURE;
 			break;
 		}
 
@@ -467,16 +474,19 @@ int main(int argc, char** argv)
 
 			if (data_len < ISO7816_ATR_MIN_SIZE) {
 				fprintf(stderr, "ATR may not have less than %u digits (thus %u bytes)\n", ISO7816_ATR_MIN_SIZE * 2, ISO7816_ATR_MIN_SIZE);
+				ret = EXIT_FAILURE;
 				break;
 			}
 			if (data_len > ISO7816_ATR_MAX_SIZE) {
 				fprintf(stderr, "ATR may not have more than %u digits (thus %u bytes)\n", ISO7816_ATR_MAX_SIZE * 2, ISO7816_ATR_MAX_SIZE);
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = iso7816_atr_parse(data, data_len, &atr_info);
 			if (r) {
 				fprintf(stderr, "Failed to parse ATR\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
@@ -487,6 +497,7 @@ int main(int argc, char** argv)
 		case EMV_DECODE_SW1SW2: {
 			if (data_len != 2) {
 				fprintf(stderr, "SW1SW2 must consist of 4 hex digits\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
@@ -529,12 +540,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 2) {
 				fprintf(stderr, "Merchant Category Code (MCC) must be 4-digit numeric code\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_mcc_get_string(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse Merchant Category Code (MCC)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
@@ -552,12 +565,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 1) {
 				fprintf(stderr, "EMV Terminal Type (field 9F35) must be exactly 1 byte\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_term_type_get_string_list(data[0], str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Terminal Type (field 9F35)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -570,12 +585,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 3) {
 				fprintf(stderr, "EMV Terminal Capabilities (field 9F33) must be exactly 3 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_term_caps_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Terminal Capabilities (field 9F33)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -588,12 +605,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 5) {
 				fprintf(stderr, "EMV Additional Terminal Capabilities (field 9F40) must be exactly 5 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_addl_term_caps_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Additional Terminal Capabilities (field 9F40)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -607,6 +626,7 @@ int main(int argc, char** argv)
 			r = emv_cvm_list_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Cardholder Verification Method (CVM) List (field 8E)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -619,12 +639,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 3) {
 				fprintf(stderr, "EMV Cardholder Verification Method (CVM) Results (field 9F34) must be exactly 3 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_cvm_results_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Cardholder Verification Method (CVM) Results (field 9F34)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -637,12 +659,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 5) {
 				fprintf(stderr, "EMV Terminal Verification Results (field 95) must be exactly 5 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_tvr_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Terminal Verification Results (field 95)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -655,12 +679,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 2) {
 				fprintf(stderr, "EMV Transaction Status Information (field 9B) must be exactly 2 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_tsi_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Transaction Status Information (field 9B)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -673,12 +699,14 @@ int main(int argc, char** argv)
 
 			if (data_len > 32) {
 				fprintf(stderr, "EMV Issuer Application Data (field 9F10) may be up to 32 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_iad_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Issuer Application Data (field 9F10)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -691,12 +719,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 4) {
 				fprintf(stderr, "EMV Terminal Transaction Qualifiers (field 9F66) must be exactly 4 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_ttq_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Terminal Transaction Qualifiers (field 9F66)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -709,12 +739,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 2) {
 				fprintf(stderr, "EMV Card Transaction Qualifiers (field 9F6C) must be exactly 2 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_ctq_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse EMV Card Transaction Qualifiers (field 9F6C)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -727,12 +759,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 1) {
 				fprintf(stderr, "Amex Contactless Reader Capabilities (field 9F6D) must be exactly 1 byte\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_amex_cl_reader_caps_get_string(data[0], str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse Amex Contactless Reader Capabilities (field 9F6D)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s\n", str);
@@ -745,12 +779,14 @@ int main(int argc, char** argv)
 
 			if (data_len < 5 || data_len > 32) {
 				fprintf(stderr, "Mastercard Third Party Data (field 9F6E) must be 5 to 32 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_mastercard_third_party_data_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse Mastercard Third Party Data (field 9F6E)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -763,12 +799,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 4) {
 				fprintf(stderr, "Visa Form Factor Indicator (field 9F6E) must be exactly 4 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_visa_form_factor_indicator_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse Visa Form Factor Indicator (field 9F6E)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -781,12 +819,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 4) {
 				fprintf(stderr, "Amex Enhanced Contactless Reader Capabilities (field 9F6E) must be exactly 4 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_amex_enh_cl_reader_caps_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse Amex Enhanced Contactless Reader Capabilities (field 9F6E)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -799,12 +839,14 @@ int main(int argc, char** argv)
 
 			if (data_len != 8) {
 				fprintf(stderr, "Terminal Risk Management Data (field 9F1D) must be exactly 8 bytes\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
 			r = emv_terminal_risk_management_data_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
 				fprintf(stderr, "Failed to parse Terminal Risk Management Data (field 9F1D)\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s", str); // No \n required for string list
@@ -817,6 +859,7 @@ int main(int argc, char** argv)
 
 			if (arg_str_len != 2 && arg_str_len != 3) {
 				fprintf(stderr, "ISO 3166-1 country code must be alpha-2, alpha-3 or 3-digit numeric code\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
@@ -832,6 +875,7 @@ int main(int argc, char** argv)
 				country_code = strtoul(arg_str, &endptr, 10);
 				if (!arg_str[0] || *endptr) {
 					fprintf(stderr, "Invalid ISO 3166-1 country code\n");
+					ret = EXIT_FAILURE;
 					break;
 				}
 
@@ -853,6 +897,7 @@ int main(int argc, char** argv)
 
 			if (arg_str_len != 3) {
 				fprintf(stderr, "ISO 4217 currency code must be alpha-3 or 3-digit numeric code\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
@@ -864,6 +909,7 @@ int main(int argc, char** argv)
 				currency_code = strtoul(arg_str, &endptr, 10);
 				if (!arg_str[0] || *endptr) {
 					fprintf(stderr, "Invalid ISO 4217 currency code\n");
+					ret = EXIT_FAILURE;
 					break;
 				}
 
@@ -885,6 +931,7 @@ int main(int argc, char** argv)
 
 			if (arg_str_len != 2 && arg_str_len != 3) {
 				fprintf(stderr, "ISO 639 currency code must be alpha-2 or alpha-3 code\n");
+				ret = EXIT_FAILURE;
 				break;
 			}
 
@@ -924,6 +971,7 @@ int main(int argc, char** argv)
 			codepage = emv_decode_mode - EMV_DECODE_ISO8859_1 + 1;
 			if (!iso8859_is_supported(codepage)) {
 				fprintf(stderr, "ISO8859-%u not supported\n", codepage);
+				ret = EXIT_FAILURE;
 				break;
 			}
 
@@ -931,6 +979,7 @@ int main(int argc, char** argv)
 			r = iso8859_to_utf8(codepage, data, data_len, utf8, sizeof(utf8));
 			if (r && utf8[0]) { // Ignore empty strings
 				fprintf(stderr, "iso8859_to_utf8() failed; r=%d\n", r);
+				ret = EXIT_FAILURE;
 				break;
 			}
 			printf("%s\n", utf8);
@@ -961,5 +1010,5 @@ int main(int argc, char** argv)
 		free(mcc_json);
 	}
 
-	return 0;
+	return ret;
 }

@@ -174,12 +174,14 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			r = sscanf(arg, "%4d-%2d-%2d", &year, &month, &day);
 			if (r != 3) {
 				argp_error(state, "Transaction date (--txn-date) argument must be YYYY-MM-DD");
+				return EINVAL;
 			}
 			if (year < 1950 || year > 2049 ||
 				month < 1 || month > 12 ||
 				day < 1 || day > 31
 			) {
 				argp_error(state, "Transaction date (--txn-date) argument must contain a valid date");
+				return EINVAL;
 			}
 			if (year < 2000) { // See EMV 4.4 Book 4, 6.7.3
 				year_short = year - 1900;
@@ -201,12 +203,14 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			r = sscanf(arg, "%2d:%2d:%2d", &hours, &minutes, &seconds);
 			if (r != 3) {
 				argp_error(state, "Transaction time (--txn-time) argument must be hh:mm:ss");
+				return EINVAL;
 			}
 			if (hours < 0 || hours > 23 ||
 				minutes < 0 || minutes > 59 ||
 				seconds < 0 || seconds > 59
 			) {
 				argp_error(state, "Transaction time (--txn-time) argument must contain a valid time");
+				return EINVAL;
 			}
 			txn_time[0] = ((hours / 10) << 4) | (hours % 10);
 			txn_time[1] = ((minutes / 10) << 4) | (minutes % 10);
@@ -222,12 +226,14 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			if (arg_len != 2) {
 				argp_error(state, "Transaction type (--txn-type) argument must be 2 numeric digits");
+				return EINVAL;
 			}
 
 			// Transaction Type (field 9C) is EMV format "n", so parse as hex
 			value = strtoul(arg, &endptr, 16);
 			if (!arg[0] || *endptr) {
 				argp_error(state, "Transaction type (--txn-type) argument must be 2 numeric digits");
+				return EINVAL;
 			}
 			txn_type = value;
 
@@ -241,16 +247,19 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			if (arg_len == 0) {
 				argp_error(state, "Transaction amount (--txn-amount) argument must be numeric digits");
+				return EINVAL;
 			}
 
 			// Amount, Authorised (field 81) is EMV format "b", so parse as decimal
 			value = strtoul(arg, &endptr, 10);
 			if (!arg[0] || *endptr) {
 				argp_error(state, "Transaction amount (--txn-amount) argument must be numeric digits");
+				return EINVAL;
 			}
 
 			if (value > 0xFFFFFFFF) {
 				argp_error(state, "Transaction amount (--txn-amount) argument must fit in a 32-bit field");
+				return EINVAL;
 			}
 			txn_amount = value;
 
@@ -264,16 +273,19 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			if (arg_len == 0) {
 				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must be numeric digits");
+				return EINVAL;
 			}
 
 			// Amount, Other (field 9F04) is EMV format "b", so parse as decimal
 			value = strtoul(arg, &endptr, 10);
 			if (!arg[0] || *endptr) {
 				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must be numeric digits");
+				return EINVAL;
 			}
 
 			if (value > 0xFFFFFFFF) {
 				argp_error(state, "Secondary transaction amount (--txn-amount-other) argument must fit in a 32-bit field");
+				return EINVAL;
 			}
 			txn_amount_other = value;
 
@@ -301,6 +313,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				if (i >= sizeof(debug_source_opt) / sizeof(debug_source_opt[0])) {
 					// Failed to find debug source string in list
 					argp_error(state, "Unknown debug source (--debug-source) argument \"%s\"", str);
+					return EINVAL;
 				}
 
 				// Found debug source string in list; set in mask
@@ -323,6 +336,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 			// Failed to find debug level string in list
 			argp_error(state, "Unknown debug level (--debug-level) argument \"%s\"", arg);
+			return EINVAL;
 		}
 
 		case EMV_TOOL_VERSION: {
@@ -637,13 +651,24 @@ static void print_pcsc_readers(pcsc_ctx_t pcsc)
 
 static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other)
 {
-	time_t t = time(NULL);
-	struct tm* tm = localtime(&t);
+	time_t lt; // Calendar/Unix/POSIX time in local time
+#ifdef HAVE_LOCALTIME_R
+	struct tm ltm; // Time structure in local time
+#endif
+	struct tm* tm; // Result of localtime functions
 	uint8_t buf[6];
 
 	// Transaction sequence counter
 	// See EMV 4.4 Book 4, 6.5.5
 	emv_tlv_list_push(&emv->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER, 4, emv_uint_to_format_n(txn_seq_cnt, buf, 4), 0);
+
+	// Current date/time
+	lt = time(NULL);
+#ifdef HAVE_LOCALTIME_R
+	tm = localtime_r(&lt, &ltm);
+#else
+	tm = localtime(&lt);
+#endif
 
 	// Transaction date
 	if (txn_date[0] == 0xFF) {
@@ -759,6 +784,7 @@ int main(int argc, char** argv)
 	) {
 		fprintf(stderr, "Transaction amount (--txn-amount) argument must be non-zero\n");
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
 	}
 
 	if (txn_type == EMV_TRANSACTION_TYPE_CASHBACK &&
@@ -766,6 +792,7 @@ int main(int argc, char** argv)
 	) {
 		fprintf(stderr, "Secondary transaction amount (--txn-amount-other) must be non-zero for cashback transaction\n");
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
 	}
 
 	print_set_verbose(debug_verbose);
@@ -791,14 +818,18 @@ int main(int argc, char** argv)
 	emv_debug_trace_msg("Debugging enabled; debug_verbose=%d; debug_sources_mask=0x%02X; debug_level=%u", debug_verbose, debug_sources_mask, debug_level);
 
 	r = pcsc_init(&pcsc);
-	if (r) {
+	if (r < 0) {
 		printf("PC/SC initialisation failed\n");
+		goto pcsc_exit;
+	}
+	if (r > 0) {
+		printf("No PC/SC readers available\n");
 		goto pcsc_exit;
 	}
 
 	pcsc_count = pcsc_get_reader_count(pcsc);
 	if (!pcsc_count) {
-		printf("No PC/SC readers detected\n");
+		printf("No PC/SC readers available\n");
 		goto pcsc_exit;
 	}
 
@@ -927,7 +958,6 @@ int main(int argc, char** argv)
 
 		if (application_selection_required) {
 			unsigned int app_count = 0;
-			int r;
 			char s[4]; // two digits, newline and null
 			unsigned int input = 0;
 

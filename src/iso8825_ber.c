@@ -3,7 +3,7 @@
  * @brief Basic Encoding Rules (BER) implementation
  *        (see ISO/IEC 8825-1:2021 or Rec. ITU-T X.690 02/2021)
  *
- * Copyright 2021, 2024-2025 Leon Lynch
+ * Copyright 2021, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -130,7 +130,6 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 
 		// BER decode content octets to find end-of-content
 		do {
-			int r;
 			struct iso8825_tlv_t inner_tlv;
 
 			r = iso8825_ber_decode(tlv->value + tlv->length, len - offset - tlv->length, &inner_tlv);

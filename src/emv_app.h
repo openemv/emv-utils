@@ -2,7 +2,7 @@
  * @file emv_app.h
  * @brief EMV application abstraction and helper functions
  *
- * Copyright 2021, 2024 Leon Lynch
+ * Copyright 2021, 2024, 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -98,7 +98,7 @@ struct emv_app_list_t {
  *         Use @ref emv_app_free() to free memory.
  */
 struct emv_app_t* emv_app_create_from_pse(
-	struct emv_tlv_list_t* pse_tlv_list,
+	const struct emv_tlv_list_t* pse_tlv_list,
 	const void* pse_dir_entry,
 	size_t pse_dir_entry_len
 );

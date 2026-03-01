@@ -90,7 +90,7 @@ static int iso8825_asn1_integer_get_string(
 		x = 0;
 	}
 	for (unsigned int i = 0; i < tlv->length; ++i) {
-		x = (x << 8) | tlv->value[i];
+		x = ((uint64_t)x << 8) | tlv->value[i];
 	}
 
 	snprintf(str, str_len, "%"PRId64, x);

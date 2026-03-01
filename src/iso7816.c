@@ -2,7 +2,7 @@
  * @file iso7816.c
  * @brief ISO/IEC 7816 definitions and helper functions
  *
- * Copyright 2021, 2023 Leon Lynch
+ * Copyright 2021, 2023-2025 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,6 +23,7 @@
 #include "iso7816_compact_tlv.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -193,6 +194,11 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		// See ISO 7816-4:2005, 8.1.1
 		switch (atr_info->T1) {
 			case ISO7816_ATR_T1_COMPACT_TLV_SI:
+				if (atr_info->historical_bytes_len < 3) {
+					// Insufficient historical bytes for status indicator
+					return 5;
+				}
+
 				// Store status indicator bytes for later parsing
 				atr_info->historical_bytes_len -= 3;
 				atr_info->status_indicator_bytes = atr_info->historical_bytes + atr_info->historical_bytes_len;
@@ -203,7 +209,7 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 			case ISO7816_ATR_T1_COMPACT_TLV:
 				r = iso7816_atr_parse_historical_bytes(atr_info->historical_bytes, atr_info->historical_bytes_len, atr_info);
 				if (r) {
-					return 5;
+					return 6;
 				}
 				break;
 
@@ -220,14 +226,14 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 	// Sanity check
 	if (atr_idx > atr_info->atr_len) {
 		// Internal parsing error
-		return 6;
+		return 7;
 	}
 
 	// Extract and verify TCK, if mandatory
 	if (tck_mandatory) {
 		if (atr_idx >= atr_info->atr_len) {
 			// T=1 is available but TCK is missing
-			return 7;
+			return 8;
 		}
 
 		// Extract TCK
@@ -240,7 +246,7 @@ int iso7816_atr_parse(const uint8_t* atr, size_t atr_len, struct iso7816_atr_inf
 		}
 		if (verify != 0) {
 			// TCK is invalid
-			return 8;
+			return 9;
 		}
 	}
 
@@ -704,8 +710,23 @@ static void iso7816_compute_wt(struct iso7816_atr_info_t* atr_info)
 	// From EMV Contact Interface Specification v1.0, 9.2.4.2.2:
 	// BWT = (((2^BWI x 960 x 372 x D / F) + 11)etu; where D is Di and F is Fi
 
-	// And finally, after all that thinking...
-	atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
+	// However, if the above computation is performed as-is, extreme values of BWI and D
+	// may cause a 32-bit overflow of the intermediate computation. Therefore, on
+	// platforms that are capable of 64-bit computation, use that, otherwise
+	// check whether BWI and D are reasonable before continuing with 32-bit computation.
+
+	// So finally, after all that thinking...
+#ifdef UINT64_MAX
+	atr_info->protocol_T1.BWT = 11 + (((uint64_t)(1 << BWI) * 960 * 372 * Di) / Fi);
+#else
+	// Ensure that the combination of BWI and Di will avoid a 32-bit overflow
+	if (BWI < 8 || (BWI == 8 && Di <= 32) || (BWI == 9 && Di <= 20)) {
+		atr_info->protocol_T1.BWT = 11 + (((1 << BWI) * 960 * 372 * Di) / Fi);
+	} else {
+		// Not possible to compute BWT correctly
+		atr_info->protocol_T1.BWT = 0;
+	}
+#endif
 }
 
 static int iso7816_atr_parse_historical_bytes(const void* historical_bytes, size_t historical_bytes_len, struct iso7816_atr_info_t* atr_info)

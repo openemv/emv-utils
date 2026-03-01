@@ -74,6 +74,25 @@ if(NOT HAVE_ARPA_INET_H AND NOT HAVE_WINSOCK_H)
 	endif()
 endif()
 
+# Check for time.h and localtime_r()
+include(CheckSymbolExists)
+CHECK_INCLUDE_FILE(time.h HAVE_TIME_H)
+if(BUILD_EMV_TOOL AND NOT HAVE_TIME_H)
+	message(FATAL_ERROR "Could NOT find time.h. This is required to build emv-tool")
+endif()
+check_symbol_exists(localtime_r time.h HAVE_LOCALTIME_R)
+set(TIME_H_DEFINITIONS_TRY _GNU_SOURCE) # Retry using _GNU_SOURCE
+if(NOT HAVE_LOCALTIME_R)
+	unset(HAVE_LOCALTIME_R CACHE)
+	list(APPEND CMAKE_REQUIRED_DEFINITIONS -D${TIME_H_DEFINITIONS_TRY})
+	check_symbol_exists(localtime_r time.h HAVE_LOCALTIME_R)
+	list(REMOVE_ITEM CMAKE_REQUIRED_DEFINITIONS -D${TIME_H_DEFINITIONS_TRY})
+	if(HAVE_LOCALTIME_R)
+		# Set as cache entry to persist across multiple builds
+		set(TIME_H_DEFINITIONS ${TIME_H_DEFINITIONS_TRY} CACHE INTERNAL "Definitions required for time.h")
+	endif()
+endif()
+
 # Print helpers object library
 add_library(print_helpers OBJECT EXCLUDE_FROM_ALL print_helpers.c)
 target_include_directories(print_helpers INTERFACE
@@ -117,6 +136,18 @@ if(BUILD_EMV_TOOL)
 			SOURCE ../src/pcsc.c
 			APPEND PROPERTY COMPILE_DEFINITIONS HAVE_WINSOCK_H
 		)
+	endif()
+	if(HAVE_LOCALTIME_R)
+		set_property(
+			SOURCE emv-tool.c
+			APPEND PROPERTY COMPILE_DEFINITIONS HAVE_LOCALTIME_R
+		)
+		if(TIME_H_DEFINITIONS)
+			set_property(
+				SOURCE emv-tool.c
+				APPEND PROPERTY COMPILE_DEFINITIONS ${TIME_H_DEFINITIONS}
+			)
+		endif()
 	endif()
 
 	add_executable(emv-tool emv-tool.c ../src/pcsc.c)
@@ -907,14 +938,15 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	# Test decoding of various ASN.1 types
 	add_test(NAME emv_decode_asn1_test1
-		COMMAND emv-decode --tlv 305D0101000101FF0203FFFFFF02037FFFFF0500060388370306092A864886F70D01010B0900090140090141090142090143090380FC01090580FE5555550908032B312E30652D330A03FFFFFE0A037FFFFE0D04C27B03021A054A6F6E6573
+		COMMAND emv-decode --tlv 30610101000101FF0203FFFFFF0202FC1802037FFFFF0500060388370306092A864886F70D01010B0900090140090141090142090143090380FC01090580FE5555550908032B312E30652D330A03FFFFFE0A037FFFFE0D04C27B03021A054A6F6E6573
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_asn1_test1_regex
-		"^30 \\| ASN.1 Sequence : \\[93\\][\r\n]"
+		"^30 \\| ASN.1 Sequence : \\[97\\][\r\n]"
 		"  01 \\| ASN.1 Boolean : \\[1\\] 00 \\(False\\)[\r\n]"
 		"  01 \\| ASN.1 Boolean : \\[1\\] FF \\(True\\)[\r\n]"
 		"  02 \\| ASN.1 Integer : \\[3\\] FF FF FF \\(-1\\)[\r\n]"
+		"  02 \\| ASN.1 Integer : \\[2\\] FC 18 \\(-1000\\)[\r\n]"
 		"  02 \\| ASN.1 Integer : \\[3\\] 7F FF FF \\(8388607\\)[\r\n]"
 		"  05 \\| ASN.1 Null : \\[0\\][\r\n]"
 		"  06 \\| ASN.1 Object Identifier \\(OID\\) : \\[3\\] 88 37 03 \\(2\\.999\\.3\\)[\r\n]" # See ISO 8825-1:2021, 8.19.5
