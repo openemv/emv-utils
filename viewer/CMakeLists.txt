@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2024-2025 Leon Lynch
+# Copyright 2024-2026 Leon Lynch
 #
 # This file is licensed under the terms of the GPL v3 license.
 # See LICENSE.gpl file.
@@ -8,7 +8,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(emv-viewer
-	VERSION 0.3.0
+	VERSION 0.3.1
 	DESCRIPTION "EMV Viewer using Qt"
 	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
 	LANGUAGES CXX
@@ -205,7 +205,7 @@ if(APPLE AND BUILD_MACOSX_BUNDLE)
 			MACOSX_BUNDLE_BUNDLE_NAME "EMV Viewer"
 			MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION}
 			MACOSX_BUNDLE_SHORT_VERSION_STRING ${CMAKE_PROJECT_VERSION}
-			MACOSX_BUNDLE_COPYRIGHT "Copyright 2021-2024 Leon Lynch"
+			MACOSX_BUNDLE_COPYRIGHT "Copyright 2021-2026 Leon Lynch"
 			MACOSX_BUNDLE_GUI_IDENTIFIER org.openemv.${CMAKE_PROJECT_NAME}
 			MACOSX_BUNDLE_ICON_FILE "openemv_emv_utils.icns"
 			RESOURCE icons/openemv_emv_utils.icns
