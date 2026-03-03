@@ -31,9 +31,8 @@ See [usage](#usage) for more examples.
 Installation
 ------------
 
-* For Ubuntu 20.04 LTS (Focal), 22.04 LTS (Jammy), or 24.04 LTS (Noble) install
-  the appropriate
-  [release package](https://github.com/openemv/emv-utils/releases)
+* For Ubuntu 22.04 LTS (Jammy) or 24.04 LTS (Noble), install the appropriate
+  Ubuntu [release package](https://github.com/openemv/emv-utils/releases)
 * For Fedora 41 or Fedora 42, install the appropriate Fedora
   [release package](https://github.com/openemv/emv-utils/releases)
 * For Gentoo, use the
