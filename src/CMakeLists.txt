@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2025 Leon Lynch
+# Copyright 2022-2026 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -54,18 +54,10 @@ endif()
 
 find_package(IsoCodes REQUIRED)
 
-# Newer versions of json-c have a CMake config file while older versions, like
-# the one for Ubuntu 20.04, do not. Therefore, first try to find the CMake
-# config file and then fallback to the custom Findjson-c.cmake module
-find_package(json-c CONFIG)
-if(json-c_FOUND)
-	# The json-c CMake config doesn't print a find_package() message but it is
-	# always good to know where it was found
-	find_package_handle_standard_args(json-c CONFIG_MODE)
-else()
-	# Try custom Findjson-c.cmake module
-	find_package(json-c REQUIRED)
-endif()
+find_package(json-c REQUIRED CONFIG)
+# The json-c CMake config doesn't print a find_package() message but it is
+# always good to know where it was found
+find_package_handle_standard_args(json-c CONFIG_MODE)
 # The EMV_UTILS_PACKAGE_DEPENDENCIES variable is set for the parent scope to
 # facilitate the generation of CMake package configuration files.
 list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "json-c")
