@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2021 Leon Lynch
+# Copyright 2021, 2026 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -13,7 +13,7 @@
 # IsoCodes_DOMAINS
 # IsoCodes_JSON_PATH
 
-cmake_minimum_required(VERSION 3.12) # For list(TRANSFORM...)
+cmake_minimum_required(VERSION 3.22)
 
 # Use PkgConfig to find iso-codes
 find_package(PkgConfig REQUIRED)

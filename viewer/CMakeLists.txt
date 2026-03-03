@@ -5,7 +5,7 @@
 # See LICENSE.gpl file.
 ##############################################################################
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
 
 project(emv-viewer
 	VERSION 0.3.1
@@ -15,15 +15,7 @@ project(emv-viewer
 )
 
 # Determine whether this project is the top-level project
-if(${CMAKE_VERSION} VERSION_LESS "3.21")
-	get_directory_property(EMV_VIEWER_HAS_PARENT PARENT_DIRECTORY)
-	if(NOT EMV_VIEWER_HAS_PARENT)
-		set(EMV_VIEWER_IS_TOP_LEVEL True)
-	endif()
-else()
-	# CMake >=3.21 provides <PROJECT-NAME>_IS_TOP_LEVEL
-	set(EMV_VIEWER_IS_TOP_LEVEL ${emv-viewer_IS_TOP_LEVEL})
-endif()
+set(EMV_VIEWER_IS_TOP_LEVEL ${emv-viewer_IS_TOP_LEVEL})
 
 # Configure compiler
 set(CMAKE_CXX_STANDARD 14)
@@ -160,15 +152,8 @@ if(QT_VERSION VERSION_LESS 5.15)
 	qt5_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
 	qt5_add_resources(QRC_SRCS icons.qrc)
 
-	if(CMAKE_VERSION VERSION_LESS "3.18")
-		# CMake versions older than 3.18 cannot create alias targets for
-		# non-global imported targets and an alternative is to use INTERFACE
-		# linking instead
-		add_library(Qt::Widgets INTERFACE IMPORTED)
-		set_target_properties(Qt::Widgets PROPERTIES INTERFACE_LINK_LIBRARIES Qt5::Widgets)
-	else()
-		add_library(Qt::Widgets ALIAS Qt5::Widgets)
-	endif()
+	# Create alias targets for compatibility with newer Qt versions
+	add_library(Qt::Widgets ALIAS Qt5::Widgets)
 else()
 	# Qt-5.15 and Qt-6 provide these version-less commands
 	qt_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
