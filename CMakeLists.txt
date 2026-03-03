@@ -5,7 +5,7 @@
 # See LICENSE file.
 ##############################################################################
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
 
 project(emv-utils
 	VERSION 0.3.1
@@ -15,15 +15,7 @@ project(emv-utils
 )
 
 # Determine whether this project is the top-level project
-if(${CMAKE_VERSION} VERSION_LESS "3.21")
-	get_directory_property(EMV_UTILS_HAS_PARENT PARENT_DIRECTORY)
-	if(NOT EMV_UTILS_HAS_PARENT)
-		set(EMV_UTILS_IS_TOP_LEVEL True)
-	endif()
-else()
-	# CMake >=3.21 provides <PROJECT-NAME>_IS_TOP_LEVEL
-	set(EMV_UTILS_IS_TOP_LEVEL ${emv-utils_IS_TOP_LEVEL})
-endif()
+set(EMV_UTILS_IS_TOP_LEVEL ${emv-utils_IS_TOP_LEVEL})
 
 # Configure compiler
 set(CMAKE_C_STANDARD 11)
