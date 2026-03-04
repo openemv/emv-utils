@@ -137,7 +137,7 @@ if(NOT Qt_NAMES)
 	message(FATAL_ERROR "Either Qt5 or Qt6 are required to build emv-viewer")
 endif()
 
-find_package(QT 5.12 NAMES ${Qt_NAMES} REQUIRED COMPONENTS Widgets)
+find_package(QT 5.15 NAMES ${Qt_NAMES} REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets PATHS ${QT_DIR})
 find_package_handle_standard_args(Qt${QT_VERSION_MAJOR}Widgets CONFIG_MODE)
 set(EMV_VIEWER_MOC_HEADERS
@@ -146,20 +146,9 @@ set(EMV_VIEWER_MOC_HEADERS
 	emvtreeview.h
 	betterplaintextedit.h
 )
-if(QT_VERSION VERSION_LESS 5.15)
-	# Qt-5.12 provides these versioned commands
-	qt5_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
-	qt5_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
-	qt5_add_resources(QRC_SRCS icons.qrc)
-
-	# Create alias targets for compatibility with newer Qt versions
-	add_library(Qt::Widgets ALIAS Qt5::Widgets)
-else()
-	# Qt-5.15 and Qt-6 provide these version-less commands
-	qt_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
-	qt_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
-	qt_add_resources(QRC_SRCS icons.qrc)
-endif()
+qt_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
+qt_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
+qt_add_resources(QRC_SRCS icons.qrc)
 
 add_executable(emv-viewer
 	emv-viewer.cpp
