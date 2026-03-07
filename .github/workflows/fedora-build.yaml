@@ -36,7 +36,7 @@ jobs:
       run: sudo dnf -y install qt6-qtbase-devel
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         submodules: recursive
 
@@ -80,7 +80,7 @@ jobs:
         sudo dnf -y install git gh cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion-devel doxygen rpm-build qt6-qtbase-devel
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -118,7 +118,7 @@ jobs:
       run: cmake --build build --target package
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: emv-utils-${{ env.GIT_DESCRIBE }}-fedora${{ matrix.fedora_version }}
         path: build/emv-utils-*.rpm
