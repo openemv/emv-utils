@@ -55,7 +55,7 @@ jobs:
         echo "Qt6_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         submodules: recursive
 
@@ -91,7 +91,7 @@ jobs:
         echo "Qt6_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -134,7 +134,7 @@ jobs:
       run: scripts/cleanup_macos_keychain.sh
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: emv-utils-${{ env.GIT_DESCRIBE }}-macos
         path: |
@@ -144,7 +144,7 @@ jobs:
 
     - name: Upload build directory if failed
       if: ${{ failure() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: emv-utils-${{ env.GIT_DESCRIBE }}-macos-build
         path: ./
