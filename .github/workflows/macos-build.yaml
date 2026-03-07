@@ -51,14 +51,14 @@ jobs:
       if: contains(matrix.deps, 'qt5')
       run: |
         brew install qt@5
-        echo "QT_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+        echo "Qt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
 
     - name: Install Qt6 using brew
       # Homebrew doesn't support universal binaries so only install Qt for arch-specific builds
       if: contains(matrix.deps, 'qt6')
       run: |
         brew install qt@6
-        echo "QT_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
+        echo "Qt6_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -96,7 +96,7 @@ jobs:
         brew install pcsc-lite
         echo "PKG_CONFIG_PATH=$(brew --prefix pcsc-lite)/lib/pkgconfig" >> $GITHUB_ENV
         brew install qt@6
-        echo "QT_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
+        echo "Qt6_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
 
     - name: Checkout
       uses: actions/checkout@v4
