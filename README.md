@@ -179,13 +179,12 @@ at build time using the CMake `ISO8859_IMPL` option. It allows these values:
 Qt
 --
 
-This project supports Qt 5.15.x, Qt 6.5.x and Qt 6.8.x (although it
-may be possible to use other versions of Qt) when building the `emv-viewer`
-application. However, on some platforms it may be necessary to use the `QT_DIR`
-option (and not the `Qt5_DIR` nor `Qt6_DIR` options) or `CMAKE_PREFIX_PATH`
-option to specify the exact Qt installation to be used. For Qt6 it may also be
-necessary for the Qt tools to be available in the executable PATH regardless of
-the `QT_DIR` option.
+This project supports Qt 5.15.x, Qt 6.8.x and Qt 6.10.x (although it may be
+possible to use other versions of Qt) when building the `emv-viewer`
+application. However, on some platforms it may be necessary to use the
+`Qt5_DIR`, `Qt6_DIR` or `CMAKE_PREFIX_PATH` options to specify the exact Qt
+installation to be used. For Qt6 it may also be necessary for the Qt tools to
+be available in the executable PATH regardless of the `Qt6_DIR` option.
 
 If the Qt installation does not provide universal binaries for MacOS, it will
 not be possible to build `emv-viewer` as a universal binary for MacOS.

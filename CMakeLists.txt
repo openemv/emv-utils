@@ -140,21 +140,20 @@ add_subdirectory(tests)
 # If Qt::Widgets is available, build emv-viewer
 option(BUILD_EMV_VIEWER "Build emv-viewer")
 # See https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html#supporting-older-qt-5-versions
-# Note that CMAKE_DISABLE_FIND_PACKAGE_<PackageName> only applies to the
-# primary package name and not the alternative names and therefore it is
-# necessary to build the list of alternative names to ensure that either Qt5 or
-# Qt6 can be disabled, otherwise CMAKE_DISABLE_FIND_PACKAGE_<PackageName> will
-# be ignored.
-if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt5)
-	list(APPEND Qt_NAMES Qt5)
-endif()
-if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt6)
-	list(APPEND Qt_NAMES Qt6)
-endif()
-if(Qt_NAMES)
-	find_package(QT 5.15 NAMES ${Qt_NAMES} COMPONENTS Widgets)
-	if(QT_FOUND)
-		find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets PATHS ${QT_DIR})
+# See https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html#pitfalls-when-using-versionless-targets
+# Only support Qt-6.8+, or Qt-5.15, because Qt-6.8+ supports icon themes on
+# Windows and MacOS, along with various other fixes.
+if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt6 OR NOT CMAKE_DISABLE_FIND_PACKAGE_Qt5)
+	find_package(Qt6 6.8 COMPONENTS Widgets CONFIG)
+	if(Qt6_FOUND)
+		set(QT_VERSION_MAJOR 6)
+	else()
+		find_package(Qt5 5.15 COMPONENTS Widgets CONFIG)
+		if(Qt5_FOUND)
+			set(QT_VERSION_MAJOR 5)
+		endif()
+	endif()
+	if(QT_VERSION_MAJOR)
 		find_package_handle_standard_args(Qt${QT_VERSION_MAJOR} CONFIG_MODE)
 		find_package_handle_standard_args(Qt${QT_VERSION_MAJOR}Widgets CONFIG_MODE)
 	else()
@@ -171,7 +170,7 @@ else()
 		message(STATUS "Both Qt5 and Qt6 are disabled: skipping emv-viewer build")
 	endif()
 endif()
-if(QT_FOUND)
+if(QT_VERSION_MAJOR)
 	message(STATUS "Adding emv-viewer to build")
 	add_subdirectory(viewer)
 endif()
