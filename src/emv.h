@@ -2,7 +2,7 @@
  * @file emv.h
  * @brief High level EMV library interface
  *
- * Copyright 2023-2025 Leon Lynch
+ * Copyright 2023-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -51,7 +51,8 @@ struct emv_ctx_t {
 	/**
 	 * @brief Terminal Transport Layer (TTL) context.
 	 *
-	 * Populated by @ref emv_ctx_init().
+	 * Populated by @ref emv_ctx_init() or @ref emv_card_activated() before
+	 * EMV processing.
 	 */
 	struct emv_ttl_t* ttl;
 
@@ -222,7 +223,7 @@ const char* emv_lib_version_string(void);
  * Initialize EMV processing context
  *
  * @param ctx EMV processing context
- * @param ttl Terminal Transport Layer (TTL) context
+ * @param ttl Terminal Transport Layer (TTL) context. NULL if not available.
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
@@ -294,6 +295,18 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome);
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_atr_parse(const void* atr, size_t atr_len);
+
+/**
+ * Indicate that EMV card has been presented to reader
+ *
+ * @param ctx EMV processing context
+ * @param ttl Terminal Transport Layer (TTL) context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl);
 
 /**
  * Build candidate application list using Payment System Environment (PSE) or

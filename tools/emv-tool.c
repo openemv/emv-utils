@@ -800,7 +800,7 @@ int main(int argc, char** argv)
 	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
-		return 2;
+		return 1;
 	}
 	if (r > 0) {
 		fprintf(stderr, "Failed to load iso-codes data or mcc-codes data; currency, country, language or MCC lookups may not be possible\n");
@@ -817,6 +817,32 @@ int main(int argc, char** argv)
 	}
 	emv_debug_trace_msg("Debugging enabled; debug_verbose=%d; debug_sources_mask=0x%02X; debug_level=%u", debug_verbose, debug_sources_mask, debug_level);
 
+	// Prepare for EMV transaction
+	r = emv_ctx_init(&emv, NULL);
+	if (r) {
+		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
+		return 1;
+	}
+	print_set_sources_from_ctx(&emv);
+	emv_txn_load_config(&emv);
+	emv_txn_load_params(
+		&emv,
+		42, // Transaction Sequence Counter
+		txn_type, // Transaction Type
+		txn_amount, // Transaction Amount
+		txn_amount_other // Transaction Amount, Other
+	);
+
+	printf("\nTerminal config:\n");
+	print_emv_tlv_list(&emv.config);
+
+	printf("\nSupported AIDs:\n");
+	print_emv_tlv_list(&emv.supported_aids);
+
+	printf("\nTransaction parameters:\n");
+	print_emv_tlv_list(&emv.params);
+
+	printf("\nActivating card readers\n");
 	r = pcsc_init(&pcsc);
 	if (r < 0) {
 		printf("PC/SC initialisation failed\n");
@@ -903,34 +929,20 @@ int main(int argc, char** argv)
 		goto pcsc_exit;
 	}
 
-	// Prepare for EMV transaction
+	// Populate Terminal Transport Layer (TTL) for current reader
 	memset(&ttl, 0, sizeof(ttl));
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = reader;
 	ttl.cardreader.trx = &pcsc_reader_trx;
-	r = emv_ctx_init(&emv, &ttl);
-	if (r) {
-		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
-		goto pcsc_exit;
+	r = emv_card_activated(&emv, &ttl);
+	if (r < 0) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto emv_exit;
 	}
-	print_set_sources_from_ctx(&emv);
-	emv_txn_load_config(&emv);
-	emv_txn_load_params(
-		&emv,
-		42, // Transaction Sequence Counter
-		txn_type, // Transaction Type
-		txn_amount, // Transaction Amount
-		txn_amount_other // Transaction Amount, Other
-	);
-
-	printf("\nTerminal config:\n");
-	print_emv_tlv_list(&emv.config);
-
-	printf("\nSupported AIDs:\n");
-	print_emv_tlv_list(&emv.supported_aids);
-
-	printf("\nTransaction parameters:\n");
-	print_emv_tlv_list(&emv.params);
+	if (r > 0) {
+		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+		goto emv_exit;
+	}
 
 	printf("\nBuild candidate list\n");
 	r = emv_build_candidate_list(&emv, &app_list);
@@ -1141,9 +1153,9 @@ int main(int argc, char** argv)
 
 emv_exit:
 	emv_app_list_clear(&app_list);
-	emv_ctx_clear(&emv);
 pcsc_exit:
 	pcsc_release(&pcsc);
+	emv_ctx_clear(&emv);
 
 	if (isocodes_path) {
 		free(isocodes_path);
