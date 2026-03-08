@@ -2,7 +2,7 @@
  * @file emv.c
  * @brief High level EMV library interface
  *
- * Copyright 2023-2025 Leon Lynch
+ * Copyright 2023-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -60,7 +60,7 @@ const char* emv_error_get_string(enum emv_error_t error)
 
 int emv_ctx_init(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
 {
-	if (!ctx || !ttl) {
+	if (!ctx) {
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
@@ -342,6 +342,17 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 	// TCK - Check Character
 	// See EMV Level 1 Contact Interface v1.0, 8.3.4
 	// Validated by iso7816_atr_parse()
+
+	return 0;
+}
+
+int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
+{
+	if (!ctx || !ttl) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	ctx->ttl = ttl;
 
 	return 0;
 }
