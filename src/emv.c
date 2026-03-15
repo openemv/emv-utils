@@ -99,7 +99,7 @@ int emv_ctx_clear(struct emv_ctx_t* ctx)
 	}
 
 	ctx->ttl = NULL;
-	emv_tlv_list_clear(&ctx->config);
+	emv_config_clear(&ctx->config);
 	emv_tlv_list_clear(&ctx->supported_aids);
 	emv_ctx_reset(ctx);
 
@@ -943,7 +943,7 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 	emv_debug_info("Offline data authentication");
 
 	// Ensure mandatory configuration fields are present and have valid length
-	term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
+	term_caps = emv_config_data_get(ctx, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
 	if (!term_caps || term_caps->length != 3) {
 		emv_debug_trace_msg("term_caps=%p, term_caps->length=%u",
 			term_caps, term_caps ? term_caps->length : 0);
@@ -951,7 +951,7 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 		r = EMV_ERROR_INVALID_CONFIG;
 		goto exit;
 	}
-	default_ddol = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F49_DDOL);
+	default_ddol = emv_config_data_get(ctx, EMV_TAG_9F49_DDOL);
 	if (!default_ddol || default_ddol->length < 2) {
 		emv_debug_trace_msg("default_ddol=%p, default_ddol->length=%u",
 			default_ddol, default_ddol ? default_ddol->length : 0);
@@ -1021,28 +1021,28 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx)
 	emv_debug_info("Processing restrictions");
 
 	// Ensure mandatory configuration fields are present and have valid length
-	term_app_version = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL);
+	term_app_version = emv_config_data_get(ctx, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL);
 	if (!term_app_version || term_app_version->length != 2) {
 		emv_debug_trace_msg("term_app_version=%p, term_app_version->length=%u",
 			term_app_version, term_app_version ? term_app_version->length : 0);
 		emv_debug_error("Application Version Number - terminal (9F09) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
 	}
-	term_type = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F35_TERMINAL_TYPE);
+	term_type = emv_config_data_get(ctx, EMV_TAG_9F35_TERMINAL_TYPE);
 	if (!term_type || term_type->length != 1) {
 		emv_debug_trace_msg("term_type=%p, term_type->length=%u",
 			term_type, term_type ? term_type->length : 0);
 		emv_debug_error("Terminal Type (9F35) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
 	}
-	addl_term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES);
+	addl_term_caps = emv_config_data_get(ctx, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES);
 	if (!addl_term_caps || addl_term_caps->length != 5) {
 		emv_debug_trace_msg("addl_term_caps=%p, addl_term_caps->length=%u",
 			addl_term_caps, addl_term_caps ? addl_term_caps->length : 0);
 		emv_debug_error("Additional Terminal Capabilities (9F40) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
 	}
-	term_country_code = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE);
+	term_country_code = emv_config_data_get(ctx, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE);
 	if (!term_country_code || term_country_code->length != 2) {
 		emv_debug_trace_msg("term_country_code=%p, term_country_code->length=%u",
 			term_country_code, term_country_code ? term_country_code->length : 0);
@@ -1253,7 +1253,7 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	emv_debug_info("Terminal risk management");
 
 	// Ensure mandatory configuration fields are present and have valid length
-	term_floor_limit = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
+	term_floor_limit = emv_config_data_get(ctx, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
 	if (!term_floor_limit || term_floor_limit->length != 4) {
 		emv_debug_trace_msg("term_floor_limit=%p, term_floor_limit->length=%u",
 			term_floor_limit, term_floor_limit ? term_floor_limit->length : 0);

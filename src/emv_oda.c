@@ -2,7 +2,7 @@
  * @file emv_oda.c
  * @brief EMV Offline Data Authentication (ODA) helper functions
  *
- * Copyright 2025 Leon Lynch
+ * Copyright 2025-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -648,7 +648,7 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 	ddol = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F49_DDOL);
 	if (!ddol) {
 		emv_debug_info("Use default Dynamic Data Authentication Data Object List (DDOL)");
-		ddol = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F49_DDOL);
+		ddol = emv_config_data_get(ctx, EMV_TAG_9F49_DDOL);
 		if (!ddol) {
 			// Presence of Default DDOL should have been confirmed by
 			// emv_offline_data_authentication(), but if it is missing then

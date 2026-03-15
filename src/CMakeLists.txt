@@ -271,6 +271,7 @@ add_library(emv
 	emv_tlv.c
 	emv_dol.c
 	emv_debug.c
+	emv_config.c
 	emv_ttl.c
 	emv_app.c
 	emv_tal.c
@@ -290,6 +291,7 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_tlv.h
 	emv_dol.h
 	emv_debug.h
+	emv_config.h
 	emv_ttl.h
 	emv_app.h
 	emv_tal.h
