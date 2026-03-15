@@ -357,7 +357,7 @@ int emv_tlv_sources_init_from_ctx(
 	if (!emv_tlv_list_is_valid(&ctx->params)) {
 		return -2;
 	}
-	if (!emv_tlv_list_is_valid(&ctx->config)) {
+	if (!emv_tlv_list_is_valid(&ctx->config.data)) {
 		return -3;
 	}
 	if (!emv_tlv_list_is_valid(&ctx->terminal)) {
@@ -376,7 +376,7 @@ int emv_tlv_sources_init_from_ctx(
 	sources->list[0] = &ctx->terminal;
 	sources->list[1] = &ctx->icc;
 	sources->list[2] = &ctx->params;
-	sources->list[3] = &ctx->config;
+	sources->list[3] = &ctx->config.data;
 
 	return 0;
 }

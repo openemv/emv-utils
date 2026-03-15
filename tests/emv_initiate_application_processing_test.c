@@ -2,7 +2,7 @@
  * @file emv_initiate_application_processing_test.c
  * @brief Unit tests for EMV application processing
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -175,12 +175,12 @@ int main(void)
 	// Populate data sources
 	r = populate_tlv_list(test_param_data, sizeof(test_param_data) / sizeof(test_param_data[0]), &emv.params);
 	if (r) {
-		fprintf(stderr, "populate_source() failed; r=%d\n", r);
+		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
 		return 1;
 	}
-	r = populate_tlv_list(test_config_data, sizeof(test_config_data) / sizeof(test_config_data[0]), &emv.config);
+	r = populate_tlv_list(test_config_data, sizeof(test_config_data) / sizeof(test_config_data[0]), &emv.config.data);
 	if (r) {
-		fprintf(stderr, "populate_source() failed; r=%d\n", r);
+		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
 		return 1;
 	}
 

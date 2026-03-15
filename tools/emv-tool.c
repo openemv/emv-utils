@@ -703,18 +703,18 @@ static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uin
 static void emv_txn_load_config(struct emv_ctx_t* emv)
 {
 	// Terminal / merchant config
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F01_ACQUIRER_IDENTIFIER, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0 ); // Unique acquirer identifier
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F15_MCC, 2, (uint8_t[]){ 0x59, 0x99 }, 0); // Miscellaneous and Specialty Retail Stores
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F16_MERCHANT_IDENTIFIER, 15, (const uint8_t*)"0987654321     ", 0); // Unique merchant identifier
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE, 2, (uint8_t[]){ 0x05, 0x28 }, 0); // Netherlands
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0); // 10000
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F1C_TERMINAL_IDENTIFICATION, 8, (const uint8_t*)"TID12345", 0); // Unique location of terminal at merchant
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F1E_IFD_SERIAL_NUMBER, 8, (const uint8_t*)"12345678", 0); // Serial number
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION, 12, (const uint8_t*)"ACME Peanuts", 0); // Merchant Name and Location
-	emv_tlv_list_push_asn1_object(&emv->config, &ASN1_OID(url), // Merchant URL
+	emv_config_data_set(emv, EMV_TAG_9F01_ACQUIRER_IDENTIFIER, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }); // Unique acquirer identifier
+	emv_config_data_set(emv, EMV_TAG_9F15_MCC, 2, (uint8_t[]){ 0x59, 0x99 }); // Miscellaneous and Specialty Retail Stores
+	emv_config_data_set(emv, EMV_TAG_9F16_MERCHANT_IDENTIFIER, 15, (const uint8_t*)"0987654321     "); // Unique merchant identifier
+	emv_config_data_set(emv, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE, 2, (uint8_t[]){ 0x05, 0x28 }); // Netherlands
+	emv_config_data_set(emv, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }); // 10000
+	emv_config_data_set(emv, EMV_TAG_9F1C_TERMINAL_IDENTIFICATION, 8, (const uint8_t*)"TID12345"); // Unique location of terminal at merchant
+	emv_config_data_set(emv, EMV_TAG_9F1E_IFD_SERIAL_NUMBER, 8, (const uint8_t*)"12345678"); // Serial number
+	emv_config_data_set(emv, EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION, 12, (const uint8_t*)"ACME Peanuts"); // Merchant Name and Location
+	emv_config_data_set_asn1_object(emv, &ASN1_OID(url), // Merchant URL
 		13, (uint8_t[]){ 0x0C, 0x0B, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D } // ASN.1 UTF-8 string "example.com"
 	);
-	emv_tlv_list_push_asn1_object(&emv->config, &ASN1_OID(emailAddress), // Merchant email address
+	emv_config_data_set_asn1_object(emv, &ASN1_OID(emailAddress), // Merchant email address
 		22, (uint8_t[]){ 0x0C, 0x14, 0x6A, 0x6F, 0x68, 0x6E, 0x2E, 0x64, 0x6F, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D } // ASN.1 UTF-8 string "john.doe@example.com"
 	);
 
@@ -722,19 +722,19 @@ static void emv_txn_load_config(struct emv_ctx_t* emv)
 	// - Card Data Input Capability: IC with Contacts
 	// - CVM Capability: Plaintext offline PIN, Enciphered online PIN, Signature, Enciphered offline PIN, No CVM
 	// - Security Capability: Set using --oda option. Default is SDA, DDA, CDA.
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, term_caps_sec }, 0);
+	emv_config_data_set(emv, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, term_caps_sec });
 
 	// Terminal Type: Merchant attended, offline with online capability
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){ 0x22 }, 0);
+	emv_config_data_set(emv, EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){ 0x22 });
 
 	// Additional Terminal Capabilities:
 	// - Transaction Type Capability: Goods, Services, Cashback, Cash, Inquiry, Payment
 	// - Terminal Data Input Capability: Numeric, Alphabetic and special character keys, Command keys, Function keys
 	// - Terminal Data Output Capability: Attended print, Attended display, Code table 1 to 10
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES, 5, (uint8_t[]){ 0xFA, 0x00, 0xF0, 0xA3, 0xFF }, 0);
+	emv_config_data_set(emv, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES, 5, (uint8_t[]){ 0xFA, 0x00, 0xF0, 0xA3, 0xFF });
 
 	// Default Dynamic Data Authentication Data Object List (DDOL)
-	emv_tlv_list_push(&emv->config, EMV_TAG_9F49_DDOL, 3, (uint8_t[]){ 0x9F, 0x37, 0x04 }, 0);
+	emv_config_data_set(emv, EMV_TAG_9F49_DDOL, 3, (uint8_t[]){ 0x9F, 0x37, 0x04 });
 
 	// Supported applications
 	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
@@ -834,7 +834,7 @@ int main(int argc, char** argv)
 	);
 
 	printf("\nTerminal config:\n");
-	print_emv_tlv_list(&emv.config);
+	print_emv_tlv_list(&emv.config.data);
 
 	printf("\nSupported AIDs:\n");
 	print_emv_tlv_list(&emv.supported_aids);
@@ -1087,22 +1087,22 @@ int main(int argc, char** argv)
 		switch (info.scheme) {
 			case EMV_CARD_SCHEME_VISA:
 				// See Visa Terminal Acceptance Device Guide (TADG) version 3.2, January 2020, 4.6, Processing Restrictions
-				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0xA0 }, 0);
+				emv_config_data_set(&emv, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0xA0 });
 				break;
 
 			case EMV_CARD_SCHEME_MASTERCARD:
 				// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Application Version Number
-				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0);
+				emv_config_data_set(&emv, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 });
 				break;
 
 			case EMV_CARD_SCHEME_AMEX:
 				// See Amex Live Terminal Parameters Guide (October 2024), 2.4
-				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x01 }, 0);
+				emv_config_data_set(&emv, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x01 });
 				break;
 
 			default:
 				// Unsupported scheme
-				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x00 }, 0);
+				emv_config_data_set(&emv, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x00 });
 				break;
 		}
 	}
