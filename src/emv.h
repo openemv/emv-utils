@@ -22,6 +22,7 @@
 #ifndef EMV_H
 #define EMV_H
 
+#include "emv_config.h"
 #include "emv_tlv.h"
 #include "emv_oda_types.h"
 
@@ -57,12 +58,15 @@ struct emv_ctx_t {
 	struct emv_ttl_t* ttl;
 
 	/**
-	 * @brief Terminal configuration.
+	 * @brief Terminal configuration data.
+	 * @remark See EMV 4.4 Book 4, 10
 	 *
-	 * Populate after @ref emv_ctx_init() and before EMV processing by
-	 * using @ref emv_tlv_list_push().
+	 * Populated after @ref emv_ctx_init() and before EMV processing by
+	 * using:
+	 * - @ref emv_config_data_set()
+	 * - @ref emv_config_data_set_asn1_object()
 	 */
-	struct emv_tlv_list_t config;
+	struct emv_config_t config;
 
 	/**
 	 * @brief List of supported applications.
