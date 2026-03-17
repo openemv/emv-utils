@@ -24,6 +24,7 @@
 #include "emv_tlv.h"
 
 #include <stddef.h>
+#include <string.h>
 
 int emv_config_clear(struct emv_config_t* config)
 {
@@ -44,18 +45,26 @@ int emv_config_data_set(
 )
 {
 	int r;
+	struct emv_tlv_t* tlv;
 
 	if (!ctx) {
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
-	r = emv_tlv_list_push(
-		&ctx->config.data,
-		tag,
-		length,
-		value,
-		0
-	);
+	tlv = emv_tlv_list_find(&ctx->config.data, tag);
+	if (tlv) {
+		// Overwrite existing field
+		r = emv_tlv_update_value(tlv, length, value);
+	} else {
+		// Add new field
+		r = emv_tlv_list_push(
+			&ctx->config.data,
+			tag,
+			length,
+			value,
+			0
+		);
+	}
 	if (r) {
 		return EMV_ERROR_INTERNAL;
 	}
@@ -75,7 +84,40 @@ int emv_config_data_set_asn1_object(
 	if (!ctx) {
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
+	if (!oid ||
+		oid->length < 2 ||
+		oid->length > sizeof(oid->value) / sizeof(oid->value[0])
+	) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
 
+	// Find existing ASN.1 object with matching OID
+	for (struct emv_tlv_t* tlv = ctx->config.data.front; tlv != NULL; tlv = tlv->next) {
+		struct iso8825_oid_t cur_oid;
+
+		r = iso8825_ber_asn1_object_decode(&tlv->ber, &cur_oid);
+		if (r <= 0) {
+			// Not an ASN.1 object
+			continue;
+		}
+
+		if (cur_oid.length != oid->length ||
+			memcmp(cur_oid.value, oid->value, sizeof(oid->value[0]) * oid->length) != 0
+		) {
+			// ASN.1 OID does not match
+			continue;
+		}
+
+		// Remove matching ASN.1 OID object
+		r = emv_tlv_list_remove(&ctx->config.data, tlv);
+		if (r) {
+			return EMV_ERROR_INTERNAL;
+		}
+
+		break;
+	}
+
+	// Add new ASN.1 object
 	r = emv_tlv_list_push_asn1_object(
 		&ctx->config.data,
 		oid,
