@@ -80,6 +80,9 @@ int emv_config_clear(struct emv_config_t* config);
 /**
  * Set EMV TLV field for application independent data of EMV configuration.
  *
+ * This function will overwrite the value of the field if it has already been
+ * set, or add the field if it has not yet been set.
+ *
  * @param ctx EMV processing context
  * @param tag EMV TLV tag
  * @param length EMV TLV length
@@ -98,6 +101,9 @@ int emv_config_data_set(
 /**
  * Set encoded ASN.1 object for application independent data of EMV
  * configuration.
+ *
+ * This function will overwrite the value of the ASN.1 object if it has already
+ * been set, or add the ASN.1 object if it has not yet been set.
  *
  * @param ctx EMV processing context
  * @param oid Decoded object identifier (OID)
