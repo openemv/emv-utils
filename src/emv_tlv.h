@@ -2,7 +2,7 @@
  * @file emv_tlv.h
  * @brief EMV TLV structures and helper functions
  *
- * Copyright 2021, 2023-2025 Leon Lynch
+ * Copyright 2021, 2023-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -93,6 +93,20 @@ struct emv_tlv_sources_itr_t {
 #define EMV_TLV_SOURCES_INIT ((struct emv_tlv_sources_t){ 0, { NULL }})
 
 /**
+ * Update existing EMV TLV field's value
+ * @note This function may reallocate or free the field's value pointer.
+ * @param tlv EMV TLV field to update
+ * @param length Updated EMV TLV length
+ * @param value Updated EMV TLV value
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_tlv_update_value(
+	struct emv_tlv_t* tlv,
+	unsigned int length,
+	const uint8_t* value
+);
+
+/**
  * Free EMV TLV field
  * @note This function should not be used to free EMV TLV fields that are elements of a list
  * @param tlv EMV TLV field to free
@@ -159,6 +173,14 @@ int emv_tlv_list_push_asn1_object(
  * @return EMV TLV field. Use @ref emv_tlv_free() to free memory.
  */
 struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list);
+
+/**
+ * Remove EMV TLV field from an EMV TLV list
+ * @param list EMV TLV list
+ * @param tlv EMV TLV field to remove
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_tlv_list_remove(struct emv_tlv_list_t* list, struct emv_tlv_t* tlv);
 
 /**
  * Find EMV TLV field in an EMV TLV list
