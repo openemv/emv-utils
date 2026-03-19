@@ -93,44 +93,6 @@ static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, co
 	return tlv;
 }
 
-int emv_tlv_update_value(
-	struct emv_tlv_t* tlv,
-	unsigned int length,
-	const uint8_t* value
-)
-{
-	if (!tlv) {
-		return -1;
-	}
-	if (length && !value) {
-		return -2;
-	}
-
-	if (tlv->length && tlv->value && tlv->length == length) {
-		// Overwrite value directly
-		memcpy(tlv->value, value, length);
-	} else {
-		// Reallocate value
-		tlv->length = length;
-
-		if (tlv->value) {
-			free(tlv->value);
-			tlv->value = NULL;
-		}
-
-		if (value) {
-			tlv->value = malloc(length);
-			if (!tlv->value) {
-				tlv->length = 0;
-				return -3;
-			}
-			memcpy(tlv->value, value, length);
-		}
-	}
-
-	return 0;
-}
-
 int emv_tlv_free(struct emv_tlv_t* tlv)
 {
 	if (!tlv) {
@@ -319,47 +281,6 @@ struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list)
 	return tlv;
 }
 
-int emv_tlv_list_remove(struct emv_tlv_list_t* list, struct emv_tlv_t* tlv)
-{
-	int r;
-	struct emv_tlv_t* itr;
-	int emv_tlv_is_safe_to_free __attribute__((unused));
-
-	if (!emv_tlv_list_is_valid(list)) {
-		return -1;
-	}
-	if (!tlv) {
-		return -2;
-	}
-
-	if (list->front == tlv) {
-		tlv = emv_tlv_list_pop(list);
-		r = emv_tlv_free(tlv);
-
-		emv_tlv_is_safe_to_free = r;
-		assert(emv_tlv_is_safe_to_free == 0);
-		return 0;
-	}
-
-	for (itr = list->front; itr != NULL; itr = itr->next) {
-		if (itr->next == tlv) {
-			itr->next = tlv->next;
-			if (list->back == tlv) {
-				list->back = itr;
-			}
-			tlv->next = NULL;
-			r = emv_tlv_free(tlv);
-
-			emv_tlv_is_safe_to_free = r;
-			assert(emv_tlv_is_safe_to_free == 0);
-			return 0;
-		}
-	}
-
-	// Field not in list
-	return -3;
-}
-
 struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int tag)
 {
 	struct emv_tlv_t* tlv = NULL;
@@ -379,13 +300,34 @@ struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int ta
 
 bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list)
 {
+	int r;
+
 	if (!emv_tlv_list_is_valid(list)) {
 		return false;
 	}
 
 	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		struct iso8825_oid_t oid;
+		bool tlv_is_asn1_object = false;
+		r = iso8825_ber_asn1_object_decode(&tlv->ber, &oid);
+		if (r > 0) {
+			tlv_is_asn1_object = true;
+		}
+
 		for (const struct emv_tlv_t* tlv2 = tlv->next; tlv2 != NULL; tlv2 = tlv2->next) {
-			if (tlv->tag == tlv2->tag) {
+			if (tlv_is_asn1_object) {
+				struct iso8825_oid_t oid2;
+				r = iso8825_ber_asn1_object_decode(&tlv2->ber, &oid2);
+				if (r > 0 && // Is ASN.1 object
+					oid.length == oid2.length && // OID arc length match
+					memcmp(oid.value, oid2.value, sizeof(oid2.value[0]) * oid2.length) == 0 // OID arc match
+				) {
+					// Duplicate ASN.1 object
+					return true;
+				}
+
+			} else if (tlv->tag == tlv2->tag) {
+				// Duplicate EMV field
 				return true;
 			}
 		}

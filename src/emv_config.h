@@ -58,7 +58,6 @@ struct emv_config_t {
 	 * Populate after @ref emv_ctx_init() and before EMV processing by
 	 * using:
 	 * - @ref emv_config_data_set()
-	 * - @ref emv_config_data_set_asn1_object()
 	 */
 	struct emv_tlv_list_t data;
 };
@@ -78,46 +77,24 @@ struct emv_config_t {
 int emv_config_clear(struct emv_config_t* config);
 
 /**
- * Set EMV TLV field for application independent data of EMV configuration.
+ * Set EMV TLV list for application independent data of EMV configuration.
  *
- * This function will overwrite the value of the field if it has already been
- * set, or add the field if it has not yet been set.
+ * This function will validate the provided EMV TLV list using
+ * @ref emv_tlv_list_is_empty() and @ref emv_tlv_list_has_duplicate(), and then
+ * replace the existing application independent data of the EMV configuration
+ * with the provided EMV TLV list. The provided EMV TLV list will be empty if
+ * the function succeeds.
  *
  * @param ctx EMV processing context
- * @param tag EMV TLV tag
- * @param length EMV TLV length
- * @param value EMV TLV value
+ * @param data EMV TLV list containing application independent data
+ *             This list will be empty if the function succeeds.
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
  */
 int emv_config_data_set(
 	struct emv_ctx_t* ctx,
-	unsigned int tag,
-	unsigned int length,
-	const uint8_t* value
-);
-
-/**
- * Set encoded ASN.1 object for application independent data of EMV
- * configuration.
- *
- * This function will overwrite the value of the ASN.1 object if it has already
- * been set, or add the ASN.1 object if it has not yet been set.
- *
- * @param ctx EMV processing context
- * @param oid Decoded object identifier (OID)
- * @param ber_length Length of remaining BER encoded subfields
- * @param ber_bytes Remaining BER encoded subfields
- *
- * @return Zero for success
- * @return Less than zero for errors. See @ref emv_error_t
- */
-int emv_config_data_set_asn1_object(
-	struct emv_ctx_t* ctx,
-	const struct iso8825_oid_t* oid,
-	unsigned int ber_length,
-	const uint8_t* ber_bytes
+	struct emv_tlv_list_t* data
 );
 
 /**
