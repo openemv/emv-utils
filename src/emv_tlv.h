@@ -93,20 +93,6 @@ struct emv_tlv_sources_itr_t {
 #define EMV_TLV_SOURCES_INIT ((struct emv_tlv_sources_t){ 0, { NULL }})
 
 /**
- * Update existing EMV TLV field's value
- * @note This function may reallocate or free the field's value pointer.
- * @param tlv EMV TLV field to update
- * @param length Updated EMV TLV length
- * @param value Updated EMV TLV value
- * @return Zero for success. Less than zero for error.
- */
-int emv_tlv_update_value(
-	struct emv_tlv_t* tlv,
-	unsigned int length,
-	const uint8_t* value
-);
-
-/**
  * Free EMV TLV field
  * @note This function should not be used to free EMV TLV fields that are elements of a list
  * @param tlv EMV TLV field to free
@@ -175,14 +161,6 @@ int emv_tlv_list_push_asn1_object(
 struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list);
 
 /**
- * Remove EMV TLV field from an EMV TLV list
- * @param list EMV TLV list
- * @param tlv EMV TLV field to remove
- * @return Zero for success. Less than zero for error.
- */
-int emv_tlv_list_remove(struct emv_tlv_list_t* list, struct emv_tlv_t* tlv);
-
-/**
  * Find EMV TLV field in an EMV TLV list
  * @param list EMV TLV list
  * @param tag EMV tag to find
@@ -208,7 +186,8 @@ inline const struct emv_tlv_t* emv_tlv_list_find_const(
 }
 
 /**
- * Determine whether EMV TLV list contains duplicate fields
+ * Determine whether EMV TLV list contains duplicate fields or duplicate
+ * ASN.1 objects
  * @param list EMV TLV list
  * @return Boolean indicating whether EMV TLV list contains duplicate fields
  */

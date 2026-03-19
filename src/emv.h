@@ -64,7 +64,6 @@ struct emv_ctx_t {
 	 * Populated after @ref emv_ctx_init() and before EMV processing by
 	 * using:
 	 * - @ref emv_config_data_set()
-	 * - @ref emv_config_data_set_asn1_object()
 	 */
 	struct emv_config_t config;
 
