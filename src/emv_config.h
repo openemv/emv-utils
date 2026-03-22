@@ -25,6 +25,7 @@
 #include "emv_tlv.h"
 
 #include <sys/cdefs.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 __BEGIN_DECLS
@@ -33,14 +34,55 @@ __BEGIN_DECLS
 struct emv_ctx_t;
 
 /**
+ * @brief EMV application configuration
+ */
+struct emv_config_app_t {
+	/**
+	 * @brief Application Identifier (AID)
+	 *
+	 * Populated by @ref emv_config_app_create().
+	 */
+	uint8_t aid[16];
+
+	/**
+	 * @brief Length of Application Identifier (AID) in bytes.
+	 * Must be 5 - 16 bytes.
+	 *
+	 * Populated by @ref emv_config_app_create().
+	 */
+	unsigned int aid_len;
+
+	/**
+	 * @brief Application Selection Indicator (ASI)
+	 * @remark See EMV 4.4 Book 1, 12.3.1
+	 *
+	 * Populated by @ref emv_config_app_create().
+	 *
+	 * See @ref emv-asi-values "Application Selection Indicator (ASI)"
+	 */
+	uint8_t asi;
+
+	/**
+	 * @brief Application dependent data
+	 * @remark See EMV 4.4 Book 4, 10.2
+	 *
+	 * Populated by @ref emv_config_app_create().
+	 */
+	struct emv_tlv_list_t data;
+
+	/// Next EMV application configuration in list
+	struct emv_config_app_t* next;
+};
+
+/**
  * @brief EMV configuration
  *
  * Initialised as part of @ref emv_ctx_t by @ref emv_ctx_init() and similarly
  * cleared by @ref emv_ctx_clear(). Follow the instructions for each field.
  *
- * This configuration structure holds terminal resident data fields for
- * application independent data used during EMV processing.
- * However, this excludes:
+ * This configuration structure holds terminal resident data fields for both
+ * application independent data and application dependent data used during EMV
+ * processing. However, this excludes:
  * - Transaction parameters that are unique for a specific transaction, which
  *   are provided by @ref emv_ctx_t.params instead.
  * - Certificate Authority Public Keys (CAPK), which are provided by
@@ -59,6 +101,15 @@ struct emv_config_t {
 	 * @ref emv_config_data_set().
 	 */
 	struct emv_tlv_list_t data;
+
+	/**
+	 * @brief Application dependent data
+	 * @remark See EMV 4.4 Book 4, 10.2
+	 *
+	 * Populate after @ref emv_ctx_init() and before EMV processing using
+	 * @ref emv_config_app_create()
+	 */
+	struct emv_config_app_t* supported_apps;
 };
 
 /**
@@ -94,6 +145,58 @@ int emv_config_data_set(
 	struct emv_ctx_t* ctx,
 	struct emv_tlv_list_t* data
 );
+
+/**
+ * Create a supported application for EMV configuration (enabled by default)
+ *
+ * The caller is responsible for creating EMV application configurations in the
+ * appropriate order. They will be processed from first to last during
+ * application discovery and therefore EMV application configurations for
+ * exact matches should be created before EMV application configurations for
+ * partial matches that may match the same Application Identifier (AID).
+ *
+ * This function will validate the provided EMV TLV list using
+ * @ref emv_tlv_list_has_duplicate() and then move the data to the application
+ * dependent data of the EMV application configuration. If not NULL, the
+ * provided EMV TLV list will be empty if the function succeeds.
+ *
+ * @param ctx EMV processing context
+ * @param aid Application Identifier (AID). Must be 5 - 16 bytes.
+ * @param aid_len Length of Application Identifier (AID) in bytes.
+ *                Must be 5 - 16 bytes.
+ * @param asi Application Selection Indicator (ASI).
+ *            See @ref emv-asi-values "Application Selection Indicator (ASI)"
+ * @param data EMV TLV list containing application dependent data. If not NULL,
+ *             this list will be empty if the function succeeds. NULL to
+ *             ignore.
+ * @param app EMV application configuration output. NULL to ignore.
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_config_app_create(
+	struct emv_ctx_t* ctx,
+	const void* aid,
+	unsigned int aid_len,
+	uint8_t asi,
+	struct emv_tlv_list_t* data,
+	struct emv_config_app_t** app
+);
+
+/**
+ * Enable/disable supported application for EMV configuration
+ *
+ * This function allows an EMV application configuration to be disabled and
+ * therefore not considered during application discovery.
+ *
+ * @param app EMV application configuration
+ * @param enabled Boolean indicating whether EMV application configuration must
+ *                be enabled
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_config_app_set_enable(struct emv_config_app_t* app, bool enabled);
 
 /**
  * Retrieve EMV TLV field from EMV configuration.
