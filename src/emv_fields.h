@@ -2,7 +2,7 @@
  * @file emv_fields.h
  * @brief EMV field definitions and helper functions
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -37,10 +37,16 @@ __BEGIN_DECLS
 #define EMV_APP_PRIORITY_INDICATOR_MASK                         (0x0F) ///< Application Priority Indicator mask for order in which the application is to be listed or selected
 #define EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED                (0x80) ///< Application Priority Indicator: Application cannot be selected without confirmation by the cardholder
 
-// Application Selection Indicator
-// See EMV 4.4 Book 1, 12.3.1
+/**
+ * @name Application Selection Indicator (ASI)
+ * @remark See EMV 4.4 Book 1, 12.3.1
+ * @anchor emv-asi-values
+ */
+/// @{
 #define EMV_ASI_EXACT_MATCH                                     (0x00) ///< Application Selection Indicator: Exact match required
 #define EMV_ASI_PARTIAL_MATCH                                   (0x01) ///< Application Selection Indicator: Partial match allowed
+#define EMV_ASI_DISABLED                                        (0x80) ///< Application Selection Indicator: Selection disabled
+/// @}
 
 /**
  * @name EMV public key hash algorithms
