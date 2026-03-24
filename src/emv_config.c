@@ -164,6 +164,9 @@ int emv_config_app_create(
 		*app = tmp;
 	}
 
+	// HACK: For backward compatibility until supported_aids has been removed
+	emv_tlv_list_push(&ctx->supported_aids, 0x9F06, aid_len, aid, asi);
+
 	return 0;
 
 error:

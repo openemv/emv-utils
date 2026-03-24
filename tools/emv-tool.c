@@ -746,13 +746,62 @@ static int emv_txn_load_config(struct emv_ctx_t* emv)
 		return 1;
 	}
 
-	// Supported applications
-	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Visa
-	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, EMV_ASI_EXACT_MATCH); // Visa Electron
-	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, EMV_ASI_EXACT_MATCH); // V Pay
-	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 6, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10 }, EMV_ASI_PARTIAL_MATCH); // Mastercard
-	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 7, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30, 0x60 }, EMV_ASI_PARTIAL_MATCH); // Maestro
-	emv_tlv_list_push(&emv->supported_aids, EMV_TAG_9F06_AID, 5, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 }, EMV_ASI_PARTIAL_MATCH); // Amex
+	// Visa
+	// See Visa Terminal Acceptance Device Guide (TADG) version 3.3, August 2025, 4.3.1, Application Identifiers (AIDs)
+	// See Visa Terminal Acceptance Device Guide (TADG) version 3.3, August 2025, 4.6, Processing Restrictions
+	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x01, 0x2C }, 0); // 0x12C
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Visa Credit/Debit
+	if (r) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		emv_tlv_list_clear(&config);
+		return 1;
+	}
+	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x01, 0x2C }, 0); // 0x12C
+	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Visa Electron
+	if (r) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		emv_tlv_list_clear(&config);
+		return 1;
+	}
+	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x01, 0x2C }, 0); // 0x12C
+	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // V Pay
+	if (r) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		emv_tlv_list_clear(&config);
+		return 1;
+	}
+
+	// Mastercard
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Summary of Application Identifiers, Table 7
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Application Version Number
+	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0); // 0x02
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Mastercard Credit/Debit
+	if (r) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		emv_tlv_list_clear(&config);
+		return 1;
+	}
+	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0); // 0x02
+	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30, 0x60 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Maestro
+	if (r) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		emv_tlv_list_clear(&config);
+		return 1;
+	}
+
+	// American Express
+	// See Amex Live Terminal Parameters Guide (October 2024), 2.2, Global Application Identifier (AID)
+	// See Amex Live Terminal Parameters Guide (October 2024), 2.4, Application Version Number
+	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x01 }, 0); // 0x01
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 }, 5, EMV_ASI_PARTIAL_MATCH, &config, NULL);
+	if (r) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		emv_tlv_list_clear(&config);
+		return 1;
+	}
 
 	// Random transaction selection
 	emv->random_selection_percentage = 25;
@@ -852,8 +901,10 @@ int main(int argc, char** argv)
 	printf("\nTerminal config:\n");
 	print_emv_tlv_list(&emv.config.data);
 
-	printf("\nSupported AIDs:\n");
-	print_emv_tlv_list(&emv.supported_aids);
+	printf("\nSupported applications:\n");
+	for (struct emv_config_app_t* app = emv.config.supported_apps; app != NULL; app = app->next) {
+		print_emv_config_app(app, "  ", 1);
+	}
 
 	printf("\nTransaction parameters:\n");
 	print_emv_tlv_list(&emv.params);
@@ -1084,44 +1135,6 @@ int main(int argc, char** argv)
 	}
 
 	printf("\nProcessing restrictions\n");
-	// HACK HACK HACK:
-	// Add scheme-specific Application Version Number (field 9F09)
-	// configuration because per-AID configuration is not implemented yet.
-	{
-		struct emv_aid_info_t info;
-
-		r = emv_aid_get_info(
-			emv.selected_app->aid->value,
-			emv.selected_app->aid->length,
-			&info
-		);
-		if (r) {
-			fprintf(stderr, "emv_aid_get_info() failed; r=%d\n", r);
-			goto emv_exit;
-		}
-
-		switch (info.scheme) {
-			case EMV_CARD_SCHEME_VISA:
-				// See Visa Terminal Acceptance Device Guide (TADG) version 3.2, January 2020, 4.6, Processing Restrictions
-				emv_tlv_list_push(&emv.config.data, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0xA0 }, 0);
-				break;
-
-			case EMV_CARD_SCHEME_MASTERCARD:
-				// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Application Version Number
-				emv_tlv_list_push(&emv.config.data, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0);
-				break;
-
-			case EMV_CARD_SCHEME_AMEX:
-				// See Amex Live Terminal Parameters Guide (October 2024), 2.4
-				emv_tlv_list_push(&emv.config.data, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x01 }, 0);
-				break;
-
-			default:
-				// Unsupported scheme
-				emv_tlv_list_push(&emv.config.data, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x00 }, 0);
-				break;
-		}
-	}
 	r = emv_processing_restrictions(&emv);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));

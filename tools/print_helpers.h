@@ -2,7 +2,7 @@
  * @file print_helpers.h
  * @brief Helper functions for command line output
  *
- * Copyright 2021-2022, 2024-2025 Leon Lynch
+ * Copyright 2021-2022, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,6 +34,7 @@ struct emv_ctx_t;
 struct emv_tlv_t;
 struct emv_tlv_list_t;
 struct emv_tlv_sources_t;
+struct emv_config_app_t;
 struct emv_app_t;
 
 /**
@@ -185,6 +186,18 @@ void print_emv_dol(const void* ptr, size_t len, const char* prefix, unsigned int
  * @param depth Depth of current recursion
  */
 void print_emv_tag_list(const void* ptr, size_t len, const char* prefix, unsigned int depth);
+
+/**
+ * Print EMV application configuration
+ * @param app EMV application configuration object
+ * @param prefix Recursion prefix to print before every string
+ * @param depth Depth of current recursion
+ */
+void print_emv_config_app(
+	const struct emv_config_app_t* app,
+	const char* prefix,
+	unsigned int depth
+);
 
 /**
  * Print EMV application description
