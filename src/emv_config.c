@@ -23,6 +23,7 @@
 #include "emv.h"
 #include "emv_tlv.h"
 #include "emv_fields.h"
+#include "emv_app.h"
 
 #include <stddef.h>
 #include <stdlib.h> // For malloc() and free()
@@ -164,9 +165,6 @@ int emv_config_app_create(
 		*app = tmp;
 	}
 
-	// HACK: For backward compatibility until supported_aids has been removed
-	emv_tlv_list_push(&ctx->supported_aids, 0x9F06, aid_len, aid, asi);
-
 	return 0;
 
 error:
@@ -231,6 +229,54 @@ const struct emv_config_app_t* emv_config_app_itr_next(
 	}
 
 	return app;
+}
+
+bool emv_config_app_is_supported(
+	const struct emv_config_t* config,
+	const struct emv_app_t* app
+)
+{
+	int r;
+	struct emv_config_app_itr_t itr;
+	const struct emv_config_app_t* config_app;
+
+	if (!config || !config->supported_apps) {
+		// Invalid EMV configuration; not supported
+		return false;
+	}
+
+	if (!app || !app->aid) {
+		// Invalid app; not supported
+		return false;
+	}
+
+	r = emv_config_app_itr_init(config, &itr);
+	if (r) {
+		// Internal error
+		return false;
+	}
+
+	// See EMV 4.4 Book 1, 12.3.1
+	while ((config_app = emv_config_app_itr_next(&itr)) != NULL) {
+
+		if (config_app->asi == EMV_ASI_EXACT_MATCH &&
+			config_app->aid_len == app->aid->length &&
+			memcmp(config_app->aid, app->aid->value, config_app->aid_len) == 0
+		) {
+			// Exact match found; supported
+			return true;
+		}
+
+		if (config_app->asi == EMV_ASI_PARTIAL_MATCH &&
+			config_app->aid_len <= app->aid->length &&
+			memcmp(config_app->aid, app->aid->value, config_app->aid_len) == 0
+		) {
+			// Partial match found; supported
+			return true;
+		}
+	}
+
+	return false;
 }
 
 const struct emv_tlv_t* emv_config_data_get(
