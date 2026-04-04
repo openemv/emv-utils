@@ -100,7 +100,6 @@ int emv_ctx_clear(struct emv_ctx_t* ctx)
 
 	ctx->ttl = NULL;
 	emv_config_clear(&ctx->config);
-	emv_tlv_list_clear(&ctx->supported_aids);
 	emv_ctx_reset(ctx);
 
 	return 0;
@@ -371,7 +370,7 @@ int emv_build_candidate_list(
 	}
 
 	emv_debug_info("Select Payment System Environment (PSE)");
-	r = emv_tal_read_pse(ctx->ttl, &ctx->supported_aids, app_list);
+	r = emv_tal_read_pse(ctx->ttl, &ctx->config, app_list);
 	if (r < 0) {
 		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
 		emv_debug_error("Failed to read PSE; terminate session");
@@ -390,7 +389,7 @@ int emv_build_candidate_list(
 	// See EMV 4.4 Book 1, 12.3.2, step 5
 	if (emv_app_list_is_empty(app_list)) {
 		emv_debug_info("Discover list of AIDs");
-		r = emv_tal_find_supported_apps(ctx->ttl, &ctx->supported_aids, app_list);
+		r = emv_tal_find_supported_apps(ctx->ttl, &ctx->config, app_list);
 		if (r) {
 			emv_debug_trace_msg("emv_tal_find_supported_apps() failed; r=%d", r);
 			emv_debug_error("Failed to find supported AIDs; terminate session");

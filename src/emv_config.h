@@ -32,6 +32,7 @@ __BEGIN_DECLS
 
 // Forward declarations
 struct emv_ctx_t;
+struct emv_app_t;
 
 /**
  * @brief EMV application configuration
@@ -233,6 +234,23 @@ int emv_config_app_itr_init(
  */
 const struct emv_config_app_t* emv_config_app_itr_next(
 	struct emv_config_app_itr_t* itr
+);
+
+/**
+ * Determine whether EMV application is supported
+ *
+ * This function will compare the provided EMV application to the supported
+ * applications of the EMV configuration according to their individual
+ * @ref emv-asi-values "Application Selection Indicator (ASI)" flags.
+ *
+ * @param config EMV configuration
+ * @param app EMV application
+ *
+ * @return Boolean indicating whether EMV application is supported
+ */
+bool emv_config_app_is_supported(
+	const struct emv_config_t* config,
+	const struct emv_app_t* app
 );
 
 /**

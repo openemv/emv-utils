@@ -282,40 +282,6 @@ int emv_app_free(struct emv_app_t* app)
 	return 0;
 }
 
-bool emv_app_is_supported(
-	const struct emv_app_t* app,
-	const struct emv_tlv_list_t* supported_aids
-)
-{
-	struct emv_tlv_t* tlv;
-
-	if (!app || !app->aid) {
-		// Invalid app; not supported
-		return false;
-	}
-
-	// See EMV 4.4 Book 1, 12.3.1
-	for (tlv = supported_aids->front; tlv != NULL; tlv = tlv->next) {
-		if (tlv->flags == EMV_ASI_EXACT_MATCH &&
-			tlv->length == app->aid->length &&
-			memcmp(tlv->value, app->aid->value, tlv->length) == 0
-		) {
-			// Exact match found; supported
-			return true;
-		}
-
-		if (tlv->flags == EMV_ASI_PARTIAL_MATCH &&
-			tlv->length <= app->aid->length &&
-			memcmp(tlv->value, app->aid->value, tlv->length) == 0
-		) {
-			// Partial match found; supported
-			return true;
-		}
-	}
-
-	return false;
-}
-
 static inline bool emv_app_list_is_valid(const struct emv_app_list_t* list)
 {
 	if (!list) {

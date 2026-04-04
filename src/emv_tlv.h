@@ -44,7 +44,7 @@ struct emv_tlv_t {
 			unsigned int tag;                   ///< EMV tag
 			unsigned int length;                ///< Length of @c value in bytes
 			uint8_t* value;                     ///< EMV value buffer
-			uint8_t flags;                      ///< EMV field specific flags, eg ASI for AID
+			uint8_t flags;                      ///< EMV field specific flags
 		};
 		struct iso8825_tlv_t ber;               ///< Alternative BER access to EMV TLV field
 	};
