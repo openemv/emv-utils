@@ -191,6 +191,48 @@ int emv_config_app_set_enable(struct emv_config_app_t* app, bool enabled)
 	return 0;
 }
 
+int emv_config_app_itr_init(
+	const struct emv_config_t* config,
+	struct emv_config_app_itr_t* itr
+)
+{
+	if (!config) {
+		return -1;
+	}
+	if (!itr) {
+		return -2;
+	}
+
+	memset(itr, 0, sizeof(*itr));
+	itr->app = config->supported_apps;
+
+	return 0;
+}
+
+const struct emv_config_app_t* emv_config_app_itr_next(
+	struct emv_config_app_itr_t* itr
+)
+{
+	const struct emv_config_app_t* app;
+
+	if (!itr || !itr->app) {
+		return NULL;
+	}
+
+	while ((app = itr->app) != NULL) {
+		itr->app = itr->app->next;
+
+		if ((app->asi & EMV_ASI_DISABLED) != 0) {
+			// Skip disabled EMV application configuration
+			continue;
+		}
+
+		break;
+	}
+
+	return app;
+}
+
 const struct emv_tlv_t* emv_config_data_get(
 	const struct emv_ctx_t* ctx,
 	unsigned int tag
