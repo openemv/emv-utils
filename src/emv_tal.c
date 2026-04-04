@@ -25,6 +25,7 @@
 #include "emv_fields.h"
 #include "emv_tlv.h"
 #include "emv_app.h"
+#include "emv_config.h"
 #include "emv_oda.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_TAL
@@ -40,7 +41,7 @@ static int emv_tal_parse_aef_record(
 	struct emv_tlv_list_t* pse_tlv_list,
 	const void* aef_record,
 	size_t aef_record_len,
-	const struct emv_tlv_list_t* supported_aids,
+	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 );
 static int emv_tal_read_sfi_records(
@@ -52,7 +53,7 @@ static int emv_tal_read_sfi_records(
 
 int emv_tal_read_pse(
 	struct emv_ttl_t* ttl,
-	const struct emv_tlv_list_t* supported_aids,
+	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 )
 {
@@ -64,7 +65,7 @@ int emv_tal_read_pse(
 
 	const struct emv_tlv_t* pse_sfi;
 
-	if (!ttl || !app_list) {
+	if (!ttl || !config || !app_list) {
 		// Invalid parameters; terminate session
 		return EMV_TAL_ERROR_INVALID_PARAMETER;
 	}
@@ -188,7 +189,7 @@ int emv_tal_read_pse(
 			&pse_tlv_list,
 			aef_record,
 			aef_record_len,
-			supported_aids,
+			config,
 			app_list
 		);
 		if (r) {
@@ -221,7 +222,7 @@ static int emv_tal_parse_aef_record(
 	struct emv_tlv_list_t* pse_tlv_list,
 	const void* aef_record,
 	size_t aef_record_len,
-	const struct emv_tlv_list_t* supported_aids,
+	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 )
 {
@@ -280,7 +281,7 @@ static int emv_tal_parse_aef_record(
 			continue;
 		}
 
-		if (emv_app_is_supported(app, supported_aids)) {
+		if (emv_config_app_is_supported(config, app)) {
 			// App supported; add to candidate list
 			// See EMV 4.4 Book 1, 12.3.2, step 3
 			emv_debug_info("Application is supported");
@@ -298,33 +299,46 @@ static int emv_tal_parse_aef_record(
 
 int emv_tal_find_supported_apps(
 	struct emv_ttl_t* ttl,
-	const struct emv_tlv_list_t* supported_aids,
+	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 )
 {
 	int r;
-	struct emv_tlv_t* aid;
+	struct emv_config_app_itr_t itr;
+	const struct emv_config_app_t* config_app;
 	bool exact_match;
 
-	if (!ttl || !supported_aids || !app_list) {
+	if (!ttl || !config || !app_list) {
 		// Invalid parameters; terminate session
 		return EMV_TAL_ERROR_INVALID_PARAMETER;
 	}
 
-	aid = supported_aids->front;
-	exact_match = true;
+	r = emv_config_app_itr_init(config, &itr);
+	if (r) {
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
 
-	while (aid != NULL) {
+	// See EMV 4.4 Book 1, 12.3.3
+	exact_match = true;
+	do {
 		uint8_t fci[EMV_RAPDU_DATA_MAX];
 		size_t fci_len = sizeof(fci);
 		uint16_t sw1sw2;
 		struct emv_app_t* app;
 
 		if (exact_match) {
+			// Retrieve next supported application
+			config_app = emv_config_app_itr_next(&itr);
+			if (!config_app) {
+				// End of supported application list
+				break;
+			}
+
 			// SELECT application
 			// See EMV 4.4 Book 1, 12.3.3, step 1
-			emv_debug_info_data("SELECT application", aid->value, aid->length);
-			r = emv_ttl_select_by_df_name(ttl, aid->value, aid->length, fci, &fci_len, &sw1sw2);
+			emv_debug_info_data("SELECT application", config_app->aid, config_app->aid_len);
+			r = emv_ttl_select_by_df_name(ttl, config_app->aid, config_app->aid_len, fci, &fci_len, &sw1sw2);
 			if (r) {
 				emv_debug_trace_msg("emv_ttl_select_by_df_name() failed; r=%d", r);
 
@@ -344,8 +358,8 @@ int emv_tal_find_supported_apps(
 		} else {
 			// SELECT next application for partial AID match
 			// See EMV 4.4 Book 1, 12.3.3, step 7
-			emv_debug_info_data("SELECT next application", aid->value, aid->length);
-			r = emv_ttl_select_by_df_name_next(ttl, aid->value, aid->length, fci, &fci_len, &sw1sw2);
+			emv_debug_info_data("SELECT next application", config_app->aid, config_app->aid_len);
+			r = emv_ttl_select_by_df_name_next(ttl, config_app->aid, config_app->aid_len, fci, &fci_len, &sw1sw2);
 			if (r) {
 				emv_debug_trace_msg("emv_ttl_select_by_df_name_next() failed; r=%d", r);
 
@@ -364,7 +378,6 @@ int emv_tal_find_supported_apps(
 			} else {
 				emv_debug_error("Unexpected SELECT status 0x%04X", sw1sw2);
 			}
-			aid = aid->next;
 			exact_match = true;
 			continue;
 		}
@@ -379,7 +392,6 @@ int emv_tal_find_supported_apps(
 
 			// Unexpected error; ignore app and continue to next supported AID
 			// See EMV 4.4 Book 1, 12.3.3, step 3
-			aid = aid->next;
 			exact_match = true;
 			continue;
 		}
@@ -389,7 +401,7 @@ int emv_tal_find_supported_apps(
 		// only necessary to compare the lengths to know whether it was a
 		// partial or exact match.
 
-		if (aid->length == app->aid->length) {
+		if (config_app->aid_len == app->aid->length) {
 			// Exact match; check whether valid or blocked
 			// See EMV 4.4 Book 1, 12.3.3, step 4
 
@@ -407,7 +419,6 @@ int emv_tal_find_supported_apps(
 			}
 
 			// See EMV 4.4 Book 1, 12.3.3, step 5
-			aid = aid->next;
 			exact_match = true;
 			continue;
 
@@ -415,7 +426,7 @@ int emv_tal_find_supported_apps(
 			// Partial match; check Application Selection Indicator (ASI)
 			// See EMV 4.4 Book 1, 12.3.3, step 6
 
-			if (aid->flags == EMV_ASI_PARTIAL_MATCH) {
+			if (config_app->asi == EMV_ASI_PARTIAL_MATCH) {
 				// Partial match allowed; check whether valid or blocked
 
 				if (sw1sw2 == 0x9000) {
@@ -443,12 +454,11 @@ int emv_tal_find_supported_apps(
 				app = NULL;
 
 				// See EMV 4.4 Book 1, 12.3.3, step 5
-				aid = aid->next;
 				exact_match = true;
 				continue;
 			}
 		}
-	}
+	} while (true);
 
 	return 0;
 }

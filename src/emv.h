@@ -68,18 +68,6 @@ struct emv_ctx_t {
 	struct emv_config_t config;
 
 	/**
-	 * @brief List of supported applications.
-	 *
-	 * Populate after @ref emv_ctx_init() and before EMV processing
-	 * using @ref emv_tlv_list_push(). Each entry is a @ref EMV_TAG_9F06_AID
-	 * field containing a supported Application Identifier (AID) with
-	 * @ref emv_tlv_t.flags set to either @ref EMV_ASI_EXACT_MATCH or
-	 * @ref EMV_ASI_PARTIAL_MATCH.
-	 *
-	 */
-	struct emv_tlv_list_t supported_aids;
-
-	/**
 	 * @brief Target percentage to be used for random transaction selection
 	 * during terminal risk management. Value must be 0 to 99. Set to zero to
 	 * disable random transaction selection.
