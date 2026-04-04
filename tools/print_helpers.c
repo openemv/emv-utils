@@ -982,6 +982,17 @@ void print_emv_config_app(
 	print_emv_tlv_list_internal(&app->data, prefix, depth + 1, false);
 }
 
+void print_emv_config_app_list(const struct emv_config_t* config)
+{
+	const struct emv_config_app_t* app;
+
+	// Iterate manually instead of using the iterator because the iterator
+	// skips disabled applications
+	for (app = config->supported_apps; app != NULL; app = app->next) {
+		print_emv_config_app(app, "  ", 1);
+	}
+}
+
 void print_emv_app(const struct emv_app_t* app)
 {
 	printf("Application: ");

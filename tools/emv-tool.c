@@ -902,9 +902,7 @@ int main(int argc, char** argv)
 	print_emv_tlv_list(&emv.config.data);
 
 	printf("\nSupported applications:\n");
-	for (struct emv_config_app_t* app = emv.config.supported_apps; app != NULL; app = app->next) {
-		print_emv_config_app(app, "  ", 1);
-	}
+	print_emv_config_app_list(&emv.config);
 
 	printf("\nTransaction parameters:\n");
 	print_emv_tlv_list(&emv.params);
