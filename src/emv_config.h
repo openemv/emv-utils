@@ -75,6 +75,16 @@ struct emv_config_app_t {
 };
 
 /**
+ * EMV application configuration iterator
+ * @note Do not modify the EMV configuration while using the iterator.
+ */
+struct emv_config_app_itr_t {
+	/// @cond INTERNAL
+	const struct emv_config_app_t* app;
+	/// @endcond
+};
+
+/**
  * @brief EMV configuration
  *
  * Initialised as part of @ref emv_ctx_t by @ref emv_ctx_init() and similarly
@@ -198,6 +208,33 @@ int emv_config_app_create(
  * @return Less than zero for errors. See @ref emv_error_t
  */
 int emv_config_app_set_enable(struct emv_config_app_t* app, bool enabled);
+
+/**
+ * Initialise EMV application configuration iterator for supported applications
+ *
+ * @param config EMV configuration
+ * @param itr EMV application configuration iterator
+ *
+ * @return Zero for success. Less than zero for internal error.
+ */
+int emv_config_app_itr_init(
+	const struct emv_config_t* config,
+	struct emv_config_app_itr_t* itr
+);
+
+/**
+ * Retrieve next supported EMV application configuration.
+ *
+ * This function will skip EMV application configurations when their
+ * @ref emv-asi-values "Application Selection Indicator (ASI)" flags indicate
+ * that they are disabled.
+ *
+ * @return Pointer to EMV application configuration. Do NOT free.
+ *         Null for end end of list.
+ */
+const struct emv_config_app_t* emv_config_app_itr_next(
+	struct emv_config_app_itr_t* itr
+);
 
 /**
  * Retrieve EMV TLV field from EMV configuration.

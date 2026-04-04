@@ -982,6 +982,24 @@ void print_emv_config_app(
 	print_emv_tlv_list_internal(&app->data, prefix, depth + 1, false);
 }
 
+void print_emv_config_app_list(const struct emv_config_t* config)
+{
+	int r;
+	struct emv_config_app_itr_t itr;
+	const struct emv_config_app_t* app;
+
+	r = emv_config_app_itr_init(config, &itr);
+	if (r) {
+		// Internal error
+		return;
+	}
+
+	// See EMV 4.4 Book 1, 12.3.1
+	while ((app = emv_config_app_itr_next(&itr)) != NULL) {
+		print_emv_config_app(app, "  ", 1);
+	}
+}
+
 void print_emv_app(const struct emv_app_t* app)
 {
 	printf("Application: ");

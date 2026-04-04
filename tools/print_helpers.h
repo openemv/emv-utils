@@ -35,6 +35,7 @@ struct emv_tlv_t;
 struct emv_tlv_list_t;
 struct emv_tlv_sources_t;
 struct emv_config_app_t;
+struct emv_config_t;
 struct emv_app_t;
 
 /**
@@ -198,6 +199,12 @@ void print_emv_config_app(
 	const char* prefix,
 	unsigned int depth
 );
+
+/**
+ * Print EMV application configuration list
+ * @param app EMV configuration object
+ */
+void print_emv_config_app_list(const struct emv_config_t* config);
 
 /**
  * Print EMV application description
