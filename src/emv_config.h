@@ -99,7 +99,10 @@ struct emv_config_app_itr_t {
  * - Certificate Authority Public Keys (CAPK), which are provided by
  *   @ref emv_capk_lookup() instead.
  *
- * Data fields should be retrieved by @ref emv_config_data_get().
+ * Data fields should be retrieved by @ref emv_config_data_get() which will
+ * search the application dependent data fields before the application
+ * independent data fields, thus allowing the latter to be set as defaults that
+ * can optionally be overridden for specific applications.
  *
  * @remark See EMV 4.4 Book 4, 10
  */
@@ -237,7 +240,7 @@ const struct emv_config_app_t* emv_config_app_itr_next(
 );
 
 /**
- * Determine whether EMV application is supported
+ * Find matching EMV application configuration for provided EMV application.
  *
  * This function will compare the provided EMV application to the supported
  * applications of the EMV configuration according to their individual
@@ -246,15 +249,21 @@ const struct emv_config_app_t* emv_config_app_itr_next(
  * @param config EMV configuration
  * @param app EMV application
  *
- * @return Boolean indicating whether EMV application is supported
+ * @return Pointer to matching EMV application configuration. Do NOT free.
+ *         NULL if no matching EMV application configuration found.
  */
-bool emv_config_app_is_supported(
+const struct emv_config_app_t* emv_config_app_find_supported(
 	const struct emv_config_t* config,
 	const struct emv_app_t* app
 );
 
 /**
  * Retrieve EMV TLV field from EMV configuration.
+ *
+ * This function will search the application dependent data of the selected
+ * application before searching the application independent data, thus allowing
+ * the latter to be set as defaults that can optionally be overridden for
+ * specific applications.
  *
  * @param ctx EMV processing context
  * @param tag EMV tag to find

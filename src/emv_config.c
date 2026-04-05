@@ -231,7 +231,7 @@ const struct emv_config_app_t* emv_config_app_itr_next(
 	return app;
 }
 
-bool emv_config_app_is_supported(
+const struct emv_config_app_t* emv_config_app_find_supported(
 	const struct emv_config_t* config,
 	const struct emv_app_t* app
 )
@@ -242,18 +242,18 @@ bool emv_config_app_is_supported(
 
 	if (!config || !config->supported_apps) {
 		// Invalid EMV configuration; not supported
-		return false;
+		return NULL;
 	}
 
 	if (!app || !app->aid) {
 		// Invalid app; not supported
-		return false;
+		return NULL;
 	}
 
 	r = emv_config_app_itr_init(config, &itr);
 	if (r) {
 		// Internal error
-		return false;
+		return NULL;
 	}
 
 	// See EMV 4.4 Book 1, 12.3.1
@@ -264,7 +264,7 @@ bool emv_config_app_is_supported(
 			memcmp(config_app->aid, app->aid->value, config_app->aid_len) == 0
 		) {
 			// Exact match found; supported
-			return true;
+			return config_app;
 		}
 
 		if (config_app->asi == EMV_ASI_PARTIAL_MATCH &&
@@ -272,11 +272,12 @@ bool emv_config_app_is_supported(
 			memcmp(config_app->aid, app->aid->value, config_app->aid_len) == 0
 		) {
 			// Partial match found; supported
-			return true;
+			return config_app;
 		}
 	}
 
-	return false;
+	// No match found
+	return NULL;
 }
 
 const struct emv_tlv_t* emv_config_data_get(
@@ -286,6 +287,15 @@ const struct emv_tlv_t* emv_config_data_get(
 {
 	if (!ctx) {
 		return NULL;
+	}
+
+	if (ctx->selected_app && ctx->selected_app->config) {
+		const struct emv_tlv_t* tlv;
+
+		tlv = emv_tlv_list_find_const(&ctx->selected_app->config->data, tag);
+		if (tlv) {
+			return tlv;
+		}
 	}
 
 	return emv_tlv_list_find_const(&ctx->config.data, tag);

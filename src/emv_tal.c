@@ -281,7 +281,7 @@ static int emv_tal_parse_aef_record(
 			continue;
 		}
 
-		if (emv_config_app_is_supported(config, app)) {
+		if (emv_config_app_find_supported(config, app)) {
 			// App supported; add to candidate list
 			// See EMV 4.4 Book 1, 12.3.2, step 3
 			emv_debug_info("Application is supported");

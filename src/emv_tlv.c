@@ -23,6 +23,7 @@
 #include "iso8825_ber.h"
 #include "emv.h"
 #include "emv_tags.h"
+#include "emv_app.h"
 
 #include <stdbool.h>
 #include <stdlib.h> // For malloc() and free()
@@ -393,11 +394,16 @@ int emv_tlv_sources_init_from_ctx(
 	// - ICC data obtained from the current card should not be overridden by
 	//   config or current transaction parameters
 	// - Transaction parameters can override config
-	sources->count = 4;
-	sources->list[0] = &ctx->terminal;
-	sources->list[1] = &ctx->icc;
-	sources->list[2] = &ctx->params;
-	sources->list[3] = &ctx->config.data;
+	// - Application dependent config can override application independent
+	//   config
+	sources->count = 0;
+	sources->list[sources->count++] = &ctx->terminal;
+	sources->list[sources->count++] = &ctx->icc;
+	sources->list[sources->count++] = &ctx->params;
+	if (ctx->selected_app && ctx->selected_app->config) {
+		sources->list[sources->count++] = &ctx->selected_app->config->data;
+	}
+	sources->list[sources->count++] = &ctx->config.data;
 
 	return 0;
 }

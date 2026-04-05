@@ -68,7 +68,7 @@ struct emv_tlv_list_t {
  */
 struct emv_tlv_sources_t {
 	unsigned int count;                         ///< Number of source lists
-	const struct emv_tlv_list_t* list[4];       ///< Array of source lists
+	const struct emv_tlv_list_t* list[5];       ///< Array of source lists
 };
 
 /**

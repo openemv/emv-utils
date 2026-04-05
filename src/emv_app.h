@@ -30,6 +30,9 @@
 
 __BEGIN_DECLS
 
+// Forward declarations
+struct emv_config_app_t;
+
 /**
  * EMV application
  */
@@ -73,6 +76,11 @@ struct emv_app_t {
 	 * - File Control Information (FCI) template (field 6F) provided by application selection
 	 */
 	struct emv_tlv_list_t tlv_list;
+
+	/**
+	 * Matching application configuration when the application is selected
+	 */
+	const struct emv_config_app_t* config;
 
 	/// Next EMV application in list
 	struct emv_app_t* next;
