@@ -430,6 +430,7 @@ int emv_select_application(
 	struct emv_app_t* current_app = NULL;
 	uint8_t current_aid[16];
 	size_t current_aid_len;
+	const struct emv_config_app_t* config_app;
 
 	if (!ctx || !app_list) {
 		emv_debug_trace_msg("ctx=%p, app_list=%p, index=%u", ctx, app_list, index);
@@ -487,6 +488,22 @@ int emv_select_application(
 			goto try_again;
 		}
 	}
+	if (!ctx->selected_app) {
+		emv_debug_trace_msg("emv_tal_select_app() failed to populate selected_app");
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Populate matching application dependent data
+	config_app = emv_config_app_find_supported(&ctx->config, ctx->selected_app);
+	if (!config_app) {
+		emv_debug_error("Application configuration not found");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+	emv_debug_info_tlv_list("Application dependent data", &config_app->data);
+	ctx->selected_app->config = config_app;
 
 	// Success
 	r = 0;
