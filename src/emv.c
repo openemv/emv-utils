@@ -1243,6 +1243,9 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 {
 	int r;
 	const struct emv_tlv_t* term_floor_limit;
+	unsigned int random_selection_percentage = 0; // Disable by default
+	unsigned int random_selection_max_percentage = 0;
+	unsigned int random_selection_threshold = 0;
 	const struct emv_tlv_t* txn_amount;
 	uint32_t floor_limit_value;
 	uint32_t amount_value;
@@ -1278,14 +1281,25 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	}
 
 	// Ensure that random selection configuration values are valid
-	if (ctx->random_selection_percentage > 99 ||
-		ctx->random_selection_max_percentage > 99 ||
-		ctx->random_selection_percentage > ctx->random_selection_max_percentage
+	if (ctx->selected_app && !ctx->selected_app->config) {
+		// Application configuration for the selected application should have
+		// been set by emv_select_application().
+		emv_debug_error("No configuration for selected application");
+		return EMV_ERROR_INTERNAL;
+	}
+	if (ctx->selected_app) {
+		random_selection_percentage = ctx->selected_app->config->random_selection_percentage;
+		random_selection_max_percentage = ctx->selected_app->config->random_selection_max_percentage;
+		random_selection_threshold = ctx->selected_app->config->random_selection_threshold;
+	}
+	if (random_selection_percentage > 99 ||
+		random_selection_max_percentage > 99 ||
+		random_selection_percentage > random_selection_max_percentage
 	) {
 		emv_debug_trace_msg("random_selection_percentage=%u, "
 			"random_selection_max_percentage->length=%u",
-			ctx->random_selection_percentage,
-			ctx->random_selection_max_percentage
+			random_selection_percentage,
+			random_selection_max_percentage
 		);
 		emv_debug_error("Invalid random selection configuration");
 		return EMV_ERROR_INVALID_CONFIG;
@@ -1373,15 +1387,15 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	// Random Transaction Selection
 	// See EMV 4.4 Book 3, 10.6.2
 	if (amount_value < floor_limit_value &&
-		ctx->random_selection_percentage
+		random_selection_percentage > 0
 	) {
 		int x;
 
 		// Ensure that random selection threshold is valid to avoid invalid
 		// computation of transaction target percent later
-		if (ctx->random_selection_threshold >= floor_limit_value) {
+		if (random_selection_threshold >= floor_limit_value) {
 			emv_debug_trace_msg("random_selection_threshold=%u",
-				ctx->random_selection_threshold);
+				random_selection_threshold);
 			emv_debug_error("Invalid random selection threshold");
 			return EMV_ERROR_INVALID_CONFIG;
 		}
@@ -1395,9 +1409,9 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 			return EMV_ERROR_INTERNAL;
 		}
 
-		if (amount_value < ctx->random_selection_threshold) {
+		if (amount_value < random_selection_threshold) {
 			// Apply unbiased transaction selection
-			if (x <= ctx->random_selection_percentage) {
+			if (x <= random_selection_percentage) {
 				emv_debug_info("Transaction selected randomly for online processing");
 				ctx->tvr->value[3] |= EMV_TVR_RANDOM_SELECTED_ONLINE;
 			}
@@ -1406,11 +1420,11 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 			// See EMV 4.4 Book 3, 10.6.2, figure 15
 			unsigned int ttp =
 				(
-					(ctx->random_selection_max_percentage - ctx->random_selection_percentage) *
-					(amount_value - ctx->random_selection_threshold)
+					(random_selection_max_percentage - random_selection_percentage) *
+					(amount_value - random_selection_threshold)
 				)
-				/ (floor_limit_value - ctx->random_selection_threshold)
-				+ ctx->random_selection_percentage;
+				/ (floor_limit_value - random_selection_threshold)
+				+ random_selection_percentage;
 
 			// Apply biased transaction selection
 			if (x <= ttp) {

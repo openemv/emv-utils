@@ -704,6 +704,7 @@ static int emv_txn_load_config(struct emv_ctx_t* emv)
 {
 	int r;
 	struct emv_tlv_list_t config = EMV_TLV_LIST_INIT;
+	struct emv_config_app_t* app;
 
 	// Terminal / merchant config
 	emv_tlv_list_push(&config, EMV_TAG_9F01_ACQUIRER_IDENTIFIER, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0); // Unique acquirer identifier
@@ -750,12 +751,15 @@ static int emv_txn_load_config(struct emv_ctx_t* emv)
 	// See Visa Terminal Acceptance Device Guide (TADG) version 3.3, August 2025, 4.3.1, Application Identifiers (AIDs)
 	// See Visa Terminal Acceptance Device Guide (TADG) version 3.3, August 2025, 4.6, Processing Restrictions
 	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x01, 0x2C }, 0); // 0x12C
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Visa Credit/Debit
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, &app); // Visa Credit/Debit
 	if (r) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		emv_tlv_list_clear(&config);
 		return 1;
 	}
+	app->random_selection_percentage = 25;
+	app->random_selection_max_percentage = 50;
+	app->random_selection_threshold = 5000; // Because default floor limit is 10000
 	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x01, 0x2C }, 0); // 0x12C
 	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
 	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Visa Electron
@@ -777,12 +781,15 @@ static int emv_txn_load_config(struct emv_ctx_t* emv)
 	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Summary of Application Identifiers, Table 7
 	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Application Version Number
 	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0); // 0x02
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Mastercard Credit/Debit
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, &app); // Mastercard Credit/Debit
 	if (r) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		emv_tlv_list_clear(&config);
 		return 1;
 	}
+	app->random_selection_percentage = 25;
+	app->random_selection_max_percentage = 50;
+	app->random_selection_threshold = 5000; // Because default floor limit is 10000
 	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0); // 0x02
 	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
 	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30, 0x60 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Maestro
@@ -796,17 +803,16 @@ static int emv_txn_load_config(struct emv_ctx_t* emv)
 	// See Amex Live Terminal Parameters Guide (October 2024), 2.2, Global Application Identifier (AID)
 	// See Amex Live Terminal Parameters Guide (October 2024), 2.4, Application Version Number
 	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x01 }, 0); // 0x01
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 }, 5, EMV_ASI_PARTIAL_MATCH, &config, NULL);
+	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 }, 5, EMV_ASI_PARTIAL_MATCH, &config, &app);
 	if (r) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		emv_tlv_list_clear(&config);
 		return 1;
 	}
+	app->random_selection_percentage = 25;
+	app->random_selection_max_percentage = 50;
+	app->random_selection_threshold = 5000; // Because default floor limit is 10000
 
-	// Random transaction selection
-	emv->random_selection_percentage = 25;
-	emv->random_selection_max_percentage = 50;
-	emv->random_selection_threshold = 5000; // Because floor limit is 10000
 
 	return 0;
 }
