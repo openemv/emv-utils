@@ -71,6 +71,33 @@ struct emv_config_app_t {
 	 */
 	struct emv_tlv_list_t data;
 
+	/**
+	 * @brief Target percentage to be used for random transaction selection
+	 * during terminal risk management. Value must be 0 to 99. Set to zero to
+	 * disable random transaction selection.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	unsigned int random_selection_percentage;
+
+	/**
+	 * @brief Maximum target percentage to be used for biased random
+	 * transaction selection. Value must be 0 to 99 and must be greater than or
+	 * equal to @ref emv_config_app_t.random_selection_percentage.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	unsigned int random_selection_max_percentage;
+
+	/**
+	 * @brief Threshold value for biased random transaction selection during
+	 * terminal risk management. Value must be zero or a positive number less
+	 * than the floor limit.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	unsigned int random_selection_threshold;
+
 	/// Next EMV application configuration in list
 	struct emv_config_app_t* next;
 };

@@ -980,6 +980,23 @@ void print_emv_config_app(
 	printf("\n");
 
 	print_emv_tlv_list_internal(&app->data, prefix, depth + 1, false);
+
+	if (app->random_selection_percentage) {
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Random selection percentage: %u%%\n", app->random_selection_percentage);
+
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Maximum selection percentage: %u%%\n", app->random_selection_max_percentage);
+
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Random selection threshold: %u\n", app->random_selection_threshold);
+	}
 }
 
 void print_emv_config_app_list(const struct emv_config_t* config)
