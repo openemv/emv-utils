@@ -49,6 +49,7 @@ jobs:
           mingw-w64-${{matrix.env}}-toolchain
           mingw-w64-${{matrix.env}}-cmake
           mingw-w64-${{matrix.env}}-ninja
+          mingw-w64-${{matrix.env}}-libxml2
           mingw-w64-${{matrix.env}}-boost
           mingw-w64-${{matrix.env}}-iso-codes
           mingw-w64-${{matrix.env}}-json-c
@@ -125,6 +126,7 @@ jobs:
           mingw-w64-${{matrix.env}}-toolchain
           mingw-w64-${{matrix.env}}-cmake
           mingw-w64-${{matrix.env}}-ninja
+          mingw-w64-${{matrix.env}}-libxml2
           mingw-w64-${{matrix.env}}-boost
           mingw-w64-${{matrix.env}}-iso-codes
           mingw-w64-${{matrix.env}}-json-c
