@@ -54,6 +54,7 @@ Dependencies
 * C11 and C++11 compilers such as GCC or Clang
 * [CMake](https://cmake.org/)
 * [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+* [libxml2](https://gitlab.gnome.org/GNOME/libxml2)
 * [iso-codes](https://salsa.debian.org/iso-codes-team/iso-codes)
 * [json-c](https://github.com/json-c/json-c)
 * [Boost.Locale](https://github.com/boostorg/locale) will be used by default
