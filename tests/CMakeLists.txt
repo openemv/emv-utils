@@ -54,6 +54,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_capk_test PRIVATE emv)
 	add_test(emv_capk_test emv_capk_test)
 
+	add_executable(emv_config_xml_test emv_config_xml_test.c)
+	target_link_libraries(emv_config_xml_test PRIVATE print_helpers emv)
+	add_test(emv_config_xml_test emv_config_xml_test)
+
 	add_executable(emv_rsa_test emv_rsa_test.c)
 	target_link_libraries(emv_rsa_test PRIVATE print_helpers emv)
 	add_test(emv_rsa_test emv_rsa_test)

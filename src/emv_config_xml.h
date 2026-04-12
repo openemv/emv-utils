@@ -66,7 +66,7 @@ int emv_config_xml_load(struct emv_ctx_t* ctx, const char* filename);
  *
  * @param ctx EMV processing context
  * @param buf XML data buffer
- * @param len Length of @p buf in bytes
+ * @param len Length of @p buf in bytes (excluding NULL termination)
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
