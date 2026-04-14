@@ -22,6 +22,7 @@
 #include "emv_config_xml.h"
 #include "emv.h"
 #include "emv_tlv.h"
+#include "emv_fields.h"
 
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -192,9 +193,37 @@ static int parse_tlv_node(xmlNode* tlv_node, struct emv_tlv_list_t* list)
 	return 0;
 }
 
-static int parse_data_node(struct emv_ctx_t* ctx, xmlNode* data_node)
+static int parse_unsigned_int_node(xmlNode* node, unsigned int* value)
 {
-	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+	xmlChar* content;
+	xmlChar* trimmed;
+	char* endptr;
+	unsigned long val;
+
+	content = xmlNodeGetContent(node);
+	if (!content) {
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+
+	trimmed = xml_str_trim(content);
+	if (!*trimmed) {
+		xmlFree(content);
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+
+	val = strtoul((const char*)trimmed, &endptr, 10);
+	if (*endptr != '\0') {
+		xmlFree(content);
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+	xmlFree(content);
+
+	*value = (unsigned int)val;
+	return 0;
+}
+
+static int parse_data_node(xmlNode* data_node, struct emv_tlv_list_t* list)
+{
 	int r;
 
 	for (xmlNode* node = data_node->children; node; node = node->next) {
@@ -203,19 +232,95 @@ static int parse_data_node(struct emv_ctx_t* ctx, xmlNode* data_node)
 		}
 
 		if (xmlStrcmp(node->name, (const xmlChar*)"tlv") == 0) {
-			r = parse_tlv_node(node, &list);
+			r = parse_tlv_node(node, list);
 			if (r) {
-				emv_tlv_list_clear(&list);
 				return r;
 			}
 		}
 	}
 
-	r = emv_config_data_set(ctx, &list);
+	return 0;
+}
+
+static int parse_app_node(struct emv_ctx_t* ctx, xmlNode* app_node)
+{
+	int r;
+	xmlChar* aid_attr;
+	xmlChar* match_attr;
+	uint8_t aid[16];
+	unsigned int aid_len;
+	uint8_t asi;
+	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+	struct emv_config_app_t* app = NULL;
+	unsigned int random_percentage = 0;
+	unsigned int random_max_percentage = 0;
+	unsigned int random_threshold = 0;
+
+	// Parse aid attribute
+	aid_attr = xmlGetProp(app_node, (const xmlChar*)"aid");
+	if (!aid_attr) {
+		return EMV_CONFIG_XML_PARSE_ERROR;
+	}
+	aid_len = sizeof(aid);
+	r = parse_hex((const char*)aid_attr, aid, &aid_len);
+	xmlFree(aid_attr);
+	if (r) {
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+	if (aid_len < 5 || aid_len > 16) {
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+
+	// Parse match attribute
+	match_attr = xmlGetProp(app_node, (const xmlChar*)"match");
+	if (!match_attr) {
+		return EMV_CONFIG_XML_PARSE_ERROR;
+	}
+	if (xmlStrcmp(match_attr, (const xmlChar*)"exact") == 0) {
+		asi = EMV_ASI_EXACT_MATCH;
+	} else if (xmlStrcmp(match_attr, (const xmlChar*)"partial") == 0) {
+		asi = EMV_ASI_PARTIAL_MATCH;
+	} else {
+		xmlFree(match_attr);
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+	xmlFree(match_attr);
+
+	// Parse children
+	for (xmlNode* node = app_node->children; node; node = node->next) {
+		if (node->type != XML_ELEMENT_NODE) {
+			continue;
+		}
+
+		r = 0;
+		if (xmlStrcmp(node->name, (const xmlChar*)"data") == 0) {
+			r = parse_data_node(node, &list);
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"random_selection_percentage") == 0) {
+			r = parse_unsigned_int_node(node, &random_percentage);
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"random_selection_max_percentage") == 0) {
+			r = parse_unsigned_int_node(node, &random_max_percentage);
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"random_selection_threshold") == 0) {
+			r = parse_unsigned_int_node(node, &random_threshold);
+		}
+		if (r) {
+			emv_tlv_list_clear(&list);
+			return r;
+		}
+		if (random_percentage > 99 || random_max_percentage > 99) {
+			emv_tlv_list_clear(&list);
+			return EMV_CONFIG_XML_INVALID_DATA;
+		}
+	}
+
+	// Create application configuration
+	r = emv_config_app_create(ctx, aid, aid_len, asi, &list, &app);
 	if (r) {
 		emv_tlv_list_clear(&list);
 		return r;
 	}
+	app->random_selection_percentage = random_percentage;
+	app->random_selection_max_percentage = random_max_percentage;
+	app->random_selection_threshold = random_threshold;
 
 	return 0;
 }
@@ -236,7 +341,20 @@ static int emv_config_xml_parse(struct emv_ctx_t* ctx, xmlDoc* doc)
 		}
 
 		if (xmlStrcmp(node->name, (const xmlChar*)"data") == 0) {
-			r = parse_data_node(ctx, node);
+			struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+			r = parse_data_node(node, &list);
+			if (r) {
+				emv_tlv_list_clear(&list);
+				return r;
+			}
+			r = emv_config_data_set(ctx, &list);
+			if (r) {
+				emv_tlv_list_clear(&list);
+				return r;
+			}
+		}
+		if (xmlStrcmp(node->name, (const xmlChar*)"app") == 0) {
+			r = parse_app_node(ctx, node);
 			if (r) {
 				return r;
 			}

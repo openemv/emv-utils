@@ -21,26 +21,41 @@
 
 #include "emv_config_xml.h"
 #include "emv.h"
+#include "emv_config.h"
 #include "emv_tlv.h"
 #include "emv_tags.h"
+#include "emv_fields.h"
 #include "print_helpers.h"
 
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-struct verify_t {
+struct verify_data_t {
 	unsigned int tag;
 	size_t length;
 	const uint8_t* value;
+};
+
+struct verify_app_t {
+	const uint8_t* aid;
+	unsigned int aid_len;
+	uint8_t asi;
+	unsigned int random_selection_percentage;
+	unsigned int random_selection_max_percentage;
+	unsigned int random_selection_threshold;
+	size_t data_count;
+	const struct verify_data_t* data;
 };
 
 struct test_t {
 	const char* name;
 	const char* xml;
 	int expected_result;
-	size_t verify_count;
-	const struct verify_t* verify;
+	size_t data_count;
+	const struct verify_data_t* data;
+	size_t app_count;
+	const struct verify_app_t* app;
 };
 
 static const struct test_t test[] = {
@@ -83,8 +98,8 @@ static const struct test_t test[] = {
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = 0,
-		.verify_count = 5,
-		.verify = (const struct verify_t[]){
+		.data_count = 5,
+		.data = (const struct verify_data_t[]){
 			{
 				EMV_TAG_9F15_MCC,
 				2,
@@ -158,8 +173,8 @@ static const struct test_t test[] = {
 			"    <tlv id='9F1A'></tlv>\n"
 			"  </data>\n"
 			"</emv>\n",
-		.verify_count = 1,
-		.verify = (const struct verify_t[]){
+		.data_count = 1,
+		.data = (const struct verify_data_t[]){
 			{
 				EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE,
 				0,
@@ -239,6 +254,230 @@ static const struct test_t test[] = {
 			"</emv>\n",
 		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
 	},
+
+	{
+		.name = "Valid <app> with partial match",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010' match='partial'>\n"
+			"    <data>\n"
+			"      <tlv id='9F09'>012C</tlv>\n"
+			"    </data>\n"
+			"    <random_selection_percentage>25</random_selection_percentage>\n"
+			"    <random_selection_max_percentage>50</random_selection_max_percentage>\n"
+			"    <random_selection_threshold>5000</random_selection_threshold>\n"
+			"  </app>\n"
+			"</emv>\n",
+		.expected_result = 0,
+		.app_count = 1,
+		.app = (const struct verify_app_t[]){
+			{
+				.aid = (const uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 },
+				.aid_len = 7,
+				.asi = EMV_ASI_PARTIAL_MATCH,
+				.random_selection_percentage = 25,
+				.random_selection_max_percentage = 50,
+				.random_selection_threshold = 5000,
+				.data_count = 1,
+				.data = (const struct verify_data_t[]){
+					{
+						EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL,
+						2,
+						(const uint8_t[]){ 0x01, 0x2C },
+					},
+				},
+			},
+		},
+	},
+
+	{
+		.name = "Valid <app> with exact match",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010' match='exact'>\n"
+			"    <data>\n"
+			"      <tlv id='9F09'>012C</tlv>\n"
+			"    </data>\n"
+			"  </app>\n"
+			"</emv>\n",
+		.expected_result = 0,
+		.app_count = 1,
+		.app = (const struct verify_app_t[]){
+			{
+				.aid = (const uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 },
+				.aid_len = 7,
+				.asi = EMV_ASI_EXACT_MATCH,
+				.data_count = 1,
+				.data = (const struct verify_data_t[]){
+					{
+						EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL,
+						2,
+						(const uint8_t[]){ 0x01, 0x2C },
+					},
+				},
+			},
+		},
+	},
+
+	{
+		.name = "Multiple <app> elements in order",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010' match='partial'>\n"
+			"    <data>\n"
+			"      <tlv id='9F09'>012C</tlv>\n"
+			"    </data>\n"
+			"    <random_selection_percentage>25</random_selection_percentage>\n"
+			"    <random_selection_max_percentage>50</random_selection_max_percentage>\n"
+			"    <random_selection_threshold>5000</random_selection_threshold>\n"
+			"  </app>\n"
+			"  <app aid='A0000000041010' match='partial'>\n"
+			"    <data>\n"
+			"      <tlv id='9F09'>0002</tlv>\n"
+			"    </data>\n"
+			"  </app>\n"
+			"</emv>\n",
+		.expected_result = 0,
+		.app_count = 2,
+		.app = (const struct verify_app_t[]){
+			{
+				.aid = (const uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 },
+				.aid_len = 7,
+				.asi = EMV_ASI_PARTIAL_MATCH,
+				.random_selection_percentage = 25,
+				.random_selection_max_percentage = 50,
+				.random_selection_threshold = 5000,
+				.data_count = 1,
+				.data = (const struct verify_data_t[]){
+					{
+						EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL,
+						2,
+						(const uint8_t[]){ 0x01, 0x2C },
+					},
+				},
+			},
+			{
+				.aid = (const uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10 },
+				.aid_len = 7,
+				.asi = EMV_ASI_PARTIAL_MATCH,
+				.data_count = 1,
+				.data = (const struct verify_data_t[]){
+					{
+						EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL,
+						2,
+						(const uint8_t[]){ 0x00, 0x02 },
+					},
+				},
+			},
+		},
+	},
+
+	{
+		.name = "Valid <app> with no children",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A000000025' match='partial'/>\n"
+			"</emv>\n",
+		.expected_result = 0,
+		.app_count = 1,
+		.app = (const struct verify_app_t[]){
+			{
+				.aid = (const uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 },
+				.aid_len = 5,
+				.asi = EMV_ASI_PARTIAL_MATCH,
+			},
+		},
+	},
+
+	{
+		.name = "Missing <app> aid attribute",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app match='partial'/>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Missing <app> match attribute",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010'/>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Invalid <app> match attribute",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010' match='fuzzy'/>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	{
+		.name = "Invalid <app> AID attribute (too short)",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000' match='partial'/>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	{
+		.name = "Invalid <app> AID attribute (too long)",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A000000003101000112233445566778899' match='partial'/>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	{
+		.name = "Invalid random_selection_percentage",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010' match='partial'>\n"
+			"    <random_selection_percentage>100</random_selection_percentage>\n"
+			"  </app>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	{
+		.name = "Invalid random_selection_max_percentage",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010' match='partial'>\n"
+			"    <random_selection_max_percentage>100</random_selection_max_percentage>\n"
+			"  </app>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	{
+		.name = "Non-numeric random_selection_percentage",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010' match='partial'>\n"
+			"    <random_selection_percentage>abc</random_selection_percentage>\n"
+			"  </app>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
 };
 
 int main(void)
@@ -263,8 +502,8 @@ int main(void)
 			goto exit;
 		}
 
-		for (size_t j = 0; j < test[i].verify_count; ++j) {
-			const struct verify_t* verify = &test[i].verify[j];
+		for (size_t j = 0; j < test[i].data_count; ++j) {
+			const struct verify_data_t* verify = &test[i].data[j];
 			const struct emv_tlv_t* tlv;
 
 			tlv = emv_config_data_get(&ctx, verify->tag);
@@ -282,6 +521,97 @@ int main(void)
 				fprintf(stderr, "Incorrect value for field %04X\n", verify->tag);
 				print_buf("Found", tlv->value, tlv->length);
 				print_buf("Expected", verify->value, verify->length);
+				r = 1;
+				goto exit;
+			}
+		}
+
+		if (test[i].app_count) {
+			struct emv_config_app_itr_t app_itr;
+			const struct emv_config_app_t* config_app;
+			size_t app_idx = 0;
+
+			r = emv_config_app_itr_init(&ctx.config, &app_itr);
+			if (r) {
+				fprintf(stderr, "emv_config_app_itr_init() failed; r=%d\n", r);
+				r = 1;
+				goto exit;
+			}
+
+			while ((config_app = emv_config_app_itr_next(&app_itr)) != NULL) {
+				const struct verify_app_t* va;
+
+				if (app_idx >= test[i].app_count) {
+					fprintf(stderr, "Too many apps; expected %zu\n", test[i].app_count);
+					r = 1;
+					goto exit;
+				}
+				va = &test[i].app[app_idx];
+
+				if (config_app->aid_len != va->aid_len ||
+					memcmp(config_app->aid, va->aid, va->aid_len) != 0
+				) {
+					fprintf(stderr, "App %zu: incorrect AID\n", app_idx);
+					print_buf("Found", config_app->aid, config_app->aid_len);
+					print_buf("Expected", va->aid, va->aid_len);
+					r = 1;
+					goto exit;
+				}
+				if (config_app->asi != va->asi) {
+					fprintf(stderr, "App %zu: incorrect ASI; found %02X, expected %02X\n",
+						app_idx, config_app->asi, va->asi);
+					r = 1;
+					goto exit;
+				}
+				if (config_app->random_selection_percentage != va->random_selection_percentage) {
+					fprintf(stderr, "App %zu: incorrect random_selection_percentage; found %u, expected %u\n",
+						app_idx, config_app->random_selection_percentage, va->random_selection_percentage);
+					r = 1;
+					goto exit;
+				}
+				if (config_app->random_selection_max_percentage != va->random_selection_max_percentage) {
+					fprintf(stderr, "App %zu: incorrect random_selection_max_percentage; found %u, expected %u\n",
+						app_idx, config_app->random_selection_max_percentage, va->random_selection_max_percentage);
+					r = 1;
+					goto exit;
+				}
+				if (config_app->random_selection_threshold != va->random_selection_threshold) {
+					fprintf(stderr, "App %zu: incorrect random_selection_threshold; found %u, expected %u\n",
+						app_idx, config_app->random_selection_threshold, va->random_selection_threshold);
+					r = 1;
+					goto exit;
+				}
+
+				for (size_t j = 0; j < va->data_count; ++j) {
+					const struct verify_data_t* verify = &va->data[j];
+					const struct emv_tlv_t* tlv;
+
+					tlv = emv_tlv_list_find_const(&config_app->data, verify->tag);
+					if (!tlv) {
+						fprintf(stderr, "App %zu: failed to find field %04X\n", app_idx, verify->tag);
+						r = 1;
+						goto exit;
+					}
+					if (tlv->length != verify->length ||
+						(
+							verify->length > 0 &&
+							memcmp(tlv->value, verify->value, verify->length) != 0
+						)
+					) {
+						fprintf(stderr, "App %zu: incorrect value for field %04X\n", app_idx, verify->tag);
+						print_buf("Found", tlv->value, tlv->length);
+						print_buf("Expected", verify->value, verify->length);
+						r = 1;
+						goto exit;
+					}
+				}
+
+				++app_idx;
+			}
+
+			if (app_idx != test[i].app_count) {
+				fprintf(stderr, "Too few apps; found %zu, expected %zu\n",
+					app_idx, test[i].app_count);
 				r = 1;
 				goto exit;
 			}
