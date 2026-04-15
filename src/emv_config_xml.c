@@ -23,6 +23,7 @@
 #include "emv.h"
 #include "emv_tlv.h"
 #include "emv_fields.h"
+#include "iso8825_ber.h"
 
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -33,7 +34,7 @@
 #include <ctype.h>
 
 // Maximum value length for a single TLV field in bytes
-#define EMV_CONFIG_XML_MAX_VALUE_LEN (256)
+#define EMV_CONFIG_XML_MAX_VALUE_LEN (512)
 
 static int parse_hex(const char* hex, void* buf, unsigned int* buf_len)
 {
@@ -193,6 +194,168 @@ static int parse_tlv_node(xmlNode* tlv_node, struct emv_tlv_list_t* list)
 	return 0;
 }
 
+static int parse_oid_arc(const char* arc_str, struct iso8825_oid_t* oid)
+{
+	char* endptr;
+
+	oid->length = 0;
+
+	while (*arc_str) {
+		unsigned long val;
+
+		if (oid->length >= sizeof(oid->value) / sizeof(oid->value[0])) {
+			return EMV_CONFIG_XML_INVALID_DATA;
+		}
+
+		val = strtoul(arc_str, &endptr, 10);
+		if (endptr == arc_str) {
+			return EMV_CONFIG_XML_INVALID_DATA;
+		}
+
+		oid->value[oid->length++] = (uint32_t)val;
+
+		if (*endptr == '.') {
+			// Next arc component
+			arc_str = endptr + 1;
+		} else if (*endptr == '\0') {
+			// End of arc
+			break;
+		} else {
+			// Invalid arc component
+			return EMV_CONFIG_XML_INVALID_DATA;
+		}
+	}
+
+	if (oid->length < 2) {
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+
+	return 0;
+}
+
+static int encode_utf8string_ber(
+	const uint8_t* str,
+	unsigned int str_len,
+	uint8_t* buf,
+	unsigned int* buf_len
+)
+{
+	unsigned int max_buf_len;
+	unsigned int idx = 0;
+
+	if (!buf_len) {
+		return -1;
+	}
+	max_buf_len = *buf_len;
+	*buf_len = 0;
+
+	// Encode tag
+	if (max_buf_len < 2) {
+		return -2;
+	}
+	buf[idx++] = ASN1_UTF8STRING;
+
+	// Encode length
+	if (str_len < 0x80) {
+		if (idx >= max_buf_len) {
+			return -3;
+		}
+		buf[idx++] = (uint8_t)str_len;
+	} else if (str_len < 0x100) {
+		if (idx + 2 > max_buf_len) {
+			return -4;
+		}
+		buf[idx++] = ISO8825_BER_LEN_LONG_FORM | 1;
+		buf[idx++] = (uint8_t)str_len;
+	} else if (str_len < 0x10000) {
+		if (idx + 3 > max_buf_len) {
+			return -5;
+		}
+		buf[idx++] = ISO8825_BER_LEN_LONG_FORM | 2;
+		buf[idx++] = (uint8_t)(str_len >> 8);
+		buf[idx++] = (uint8_t)str_len;
+	} else {
+		// Not supported
+		return -6;
+	}
+
+	// Encode string
+	if (idx + str_len > max_buf_len) {
+		return -7;
+	}
+	memcpy(buf + idx, str, str_len);
+	idx += str_len;
+
+	*buf_len = idx;
+	return 0;
+}
+
+static int parse_oid_node(xmlNode* oid_node, struct emv_tlv_list_t* list)
+{
+	int r;
+	xmlChar* arc_attr;
+	struct iso8825_oid_t oid;
+	xmlChar* content;
+	xmlChar* trimmed;
+	unsigned int content_len;
+	uint8_t ber[EMV_CONFIG_XML_MAX_VALUE_LEN];
+	unsigned int ber_len;
+
+	// Parse arc attribute
+	arc_attr = xmlGetProp(oid_node, (const xmlChar*)"arc");
+	if (!arc_attr) {
+		return EMV_CONFIG_XML_PARSE_ERROR;
+	}
+	r = parse_oid_arc((const char*)arc_attr, &oid);
+	xmlFree(arc_attr);
+	if (r) {
+		return r;
+	}
+
+	// Parse content
+	content = xmlNodeGetContent(oid_node);
+	if (!content) {
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+	trimmed = xml_str_trim(content);
+	content_len = xmlStrlen(trimmed);
+
+	if (content_len >= 2 &&
+		trimmed[0] == '"' &&
+		trimmed[content_len - 1] == '"'
+	) {
+		unsigned int str_len;
+
+		// Parse content as string and encode as ASN.1 UTF-8 string
+		str_len = content_len - 2;
+		ber_len = sizeof(ber);
+		r = encode_utf8string_ber(
+			(const uint8_t*)trimmed + 1, str_len,
+			ber, &ber_len
+		);
+		xmlFree(content);
+		if (r) {
+			return EMV_CONFIG_XML_INVALID_DATA;
+		}
+	} else {
+		// Parse content as ASCII-HEX and assume that it is BER
+		ber_len = sizeof(ber);
+		r = parse_hex((const char*)trimmed, ber, &ber_len);
+		xmlFree(content);
+		if (r) {
+			return EMV_CONFIG_XML_INVALID_DATA;
+		}
+	}
+
+	// Create ASN.1 object
+	r = emv_tlv_list_push_asn1_object(list, &oid, ber_len, ber);
+	if (r) {
+		return EMV_ERROR_INTERNAL;
+	}
+
+	return 0;
+}
+
 static int parse_unsigned_int_node(xmlNode* node, unsigned int* value)
 {
 	xmlChar* content;
@@ -233,6 +396,11 @@ static int parse_data_node(xmlNode* data_node, struct emv_tlv_list_t* list)
 
 		if (xmlStrcmp(node->name, (const xmlChar*)"tlv") == 0) {
 			r = parse_tlv_node(node, list);
+			if (r) {
+				return r;
+			}
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"oid") == 0) {
+			r = parse_oid_node(node, list);
 			if (r) {
 				return r;
 			}
