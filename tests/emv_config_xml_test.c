@@ -225,6 +225,16 @@ static const struct test_t test[] = {
 			"0000000000000000000000000000000000000000000000000000"
 			"0000000000000000000000000000000000000000000000000000"
 			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
+			"0000000000000000000000000000000000000000000000000000"
 			"    </tlv>\n"
 			"  </data>\n"
 			"</emv>\n",
@@ -475,6 +485,114 @@ static const struct test_t test[] = {
 			"  <app aid='A0000000031010' match='partial'>\n"
 			"    <random_selection_percentage>abc</random_selection_percentage>\n"
 			"  </app>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	{
+		.name = "Valid <oid> with quoted UTF-8 content",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <data>\n"
+			"    <oid arc='2.5.4.87'>\"example.com\"</oid>\n"
+			"  </data>\n"
+			"</emv>\n",
+		.expected_result = 0,
+		.data_count = 1,
+		.data = (const struct verify_data_t[]){
+			{
+				0x30, // Constructed SEQUENCE
+				18,
+				(const uint8_t[]){
+					0x06, 0x03, 0x55, 0x04, 0x57, // OID 2.5.4.87
+					0x0C, 0x0B, // ASN.1 UTF-8 string type
+					0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, // "example.com"
+				},
+			},
+		},
+	},
+
+	{
+		.name = "Valid <oid> with unquoted hex content",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <data>\n"
+			"    <oid arc='1.2.840.113549.1.1.1'>05 00</oid>\n"
+			"  </data>\n"
+			"</emv>\n",
+		.expected_result = 0,
+		.data_count = 1,
+		.data = (const struct verify_data_t[]){
+			{
+				0x30, // Constructed SEQUENCE
+				13,
+				(const uint8_t[]){
+					0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, // OID 1.2.840.113549.1.1.1 (rsaEncryption)
+					0x05, 0x00, // NULL
+				},
+			},
+		},
+	},
+
+	{
+		.name = "Two <oid> elements",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <data>\n"
+			"    <oid arc='2.5.4.87'>\"example.com\"</oid>\n"
+			"    <oid arc='1.2.840.113549.1.1.1'>05 00</oid>\n"
+			"  </data>\n"
+			"</emv>\n",
+		.expected_result = 0,
+	},
+
+	{
+		.name = "Missing <oid> arc attribute",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <data>\n"
+			"    <oid>\"example.com\"</oid>\n"
+			"  </data>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Invalid <oid> arc (non-numeric)",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <data>\n"
+			"    <oid arc='abc.def'>\"example.com\"</oid>\n"
+			"  </data>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	{
+		.name = "Invalid <oid> arc (too few components)",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <data>\n"
+			"    <oid arc='2'>\"example.com\"</oid>\n"
+			"  </data>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	{
+		.name = "Invalid <oid> arc (too many components)",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <data>\n"
+			"    <oid arc='1.2.3.4.5.6.7.8.9.10.11'>\"example.com\"</oid>\n"
+			"  </data>\n"
 			"</emv>\n",
 		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
 	},
