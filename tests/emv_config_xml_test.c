@@ -67,6 +67,22 @@ static const struct test_t test[] = {
 	},
 
 	{
+		.name = "Malformed XML",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv><data\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Invalid root element",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<config/>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
 		.name = "No <data>",
 		.xml =
 			"<?xml version='1.0' encoding='UTF-8'?>\n"
@@ -595,6 +611,36 @@ static const struct test_t test[] = {
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
+	},
+
+	// Duplicate tag tests
+
+	{
+		.name = "Duplicate <tlv> in <data>",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <data>\n"
+			"    <tlv id='9F1A'>0528</tlv>\n"
+			"    <tlv id='9F1A'>0826</tlv>\n"
+			"  </data>\n"
+			"</emv>\n",
+		.expected_result = EMV_ERROR_INVALID_CONFIG,
+	},
+
+	{
+		.name = "Duplicate <tlv> in <app>",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <app aid='A0000000031010' match='partial'>\n"
+			"    <data>\n"
+			"      <tlv id='9F09'>012C</tlv>\n"
+			"      <tlv id='9F09'>0002</tlv>\n"
+			"    </data>\n"
+			"  </app>\n"
+			"</emv>\n",
+		.expected_result = EMV_ERROR_INVALID_CONFIG,
 	},
 };
 
