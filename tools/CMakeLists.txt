@@ -175,6 +175,18 @@ if(BUILD_EMV_TOOL)
 		RUNTIME
 			COMPONENT emv_runtime
 	)
+
+	# Install example EMV configuration and XML Schema Definition
+	set(EMV_UTILS_INSTALL_CONFIG_DIR ${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}
+		CACHE STRING "Installation location for emv-utils config files"
+	)
+	message(STATUS "Using emv-utils config install location \"${EMV_UTILS_INSTALL_CONFIG_DIR}\"")
+	install(FILES
+		${CMAKE_CURRENT_SOURCE_DIR}/emv-config-example.xml
+		${CMAKE_CURRENT_SOURCE_DIR}/emv-config.xsd
+		DESTINATION "${EMV_UTILS_INSTALL_CONFIG_DIR}"
+		COMPONENT emv_runtime
+	)
 endif()
 
 if(TARGET emv-decode AND BUILD_TESTING)
@@ -1272,6 +1284,20 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION ${emv_decode_9F69_test2_regex}
 	)
+
+	# Validate example EMV configuration against XML Schema Definition
+	find_program(XMLLINT xmllint)
+	if(XMLLINT)
+		add_test(NAME emv_config_xml_validate_test
+			COMMAND ${XMLLINT} --noout --schema
+				${CMAKE_CURRENT_SOURCE_DIR}/emv-config.xsd
+				${CMAKE_CURRENT_SOURCE_DIR}/emv-config-example.xml
+		)
+		set_tests_properties(emv_config_xml_validate_test
+			PROPERTIES
+				PASS_REGULAR_EXPRESSION "validates"
+		)
+	endif()
 
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)

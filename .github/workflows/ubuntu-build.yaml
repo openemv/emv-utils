@@ -143,7 +143,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libmbedtls-dev libxml2-dev libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev doxygen qtbase5-dev
+        sudo apt-get install -y libmbedtls-dev libxml2-dev libxml2-utils libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev doxygen qtbase5-dev
 
     - name: Checkout
       uses: actions/checkout@v6
