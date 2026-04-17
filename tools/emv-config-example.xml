@@ -1,0 +1,190 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+  Example EMV configuration.
+
+  See emv-config.xsd for the XML Schema Definition.
+
+  TLV value encoding:
+    - Unquoted content is parsed as ASCII-HEX
+    - Quoted content is parsed as UTF-8
+
+  OID value encoding:
+    - Unquoted content is parsed as ASCII-HEX and assumed to be BER-encoded
+      subfield(s) following the OID inside the ASN.1 SEQUENCE
+    - Quoted content is parsed as UTF-8 and encoded as an ASN.1 UTF-8 string
+      subfield following the OID inside the ASN.1 SEQUENCE
+-->
+<emv>
+
+  <!--
+    Application independent data.
+    See EMV 4.4 Book 4, 10.1
+  -->
+  <data>
+    <!-- Acquirer Identifier -->
+    <tlv id='9F01'>000123456789</tlv>
+
+    <!-- Merchant Category Code -->
+    <tlv id='9F15'>5999</tlv><!-- Miscellaneous and Specialty Retail Stores -->
+
+    <!-- Merchant Identifier -->
+    <tlv id='9F16'>"0987654321     "</tlv>
+
+    <!-- Terminal Country Code -->
+    <tlv id='9F1A'>0528</tlv><!-- Netherlands -->
+
+    <!-- Terminal Floor Limit -->
+    <tlv id='9F1B'>00002710</tlv><!-- 10000 -->
+
+    <!-- Terminal Identification -->
+    <tlv id='9F1C'>"TID12345"</tlv>
+
+    <!-- Interface Device (IFD) Serial Number -->
+    <tlv id='9F1E'>"12345678"</tlv>
+
+    <!-- Merchant Name and Location -->
+    <tlv id='9F4E'>"ACME Peanuts"</tlv>
+
+    <!-- Merchant URL (OID: url) -->
+    <oid arc='2.5.4.87'>"example.com"</oid>
+
+    <!-- Merchant email address (OID: emailAddress) -->
+    <oid arc='1.2.840.113549.1.9.1'>"john.doe@example.com"</oid>
+
+    <!--
+      Terminal Capabilities:
+      - Card Data Input Capability:
+        - IC with Contacts
+      - CVM Capability:
+        - Plaintext offline PIN
+        - Enciphered online PIN
+        - Signature
+        - Enciphered offline PIN
+        - No CVM
+      - Security Capability:
+        - Static Data Authentication (SDA)
+        - Dynamic Data Authentication (DDA)
+        - Combined DDA/Application Cryptogram Generation (CDA)
+    -->
+
+    <tlv id='9F33'>20F8C8</tlv>
+    <!--
+      Terminal Type:
+      - Merchant attended
+      - Offline with online capability
+    -->
+    <tlv id='9F35'>22</tlv>
+
+    <!--
+      Additional Terminal Capabilities:
+      - Transaction Type Capability: Goods, Services, Cashback, Cash,
+        Inquiry, Payment
+      - Terminal Data Input Capability: Numeric, Alphabetic and special
+        character keys, Command keys, Function keys
+      - Terminal Data Output Capability: Attended print, Attended display,
+        Code table 1 to 10
+    -->
+    <tlv id='9F40'>FA00F0A3FF</tlv>
+
+    <!--
+      Default Dynamic Data Authentication Data Object List (DDOL)
+      Must contain at least Unpredictable Number (9F37)
+    -->
+    <tlv id='9F49'>9F3704</tlv>
+
+  </data>
+
+  <!--
+    Supported applications.
+    See EMV 4.4 Book 4, 10.2
+
+    Applications are processed in document order during application discovery.
+    Entries with match='exact' should appear before overlapping entries with
+    match='partial' that may match the same AID.
+  -->
+
+  <!--
+    Visa
+    See Visa Terminal Acceptance Device Guide (TADG) version 3.3, August 2025, 4.3.1, Application Identifiers (AIDs)
+    See Visa Terminal Acceptance Device Guide (TADG) version 3.3, August 2025, 4.6, Processing Restrictions
+  -->
+
+  <!-- Visa Credit/Debit -->
+  <app aid='A0000000031010' match='partial'>
+    <data>
+      <!-- Application Version Number (Terminal) -->
+      <tlv id='9F09'>012C</tlv>
+    </data>
+
+    <random_selection_percentage>25</random_selection_percentage>
+    <random_selection_max_percentage>50</random_selection_max_percentage>
+    <random_selection_threshold>5000</random_selection_threshold>
+  </app>
+
+  <!-- Visa Electron -->
+  <app aid='A0000000032010' match='partial'>
+    <data>
+      <!-- Application Version Number (Terminal) -->
+      <tlv id='9F09'>012C</tlv>
+
+      <!-- Terminal Floor Limit -->
+      <tlv id='9F1B'>00000000</tlv>
+    </data>
+  </app>
+
+  <!-- V Pay -->
+  <app aid='A0000000032020' match='partial'>
+    <data>
+      <!-- Application Version Number (Terminal) -->
+      <tlv id='9F09'>012C</tlv>
+
+      <!-- Terminal Floor Limit -->
+      <tlv id='9F1B'>00000000</tlv>
+    </data>
+  </app>
+
+  <!--
+    Mastercard
+    See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Summary of Application Identifiers, Table 7
+    See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Application Version Number
+  -->
+
+  <!-- Mastercard Credit/Debit -->
+  <app aid='A0000000041010' match='partial'>
+    <data>
+      <!-- Application Version Number (Terminal) -->
+      <tlv id='9F09'>0002</tlv>
+    </data>
+
+    <random_selection_percentage>25</random_selection_percentage>
+    <random_selection_max_percentage>50</random_selection_max_percentage>
+    <random_selection_threshold>5000</random_selection_threshold>
+  </app>
+
+  <!-- Maestro -->
+  <app aid='A0000000043060' match='partial'>
+    <data>
+      <!-- Application Version Number (Terminal) -->
+      <tlv id='9F09'>0002</tlv>
+
+      <!-- Terminal Floor Limit -->
+      <tlv id='9F1B'>00000000</tlv>
+    </data>
+  </app>
+
+  <!--
+    American Express
+    See Amex Live Terminal Parameters Guide (October 2024), 2.2, Global Application Identifier (AID)
+    See Amex Live Terminal Parameters Guide (October 2024), 2.4, Application Version Number
+  -->
+  <app aid='A000000025' match='partial'>
+    <data>
+      <!-- Application Version Number (Terminal) -->
+      <tlv id='9F09'>0001</tlv>
+    </data>
+
+    <random_selection_percentage>25</random_selection_percentage>
+    <random_selection_max_percentage>50</random_selection_max_percentage>
+    <random_selection_threshold>5000</random_selection_threshold>
+  </app>
+</emv>

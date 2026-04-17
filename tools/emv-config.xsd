@@ -1,0 +1,132 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+  XML Schema Definition for EMV configuration files.
+
+  This schema documents the structure of EMV configuration files loaded by
+  emv_config_xml_load(). It can be used by editors and external validators
+  (e.g. xmllint) to check configuration files before runtime loading.
+
+  See emv-config-example.xml for an example EMV configuration.
+-->
+<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema'
+           elementFormDefault='qualified'>
+
+  <!-- EMV tag identifier: 1-4 bytes as hex (2-8 characters) -->
+  <xs:simpleType name='tagType'>
+    <xs:restriction base='xs:string'>
+      <xs:whiteSpace value='collapse'/>
+      <xs:pattern value='[0-9A-Fa-f]{2,8}'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Application Identifier (AID): 5-16 bytes as hex (10-32 characters) -->
+  <xs:simpleType name='aidType'>
+    <xs:restriction base='xs:string'>
+      <xs:whiteSpace value='collapse'/>
+      <xs:pattern value='([0-9A-Fa-f]{2}){5,16}'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Application selection indicator -->
+  <xs:simpleType name='matchType'>
+    <xs:restriction base='xs:string'>
+      <xs:enumeration value='exact'/>
+      <xs:enumeration value='partial'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- OID arc: dotted-decimal with at least two components -->
+  <xs:simpleType name='arcType'>
+    <xs:restriction base='xs:string'>
+      <xs:whiteSpace value='collapse'/>
+      <xs:pattern value='[0-9]+(\.[0-9]+)+'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!--
+    TLV or OID value content: Either even-length ASCII-HEX string (whitespace
+    allowed) or quoted UTF-8 string.
+  -->
+  <xs:simpleType name='valueContentType'>
+    <xs:restriction base='xs:string'>
+      <xs:pattern value='\s*(([0-9A-Fa-f]\s*){2})+\s*|\s*&quot;[^&quot;]*&quot;\s*'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Random selection percentage: 0-99 -->
+  <xs:simpleType name='percentageType'>
+    <xs:restriction base='xs:nonNegativeInteger'>
+      <xs:maxInclusive value='99'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- <tlv id='TAG'>VALUE</tlv> -->
+  <xs:complexType name='tlvType'>
+    <xs:simpleContent>
+      <xs:extension base='valueContentType'>
+        <xs:attribute name='id' type='tagType' use='required'/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!-- <oid arc='ARC'>VALUE</oid> -->
+  <xs:complexType name='oidType'>
+    <xs:simpleContent>
+      <xs:extension base='valueContentType'>
+        <xs:attribute name='arc' type='arcType' use='required'/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!--
+    <data>
+      <tlv .../>*
+      <oid .../>*
+    </data>
+  -->
+  <xs:complexType name='dataType'>
+    <xs:choice minOccurs='0' maxOccurs='unbounded'>
+      <xs:element name='tlv' type='tlvType'/>
+      <xs:element name='oid' type='oidType'/>
+    </xs:choice>
+  </xs:complexType>
+
+  <!--
+    <app aid='AID' match='exact|partial'>
+      <data>...</data>?
+      <random_selection_percentage>...</random_selection_percentage>?
+      <random_selection_max_percentage>...</random_selection_max_percentage>?
+      <random_selection_threshold>...</random_selection_threshold>?
+    </app>
+  -->
+  <xs:complexType name='appType'>
+    <xs:all>
+      <xs:element name='data' type='dataType' minOccurs='0'/>
+      <xs:element name='random_selection_percentage' type='percentageType' minOccurs='0'/>
+      <xs:element name='random_selection_max_percentage' type='percentageType' minOccurs='0'/>
+      <xs:element name='random_selection_threshold' type='xs:nonNegativeInteger' minOccurs='0'/>
+    </xs:all>
+    <xs:attribute name='aid' type='aidType' use='required'/>
+    <xs:attribute name='match' type='matchType' use='required'/>
+  </xs:complexType>
+
+  <!--
+    <emv>
+      <data>...</data>?
+      <app aid='AID' match='exact|partial'>...</app>*
+    </emv>
+
+    Applications are processed in document order during application discovery.
+    Entries with match='exact' should appear before overlapping entries with
+    match='partial' that may match the same AID.
+  -->
+  <xs:element name='emv'>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name='data' type='dataType' minOccurs='0'/>
+        <xs:element name='app' type='appType' minOccurs='0' maxOccurs='unbounded'/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
