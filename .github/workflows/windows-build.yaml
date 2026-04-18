@@ -132,8 +132,6 @@ jobs:
         host: windows
         target: desktop
         arch: win64_llvm_mingw
-        tools: tools_llvm_mingw1706
-        add-tools-to-path: true
         cache: true
 
     # MSYS2 Git assumes CRLF by default
@@ -142,16 +140,10 @@ jobs:
         git config --global core.autocrlf true
         echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> $GITHUB_ENV
 
-    # Build using Qt toolchain because it will be packaged with Qt toolchain's runtime
-    - name: Configure Qt toolchain path
-      run: echo "TOOLCHAIN_PATH=$(cygpath -u '${{ env.IQTA_TOOLS }}')/llvm-mingw1706_64/bin" >> $GITHUB_ENV
-
     - name: Configure CMake
       run: |
         cmake -G Ninja -B build \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
-          -DCMAKE_C_COMPILER="${{ env.TOOLCHAIN_PATH }}/clang.exe" \
-          -DCMAKE_CXX_COMPILER="${{ env.TOOLCHAIN_PATH }}/clang++.exe" \
           -DBUILD_SHARED_LIBS=YES \
           -DBoost_USE_STATIC_LIBS=NO \
           -DFETCH_MBEDTLS=YES \
