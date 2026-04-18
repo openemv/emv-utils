@@ -52,10 +52,7 @@ if(NOT HAVE_TIMESPEC_GET AND NOT HAVE_CLOCK_GETTIME)
 	message(FATAL_ERROR "Failed to find either timespec_get or clock_gettime")
 endif()
 
-find_package(LibXml2 REQUIRED CONFIG)
-# The LibXml2 CMake config doesn't print a find_package() message but it is
-# always good to know where it was found
-find_package_handle_standard_args(LibXml2 CONFIG_MODE)
+find_package(LibXml2 REQUIRED)
 list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "LibXml2")
 
 find_package(IsoCodes REQUIRED)
