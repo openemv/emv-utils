@@ -19,6 +19,7 @@
  */
 
 #include "emv.h"
+#include "emv_config_xml.h"
 #include "pcsc.h"
 #include "print_helpers.h"
 #include "emv_ttl.h"
@@ -51,7 +52,7 @@ static int emv_txn_load_config(struct emv_ctx_t* emv);
 
 // argp option keys
 enum emv_tool_param_t {
-	EMV_TOOL_PARAM_ODA = -255, // Negative value to avoid short options
+	EMV_TOOL_PARAM_CONFIG_XML = -255, // Negative value to avoid short options
 	EMV_TOOL_PARAM_TXN_DATE,
 	EMV_TOOL_PARAM_TXN_TIME,
 	EMV_TOOL_PARAM_TXN_TYPE,
@@ -68,7 +69,7 @@ enum emv_tool_param_t {
 // argp option structure
 static struct argp_option argp_options[] = {
 	{ NULL, 0, NULL, 0, "EMV configuration options", 1 },
-	{ "oda", EMV_TOOL_PARAM_ODA, "SDA,DDA,CDA", 0, "Comma separated list of supported Offline Data Authentication (ODA) methods. Default is SDA,DDA,CDA." },
+	{ "config-xml", EMV_TOOL_PARAM_CONFIG_XML, "FILE", 0, "Path of XML configuration file." },
 
 	{ NULL, 0, NULL, 0, "Transaction parameters", 2 },
 	{ "txn-date", EMV_TOOL_PARAM_TXN_DATE, "YYYY-MM-DD", 0, "Transaction date (YYYY-MM-DD). Default is current date." },
@@ -100,10 +101,7 @@ static struct argp argp_config = {
 };
 
 // EMV configuration
-static uint8_t term_caps_sec =
-	EMV_TERM_CAPS_SECURITY_SDA |
-	EMV_TERM_CAPS_SECURITY_DDA |
-	EMV_TERM_CAPS_SECURITY_CDA;
+static char* config_xml_filename = NULL;
 
 // Transaction parameters
 static uint8_t txn_date[3] = { 0xFF }; // Default is current date
@@ -144,24 +142,8 @@ static char* mcc_json = NULL;
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 {
 	switch (key) {
-		case EMV_TOOL_PARAM_ODA: {
-			const char* str;
-
-			// Parse comma separated list and set the appropriate security
-			// capability bits in the Terminal Capabilities (field 9F33)
-			term_caps_sec = 0;
-			while ((str = strtok(arg, ","))) {
-				if (strcasecmp(str, "SDA") == 0) {
-					term_caps_sec |= EMV_TERM_CAPS_SECURITY_SDA;
-				}
-				if (strcasecmp(str, "DDA") == 0) {
-					term_caps_sec |= EMV_TERM_CAPS_SECURITY_DDA;
-				}
-				if (strcasecmp(str, "CDA") == 0) {
-					term_caps_sec |= EMV_TERM_CAPS_SECURITY_CDA;
-				}
-			}
-
+		case EMV_TOOL_PARAM_CONFIG_XML: {
+			config_xml_filename = arg;
 			return 0;
 		}
 
@@ -703,116 +685,12 @@ static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uin
 static int emv_txn_load_config(struct emv_ctx_t* emv)
 {
 	int r;
-	struct emv_tlv_list_t config = EMV_TLV_LIST_INIT;
-	struct emv_config_app_t* app;
 
-	// Terminal / merchant config
-	emv_tlv_list_push(&config, EMV_TAG_9F01_ACQUIRER_IDENTIFIER, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0); // Unique acquirer identifier
-	emv_tlv_list_push(&config, EMV_TAG_9F15_MCC, 2, (uint8_t[]){ 0x59, 0x99 }, 0); // Miscellaneous and Specialty Retail Stores
-	emv_tlv_list_push(&config, EMV_TAG_9F16_MERCHANT_IDENTIFIER, 15, (const uint8_t*)"0987654321     ", 0); // Unique merchant identifier
-	emv_tlv_list_push(&config, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE, 2, (uint8_t[]){ 0x05, 0x28 }, 0); // Netherlands
-	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0); // 10000
-	emv_tlv_list_push(&config, EMV_TAG_9F1C_TERMINAL_IDENTIFICATION, 8, (const uint8_t*)"TID12345", 0); // Unique location of terminal at merchant
-	emv_tlv_list_push(&config, EMV_TAG_9F1E_IFD_SERIAL_NUMBER, 8, (const uint8_t*)"12345678", 0); // Serial number
-	emv_tlv_list_push(&config, EMV_TAG_9F4E_MERCHANT_NAME_AND_LOCATION, 12, (const uint8_t*)"ACME Peanuts", 0); // Merchant Name and Location
-	emv_tlv_list_push_asn1_object(&config, &ASN1_OID(url), // Merchant URL
-		13, (uint8_t[]){ 0x0C, 0x0B, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D } // ASN.1 UTF-8 string "example.com"
-	);
-	emv_tlv_list_push_asn1_object(&config, &ASN1_OID(emailAddress), // Merchant email address
-		22, (uint8_t[]){ 0x0C, 0x14, 0x6A, 0x6F, 0x68, 0x6E, 0x2E, 0x64, 0x6F, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D } // ASN.1 UTF-8 string "john.doe@example.com"
-	);
-
-	// Terminal Capabilities:
-	// - Card Data Input Capability: IC with Contacts
-	// - CVM Capability: Plaintext offline PIN, Enciphered online PIN, Signature, Enciphered offline PIN, No CVM
-	// - Security Capability: Set using --oda option. Default is SDA, DDA, CDA.
-	emv_tlv_list_push(&config, EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x20, 0xF8, term_caps_sec }, 0);
-
-	// Terminal Type: Merchant attended, offline with online capability
-	emv_tlv_list_push(&config, EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){ 0x22 }, 0);
-
-	// Additional Terminal Capabilities:
-	// - Transaction Type Capability: Goods, Services, Cashback, Cash, Inquiry, Payment
-	// - Terminal Data Input Capability: Numeric, Alphabetic and special character keys, Command keys, Function keys
-	// - Terminal Data Output Capability: Attended print, Attended display, Code table 1 to 10
-	emv_tlv_list_push(&config, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES, 5, (uint8_t[]){ 0xFA, 0x00, 0xF0, 0xA3, 0xFF }, 0);
-
-	// Default Dynamic Data Authentication Data Object List (DDOL)
-	emv_tlv_list_push(&config, EMV_TAG_9F49_DDOL, 3, (uint8_t[]){ 0x9F, 0x37, 0x04 }, 0);
-
-	r = emv_config_data_set(emv, &config);
+	r = emv_config_xml_load(emv, config_xml_filename);
 	if (r) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
-		emv_tlv_list_clear(&config);
 		return 1;
 	}
-
-	// Visa
-	// See Visa Terminal Acceptance Device Guide (TADG) version 3.3, August 2025, 4.3.1, Application Identifiers (AIDs)
-	// See Visa Terminal Acceptance Device Guide (TADG) version 3.3, August 2025, 4.6, Processing Restrictions
-	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x01, 0x2C }, 0); // 0x12C
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, &app); // Visa Credit/Debit
-	if (r) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		emv_tlv_list_clear(&config);
-		return 1;
-	}
-	app->random_selection_percentage = 25;
-	app->random_selection_max_percentage = 50;
-	app->random_selection_threshold = 5000; // Because default floor limit is 10000
-	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x01, 0x2C }, 0); // 0x12C
-	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Visa Electron
-	if (r) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		emv_tlv_list_clear(&config);
-		return 1;
-	}
-	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x01, 0x2C }, 0); // 0x12C
-	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // V Pay
-	if (r) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		emv_tlv_list_clear(&config);
-		return 1;
-	}
-
-	// Mastercard
-	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Summary of Application Identifiers, Table 7
-	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Application Version Number
-	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0); // 0x02
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &config, &app); // Mastercard Credit/Debit
-	if (r) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		emv_tlv_list_clear(&config);
-		return 1;
-	}
-	app->random_selection_percentage = 25;
-	app->random_selection_max_percentage = 50;
-	app->random_selection_threshold = 5000; // Because default floor limit is 10000
-	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x02 }, 0); // 0x02
-	emv_tlv_list_push(&config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0); // 0
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30, 0x60 }, 7, EMV_ASI_PARTIAL_MATCH, &config, NULL); // Maestro
-	if (r) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		emv_tlv_list_clear(&config);
-		return 1;
-	}
-
-	// American Express
-	// See Amex Live Terminal Parameters Guide (October 2024), 2.2, Global Application Identifier (AID)
-	// See Amex Live Terminal Parameters Guide (October 2024), 2.4, Application Version Number
-	emv_tlv_list_push(&config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x01 }, 0); // 0x01
-	r = emv_config_app_create(emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x25 }, 5, EMV_ASI_PARTIAL_MATCH, &config, &app);
-	if (r) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		emv_tlv_list_clear(&config);
-		return 1;
-	}
-	app->random_selection_percentage = 25;
-	app->random_selection_max_percentage = 50;
-	app->random_selection_threshold = 5000; // Because default floor limit is 10000
-
 
 	return 0;
 }
@@ -843,6 +721,12 @@ int main(int argc, char** argv)
 	r = argp_parse(&argp_config, argc, argv, 0, 0, 0);
 	if (r) {
 		fprintf(stderr, "Failed to parse command line\n");
+		return 1;
+	}
+
+	if (!config_xml_filename) {
+		fprintf(stderr, "EMV configuration file (--config-xml) is required\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 		return 1;
 	}
 
