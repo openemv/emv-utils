@@ -282,12 +282,26 @@ if(WIN32)
 		include(DeployQt)
 		windeployqt(emv-viewer emv_viewer_runtime)
 
-		# Deploy runtime libraries for Windows
+		# Deploy toolchain runtime libraries for Windows
+		# - MinGW/GCC: Installed by windeployqt
+		# - Clang/LLVM: Hardcoded relative to compiler path
+		# - MSVC: Supported by InstallRequiredSystemLibraries
 		set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT emv_viewer_runtime)
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+			get_filename_component(_compiler_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+			foreach(_toolchain_dll libc++.dll libunwind.dll)
+				if(EXISTS "${_compiler_bin_dir}/${_toolchain_dll}")
+					list(APPEND CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS "${_compiler_bin_dir}/${_toolchain_dll}")
+				endif()
+			endforeach()
+			unset(_toolchain_dll)
+			unset(_compiler_bin_dir)
+		endif()
 		include(InstallRequiredSystemLibraries)
 		if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
 			message(STATUS "Required system libraries: ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}")
 		endif()
+
 	endif() # BUILD_WIN_STANDALONE
 endif()
 
