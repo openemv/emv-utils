@@ -290,10 +290,10 @@ static int encode_utf8string_ber(
 	return 0;
 }
 
-static int parse_oid_node(xmlNode* oid_node, struct emv_tlv_list_t* list)
+static int parse_obj_node(xmlNode* obj_node, struct emv_tlv_list_t* list)
 {
 	int r;
-	xmlChar* arc_attr;
+	xmlChar* oid_attr;
 	struct iso8825_oid_t oid;
 	xmlChar* content;
 	xmlChar* trimmed;
@@ -301,19 +301,19 @@ static int parse_oid_node(xmlNode* oid_node, struct emv_tlv_list_t* list)
 	uint8_t ber[EMV_CONFIG_XML_MAX_VALUE_LEN];
 	unsigned int ber_len;
 
-	// Parse arc attribute
-	arc_attr = xmlGetProp(oid_node, (const xmlChar*)"arc");
-	if (!arc_attr) {
+	// Parse oid attribute
+	oid_attr = xmlGetProp(obj_node, (const xmlChar*)"oid");
+	if (!oid_attr) {
 		return EMV_CONFIG_XML_PARSE_ERROR;
 	}
-	r = parse_oid_arc((const char*)arc_attr, &oid);
-	xmlFree(arc_attr);
+	r = parse_oid_arc((const char*)oid_attr, &oid);
+	xmlFree(oid_attr);
 	if (r) {
 		return r;
 	}
 
 	// Parse content
-	content = xmlNodeGetContent(oid_node);
+	content = xmlNodeGetContent(obj_node);
 	if (!content) {
 		return EMV_CONFIG_XML_INVALID_DATA;
 	}
@@ -399,8 +399,8 @@ static int parse_data_node(xmlNode* data_node, struct emv_tlv_list_t* list)
 			if (r) {
 				return r;
 			}
-		} else if (xmlStrcmp(node->name, (const xmlChar*)"oid") == 0) {
-			r = parse_oid_node(node, list);
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"obj") == 0) {
+			r = parse_obj_node(node, list);
 			if (r) {
 				return r;
 			}

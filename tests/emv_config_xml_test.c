@@ -506,12 +506,12 @@ static const struct test_t test[] = {
 	},
 
 	{
-		.name = "Valid <oid> with quoted UTF-8 content",
+		.name = "Valid <obj> with quoted UTF-8 content",
 		.xml =
 			"<?xml version='1.0' encoding='UTF-8'?>\n"
 			"<emv>\n"
 			"  <data>\n"
-			"    <oid arc='2.5.4.87'>\"example.com\"</oid>\n"
+			"    <obj oid='2.5.4.87'>\"example.com\"</obj>\n"
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = 0,
@@ -530,12 +530,12 @@ static const struct test_t test[] = {
 	},
 
 	{
-		.name = "Valid <oid> with unquoted hex content",
+		.name = "Valid <obj> with unquoted hex content",
 		.xml =
 			"<?xml version='1.0' encoding='UTF-8'?>\n"
 			"<emv>\n"
 			"  <data>\n"
-			"    <oid arc='1.2.840.113549.1.1.1'>05 00</oid>\n"
+			"    <obj oid='1.2.840.113549.1.1.1'>05 00</obj>\n"
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = 0,
@@ -553,61 +553,61 @@ static const struct test_t test[] = {
 	},
 
 	{
-		.name = "Two <oid> elements",
+		.name = "Two <obj> elements",
 		.xml =
 			"<?xml version='1.0' encoding='UTF-8'?>\n"
 			"<emv>\n"
 			"  <data>\n"
-			"    <oid arc='2.5.4.87'>\"example.com\"</oid>\n"
-			"    <oid arc='1.2.840.113549.1.1.1'>05 00</oid>\n"
+			"    <obj oid='2.5.4.87'>\"example.com\"</obj>\n"
+			"    <obj oid='1.2.840.113549.1.1.1'>05 00</obj>\n"
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = 0,
 	},
 
 	{
-		.name = "Missing <oid> arc attribute",
+		.name = "Missing <obj> oid attribute",
 		.xml =
 			"<?xml version='1.0' encoding='UTF-8'?>\n"
 			"<emv>\n"
 			"  <data>\n"
-			"    <oid>\"example.com\"</oid>\n"
+			"    <obj>\"example.com\"</obj>\n"
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
 	},
 
 	{
-		.name = "Invalid <oid> arc (non-numeric)",
+		.name = "Invalid <obj> oid (non-numeric)",
 		.xml =
 			"<?xml version='1.0' encoding='UTF-8'?>\n"
 			"<emv>\n"
 			"  <data>\n"
-			"    <oid arc='abc.def'>\"example.com\"</oid>\n"
+			"    <obj oid='abc.def'>\"example.com\"</obj>\n"
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
 	},
 
 	{
-		.name = "Invalid <oid> arc (too few components)",
+		.name = "Invalid <obj> oid (too few components)",
 		.xml =
 			"<?xml version='1.0' encoding='UTF-8'?>\n"
 			"<emv>\n"
 			"  <data>\n"
-			"    <oid arc='2'>\"example.com\"</oid>\n"
+			"    <obj oid='2'>\"example.com\"</obj>\n"
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
 	},
 
 	{
-		.name = "Invalid <oid> arc (too many components)",
+		.name = "Invalid <obj> oid (too many components)",
 		.xml =
 			"<?xml version='1.0' encoding='UTF-8'?>\n"
 			"<emv>\n"
 			"  <data>\n"
-			"    <oid arc='1.2.3.4.5.6.7.8.9.10.11'>\"example.com\"</oid>\n"
+			"    <obj oid='1.2.3.4.5.6.7.8.9.10.11'>\"example.com\"</obj>\n"
 			"  </data>\n"
 			"</emv>\n",
 		.expected_result = EMV_CONFIG_XML_INVALID_DATA,

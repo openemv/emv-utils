@@ -46,10 +46,10 @@
     <tlv id='9F4E'>"ACME Peanuts"</tlv>
 
     <!-- Merchant URL (OID: url) -->
-    <oid arc='2.5.4.87'>"example.com"</oid>
+    <obj oid='2.5.4.87'>"example.com"</obj>
 
     <!-- Merchant email address (OID: emailAddress) -->
-    <oid arc='1.2.840.113549.1.9.1'>"john.doe@example.com"</oid>
+    <obj oid='1.2.840.113549.1.9.1'>"john.doe@example.com"</obj>
 
     <!--
       Terminal Capabilities:
