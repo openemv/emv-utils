@@ -2,7 +2,7 @@
  * @file emv_capk.h
  * @brief EMV Certificate Authority Public Key (CAPK) helper functions
  *
- * Copyright 2025 Leon Lynch
+ * Copyright 2025-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -47,21 +47,43 @@ struct emv_capk_t {
 	size_t hash_len; ///< Length of CAPK hash in bytes
 };
 
-/// Certificate Authority Public Key (CAPK) iterator
+/**
+ * Certificate Authority Public Key (CAPK) iterator.
+ * Iterates CAPKs added by @ref emv_capk_add() before built-in CAPKs loaded by
+ * @ref emv_capk_load_static().
+ */
 struct emv_capk_itr_t {
-	unsigned int idx; ///<< Current list index
+	void* entry; ///< Current dynamic CAPK list entry
+	unsigned int idx; ///< Current static CAPK list index
 };
 
 /**
- * Initialise and verify integrity of Certificate Authority Public Key (CAPK)
- * data
+ * Load built-in Certificate Authority Public Key (CAPK) data and validate
+ * integrity.
  *
  * @return Zero for success. Non-zero for error.
  */
-int emv_capk_init(void);
+int emv_capk_load_static(void);
 
 /**
- * Lookup Certificate Authority Public Key (CAPK)
+ * Add Certificate Authority Public Key (CAPK) and validate integrity.
+ * Caller can discard data after function returns.
+ *
+ * @param capk Certificate Authority Public Key (CAPK) to add
+ * @return Zero for success. Less than zero for invalid parameters or memory
+ *         allocation failure. Greater than zero for validation failure.
+ */
+int emv_capk_add(const struct emv_capk_t* capk);
+
+/**
+ * Clear all Certificate Authority Public Keys (CAPKs) data
+ */
+void emv_capk_clear(void);
+
+/**
+ * Lookup Certificate Authority Public Key (CAPK). This function searches
+ * CAPKs added by @ref emv_capk_add() before built-in CAPKs loaded by
+ * @ref emv_capk_load_static().
  *
  * @param rid Registered Application Provider Identifier (RID). Must be 5 bytes.
  * @param index Index of Certificate Authority Public Key (CAPK)
@@ -79,7 +101,9 @@ const struct emv_capk_t* emv_capk_lookup(const uint8_t* rid, uint8_t index);
 int emv_capk_itr_init(struct emv_capk_itr_t* itr);
 
 /**
- * Retrieve next Certificate Authority Public Key (CAPK) and advance iterator
+ * Retrieve next Certificate Authority Public Key (CAPK) and advance iterator.
+ * This function iterates CAPKs added by @ref emv_capk_add() before built-in
+ * CAPKs loaded by @ref emv_capk_load_static().
  *
  * @param itr Certificate Authority Public Key (CAPK) iterator
  * @return Pointer to Certificate Authority Public Key (CAPK). Do NOT free.

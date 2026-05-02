@@ -19,9 +19,10 @@
  */
 
 #include "emv.h"
+#include "emv_capk.h"
+#include "emv_strings.h"
 #include "iso7816.h"
 #include "print_helpers.h"
-#include "emv_strings.h"
 #include "isocodes_lookup.h"
 #include "iso8859.h"
 
@@ -451,6 +452,12 @@ int main(int argc, char** argv)
 	}
 
 	print_set_verbose(verbose);
+
+	r = emv_capk_load_static();
+	if (r) {
+		fprintf(stderr, "Failed to load static CAPKs\n");
+		return EXIT_FAILURE;
+	}
 
 	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {

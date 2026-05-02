@@ -19,6 +19,7 @@
  */
 
 #include "emv.h"
+#include "emv_capk.h"
 #include "emv_config_xml.h"
 #include "pcsc.h"
 #include "print_helpers.h"
@@ -53,6 +54,7 @@ static int emv_txn_load_config(struct emv_ctx_t* emv);
 // argp option keys
 enum emv_tool_param_t {
 	EMV_TOOL_PARAM_CONFIG_XML = -255, // Negative value to avoid short options
+	EMV_TOOL_PARAM_CONFIG_NO_STATIC_CAPK_DATA,
 	EMV_TOOL_PARAM_TXN_DATE,
 	EMV_TOOL_PARAM_TXN_TIME,
 	EMV_TOOL_PARAM_TXN_TYPE,
@@ -70,6 +72,7 @@ enum emv_tool_param_t {
 static struct argp_option argp_options[] = {
 	{ NULL, 0, NULL, 0, "EMV configuration options", 1 },
 	{ "config-xml", EMV_TOOL_PARAM_CONFIG_XML, "FILE", 0, "Path of XML configuration file." },
+	{ "config-no-static-capk-data", EMV_TOOL_PARAM_CONFIG_NO_STATIC_CAPK_DATA, NULL, 0, "Disable static CAPK data. Default is enabled." },
 
 	{ NULL, 0, NULL, 0, "Transaction parameters", 2 },
 	{ "txn-date", EMV_TOOL_PARAM_TXN_DATE, "YYYY-MM-DD", 0, "Transaction date (YYYY-MM-DD). Default is current date." },
@@ -102,6 +105,7 @@ static struct argp argp_config = {
 
 // EMV configuration
 static char* config_xml_filename = NULL;
+static bool config_no_static_capk_data = false;
 
 // Transaction parameters
 static uint8_t txn_date[3] = { 0xFF }; // Default is current date
@@ -144,6 +148,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 	switch (key) {
 		case EMV_TOOL_PARAM_CONFIG_XML: {
 			config_xml_filename = arg;
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_CONFIG_NO_STATIC_CAPK_DATA: {
+			config_no_static_capk_data = true;
 			return 0;
 		}
 
@@ -747,6 +756,14 @@ int main(int argc, char** argv)
 	}
 
 	print_set_verbose(debug_verbose);
+
+	if (!config_no_static_capk_data) {
+		r = emv_capk_load_static();
+		if (r) {
+			fprintf(stderr, "Failed to load static CAPKs\n");
+			return 1;
+		}
+	}
 
 	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
