@@ -39,6 +39,7 @@ struct emv_ctx_t;
 enum emv_config_xml_error_t {
 	EMV_CONFIG_XML_PARSE_ERROR = 1, ///< XML parse or structure error
 	EMV_CONFIG_XML_INVALID_DATA = 2, ///< Invalid field value in XML
+	EMV_CONFIG_XML_INVALID_CAPK = 3, ///< Invalid CAPK in XML
 };
 
 /**

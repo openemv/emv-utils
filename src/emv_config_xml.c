@@ -23,6 +23,7 @@
 #include "emv.h"
 #include "emv_tlv.h"
 #include "emv_fields.h"
+#include "emv_capk.h"
 #include "iso8825_ber.h"
 
 #include <libxml/parser.h>
@@ -493,6 +494,139 @@ static int parse_app_node(struct emv_ctx_t* ctx, xmlNode* app_node)
 	return 0;
 }
 
+static int parse_capk_node(xmlNode* capk_node)
+{
+	int r;
+	xmlChar* attr;
+	xmlChar* content;
+	xmlChar* trimmed;
+	uint8_t rid[EMV_CAPK_RID_LEN];
+	unsigned int rid_len;
+	uint8_t capk_index;
+	unsigned int index_len;
+	uint8_t hash_id;
+	unsigned int hash_id_len;
+	uint8_t modulus[256]; // For RSA-2048
+	unsigned int modulus_len;
+	uint8_t exponent[4];
+	unsigned int exponent_len;
+	uint8_t hash[20]; // For SHA-1
+	unsigned int hash_len;
+	unsigned int modulus_count;
+	unsigned int exponent_count;
+	unsigned int hash_count;
+	struct emv_capk_t capk;
+
+	// Parse rid attribute
+	attr = xmlGetProp(capk_node, (const xmlChar*)"rid");
+	if (!attr) {
+		return EMV_CONFIG_XML_PARSE_ERROR;
+	}
+	rid_len = sizeof(rid);
+	r = parse_hex((const char*)attr, rid, &rid_len);
+	xmlFree(attr);
+	if (r || rid_len != EMV_CAPK_RID_LEN) {
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+
+	// Parse index attribute
+	attr = xmlGetProp(capk_node, (const xmlChar*)"index");
+	if (!attr) {
+		return EMV_CONFIG_XML_PARSE_ERROR;
+	}
+	index_len = sizeof(capk_index);
+	r = parse_hex((const char*)attr, &capk_index, &index_len);
+	xmlFree(attr);
+	if (r || index_len != 1) {
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+
+	// Parse hash_id attribute
+	attr = xmlGetProp(capk_node, (const xmlChar*)"hash_id");
+	if (!attr) {
+		return EMV_CONFIG_XML_PARSE_ERROR;
+	}
+	hash_id_len = sizeof(hash_id);
+	r = parse_hex((const char*)attr, &hash_id, &hash_id_len);
+	xmlFree(attr);
+	if (r || hash_id_len != 1) {
+		return EMV_CONFIG_XML_INVALID_DATA;
+	}
+
+	modulus_len = 0;
+	exponent_len = 0;
+	hash_len = 0;
+	modulus_count = 0;
+	exponent_count = 0;
+	hash_count = 0;
+
+	// Parse children for modulus, exponent and hash values
+	for (xmlNode* node = capk_node->children; node; node = node->next) {
+		if (node->type != XML_ELEMENT_NODE) {
+			continue;
+		}
+
+		content = xmlNodeGetContent(node);
+		if (!content) {
+			return EMV_CONFIG_XML_INVALID_DATA;
+		}
+		trimmed = xml_str_trim(content);
+
+		if (xmlStrcmp(node->name, (const xmlChar*)"modulus") == 0) {
+			modulus_len = sizeof(modulus);
+			r = parse_hex((const char*)trimmed, modulus, &modulus_len);
+			xmlFree(content);
+			if (r || !modulus_len) {
+				return EMV_CONFIG_XML_INVALID_DATA;
+			}
+			modulus_count++;
+
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"exponent") == 0) {
+			exponent_len = sizeof(exponent);
+			r = parse_hex((const char*)trimmed, exponent, &exponent_len);
+			xmlFree(content);
+			if (r || !exponent_len) {
+				return EMV_CONFIG_XML_INVALID_DATA;
+			}
+			exponent_count++;
+
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"hash") == 0) {
+			hash_len = sizeof(hash);
+			r = parse_hex((const char*)trimmed, hash, &hash_len);
+			xmlFree(content);
+			if (r || !hash_len) {
+				return EMV_CONFIG_XML_INVALID_DATA;
+			}
+			hash_count++;
+
+		} else {
+			xmlFree(content);
+		}
+	}
+
+	// Only one of each child
+	if (modulus_count != 1 || exponent_count != 1 || hash_count != 1) {
+		return EMV_CONFIG_XML_PARSE_ERROR;
+	}
+
+	capk.rid = rid;
+	capk.index = capk_index;
+	capk.hash_id = hash_id;
+	capk.modulus = modulus;
+	capk.modulus_len = modulus_len;
+	capk.exponent = exponent;
+	capk.exponent_len = exponent_len;
+	capk.hash = hash;
+	capk.hash_len = hash_len;
+
+	r = emv_capk_add(&capk);
+	if (r) {
+		return EMV_CONFIG_XML_INVALID_CAPK;
+	}
+
+	return 0;
+}
+
 static int emv_config_xml_parse(struct emv_ctx_t* ctx, xmlDoc* doc)
 {
 	int r;
@@ -522,6 +656,11 @@ static int emv_config_xml_parse(struct emv_ctx_t* ctx, xmlDoc* doc)
 			}
 		} else if (xmlStrcmp(node->name, (const xmlChar*)"app") == 0) {
 			r = parse_app_node(ctx, node);
+			if (r) {
+				return r;
+			}
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"capk") == 0) {
+			r = parse_capk_node(node);
 			if (r) {
 				return r;
 			}

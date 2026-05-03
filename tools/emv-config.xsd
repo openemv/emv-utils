@@ -60,6 +60,47 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <!-- Registered Application Provider Identifier (RID): 5 bytes as hex (10 characters) -->
+  <xs:simpleType name='ridType'>
+    <xs:restriction base='xs:string'>
+      <xs:whiteSpace value='collapse'/>
+      <xs:pattern value='[0-9A-Fa-f]{10}'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Single byte as hex (2 characters) -->
+  <xs:simpleType name='hexByteType'>
+    <xs:restriction base='xs:string'>
+      <xs:whiteSpace value='collapse'/>
+      <xs:pattern value='[0-9A-Fa-f]{2}'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Variable-length binary data as hex (whitespace allowed) -->
+  <xs:simpleType name='hexContentType'>
+    <xs:restriction base='xs:string'>
+      <xs:pattern value='\s*(([0-9A-Fa-f]\s*){2})+\s*'/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!--
+    <capk rid='RID' index='IDX' hash_id='HID'>
+      <modulus>HEX</modulus>
+      <exponent>HEX</exponent>
+      <hash>SHA1HEX</hash>
+    </capk>
+  -->
+  <xs:complexType name='capkType'>
+    <xs:all>
+      <xs:element name='modulus' type='hexContentType'/>
+      <xs:element name='exponent' type='hexContentType'/>
+      <xs:element name='hash' type='hexContentType'/>
+    </xs:all>
+    <xs:attribute name='rid' type='ridType' use='required'/>
+    <xs:attribute name='index' type='hexByteType' use='required'/>
+    <xs:attribute name='hash_id' type='hexByteType' use='required'/>
+  </xs:complexType>
+
   <!-- <tlv id='TAG'>VALUE</tlv> -->
   <xs:complexType name='tlvType'>
     <xs:simpleContent>
@@ -114,6 +155,7 @@
     <emv>
       <data>...</data>?
       <app aid='AID' match='exact|partial'>...</app>*
+      <capk rid='RID' index='IDX' hash_id='HID'>...</capk>*
     </emv>
 
     Applications are processed in document order during application discovery.
@@ -125,6 +167,7 @@
       <xs:sequence>
         <xs:element name='data' type='dataType' minOccurs='0'/>
         <xs:element name='app' type='appType' minOccurs='0' maxOccurs='unbounded'/>
+        <xs:element name='capk' type='capkType' minOccurs='0' maxOccurs='unbounded'/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>

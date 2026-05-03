@@ -25,6 +25,7 @@
 #include "emv_tlv.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
+#include "emv_capk.h"
 #include "print_helpers.h"
 
 #include <stdint.h>
@@ -48,6 +49,11 @@ struct verify_app_t {
 	const struct verify_data_t* data;
 };
 
+struct verify_capk_t {
+	const uint8_t* rid;
+	uint8_t index;
+};
+
 struct test_t {
 	const char* name;
 	const char* xml;
@@ -56,6 +62,8 @@ struct test_t {
 	const struct verify_data_t* data;
 	size_t app_count;
 	const struct verify_app_t* app;
+	size_t capk_count;
+	const struct verify_capk_t* capk;
 };
 
 static const struct test_t test[] = {
@@ -613,8 +621,6 @@ static const struct test_t test[] = {
 		.expected_result = EMV_CONFIG_XML_INVALID_DATA,
 	},
 
-	// Duplicate tag tests
-
 	{
 		.name = "Duplicate <tlv> in <data>",
 		.xml =
@@ -641,6 +647,163 @@ static const struct test_t test[] = {
 			"  </app>\n"
 			"</emv>\n",
 		.expected_result = EMV_ERROR_INVALID_CONFIG,
+	},
+
+	{
+		.name = "Valid <capk> element",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <!-- Visa 1152-bit live CAPK [07] -->\n"
+			"  <capk rid='A000000003' index='07' hash_id='01'>\n"
+			"    <modulus>\n"
+			"      A89F25A56FA6DA258C8CA8B40427D927B4A1EB4D7EA326BBB12F97DED70AE5E4\n"
+			"      480FC9C5E8A972177110A1CC318D06D2F8F5C4844AC5FA79A4DC470BB11ED635\n"
+			"      699C17081B90F1B984F12E92C1C529276D8AF8EC7F28492097D8CD5BECEA16FE\n"
+			"      4088F6CFAB4A1B42328A1B996F9278B0B7E3311CA5EF856C2F888474B83612A8\n"
+			"      2E4E00D0CD4069A6783140433D50725F\n"
+			"    </modulus>\n"
+			"    <exponent>03</exponent>\n"
+			"    <hash>B4BC56CC4E88324932CBC643D6898F6FE593B172</hash>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = 0,
+		.capk_count = 1,
+		.capk = (const struct verify_capk_t[]){
+			{
+				.rid = (const uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03 },
+				.index = 0x07,
+			},
+		},
+	},
+
+	{
+		.name = "Invalid <capk> hash",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <!-- Visa 1152-bit live CAPK [07] with incorrect hash -->\n"
+			"  <capk rid='A000000003' index='07' hash_id='01'>\n"
+			"    <modulus>\n"
+			"      A89F25A56FA6DA258C8CA8B40427D927B4A1EB4D7EA326BBB12F97DED70AE5E4\n"
+			"      480FC9C5E8A972177110A1CC318D06D2F8F5C4844AC5FA79A4DC470BB11ED635\n"
+			"      699C17081B90F1B984F12E92C1C529276D8AF8EC7F28492097D8CD5BECEA16FE\n"
+			"      4088F6CFAB4A1B42328A1B996F9278B0B7E3311CA5EF856C2F888474B83612A8\n"
+			"      2E4E00D0CD4069A6783140433D50725F\n"
+			"    </modulus>\n"
+			"    <exponent>03</exponent>\n"
+			"    <hash>B4BC56CC4E88324932CBC643D6898F6FE593B173</hash>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_INVALID_CAPK,
+	},
+
+	{
+		.name = "Missing <capk> modulus",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <capk rid='A000000003' index='07' hash_id='01'>\n"
+			"    <exponent>03</exponent>\n"
+			"    <hash>B4BC56CC4E88324932CBC643D6898F6FE593B172</hash>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Missing <capk> exponent",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <capk rid='A000000003' index='07' hash_id='01'>\n"
+			"    <modulus>\n"
+			"      A89F25A56FA6DA258C8CA8B40427D927B4A1EB4D7EA326BBB12F97DED70AE5E4\n"
+			"      480FC9C5E8A972177110A1CC318D06D2F8F5C4844AC5FA79A4DC470BB11ED635\n"
+			"      699C17081B90F1B984F12E92C1C529276D8AF8EC7F28492097D8CD5BECEA16FE\n"
+			"      4088F6CFAB4A1B42328A1B996F9278B0B7E3311CA5EF856C2F888474B83612A8\n"
+			"      2E4E00D0CD4069A6783140433D50725F\n"
+			"    </modulus>\n"
+			"    <hash>B4BC56CC4E88324932CBC643D6898F6FE593B172</hash>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Missing <capk> hash",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <capk rid='A000000003' index='07' hash_id='01'>\n"
+			"    <modulus>\n"
+			"      A89F25A56FA6DA258C8CA8B40427D927B4A1EB4D7EA326BBB12F97DED70AE5E4\n"
+			"      480FC9C5E8A972177110A1CC318D06D2F8F5C4844AC5FA79A4DC470BB11ED635\n"
+			"      699C17081B90F1B984F12E92C1C529276D8AF8EC7F28492097D8CD5BECEA16FE\n"
+			"      4088F6CFAB4A1B42328A1B996F9278B0B7E3311CA5EF856C2F888474B83612A8\n"
+			"      2E4E00D0CD4069A6783140433D50725F\n"
+			"    </modulus>\n"
+			"    <exponent>03</exponent>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Missing <capk> rid attribute",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <capk index='07' hash_id='01'>\n"
+			"    <modulus>A89F25A5</modulus>\n"
+			"    <exponent>03</exponent>\n"
+			"    <hash>B4BC56CC4E88324932CBC643D6898F6FE593B172</hash>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Missing <capk> index attribute",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <capk rid='A000000003' hash_id='01'>\n"
+			"    <modulus>A89F25A5</modulus>\n"
+			"    <exponent>03</exponent>\n"
+			"    <hash>B4BC56CC4E88324932CBC643D6898F6FE593B172</hash>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Missing <capk> hash_id attribute",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <capk rid='A000000003' index='07'>\n"
+			"    <modulus>A89F25A5</modulus>\n"
+			"    <exponent>03</exponent>\n"
+			"    <hash>B4BC56CC4E88324932CBC643D6898F6FE593B172</hash>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
+	},
+
+	{
+		.name = "Duplicate <capk> modulus",
+		.xml =
+			"<?xml version='1.0' encoding='UTF-8'?>\n"
+			"<emv>\n"
+			"  <capk rid='A000000003' index='07' hash_id='01'>\n"
+			"    <modulus>A89F25A5</modulus>\n"
+			"    <modulus>A89F25A5</modulus>\n"
+			"    <exponent>03</exponent>\n"
+			"    <hash>B4BC56CC4E88324932CBC643D6898F6FE593B172</hash>\n"
+			"  </capk>\n"
+			"</emv>\n",
+		.expected_result = EMV_CONFIG_XML_PARSE_ERROR,
 	},
 };
 
@@ -781,12 +944,25 @@ int main(void)
 			}
 		}
 
+		for (size_t j = 0; j < test[i].capk_count; ++j) {
+			const struct verify_capk_t* vc = &test[i].capk[j];
+			const struct emv_capk_t* found_capk;
+
+			found_capk = emv_capk_lookup(vc->rid, vc->index);
+			if (!found_capk) {
+				fprintf(stderr, "emv_capk_lookup() failed to find CAPK index %02X\n", vc->index);
+				r = 1;
+				goto exit;
+			}
+		}
+
 		r = emv_ctx_clear(&ctx);
 		if (r) {
 			fprintf(stderr, "emv_ctx_clear() failed; r=%d\n", r);
 			r = 1;
 			goto exit;
 		}
+		emv_capk_clear();
 
 		printf("Passed!\n\n");
 	}
@@ -798,6 +974,7 @@ int main(void)
 
 exit:
 	emv_ctx_clear(&ctx);
+	emv_capk_clear();
 
 	return r;
 }

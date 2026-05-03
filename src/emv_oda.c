@@ -350,6 +350,14 @@ int emv_oda_apply_sda(struct emv_ctx_t* ctx)
 		// EMV_TVR_SDA_FAILED already set in TVR
 		return EMV_ODA_SDA_FAILED;
 	}
+	emv_debug_info("Using CAPK %02X%02X%02X%02X%02X #%02X",
+		ctx->aid->value[0],
+		ctx->aid->value[1],
+		ctx->aid->value[2],
+		ctx->aid->value[3],
+		ctx->aid->value[4],
+		capk_index->value[0]
+	);
 
 	// Retrieve issuer public key
 	// See EMV 4.4 Book 2, 5.3
@@ -510,6 +518,14 @@ static int emv_oda_apply_sad_auth(struct emv_ctx_t* ctx, struct emv_rsa_icc_pkey
 		);
 		return EMV_ODA_SAD_AUTH_FAILED;
 	}
+	emv_debug_info("Using CAPK %02X%02X%02X%02X%02X #%02X",
+		ctx->aid->value[0],
+		ctx->aid->value[1],
+		ctx->aid->value[2],
+		ctx->aid->value[3],
+		ctx->aid->value[4],
+		capk_index->value[0]
+	);
 
 	// Retrieve issuer public key
 	// See EMV 4.4 Book 2, 6.3

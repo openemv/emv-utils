@@ -695,9 +695,34 @@ static int emv_txn_load_config(struct emv_ctx_t* emv)
 {
 	int r;
 
+	if (!config_no_static_capk_data) {
+		r = emv_capk_load_static();
+		if (r) {
+			fprintf(stderr, "Failed to load static CAPKs\n");
+			return 1;
+		}
+	}
+
 	r = emv_config_xml_load(emv, config_xml_filename);
 	if (r) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
+		fprintf(stderr, "ERROR: ");
+		switch (r) {
+			case EMV_CONFIG_XML_PARSE_ERROR:
+				fprintf(stderr, "XML parse or structure error\n");
+				break;
+
+			case EMV_CONFIG_XML_INVALID_DATA:
+				fprintf(stderr, "Invalid field value in XML\n");
+				break;
+
+			case EMV_CONFIG_XML_INVALID_CAPK:
+				fprintf(stderr, "Invalid CAPK in XML\n");
+				break;
+
+			default:
+				fprintf(stderr, "Unknown error\n");
+				break;
+		}
 		return 1;
 	}
 
@@ -757,14 +782,6 @@ int main(int argc, char** argv)
 
 	print_set_verbose(debug_verbose);
 
-	if (!config_no_static_capk_data) {
-		r = emv_capk_load_static();
-		if (r) {
-			fprintf(stderr, "Failed to load static CAPKs\n");
-			return 1;
-		}
-	}
-
 	r = emv_strings_init(isocodes_path, mcc_json);
 	if (r < 0) {
 		fprintf(stderr, "Failed to initialise EMV strings\n");
@@ -794,7 +811,7 @@ int main(int argc, char** argv)
 	print_set_sources_from_ctx(&emv);
 	r = emv_txn_load_config(&emv);
 	if (r) {
-		fprintf(stderr, "Failed to load EMV configuration\n");
+		printf("Failed to load EMV configuration\n");
 		goto config_exit;
 	}
 	emv_txn_load_params(
@@ -1090,6 +1107,7 @@ emv_exit:
 pcsc_exit:
 	pcsc_release(&pcsc);
 config_exit:
+	emv_capk_clear();
 	emv_ctx_clear(&emv);
 
 	if (isocodes_path) {
