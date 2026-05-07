@@ -12,7 +12,7 @@
 	<use>
 		<flag name="mbedtls">Use MbedTLS as the crypto library</flag>
 		<flag name="openssl">Use OpenSSL as the crypto library</flag>
-		<flag name="pcsc-lite">Enable smartcard support with sys-apps/pcsc-lite</flag>
+		<flag name="pcsc-lite">Enable smartcard support with sys-apps/pcsc-lite (required for emv-tool)</flag>
 		<flag name="tools">Build command-line tools (emv-decode and emv-tool)</flag>
 		<flag name="gui">Build Qt-based GUI application (emv-viewer)</flag>
 		<flag name="doc">Build API documentation with Doxygen</flag>

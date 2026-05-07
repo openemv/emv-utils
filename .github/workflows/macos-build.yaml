@@ -16,11 +16,11 @@ jobs:
       matrix:
         include:
           - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "libxml2/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "libxml2/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
           - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 26", os: macos-26, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "libxml2/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 26", os: macos-26, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "libxml2/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} (${{ matrix.osx_arch }}) build (${{ matrix.lib_type}}/${{ matrix.build_type }}/${{ matrix.deps }})
     runs-on: ${{ matrix.os }}
@@ -65,6 +65,7 @@ jobs:
           -DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}" \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
           -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+          -DBUILD_EMV_CONFIG_XML=${{ contains(matrix.deps, 'libxml2') && 'YES' || 'NO' }} \
           ${{ matrix.fetch_deps == 'NO' && '-DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES' || '-DFETCH_MBEDTLS=YES' }} \
           -DFETCH_ARGP=${{ matrix.fetch_deps }} \
           -DBUILD_EMV_DECODE=YES \

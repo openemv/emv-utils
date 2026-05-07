@@ -52,8 +52,10 @@ if(NOT HAVE_TIMESPEC_GET AND NOT HAVE_CLOCK_GETTIME)
 	message(FATAL_ERROR "Failed to find either timespec_get or clock_gettime")
 endif()
 
-find_package(LibXml2 REQUIRED)
-list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "LibXml2")
+if(BUILD_EMV_CONFIG_XML)
+	find_package(LibXml2 REQUIRED)
+	list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "LibXml2")
+endif()
 
 find_package(IsoCodes REQUIRED)
 
@@ -277,7 +279,6 @@ add_library(emv
 	emv_dol.c
 	emv_debug.c
 	emv_config.c
-	emv_config_xml.c
 	emv_ttl.c
 	emv_app.c
 	emv_tal.c
@@ -298,7 +299,6 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_dol.h
 	emv_debug.h
 	emv_config.h
-	emv_config_xml.h
 	emv_ttl.h
 	emv_app.h
 	emv_tal.h
@@ -321,13 +321,22 @@ target_link_libraries(emv
 		crypto_rand
 		crypto_sha
 		crypto_rsa
-		LibXml2::LibXml2
 )
 # The EMV_PKGCONFIG_REQ_PRIV and EMV_PKGCONFIG_LIBS_PRIV variables are set
 # for the parent scope to facilitate the generation of pkgconfig files.
 # NOTE: It is not necessary to set EMV_PKGCONFIG_LIBS_PRIV for dependencies
 # that are mentioned in EMV_PKGCONFIG_REQ_PRIV
-set(EMV_PKGCONFIG_REQ_PRIV "libiso8825 libiso8859 libxml-2.0" PARENT_SCOPE)
+set(EMV_PKGCONFIG_REQ_PRIV "libiso8825 libiso8859")
+set(EMV_PKGCONFIG_REQ_PRIV ${EMV_PKGCONFIG_REQ_PRIV} PARENT_SCOPE)
+if(BUILD_EMV_CONFIG_XML)
+	message(STATUS "Adding emv_config_xml to build")
+	list(APPEND emv_HEADERS emv_config_xml.h)
+	set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
+	target_sources(emv PRIVATE emv_config_xml.c)
+	target_link_libraries(emv PRIVATE LibXml2::LibXml2)
+	string(APPEND EMV_PKGCONFIG_REQ_PRIV " libxml-2.0")
+	set(EMV_PKGCONFIG_REQ_PRIV ${EMV_PKGCONFIG_REQ_PRIV} PARENT_SCOPE)
+endif()
 set_target_properties(emv
 	PROPERTIES
 		PUBLIC_HEADER "${emv_HEADERS}"

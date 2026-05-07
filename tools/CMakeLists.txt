@@ -10,6 +10,9 @@ cmake_minimum_required(VERSION 3.22)
 # Build command line tools by default
 option(BUILD_EMV_DECODE "Build emv-decode" ON)
 option(BUILD_EMV_TOOL "Build emv-tool" ON)
+if(NOT BUILD_EMV_CONFIG_XML AND BUILD_EMV_TOOL)
+	message(FATAL_ERROR "BUILD_EMV_CONFIG_XML not enabled. This is required to build emv-tool.")
+endif()
 
 # Check for argp or allow the FETCH_ARGP option to download and build a local
 # copy of libargp for monolithic builds on platforms without package managers

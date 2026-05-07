@@ -18,10 +18,10 @@ jobs:
       matrix:
         include:
           - { sys: clang64, env: clang-x86_64, build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
-          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
-          - { sys: clang64, env: clang-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { sys: clang64, env: clang-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "libxml2/qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "libxml2/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: clang64, env: clang-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "libxml2/qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: clang64, env: clang-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "libxml2/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
 
     name: Windows MSYS2 ${{matrix.sys}} build (${{ matrix.lib_type }}/${{ matrix.build_type }}/${{ matrix.deps }})
 
@@ -46,11 +46,15 @@ jobs:
           mingw-w64-${{matrix.env}}-toolchain
           mingw-w64-${{matrix.env}}-cmake
           mingw-w64-${{matrix.env}}-ninja
-          mingw-w64-${{matrix.env}}-libxml2
           mingw-w64-${{matrix.env}}-boost
           mingw-w64-${{matrix.env}}-iso-codes
           mingw-w64-${{matrix.env}}-json-c
           mingw-w64-${{matrix.env}}-gettext
+
+    - name: Install libxml2
+      if: contains(matrix.deps, 'libxml2')
+      run: |
+        pacman --noconfirm -S --needed mingw-w64-${{matrix.env}}-libxml2
 
     - name: Install MbedTLS
       if: ${{ matrix.fetch_deps == 'NO' }}
@@ -73,6 +77,7 @@ jobs:
         cmake -G Ninja -B build \
           -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
           -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+          -DBUILD_EMV_CONFIG_XML=${{ contains(matrix.deps, 'libxml2') && 'YES' || 'NO' }} \
           ${{ matrix.fetch_deps == 'NO' && '-DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES' || '-DFETCH_MBEDTLS=YES' }} \
           -DFETCH_ARGP=YES \
           -DBUILD_EMV_DECODE=YES \

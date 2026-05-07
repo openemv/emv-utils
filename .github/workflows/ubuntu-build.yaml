@@ -16,11 +16,11 @@ jobs:
       matrix:
         include:
           - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "none", iso8859: "simple", build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "boost/pcsclite", iso8859: "boost", build_emv_tool: YES, build_emv_viewer: NO }
+          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "boost/libxml2/pcsclite", iso8859: "boost", build_emv_tool: YES, build_emv_viewer: NO }
           - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "boost/qt", iso8859: "boost", build_emv_tool: NO, build_emv_viewer: YES }
-          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "iconv/pcsclite", iso8859: "iconv", build_emv_tool: YES, build_emv_viewer: NO }
+          - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "iconv/libxml2/pcsclite", iso8859: "iconv", build_emv_tool: YES, build_emv_viewer: NO }
           - { name: "Ubuntu 22.04", os: ubuntu-22.04, deps: "iconv/qt", iso8859: "iconv", build_emv_tool: NO, build_emv_viewer: YES }
-          - { name: "Ubuntu 24.04", os: ubuntu-24.04, deps: "iconv/pcsclite/qt", iso8859: "iconv", build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "Ubuntu 24.04", os: ubuntu-24.04, deps: "iconv/libxml2/pcsclite/qt", iso8859: "iconv", build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
     runs-on: ${{ matrix.os }}
@@ -29,7 +29,11 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libmbedtls-dev libxml2-dev libboost-locale-dev iso-codes libjson-c-dev
+        sudo apt-get install -y libmbedtls-dev libboost-locale-dev iso-codes libjson-c-dev
+
+    - name: Install libxml2
+      if: contains(matrix.deps, 'libxml2')
+      run: sudo apt-get install -y libxml2-dev libxml2-utils
 
     - name: Install PCSCLite
       if: contains(matrix.deps, 'pcsclite')
@@ -50,6 +54,7 @@ jobs:
         cmake -B build \
           -DCMAKE_BUILD_TYPE="Debug" \
           -DISO8859_IMPL=${{ matrix.iso8859 }} \
+          -DBUILD_EMV_CONFIG_XML=${{ contains(matrix.deps, 'libxml2') && 'YES' || 'NO' }} \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
