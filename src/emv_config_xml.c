@@ -421,9 +421,9 @@ static int parse_app_node(struct emv_ctx_t* ctx, xmlNode* app_node)
 	uint8_t asi;
 	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
 	struct emv_config_app_t* app = NULL;
-	unsigned int random_percentage = 0;
-	unsigned int random_max_percentage = 0;
-	unsigned int random_threshold = 0;
+	unsigned int random_selection_percentage = 0;
+	unsigned int random_selection_max_percentage = 0;
+	unsigned int random_selection_threshold = 0;
 
 	// Parse aid attribute
 	aid_attr = xmlGetProp(app_node, (const xmlChar*)"aid");
@@ -465,20 +465,25 @@ static int parse_app_node(struct emv_ctx_t* ctx, xmlNode* app_node)
 		if (xmlStrcmp(node->name, (const xmlChar*)"data") == 0) {
 			r = parse_data_node(node, &list);
 		} else if (xmlStrcmp(node->name, (const xmlChar*)"random_selection_percentage") == 0) {
-			r = parse_unsigned_int_node(node, &random_percentage);
+			r = parse_unsigned_int_node(node, &random_selection_percentage);
 		} else if (xmlStrcmp(node->name, (const xmlChar*)"random_selection_max_percentage") == 0) {
-			r = parse_unsigned_int_node(node, &random_max_percentage);
+			r = parse_unsigned_int_node(node, &random_selection_max_percentage);
 		} else if (xmlStrcmp(node->name, (const xmlChar*)"random_selection_threshold") == 0) {
-			r = parse_unsigned_int_node(node, &random_threshold);
+			r = parse_unsigned_int_node(node, &random_selection_threshold);
 		}
 		if (r) {
 			emv_tlv_list_clear(&list);
 			return r;
 		}
-		if (random_percentage > 99 || random_max_percentage > 99) {
+		if (random_selection_percentage > 99 || random_selection_max_percentage > 99) {
 			emv_tlv_list_clear(&list);
 			return EMV_CONFIG_XML_INVALID_DATA;
 		}
+	}
+
+	if (random_selection_percentage > random_selection_max_percentage) {
+		emv_tlv_list_clear(&list);
+		return EMV_CONFIG_XML_INVALID_DATA;
 	}
 
 	// Create application configuration
@@ -487,9 +492,9 @@ static int parse_app_node(struct emv_ctx_t* ctx, xmlNode* app_node)
 		emv_tlv_list_clear(&list);
 		return r;
 	}
-	app->random_selection_percentage = random_percentage;
-	app->random_selection_max_percentage = random_max_percentage;
-	app->random_selection_threshold = random_threshold;
+	app->random_selection_percentage = random_selection_percentage;
+	app->random_selection_max_percentage = random_selection_max_percentage;
+	app->random_selection_threshold = random_selection_threshold;
 
 	return 0;
 }
