@@ -252,8 +252,9 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 	install(
 		RUNTIME_DEPENDENCY_SET iso8859_deps
 		PRE_EXCLUDE_REGEXES
-			"^api-ms-"
-			"^lib(gcc|stdc\\+\\+|winpthread)"
+			"^api-ms-" # Windows runtime
+			"^lib(gcc|stdc\\+\\+|winpthread)" # MinGW/GCC runtime
+			"^lib(c\\+\\+|unwind)" # Clang/LLVM runtime
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES
@@ -417,8 +418,9 @@ if(WIN32 AND BUILD_WIN_STANDALONE)
 	install(
 		RUNTIME_DEPENDENCY_SET emv_strings_deps
 		PRE_EXCLUDE_REGEXES
-			"^api-ms-"
-			"^lib(gcc|stdc\\+\\+|winpthread)"
+			"^api-ms-" # Windows runtime
+			"^lib(gcc|stdc\\+\\+|winpthread)" # MinGW/GCC runtime
+			"^lib(c\\+\\+|unwind)" # Clang/LLVM runtime
 		POST_EXCLUDE_REGEXES
 			"system32"
 		DIRECTORIES

@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2023 Leon Lynch
+# Copyright 2022-2023, 2026 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -47,6 +47,14 @@ if(WIN32)
 		message(FATAL_ERROR "windeployqt not found")
 	endif()
 
+	# Set options used to deploy compiler runtime
+	if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+		# Only use --compiler-runtime for MinGW/GCC
+		set(WINDEPLOYQT_COMPILER_RUNTIME_OPTS "--compiler-runtime")
+	else()
+		set(WINDEPLOYQT_COMPILER_RUNTIME_OPTS "--no-compiler-runtime")
+	endif()
+
 	# Set options used to exclude modules for different versions of Qt
 	if(QT_VERSION_MAJOR EQUAL 6)
 		set(WINDEPLOYQT_EXCLUDE_OPTS "--no-translations" "--no-opengl-sw")
@@ -75,7 +83,7 @@ function(windeployqt target component)
 		COMMAND "${CMAKE_COMMAND}" -E
 			env PATH="${_qt_bin_dir}$<SEMICOLON>%PATH%" "${WINDEPLOYQT_EXECUTABLE}"
 			--verbose 3
-			--compiler-runtime
+			${WINDEPLOYQT_COMPILER_RUNTIME_OPTS}
 			${WINDEPLOYQT_EXCLUDE_OPTS}
 			--dir "${CMAKE_CURRENT_BINARY_DIR}/qt-bin/"
 			$<TARGET_FILE:${target}>
