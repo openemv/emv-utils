@@ -54,6 +54,7 @@ Dependencies
 * C11 and C++11 compilers such as GCC or Clang
 * [CMake](https://cmake.org/)
 * [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+* [libxml2](https://gitlab.gnome.org/GNOME/libxml2)
 * [iso-codes](https://salsa.debian.org/iso-codes-team/iso-codes)
 * [json-c](https://github.com/json-c/json-c)
 * [Boost.Locale](https://github.com/boostorg/locale) will be used by default
@@ -291,6 +292,38 @@ emv-decode --iso8859-10 A1A2A3A4A5A6A7
 The `emv-decode` application can also decode various other EMV structures and
 fields. Use the `--help` option to display all available options.
 
+### emv-tool
+
+The available command line options of the `emv-tool` application can be
+displayed using:
+```shell
+emv-tool --help
+```
+
+The `emv-tool` application requires a PC/SC reader and performs EMV processing
+using the first available card. The EMV configuration file must always be
+specified using the `--config-xml` option. See `tools/emv-config-example.xml`
+for an example configuration and `tools/emv-config.xsd` for the XML Schema
+Definition.
+
+To perform an EMV transaction, use the `--txn-type` option to specify the
+appropriate ISO 8583 transaction type (for example specify `00` for "Goods and
+services") and use the `--txn-amount` option to specify the amount without a
+decimal separator (for example specify `1234` for EUR 12.34). For example:
+```shell
+emv-tool --config-xml tools/emv-config-example.xml --txn-type 00 --txn-amount 1234
+```
+
+To override the transaction date and time, use the `--txn-date` and
+`--txn-time` options. For example:
+```shell
+emv-tool --config-xml tools/emv-config-example.xml --txn-type 00 --txn-amount 1234 --txn-date 2022-12-12 --txn-time 12:34:56
+```
+
+The debug level, debug sources and debug verbosity can be specified using the
+`--debug-level`, `--debug-source` and `--debug-verbose` options respectively.
+See `emv-tool --help` for more information about debug options.
+
 ### emv-viewer
 
 The `emv-viewer` application can be launched via the desktop environment or it
@@ -318,7 +351,6 @@ echo "701A9F390105571040123456789095D2512201197339300F82025900" | xxd -r -p | em
 
 Roadmap
 -------
-* Document `emv-tool` usage
 * Implement high level EMV processing API
 * Implement country, currency, language and MCC searching
 * Implement Qt plugin for EMV decoding

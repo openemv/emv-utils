@@ -2,7 +2,7 @@
  * @file emv.c
  * @brief High level EMV library interface
  *
- * Copyright 2023-2025 Leon Lynch
+ * Copyright 2023-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -60,7 +60,7 @@ const char* emv_error_get_string(enum emv_error_t error)
 
 int emv_ctx_init(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
 {
-	if (!ctx || !ttl) {
+	if (!ctx) {
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
@@ -99,8 +99,7 @@ int emv_ctx_clear(struct emv_ctx_t* ctx)
 	}
 
 	ctx->ttl = NULL;
-	emv_tlv_list_clear(&ctx->config);
-	emv_tlv_list_clear(&ctx->supported_aids);
+	emv_config_clear(&ctx->config);
 	emv_ctx_reset(ctx);
 
 	return 0;
@@ -346,6 +345,17 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 	return 0;
 }
 
+int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
+{
+	if (!ctx || !ttl) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	ctx->ttl = ttl;
+
+	return 0;
+}
+
 int emv_build_candidate_list(
 	const struct emv_ctx_t* ctx,
 	struct emv_app_list_t* app_list
@@ -360,7 +370,7 @@ int emv_build_candidate_list(
 	}
 
 	emv_debug_info("Select Payment System Environment (PSE)");
-	r = emv_tal_read_pse(ctx->ttl, &ctx->supported_aids, app_list);
+	r = emv_tal_read_pse(ctx->ttl, &ctx->config, app_list);
 	if (r < 0) {
 		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
 		emv_debug_error("Failed to read PSE; terminate session");
@@ -379,7 +389,7 @@ int emv_build_candidate_list(
 	// See EMV 4.4 Book 1, 12.3.2, step 5
 	if (emv_app_list_is_empty(app_list)) {
 		emv_debug_info("Discover list of AIDs");
-		r = emv_tal_find_supported_apps(ctx->ttl, &ctx->supported_aids, app_list);
+		r = emv_tal_find_supported_apps(ctx->ttl, &ctx->config, app_list);
 		if (r) {
 			emv_debug_trace_msg("emv_tal_find_supported_apps() failed; r=%d", r);
 			emv_debug_error("Failed to find supported AIDs; terminate session");
@@ -420,6 +430,7 @@ int emv_select_application(
 	struct emv_app_t* current_app = NULL;
 	uint8_t current_aid[16];
 	size_t current_aid_len;
+	const struct emv_config_app_t* config_app;
 
 	if (!ctx || !app_list) {
 		emv_debug_trace_msg("ctx=%p, app_list=%p, index=%u", ctx, app_list, index);
@@ -477,6 +488,22 @@ int emv_select_application(
 			goto try_again;
 		}
 	}
+	if (!ctx->selected_app) {
+		emv_debug_trace_msg("emv_tal_select_app() failed to populate selected_app");
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Populate matching application dependent data
+	config_app = emv_config_app_find_supported(&ctx->config, ctx->selected_app);
+	if (!config_app) {
+		emv_debug_error("Application configuration not found");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+	emv_debug_info_tlv_list("Application dependent data", &config_app->data);
+	ctx->selected_app->config = config_app;
 
 	// Success
 	r = 0;
@@ -932,7 +959,7 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 	emv_debug_info("Offline data authentication");
 
 	// Ensure mandatory configuration fields are present and have valid length
-	term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
+	term_caps = emv_config_data_get(ctx, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
 	if (!term_caps || term_caps->length != 3) {
 		emv_debug_trace_msg("term_caps=%p, term_caps->length=%u",
 			term_caps, term_caps ? term_caps->length : 0);
@@ -940,7 +967,7 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx)
 		r = EMV_ERROR_INVALID_CONFIG;
 		goto exit;
 	}
-	default_ddol = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F49_DDOL);
+	default_ddol = emv_config_data_get(ctx, EMV_TAG_9F49_DDOL);
 	if (!default_ddol || default_ddol->length < 2) {
 		emv_debug_trace_msg("default_ddol=%p, default_ddol->length=%u",
 			default_ddol, default_ddol ? default_ddol->length : 0);
@@ -1010,28 +1037,28 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx)
 	emv_debug_info("Processing restrictions");
 
 	// Ensure mandatory configuration fields are present and have valid length
-	term_app_version = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL);
+	term_app_version = emv_config_data_get(ctx, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL);
 	if (!term_app_version || term_app_version->length != 2) {
 		emv_debug_trace_msg("term_app_version=%p, term_app_version->length=%u",
 			term_app_version, term_app_version ? term_app_version->length : 0);
 		emv_debug_error("Application Version Number - terminal (9F09) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
 	}
-	term_type = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F35_TERMINAL_TYPE);
+	term_type = emv_config_data_get(ctx, EMV_TAG_9F35_TERMINAL_TYPE);
 	if (!term_type || term_type->length != 1) {
 		emv_debug_trace_msg("term_type=%p, term_type->length=%u",
 			term_type, term_type ? term_type->length : 0);
 		emv_debug_error("Terminal Type (9F35) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
 	}
-	addl_term_caps = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES);
+	addl_term_caps = emv_config_data_get(ctx, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES);
 	if (!addl_term_caps || addl_term_caps->length != 5) {
 		emv_debug_trace_msg("addl_term_caps=%p, addl_term_caps->length=%u",
 			addl_term_caps, addl_term_caps ? addl_term_caps->length : 0);
 		emv_debug_error("Additional Terminal Capabilities (9F40) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
 	}
-	term_country_code = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE);
+	term_country_code = emv_config_data_get(ctx, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE);
 	if (!term_country_code || term_country_code->length != 2) {
 		emv_debug_trace_msg("term_country_code=%p, term_country_code->length=%u",
 			term_country_code, term_country_code ? term_country_code->length : 0);
@@ -1216,6 +1243,9 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 {
 	int r;
 	const struct emv_tlv_t* term_floor_limit;
+	unsigned int random_selection_percentage = 0; // Disable by default
+	unsigned int random_selection_max_percentage = 0;
+	unsigned int random_selection_threshold = 0;
 	const struct emv_tlv_t* txn_amount;
 	uint32_t floor_limit_value;
 	uint32_t amount_value;
@@ -1242,7 +1272,7 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	emv_debug_info("Terminal risk management");
 
 	// Ensure mandatory configuration fields are present and have valid length
-	term_floor_limit = emv_tlv_list_find_const(&ctx->config, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
+	term_floor_limit = emv_config_data_get(ctx, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
 	if (!term_floor_limit || term_floor_limit->length != 4) {
 		emv_debug_trace_msg("term_floor_limit=%p, term_floor_limit->length=%u",
 			term_floor_limit, term_floor_limit ? term_floor_limit->length : 0);
@@ -1251,14 +1281,25 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	}
 
 	// Ensure that random selection configuration values are valid
-	if (ctx->random_selection_percentage > 99 ||
-		ctx->random_selection_max_percentage > 99 ||
-		ctx->random_selection_percentage > ctx->random_selection_max_percentage
+	if (ctx->selected_app && !ctx->selected_app->config) {
+		// Application configuration for the selected application should have
+		// been set by emv_select_application().
+		emv_debug_error("No configuration for selected application");
+		return EMV_ERROR_INTERNAL;
+	}
+	if (ctx->selected_app) {
+		random_selection_percentage = ctx->selected_app->config->random_selection_percentage;
+		random_selection_max_percentage = ctx->selected_app->config->random_selection_max_percentage;
+		random_selection_threshold = ctx->selected_app->config->random_selection_threshold;
+	}
+	if (random_selection_percentage > 99 ||
+		random_selection_max_percentage > 99 ||
+		random_selection_percentage > random_selection_max_percentage
 	) {
 		emv_debug_trace_msg("random_selection_percentage=%u, "
 			"random_selection_max_percentage->length=%u",
-			ctx->random_selection_percentage,
-			ctx->random_selection_max_percentage
+			random_selection_percentage,
+			random_selection_max_percentage
 		);
 		emv_debug_error("Invalid random selection configuration");
 		return EMV_ERROR_INVALID_CONFIG;
@@ -1346,15 +1387,15 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	// Random Transaction Selection
 	// See EMV 4.4 Book 3, 10.6.2
 	if (amount_value < floor_limit_value &&
-		ctx->random_selection_percentage
+		random_selection_percentage > 0
 	) {
 		int x;
 
 		// Ensure that random selection threshold is valid to avoid invalid
 		// computation of transaction target percent later
-		if (ctx->random_selection_threshold >= floor_limit_value) {
+		if (random_selection_threshold >= floor_limit_value) {
 			emv_debug_trace_msg("random_selection_threshold=%u",
-				ctx->random_selection_threshold);
+				random_selection_threshold);
 			emv_debug_error("Invalid random selection threshold");
 			return EMV_ERROR_INVALID_CONFIG;
 		}
@@ -1368,9 +1409,9 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 			return EMV_ERROR_INTERNAL;
 		}
 
-		if (amount_value < ctx->random_selection_threshold) {
+		if (amount_value < random_selection_threshold) {
 			// Apply unbiased transaction selection
-			if (x <= ctx->random_selection_percentage) {
+			if (x <= random_selection_percentage) {
 				emv_debug_info("Transaction selected randomly for online processing");
 				ctx->tvr->value[3] |= EMV_TVR_RANDOM_SELECTED_ONLINE;
 			}
@@ -1379,11 +1420,11 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 			// See EMV 4.4 Book 3, 10.6.2, figure 15
 			unsigned int ttp =
 				(
-					(ctx->random_selection_max_percentage - ctx->random_selection_percentage) *
-					(amount_value - ctx->random_selection_threshold)
+					(random_selection_max_percentage - random_selection_percentage) *
+					(amount_value - random_selection_threshold)
 				)
-				/ (floor_limit_value - ctx->random_selection_threshold)
-				+ ctx->random_selection_percentage;
+				/ (floor_limit_value - random_selection_threshold)
+				+ random_selection_percentage;
 
 			// Apply biased transaction selection
 			if (x <= ttp) {

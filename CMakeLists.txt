@@ -130,6 +130,8 @@ endif()
 include(FindPackageHandleStandardArgs) # Provides find_package() messages
 include(GNUInstallDirs) # Provides CMAKE_INSTALL_* variables and good defaults for install()
 
+# Options impacting multiple subdirectories
+option(BUILD_EMV_CONFIG_XML "Enable EMV XML configuration support for libemv (required for emv-tool)" ON)
 option(BUILD_MACOSX_BUNDLE "Build MacOS bundle containing emv-viewer, emv-decode and emv-tool")
 option(BUILD_WIN_STANDALONE "Build standalone Windows installation that includes external dependencies")
 

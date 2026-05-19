@@ -23,6 +23,7 @@
 #include "iso8825_ber.h"
 #include "emv.h"
 #include "emv_tags.h"
+#include "emv_app.h"
 
 #include <stdbool.h>
 #include <stdlib.h> // For malloc() and free()
@@ -300,13 +301,34 @@ struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int ta
 
 bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list)
 {
+	int r;
+
 	if (!emv_tlv_list_is_valid(list)) {
 		return false;
 	}
 
 	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		struct iso8825_oid_t oid;
+		bool tlv_is_asn1_object = false;
+		r = iso8825_ber_asn1_object_decode(&tlv->ber, &oid);
+		if (r > 0) {
+			tlv_is_asn1_object = true;
+		}
+
 		for (const struct emv_tlv_t* tlv2 = tlv->next; tlv2 != NULL; tlv2 = tlv2->next) {
-			if (tlv->tag == tlv2->tag) {
+			if (tlv_is_asn1_object) {
+				struct iso8825_oid_t oid2;
+				r = iso8825_ber_asn1_object_decode(&tlv2->ber, &oid2);
+				if (r > 0 && // Is ASN.1 object
+					oid.length == oid2.length && // OID arc length match
+					memcmp(oid.value, oid2.value, sizeof(oid2.value[0]) * oid2.length) == 0 // OID arc match
+				) {
+					// Duplicate ASN.1 object
+					return true;
+				}
+
+			} else if (tlv->tag == tlv2->tag) {
+				// Duplicate EMV field
 				return true;
 			}
 		}
@@ -357,7 +379,7 @@ int emv_tlv_sources_init_from_ctx(
 	if (!emv_tlv_list_is_valid(&ctx->params)) {
 		return -2;
 	}
-	if (!emv_tlv_list_is_valid(&ctx->config)) {
+	if (!emv_tlv_list_is_valid(&ctx->config.data)) {
 		return -3;
 	}
 	if (!emv_tlv_list_is_valid(&ctx->terminal)) {
@@ -372,11 +394,16 @@ int emv_tlv_sources_init_from_ctx(
 	// - ICC data obtained from the current card should not be overridden by
 	//   config or current transaction parameters
 	// - Transaction parameters can override config
-	sources->count = 4;
-	sources->list[0] = &ctx->terminal;
-	sources->list[1] = &ctx->icc;
-	sources->list[2] = &ctx->params;
-	sources->list[3] = &ctx->config;
+	// - Application dependent config can override application independent
+	//   config
+	sources->count = 0;
+	sources->list[sources->count++] = &ctx->terminal;
+	sources->list[sources->count++] = &ctx->icc;
+	sources->list[sources->count++] = &ctx->params;
+	if (ctx->selected_app && ctx->selected_app->config) {
+		sources->list[sources->count++] = &ctx->selected_app->config->data;
+	}
+	sources->list[sources->count++] = &ctx->config.data;
 
 	return 0;
 }

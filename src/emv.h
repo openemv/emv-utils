@@ -2,7 +2,7 @@
  * @file emv.h
  * @brief High level EMV library interface
  *
- * Copyright 2023-2025 Leon Lynch
+ * Copyright 2023-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,6 +22,7 @@
 #ifndef EMV_H
 #define EMV_H
 
+#include "emv_config.h"
 #include "emv_tlv.h"
 #include "emv_oda_types.h"
 
@@ -51,59 +52,21 @@ struct emv_ctx_t {
 	/**
 	 * @brief Terminal Transport Layer (TTL) context.
 	 *
-	 * Populated by @ref emv_ctx_init().
+	 * Populated by @ref emv_ctx_init() or @ref emv_card_activated() before
+	 * EMV processing.
 	 */
 	struct emv_ttl_t* ttl;
 
 	/**
-	 * @brief Terminal configuration.
+	 * @brief Terminal configuration data.
+	 * @remark See EMV 4.4 Book 4, 10
 	 *
 	 * Populate after @ref emv_ctx_init() and before EMV processing by
-	 * using @ref emv_tlv_list_push().
+	 * using:
+	 * - @ref emv_config_data_set()
+	 * - @ref emv_config_app_create()
 	 */
-	struct emv_tlv_list_t config;
-
-	/**
-	 * @brief List of supported applications.
-	 *
-	 * Populate after @ref emv_ctx_init() and before EMV processing
-	 * using @ref emv_tlv_list_push(). Each entry is a @ref EMV_TAG_9F06_AID
-	 * field containing a supported Application Identifier (AID) with
-	 * @ref emv_tlv_t.flags set to either @ref EMV_ASI_EXACT_MATCH or
-	 * @ref EMV_ASI_PARTIAL_MATCH.
-	 *
-	 */
-	struct emv_tlv_list_t supported_aids;
-
-	/**
-	 * @brief Target percentage to be used for random transaction selection
-	 * during terminal risk management. Value must be 0 to 99. Set to zero to
-	 * disable random transaction selection.
-	 *
-	 * Populate after @ref emv_ctx_init() and before EMV processing.
-	 * @todo In future, this will become a per-application configuration
-	 */
-	unsigned int random_selection_percentage;
-
-	/**
-	 * @brief Maximum target percentage to be used for biased random
-	 * transaction selection. Value must be 0 to 99 and must be greater than or
-	 * equal to @ref emv_ctx_t.random_selection_percentage.
-	 *
-	 * Populate after @ref emv_ctx_init() and before EMV processing.
-	 * @todo In future, this will become a per-application configuration
-	 */
-	unsigned int random_selection_max_percentage;
-
-	/**
-	 * @brief Threshold value for biased random transaction selection during
-	 * terminal risk management. Value must be zero or a positive number less
-	 * than the floor limit.
-	 *
-	 * Populate after @ref emv_ctx_init() and before EMV processing.
-	 * @todo In future, this will become a per-application configuration
-	 */
-	unsigned int random_selection_threshold;
+	struct emv_config_t config;
 
 	/**
 	 * @brief Parameters for current transaction.
@@ -222,7 +185,7 @@ const char* emv_lib_version_string(void);
  * Initialize EMV processing context
  *
  * @param ctx EMV processing context
- * @param ttl Terminal Transport Layer (TTL) context
+ * @param ttl Terminal Transport Layer (TTL) context. NULL if not available.
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
@@ -241,7 +204,6 @@ int emv_ctx_init(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl);
  * next transaction:
  * - @ref emv_ctx_t.ttl
  * - @ref emv_ctx_t.config
- * - @ref emv_ctx_t.supported_aids
  *
  * @param ctx EMV processing context
  *
@@ -294,6 +256,18 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome);
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_atr_parse(const void* atr, size_t atr_len);
+
+/**
+ * Indicate that EMV card has been presented to reader
+ *
+ * @param ctx EMV processing context
+ * @param ttl Terminal Transport Layer (TTL) context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl);
 
 /**
  * Build candidate application list using Payment System Environment (PSE) or

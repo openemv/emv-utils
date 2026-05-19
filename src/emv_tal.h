@@ -2,7 +2,7 @@
  * @file emv_tal.h
  * @brief EMV Terminal Application Layer (TAL)
  *
- * Copyright 2021, 2024-2025 Leon Lynch
+ * Copyright 2021, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,6 +30,7 @@ __BEGIN_DECLS
 
 // Forward declarations
 struct emv_ttl_t;
+struct emv_config_t;
 struct emv_app_list_t;
 struct emv_app_t;
 struct emv_tlv_list_t;
@@ -93,7 +94,7 @@ enum emv_tal_result_t {
  * @remark See EMV 4.4 Book 1, 12.3.2
  *
  * @param ttl EMV Terminal Transport Layer context
- * @param supported_aids Supported AID (field 9F06) list including ASI flags
+ * @param config EMV configuration containing supported applications
  * @param app_list Candidate application list output
  *
  * @return Zero for success
@@ -106,7 +107,7 @@ enum emv_tal_result_t {
  */
 int emv_tal_read_pse(
 	struct emv_ttl_t* ttl,
-	const struct emv_tlv_list_t* supported_aids,
+	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 );
 
@@ -115,7 +116,7 @@ int emv_tal_read_pse(
  * @remark See EMV 4.4 Book 1, 12.3.3
  *
  * @param ttl EMV Terminal Transport Layer context
- * @param supported_aids Supported AID (field 9F06) list including ASI flags
+ * @param config EMV configuration containing supported applications
  * @param app_list Candidate application list output
  *
  * @return Zero for success
@@ -124,7 +125,7 @@ int emv_tal_read_pse(
  */
 int emv_tal_find_supported_apps(
 	struct emv_ttl_t* ttl,
-	const struct emv_tlv_list_t* supported_aids,
+	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 );
 

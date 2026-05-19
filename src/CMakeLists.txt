@@ -52,15 +52,21 @@ if(NOT HAVE_TIMESPEC_GET AND NOT HAVE_CLOCK_GETTIME)
 	message(FATAL_ERROR "Failed to find either timespec_get or clock_gettime")
 endif()
 
+if(BUILD_EMV_CONFIG_XML)
+	find_package(LibXml2 REQUIRED)
+	list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "LibXml2")
+endif()
+
 find_package(IsoCodes REQUIRED)
 
 find_package(json-c REQUIRED CONFIG)
 # The json-c CMake config doesn't print a find_package() message but it is
 # always good to know where it was found
 find_package_handle_standard_args(json-c CONFIG_MODE)
+list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "json-c")
+
 # The EMV_UTILS_PACKAGE_DEPENDENCIES variable is set for the parent scope to
 # facilitate the generation of CMake package configuration files.
-list(APPEND EMV_UTILS_PACKAGE_DEPENDENCIES "json-c")
 set(EMV_UTILS_PACKAGE_DEPENDENCIES ${EMV_UTILS_PACKAGE_DEPENDENCIES} PARENT_SCOPE)
 
 # Find and use mcc-codes submodule
@@ -272,6 +278,7 @@ add_library(emv
 	emv_tlv.c
 	emv_dol.c
 	emv_debug.c
+	emv_config.c
 	emv_ttl.c
 	emv_app.c
 	emv_tal.c
@@ -291,6 +298,7 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_tlv.h
 	emv_dol.h
 	emv_debug.h
+	emv_config.h
 	emv_ttl.h
 	emv_app.h
 	emv_tal.h
@@ -318,7 +326,17 @@ target_link_libraries(emv
 # for the parent scope to facilitate the generation of pkgconfig files.
 # NOTE: It is not necessary to set EMV_PKGCONFIG_LIBS_PRIV for dependencies
 # that are mentioned in EMV_PKGCONFIG_REQ_PRIV
-set(EMV_PKGCONFIG_REQ_PRIV "libiso8825 libiso8859" PARENT_SCOPE)
+set(EMV_PKGCONFIG_REQ_PRIV "libiso8825 libiso8859")
+set(EMV_PKGCONFIG_REQ_PRIV ${EMV_PKGCONFIG_REQ_PRIV} PARENT_SCOPE)
+if(BUILD_EMV_CONFIG_XML)
+	message(STATUS "Adding emv_config_xml to build")
+	list(APPEND emv_HEADERS emv_config_xml.h)
+	set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
+	target_sources(emv PRIVATE emv_config_xml.c)
+	target_link_libraries(emv PRIVATE LibXml2::LibXml2)
+	string(APPEND EMV_PKGCONFIG_REQ_PRIV " libxml-2.0")
+	set(EMV_PKGCONFIG_REQ_PRIV ${EMV_PKGCONFIG_REQ_PRIV} PARENT_SCOPE)
+endif()
 set_target_properties(emv
 	PROPERTIES
 		PUBLIC_HEADER "${emv_HEADERS}"
@@ -351,6 +369,32 @@ install(
 	ARCHIVE
 		COMPONENT emv_development
 )
+if(WIN32 AND BUILD_WIN_STANDALONE)
+	if(${CMAKE_VERSION} VERSION_LESS "3.24")
+		message(FATAL_ERROR "CMake >=3.24 is required to install dependencies on Windows")
+	endif()
+
+	install(
+		TARGETS
+			emv
+		RUNTIME_DEPENDENCY_SET emv_deps
+	)
+	install(
+		RUNTIME_DEPENDENCY_SET emv_deps
+		PRE_EXCLUDE_REGEXES
+			"^api-ms-" # Windows runtime
+			"^lib(gcc|stdc\\+\\+|winpthread)" # MinGW/GCC runtime
+			"^lib(c\\+\\+|unwind)" # Clang/LLVM runtime
+		POST_EXCLUDE_REGEXES
+			"system32"
+		DIRECTORIES
+			# The LibXml2 CMake config doesn't define the location of the .dll and
+			# instead it must be derived from the location of the .dll.a
+			$<$<TARGET_EXISTS:LibXml2::LibXml2>:$<PATH:GET_PARENT_PATH,$<TARGET_FILE_DIR:LibXml2::LibXml2>>>/bin
+		RUNTIME
+			COMPONENT emv_runtime
+	)
+endif()
 
 # EMV strings library
 add_library(emv_strings

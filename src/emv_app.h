@@ -30,6 +30,9 @@
 
 __BEGIN_DECLS
 
+// Forward declarations
+struct emv_config_app_t;
+
 /**
  * EMV application
  */
@@ -73,6 +76,11 @@ struct emv_app_t {
 	 * - File Control Information (FCI) template (field 6F) provided by application selection
 	 */
 	struct emv_tlv_list_t tlv_list;
+
+	/**
+	 * Matching application configuration when the application is selected
+	 */
+	const struct emv_config_app_t* config;
 
 	/// Next EMV application in list
 	struct emv_app_t* next;
@@ -122,17 +130,6 @@ struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len);
  * @return Zero for success. Non-zero if it is unsafe to free the EMV application.
  */
 int emv_app_free(struct emv_app_t* app);
-
-/**
- * Determine whether EMV application is supported
- * @param app EMV application
- * @param supported_aids Supported AID (field 9F06) list including ASI flags
- * @return Boolean indicating whether EMV application is supported
- */
-bool emv_app_is_supported(
-	const struct emv_app_t* app,
-	const struct emv_tlv_list_t* supported_aids
-);
 
 /// Static initialiser for @ref emv_app_list_t
 #define EMV_APP_LIST_INIT { NULL, NULL }

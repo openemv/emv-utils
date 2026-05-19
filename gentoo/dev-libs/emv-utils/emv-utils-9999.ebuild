@@ -18,9 +18,10 @@ fi
 LICENSE="LGPL-2.1+ tools? ( GPL-3+ ) gui? ( GPL-3+ )"
 SLOT="0"
 KEYWORDS="~amd64 ~x86"
-IUSE="+mbedtls openssl +pcsc-lite +tools gui doc test"
+IUSE="+mbedtls openssl +pcsc-lite +tools gui doc test +xml"
 REQUIRED_USE="
 	^^ ( mbedtls openssl )
+	tools? ( pcsc-lite? ( xml ) )
 "
 RESTRICT="!test? ( test )"
 
@@ -35,6 +36,7 @@ RDEPEND="
 	mbedtls? ( net-libs/mbedtls )
 	openssl? ( dev-libs/openssl )
 	pcsc-lite? ( sys-apps/pcsc-lite )
+	xml? ( dev-libs/libxml2 )
 	gui? ( dev-qt/qtbase:6[gui,widgets] )
 "
 DEPEND="
@@ -57,6 +59,7 @@ src_configure() {
 		$(cmake_use_find_package mbedtls MbedTLS)
 		$(cmake_use_find_package openssl OpenSSL)
 		$(cmake_use_find_package pcsc-lite PCSCLite)
+		-DBUILD_EMV_CONFIG_XML=$(usex xml)
 		-DBUILD_EMV_DECODE=$(usex tools)
 		-DBUILD_EMV_TOOL=$(usex tools $(usex pcsc-lite YES NO) NO)
 		-DCMAKE_DISABLE_FIND_PACKAGE_Qt5=YES

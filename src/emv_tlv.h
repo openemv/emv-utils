@@ -2,7 +2,7 @@
  * @file emv_tlv.h
  * @brief EMV TLV structures and helper functions
  *
- * Copyright 2021, 2023-2025 Leon Lynch
+ * Copyright 2021, 2023-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -44,7 +44,7 @@ struct emv_tlv_t {
 			unsigned int tag;                   ///< EMV tag
 			unsigned int length;                ///< Length of @c value in bytes
 			uint8_t* value;                     ///< EMV value buffer
-			uint8_t flags;                      ///< EMV field specific flags, eg ASI for AID
+			uint8_t flags;                      ///< EMV field specific flags
 		};
 		struct iso8825_tlv_t ber;               ///< Alternative BER access to EMV TLV field
 	};
@@ -68,7 +68,7 @@ struct emv_tlv_list_t {
  */
 struct emv_tlv_sources_t {
 	unsigned int count;                         ///< Number of source lists
-	const struct emv_tlv_list_t* list[4];       ///< Array of source lists
+	const struct emv_tlv_list_t* list[5];       ///< Array of source lists
 };
 
 /**
@@ -186,7 +186,8 @@ inline const struct emv_tlv_t* emv_tlv_list_find_const(
 }
 
 /**
- * Determine whether EMV TLV list contains duplicate fields
+ * Determine whether EMV TLV list contains duplicate fields or duplicate
+ * ASN.1 objects
  * @param list EMV TLV list
  * @return Boolean indicating whether EMV TLV list contains duplicate fields
  */

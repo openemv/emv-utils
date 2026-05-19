@@ -2,7 +2,7 @@
  * @file emv_rsa_cda_test.c
  * @brief Unit tests for EMV RSA helper functions related to CDA
  *
- * Copyright 2025 Leon Lynch
+ * Copyright 2025-2026 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -207,9 +207,9 @@ int main(void)
 		return 1;
 	}
 
-	r = emv_capk_init();
+	r = emv_capk_load_static();
 	if (r) {
-		fprintf(stderr, "emv_capk_init() failed; r=%d\n", r);
+		fprintf(stderr, "emv_capk_load_static() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}

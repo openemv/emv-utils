@@ -16,8 +16,8 @@ jobs:
       matrix:
         include:
           - { name: "Fedora 42", fedora_version: 42, deps: "none", build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "Fedora 42", fedora_version: 42, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "Fedora 43", fedora_version: 43, deps: "pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "Fedora 42", fedora_version: 42, deps: "libxml2/pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "Fedora 43", fedora_version: 43, deps: "libxml2/pcsclite/qt", build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} build (static/debug/${{ matrix.deps }})
     runs-on: ubuntu-latest
@@ -26,6 +26,10 @@ jobs:
     steps:
     - name: Install build tools and dependencies
       run: sudo dnf -y install git cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel
+
+    - name: Install libxml2
+      if: contains(matrix.deps, 'libxml2')
+      run: sudo dnf -y install libxml2-devel
 
     - name: Install PCSCLite
       if: contains(matrix.deps, 'pcsclite')
@@ -52,6 +56,7 @@ jobs:
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE="Debug" \
+          -DBUILD_EMV_CONFIG_XML=${{ contains(matrix.deps, 'libxml2') && 'YES' || 'NO' }} \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
@@ -77,7 +82,7 @@ jobs:
     steps:
     - name: Install build tools and dependencies
       run: |
-        sudo dnf -y install git gh cmake gcc g++ mbedtls-devel boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion-devel doxygen rpm-build qt6-qtbase-devel
+        sudo dnf -y install git gh cmake gcc g++ mbedtls-devel libxml2-devel boost-devel iso-codes-devel json-c-devel pcsc-lite-devel bash-completion-devel doxygen rpm-build qt6-qtbase-devel
 
     - name: Checkout
       uses: actions/checkout@v6

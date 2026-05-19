@@ -2,7 +2,7 @@
  * @file emv_terminal_risk_management_test.c
  * @brief Unit tests for EMV Terminal Risk Management
  *
- * Copyright 2025 Leon Lynch
+ * Copyright 2025-2026 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -568,14 +568,14 @@ int main(void)
 		}
 		r = populate_tlv_list(
 			test[i].config_data,
-			&emv.config
+			&emv.config.data
 		);
 		if (r) {
 			fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
 			r = 1;
 			goto exit;
 		}
-		print_emv_tlv_list(&emv.config);
+		print_emv_tlv_list(&emv.config.data);
 		r = populate_tlv_list(
 			test[i].params_data,
 			&emv.params

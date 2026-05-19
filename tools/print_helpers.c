@@ -2,7 +2,7 @@
  * @file print_helpers.c
  * @brief Helper functions for command line output
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,6 +31,7 @@
 #include "emv.h"
 #include "emv_tlv.h"
 #include "emv_dol.h"
+#include "emv_fields.h"
 #include "emv_app.h"
 #include "emv_debug.h"
 #include "emv_strings.h"
@@ -944,6 +945,68 @@ void print_emv_tag_list(const void* ptr, size_t len, const char* prefix, unsigne
 		// Advance
 		ptr += r;
 		len -= r;
+	}
+}
+
+void print_emv_config_app(
+	const struct emv_config_app_t* app,
+	const char* prefix,
+	unsigned int depth
+)
+{
+	int r;
+	char str[64];
+
+	for (unsigned int i = 0; i < depth; ++i) {
+		printf("%s", prefix ? prefix : "");
+	}
+
+	printf("Application: ");
+	for (size_t i = 0; i < app->aid_len; ++i) {
+		printf("%02X", app->aid[i]);
+	}
+	r = emv_aid_get_string(app->aid, app->aid_len, str, sizeof(str));
+	if (r == 0) {
+		printf(" (%s)", str);
+	}
+	if ((app->asi & EMV_ASI_PARTIAL_MATCH) != 0) {
+		printf(", partial match");
+	} else {
+		printf(", exact match");
+	}
+	if ((app->asi & EMV_ASI_DISABLED) != 0) {
+		printf(", disabled");
+	}
+	printf("\n");
+
+	print_emv_tlv_list_internal(&app->data, prefix, depth + 1, false);
+
+	if (app->random_selection_percentage) {
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Random selection percentage: %u%%\n", app->random_selection_percentage);
+
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Maximum selection percentage: %u%%\n", app->random_selection_max_percentage);
+
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Random selection threshold: %u\n", app->random_selection_threshold);
+	}
+}
+
+void print_emv_config_app_list(const struct emv_config_t* config)
+{
+	const struct emv_config_app_t* app;
+
+	// Iterate manually instead of using the iterator because the iterator
+	// skips disabled applications
+	for (app = config->supported_apps; app != NULL; app = app->next) {
+		print_emv_config_app(app, "  ", 1);
 	}
 }
 
