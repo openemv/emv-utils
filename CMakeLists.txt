@@ -5,7 +5,7 @@
 # See LICENSE file.
 ##############################################################################
 
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.22...4.3)
 
 project(emv-utils
 	VERSION 0.3.1

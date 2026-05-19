@@ -5,8 +5,6 @@
 # See LICENSE file.
 ##############################################################################
 
-cmake_minimum_required(VERSION 3.22)
-
 # Check whether C99 length modifier 'z' is supported
 include(CheckCSourceRuns)
 check_c_source_runs("

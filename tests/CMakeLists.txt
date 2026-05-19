@@ -5,8 +5,6 @@
 # See LICENSE file.
 ##############################################################################
 
-cmake_minimum_required(VERSION 3.22)
-
 if (BUILD_TESTING)
 	add_library(emv_cardreader_emul OBJECT EXCLUDE_FROM_ALL emv_cardreader_emul.c)
 
