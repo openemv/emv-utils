@@ -5,7 +5,7 @@
 # See LICENSE.gpl file.
 ##############################################################################
 
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.22...4.3)
 
 project(emv-viewer
 	VERSION 0.3.1

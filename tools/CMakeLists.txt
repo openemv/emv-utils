@@ -5,8 +5,6 @@
 # See LICENSE file.
 ##############################################################################
 
-cmake_minimum_required(VERSION 3.22)
-
 # Build command line tools by default
 option(BUILD_EMV_DECODE "Build emv-decode" ON)
 option(BUILD_EMV_TOOL "Build emv-tool" ON)
