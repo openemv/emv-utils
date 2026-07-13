@@ -60,6 +60,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_TXN_TYPE,
 	EMV_TOOL_PARAM_TXN_AMOUNT,
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
+	EMV_TOOL_PARAM_GENAC1_TYPE,
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
 	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
 	EMV_TOOL_PARAM_DEBUG_LEVEL,
@@ -80,6 +81,7 @@ static struct argp_option argp_options[] = {
 	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
+	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
 
 	{ NULL, 0, NULL, 0, "Debug options", 3 },
 	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
@@ -113,6 +115,7 @@ static uint8_t txn_time[3] = { 0xFF }; // Default is current time
 static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
 static uint32_t txn_amount = 0;
 static uint32_t txn_amount_other = 0;
+static uint8_t genac1_ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
 
 // Debug parameters
 static bool debug_verbose = false;
@@ -280,6 +283,20 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			}
 			txn_amount_other = value;
 
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_GENAC1_TYPE: {
+			if (strcasecmp(arg, "AAC") == 0) {
+				genac1_ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
+			} else if (strcasecmp(arg, "ARQC") == 0) {
+				genac1_ref_ctrl = EMV_TTL_GENAC_TYPE_ARQC;
+			} else if (strcasecmp(arg, "TC") == 0) {
+				genac1_ref_ctrl = EMV_TTL_GENAC_TYPE_TC;
+			} else {
+				argp_error(state, "GENAC1 type (--genac1) argument must be AAC, ARQC or TC");
+				return EINVAL;
+			}
 			return 0;
 		}
 
@@ -745,6 +762,8 @@ int main(int argc, char** argv)
 	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
 	bool application_selection_required;
+	const struct emv_tlv_t* cid;
+	struct emv_tlv_list_t genac2_list = EMV_TLV_LIST_INIT;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -1079,7 +1098,7 @@ int main(int argc, char** argv)
 	}
 
 	printf("\nCard action analysis\n");
-	r = emv_card_action_analysis(&emv);
+	r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
@@ -1087,6 +1106,86 @@ int main(int argc, char** argv)
 	if (r > 0) {
 		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 		goto emv_exit;
+	}
+
+	// Process GENAC1 outcome
+	cid = emv_tlv_list_find_const(&emv.icc, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+	if (!cid) {
+		fprintf(stderr, "CID not found\n");
+		goto emv_exit;
+	}
+	printf("\n");
+	switch (cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
+			printf("GENAC1: Application Authentication Cryptogram (AAC)\n");
+			printf("OUTCOME: Offline declined\n");
+			break;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
+			printf("GENAC1: Transaction Certificate (TC)\n");
+			printf("OUTCOME: Offline approved\n");
+			break;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC:
+			printf("GENAC1: Authorisation Request Cryptogram (ARQC)\n");
+			break;
+
+		default:
+			fprintf(stderr, "Unexpected CID 0x%02X\n", cid->value[0]);
+			goto emv_exit;
+	}
+
+	if (pos_entry_mode == EMV_POS_ENTRY_MODE_ICC_WITH_CVV &&
+		(cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) == EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC
+	) {
+		printf("\nCompletion\n");
+		r = emv_completion(
+			&emv,
+			(uint8_t[]){ 0x30, 0x30 }, // 00 - Approved or completed successfully
+			NULL,
+			0,
+			EMV_TTL_GENAC_TYPE_TC,
+			&genac2_list
+		);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
+
+		// Process GENAC2 outcome
+		cid = emv_tlv_list_find_const(&genac2_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+		if (!cid) {
+			fprintf(stderr, "CID not found\n");
+			goto emv_exit;
+		}
+		printf("\n");
+		switch (cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
+			case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
+				printf("GENAC2: Application Authentication Cryptogram (AAC)\n");
+				printf("OUTCOME: Declined\n");
+				break;
+
+			case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
+				printf("GENAC2: Transaction Certificate (TC)\n");
+				printf("OUTCOME: Online approved\n");
+				break;
+
+			default:
+				fprintf(stderr, "Unexpected CID 0x%02X\n", cid->value[0]);
+				goto emv_exit;
+		}
+		r = emv_tlv_list_append(&emv.icc, &genac2_list);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			goto emv_exit;
+		}
 	}
 
 	printf("\nICC data:\n");
@@ -1103,6 +1202,7 @@ int main(int argc, char** argv)
 	printf("\nCard deactivated\n");
 
 emv_exit:
+	emv_tlv_list_clear(&genac2_list);
 	emv_app_list_clear(&app_list);
 pcsc_exit:
 	pcsc_release(&pcsc);

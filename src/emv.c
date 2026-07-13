@@ -1602,10 +1602,9 @@ exit:
 	return r;
 }
 
-int emv_card_action_analysis(struct emv_ctx_t* ctx)
+int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 {
 	int r;
-	uint8_t ref_ctrl;
 	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 	const struct emv_tlv_t* cdol1;
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
@@ -1623,18 +1622,40 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 
 	emv_debug_info("Card action analysis");
 
-	// Always decline offline for now until Terminal Action Analysis is fully
-	// implemented
-	ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
-	// Populate Authorisation Response Code (field 8A) for offline decline
+	// Populate Authorisation Response Code (8A) for AAC and TC
 	// See EMV 4.4 Book 4, 6.3.6
-	emv_tlv_list_push(
-		&ctx->terminal,
-		EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
-		2,
-		(uint8_t[]){ 0x5A, 0x31 },
-		0
-	);
+	switch (ref_ctrl & EMV_TTL_GENAC_TYPE_MASK) {
+		case EMV_TTL_GENAC_TYPE_ARQC:
+			// Authorisation Response Code (8A) will be populated by
+			// emv_completion() based on online response
+			r = 0;
+			break;
+
+		case EMV_TTL_GENAC_TYPE_TC:
+			r = emv_tlv_list_push(
+				&ctx->terminal,
+				EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+				2,
+				(uint8_t[]){ 0x59, 0x31 }, // Y1 — Offline approved
+				0
+			);
+			break;
+
+		default: // EMV_TTL_GENAC_TYPE_AAC
+			r = emv_tlv_list_push(
+				&ctx->terminal,
+				EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+				2,
+				(uint8_t[]){ 0x5A, 0x31 }, // Z1 — Offline declined
+				0
+			);
+			break;
+	}
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
 
 	if (ctx->oda.method == EMV_ODA_METHOD_CDA &&
 		!(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
@@ -1741,6 +1762,158 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx)
 			r = EMV_ERROR_INTERNAL;
 			goto exit;
 		}
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	emv_tlv_list_clear(&genac_list);
+	return r;
+}
+
+int emv_completion(
+	struct emv_ctx_t* ctx,
+	const uint8_t arc[2],
+	const uint8_t* iad,
+	size_t iad_len,
+	uint8_t ref_ctrl,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
+	const struct emv_tlv_t* cdol2;
+	uint8_t cdol2_data_buf[255];
+	size_t cdol2_data_len;
+	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+
+	if (!ctx || !arc || !list) {
+		emv_debug_trace_msg("ctx=%p, arc=%p, list=%p", ctx, arc, list);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->ttl || !ctx->tsi) {
+		emv_debug_trace_msg("ttl=%p, tsi=%p", ctx->ttl, ctx->tsi);
+		emv_debug_error("Invalid context variable");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!iad && iad_len) {
+		emv_debug_trace_msg("iad=%p, iad_len=%zu", iad, iad_len);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (ref_ctrl != EMV_TTL_GENAC_TYPE_AAC &&
+		ref_ctrl != EMV_TTL_GENAC_TYPE_TC
+	) {
+		emv_debug_trace_msg("ref_ctrl=0x%02X", ref_ctrl);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Completion");
+
+	// Append issuer response fields to terminal data list because these are
+	// needed for CDOL2
+	// See EMV 4.4 Book 3, 6.5.5.3
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+		2,
+		arc,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+	if (iad && iad_len) {
+		r = emv_tlv_list_push(
+			&ctx->terminal,
+			EMV_TAG_91_ISSUER_AUTHENTICATION_DATA,
+			iad_len,
+			iad,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	// Prepare ordered data sources for CDOL2 building
+	r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+		emv_debug_error("Failed to build CDOL2 sources");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Prepare Card Risk Management Data
+	// See EMV 4.4 Book 3, 9.2.1
+	cdol2 = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_8D_CDOL2);
+	if (!cdol2) {
+		// Presence of CDOL2 should have been confirmed by
+		// emv_read_application_data()
+		emv_debug_error("Card Risk Management Data Object List 2 (CDOL2) not found");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Build CDOL2 data
+	cdol2_data_len = sizeof(cdol2_data_buf);
+	r = emv_dol_build_data(
+		cdol2->value,
+		cdol2->length,
+		&sources,
+		cdol2_data_buf,
+		&cdol2_data_len
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
+		emv_debug_error("Failed to build CDOL2 data");
+
+		// This is considered a card error because CDOL2 is provided by the
+		// ICC, should be valid, and should not cause the maximum length to be
+		// exceeded.
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// TODO: Implement CDA for GENAC2 and cached cdol2_data in ODA context
+
+	// Perform Completion using GENAC2
+	// See EMV 4.4 Book 3, 10.11
+	r = emv_tal_genac(
+		ctx->ttl,
+		ref_ctrl,
+		cdol2_data_buf,
+		cdol2_data_len,
+		&genac_list,
+		NULL // CDA not requested in GENAC2
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_genac() failed; r=%d", r);
+		emv_debug_error("Error during completion; terminate session");
+
+		if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+			r = EMV_ERROR_INTERNAL;
+		} else {
+			// All other GENAC2 errors are card errors
+			r = EMV_OUTCOME_CARD_ERROR;
+		}
+		goto exit;
+	}
+
+	r = emv_tlv_list_append(list, &genac_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
 	}
 
 	// Success

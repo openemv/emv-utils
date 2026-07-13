@@ -450,25 +450,65 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 );
 
 /**
- * Perform EMV Card Action Analysis to determined the risk management decision
- * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM.
+ * Perform EMV Card Action Analysis to determine the risk management decision
+ * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM
+ * (GENAC1).
  *
  * If CDA or XDA were selected during Offline Data Authentication (ODA), this
  * function will request the appropriate signature and process the resulting
  * Signed Dynamic Application Data (SDAD) to extract the signed ICC fields.
  *
- * @note This function is not yet fully implemented and only supports offline
- *       declines by requesting an Application Authentication Cryptogram (AAC).
+ * @note This function is not yet fully implemented and relies on the caller to
+ *       provide the Terminal Action Analysis decision.
  *
  * @remark See EMV 4.4 Book 3, 10.8
  *
  * @param ctx EMV processing context
+ * @param ref_ctrl Reference control parameter for GENAC1; use one of
+ *                 @ref EMV_TTL_GENAC_TYPE_AAC (offline decline),
+ *                 @ref EMV_TTL_GENAC_TYPE_TC (offline approve), or
+ *                 @ref EMV_TTL_GENAC_TYPE_ARQC (request online authorisation)
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
-int emv_card_action_analysis(struct emv_ctx_t* ctx);
+int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl);
+
+/**
+ * Perform EMV Completion by issuing the second GENERATE APPLICATION CRYPTOGRAM
+ * (GENAC2) when the issuer's online response is available
+ *
+ * This function will push @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE and
+ * optionally @ref EMV_TAG_91_ISSUER_AUTHENTICATION_DATA onto
+ * @ref emv_ctx_t.terminal.
+ *
+ * @note CDA is not requested in GENAC2 by this implementation.
+ *
+ * @remark See EMV 4.4 Book 3, 10.11
+ *
+ * @param ctx EMV processing context
+ * @param arc Authorisation Response Code of 2 bytes
+ * @param iad Issuer Authentication Data (tag 91) from the online response,
+ *            or NULL if unavailable
+ * @param iad_len Length of @p iad in bytes; zero if @p iad is NULL
+ * @param ref_ctrl Reference control parameter for GENAC2; use one of
+ *                 @ref EMV_TTL_GENAC_TYPE_AAC (online decline),
+ *                 @ref EMV_TTL_GENAC_TYPE_TC (online approve)
+ * @param list List to which GENAC2 response fields will be appended.
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_completion(
+	struct emv_ctx_t* ctx,
+	const uint8_t arc[2],
+	const uint8_t* iad,
+	size_t iad_len,
+	uint8_t ref_ctrl,
+	struct emv_tlv_list_t* list
+);
 
 __END_DECLS
 
