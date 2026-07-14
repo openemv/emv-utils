@@ -307,14 +307,15 @@ int emv_oda_apply_cda(struct emv_ctx_t* ctx);
  *   @ref EMV_ODA_METHOD_CDA
  * - @ref emv_oda_ctx_t.icc_pkey "emv_ctx_t.oda.icc_pkey" must be valid
  *
- * Upon success, this function will update @ref emv_ctx_t.icc to append the
- * fields provided in @p genac_list as well as the fields recovered from
- * @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA that are not already
- * provided in @p genac_list, like @ref EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER and
+ * Upon success, this function will update @p genac_list to append the fields
+ * recovered from @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA that are
+ * not already in @p genac_list, like @ref EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER and
  * @ref EMV_TAG_9F26_APPLICATION_CRYPTOGRAM.
  *
  * @param ctx EMV processing context
- * @param genac_list Fields provided by GENERATE APPLICATION CRYPTOGRAM
+ * @param genac_list List of fields provided by GENERATE APPLICATION CRYPTOGRAM
+ *                   to which the fields recovered from the SDAD will be
+ *                   appended
  *
  * @return Zero for success.
  * @return Less than zero for error. See @ref emv_oda_error_t

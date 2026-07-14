@@ -763,7 +763,6 @@ int main(int argc, char** argv)
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
 	bool application_selection_required;
 	const struct emv_tlv_t* cid;
-	struct emv_tlv_list_t genac2_list = EMV_TLV_LIST_INIT;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -1144,8 +1143,7 @@ int main(int argc, char** argv)
 			(uint8_t[]){ 0x30, 0x30 }, // 00 - Approved or completed successfully
 			NULL,
 			0,
-			EMV_TTL_GENAC_TYPE_TC,
-			&genac2_list
+			EMV_TTL_GENAC_TYPE_TC
 		);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
@@ -1157,7 +1155,7 @@ int main(int argc, char** argv)
 		}
 
 		// Process GENAC2 outcome
-		cid = emv_tlv_list_find_const(&genac2_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+		cid = emv_tlv_list_find_const(&emv.completion, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
 		if (!cid) {
 			fprintf(stderr, "CID not found\n");
 			goto emv_exit;
@@ -1178,14 +1176,6 @@ int main(int argc, char** argv)
 				fprintf(stderr, "Unexpected CID 0x%02X\n", cid->value[0]);
 				goto emv_exit;
 		}
-		r = emv_tlv_list_append(&emv.icc, &genac2_list);
-		if (r) {
-			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
-
-			// Internal error; terminate session
-			emv_debug_error("Internal error");
-			goto emv_exit;
-		}
 	}
 
 	printf("\nICC data:\n");
@@ -1193,6 +1183,11 @@ int main(int argc, char** argv)
 
 	printf("\nTerminal data:\n");
 	print_emv_tlv_list(&emv.terminal);
+
+	if (!emv_tlv_list_is_empty(&emv.completion)) {
+		printf("\nCompletion data:\n");
+		print_emv_tlv_list(&emv.completion);
+	}
 
 	r = pcsc_reader_disconnect(reader);
 	if (r) {
@@ -1202,7 +1197,6 @@ int main(int argc, char** argv)
 	printf("\nCard deactivated\n");
 
 emv_exit:
-	emv_tlv_list_clear(&genac2_list);
 	emv_app_list_clear(&app_list);
 pcsc_exit:
 	pcsc_release(&pcsc);

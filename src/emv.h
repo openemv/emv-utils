@@ -118,6 +118,13 @@ struct emv_ctx_t {
 	struct emv_tlv_list_t terminal;
 
 	/**
+	 * @brief Completion data for the current transaction.
+	 *
+	 * Populated by @ref emv_completion().
+	 */
+	struct emv_tlv_list_t completion;
+
+	/**
 	 * @brief Offline Data Authentication (ODA) context.
 	 *
 	 * Populated and used by:
@@ -481,7 +488,8 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl);
  *
  * This function will push @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE and
  * optionally @ref EMV_TAG_91_ISSUER_AUTHENTICATION_DATA onto
- * @ref emv_ctx_t.terminal.
+ * @ref emv_ctx_t.terminal. GENAC2 response fields will be appended to
+ * @ref emv_ctx_t.completion.
  *
  * @note CDA is not requested in GENAC2 by this implementation.
  *
@@ -495,7 +503,6 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl);
  * @param ref_ctrl Reference control parameter for GENAC2; use one of
  *                 @ref EMV_TTL_GENAC_TYPE_AAC (online decline),
  *                 @ref EMV_TTL_GENAC_TYPE_TC (online approve)
- * @param list List to which GENAC2 response fields will be appended.
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
@@ -506,8 +513,7 @@ int emv_completion(
 	const uint8_t arc[2],
 	const uint8_t* iad,
 	size_t iad_len,
-	uint8_t ref_ctrl,
-	struct emv_tlv_list_t* list
+	uint8_t ref_ctrl
 );
 
 __END_DECLS
