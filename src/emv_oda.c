@@ -908,8 +908,8 @@ int emv_oda_process_genac(
 	crypto_sha1_ctx_t sha1_ctx = NULL;
 	uint8_t tdhc[SHA1_SIZE];
 
-	if (!ctx) {
-		emv_debug_trace_msg("ctx=%p", ctx);
+	if (!ctx || !genac_list) {
+		emv_debug_trace_msg("ctx=%p, genac_list=%p", ctx, genac_list);
 		emv_debug_error("Invalid parameter");
 		return EMV_ODA_ERROR_INVALID_PARAMETER;
 	}
@@ -1050,21 +1050,10 @@ int emv_oda_process_genac(
 		goto exit;
 	}
 
-	// Append GENERATE APPLICATION CRYPTOGRAM output to ICC data list
-	r = emv_tlv_list_append(&ctx->icc, genac_list);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		r = EMV_ODA_ERROR_INTERNAL;
-		goto exit;
-	}
-
 	// Create ICC Dynamic Number (field 9F4C)
 	// See EMV 4.4 Book 2, 6.6.2 (page 71)
 	r = emv_tlv_list_push(
-		&ctx->icc,
+		genac_list,
 		EMV_TAG_9F4C_ICC_DYNAMIC_NUMBER,
 		sdad.icc_dynamic_number_len,
 		sdad.icc_dynamic_number,
@@ -1080,7 +1069,7 @@ int emv_oda_process_genac(
 	// Create Application Cryptogram (field 9F26)
 	// See EMV 4.4 Book 2, 6.6.2 (page 71)
 	r = emv_tlv_list_push(
-		&ctx->icc,
+		genac_list,
 		EMV_TAG_9F26_APPLICATION_CRYPTOGRAM,
 		sizeof(sdad.cryptogram),
 		sdad.cryptogram,

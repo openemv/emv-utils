@@ -79,6 +79,7 @@ int emv_ctx_reset(struct emv_ctx_t* ctx)
 	emv_tlv_list_clear(&ctx->params);
 	emv_tlv_list_clear(&ctx->icc);
 	emv_tlv_list_clear(&ctx->terminal);
+	emv_tlv_list_clear(&ctx->completion);
 	emv_app_free(ctx->selected_app);
 	ctx->selected_app = NULL;
 	emv_oda_clear(&ctx->oda);
@@ -551,9 +552,11 @@ int emv_initiate_application_processing(
 
 	emv_debug_info("Initiate application processing");
 
-	// Clear existing ICC data and terminal data lists to avoid ambiguity
+	// Clear existing ICC data, terminal data and completion data lists to
+	// avoid ambiguity
 	emv_tlv_list_clear(&ctx->icc);
 	emv_tlv_list_clear(&ctx->terminal);
+	emv_tlv_list_clear(&ctx->completion);
 
 	// Clear existing ODA state to avoid ambiguity
 	r = emv_oda_init(&ctx->oda);
@@ -1732,8 +1735,8 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	// See EMV 4.4 Book 4, 6.3.7
 
 	if (ref_ctrl & EMV_TTL_GENAC_SIG_MASK) {
-		// Validate GENAC1 response which will in turn append it to the ICC
-		// data list
+		// Validate GENAC1 response which will in turn unpack the SDAD fields
+		// and append them to the GENAC1 fields
 		r = emv_oda_process_genac(ctx, &genac_list);
 		if (r) {
 			if (r < 0) {
@@ -1747,21 +1750,21 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 				goto exit;
 			}
 
-		// Otherwise session may continue although offline data authentication
-		// has failed.
-		emv_debug_error("Offline data authentication failed");
+			// Otherwise session may continue although offline data authentication
+			// has failed.
+			emv_debug_error("Offline data authentication failed");
 		}
-	} else {
-		// Append GENAC1 output to ICC data list
-		r = emv_tlv_list_append(&ctx->icc, &genac_list);
-		if (r) {
-			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+	}
 
-			// Internal error; terminate session
-			emv_debug_error("Internal error");
-			r = EMV_ERROR_INTERNAL;
-			goto exit;
-		}
+	// Append GENAC1 fields to ICC data list
+	r = emv_tlv_list_append(&ctx->icc, &genac_list);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
 	}
 
 	// Success
@@ -1778,8 +1781,7 @@ int emv_completion(
 	const uint8_t arc[2],
 	const uint8_t* iad,
 	size_t iad_len,
-	uint8_t ref_ctrl,
-	struct emv_tlv_list_t* list
+	uint8_t ref_ctrl
 )
 {
 	int r;
@@ -1789,8 +1791,8 @@ int emv_completion(
 	size_t cdol2_data_len;
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
 
-	if (!ctx || !arc || !list) {
-		emv_debug_trace_msg("ctx=%p, arc=%p, list=%p", ctx, arc, list);
+	if (!ctx || !arc) {
+		emv_debug_trace_msg("ctx=%p, arc=%p", ctx, arc);
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
@@ -1906,7 +1908,7 @@ int emv_completion(
 		goto exit;
 	}
 
-	r = emv_tlv_list_append(list, &genac_list);
+	r = emv_tlv_list_append(&ctx->completion, &genac_list);
 	if (r) {
 		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
 
