@@ -294,9 +294,9 @@ int emv_oda_apply_cda(struct emv_ctx_t* ctx);
  * Process output of GENERATE APPLICATION CRYPTOGRAM and finalise
  * Combined DDA/Application Cryptogram Generation (CDA).
  *
- * @note This function is used by @ref emv_card_action_analysis() and should
- *       only be used directly for use cases beyond EMV requirements. If in
- *       doubt, use @ref emv_card_action_analysis() instead.
+ * @note This function is used by @ref emv_card_action_analysis() and
+ *       @ref emv_completion() but should only be used directly for use cases
+ *       beyond EMV requirements. If in doubt, use those functions instead.
  *
  * This function requires:
  * - @ref emv_ctx_t.terminal must contain these fields:
@@ -306,6 +306,12 @@ int emv_oda_apply_cda(struct emv_ctx_t* ctx);
  * - @ref emv_oda_ctx_t.method "emv_ctx_t.oda.method" must be
  *   @ref EMV_ODA_METHOD_CDA
  * - @ref emv_oda_ctx_t.icc_pkey "emv_ctx_t.oda.icc_pkey" must be valid
+ *
+ * This function computes and verifies the Transaction Data Hash Code based on
+ * the state of the Offline Data Authentication (ODA) context within the EMV
+ * processing context. The PDOL, CDOL1, CDOL2 and GENAC data are applied based
+ * on their presence and it is the caller's responsibility to ensure that they
+ * are populated correctly.
  *
  * Upon success, this function will update @p genac_list to append the fields
  * recovered from @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA that are

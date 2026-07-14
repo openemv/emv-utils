@@ -486,12 +486,15 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl);
  * Perform EMV Completion by issuing the second GENERATE APPLICATION CRYPTOGRAM
  * (GENAC2) when the issuer's online response is available
  *
+ * If CDA was selected during Offline Data Authentication and has not yet
+ * failed, this function will request a CDA signature on GENAC2 and process
+ * the resulting Signed Dynamic Application Data (SDAD) to extract the
+ * signed ICC fields.
+ *
  * This function will push @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE and
  * optionally @ref EMV_TAG_91_ISSUER_AUTHENTICATION_DATA onto
  * @ref emv_ctx_t.terminal. GENAC2 response fields will be appended to
  * @ref emv_ctx_t.completion.
- *
- * @note CDA is not requested in GENAC2 by this implementation.
  *
  * @remark See EMV 4.4 Book 3, 10.11
  *
