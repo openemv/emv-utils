@@ -985,6 +985,8 @@ int emv_oda_process_genac(
 
 	// Compute Transaction Data Hash Code
 	// See EMV 4.4 Book 2, 6.6.2, step 10 - 11
+	// - For GENAC1 use PDOL || CDOL1 || GENAC1 response (minus SDAD)
+	// - For GENAC2 use PDOL || CDOL1 || CDOL2 || GENAC2 response (minus SDAD)
 	r = crypto_sha1_init(&sha1_ctx);
 	if (r) {
 		emv_debug_trace_msg("crypto_sha1_init() failed; r=%d", r);
@@ -1010,6 +1012,19 @@ int emv_oda_process_genac(
 			&sha1_ctx,
 			ctx->oda.cdol1_data,
 			ctx->oda.cdol1_data_len
+		);
+		if (r) {
+			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			r = EMV_ODA_ERROR_INTERNAL;
+			goto exit;
+		}
+	}
+	if (ctx->oda.cdol2_data_len) {
+		r = crypto_sha1_update(
+			&sha1_ctx,
+			ctx->oda.cdol2_data,
+			ctx->oda.cdol2_data_len
 		);
 		if (r) {
 			emv_debug_trace_msg("crypto_sha1_update() failed; r=%d", r);

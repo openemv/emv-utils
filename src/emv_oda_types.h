@@ -89,6 +89,14 @@ struct emv_oda_ctx_t {
 	size_t cdol1_data_len; ///< Length of cached CDOL1 data in bytes
 
 	/**
+	 * Cached Card Risk Management Data Object List 2 (CDOL2) data for
+	 * validating Transaction Data Hash Code. CDOL2 data has a maximum length
+	 * of @ref EMV_CAPDU_DATA_MAX.
+	 */
+	uint8_t cdol2_data[255];
+	size_t cdol2_data_len; ///< Length of cached CDOL2 data in bytes
+
+	/**
 	 * Cached GENAC response excluding Signed Dynamic Application Data (SDAD)
 	 * for validating Transaction Data Hash Code. GENAC response has a maximum
 	 * length of @ref EMV_RAPDU_DATA_MAX minus minimum length of 512-bit SDAD.
