@@ -62,6 +62,7 @@ enum emv_tal_error_t {
 	EMV_TAL_ERROR_GENAC_FAILED = -16, ///< GENERATE APPLICATION CRYPTOGRAM failed
 	EMV_TAL_ERROR_GENAC_PARSE_FAILED = -17, ///< Failed to parse GENERATE APPLICATION CRYPTOGRAM response
 	EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND = -18, ///< Failed to find mandatory field in GENERATE APPLICATION CRYPTOGRAM response
+	EMV_TAL_ERROR_EXT_AUTH_FAILED = -19, ///< EXTERNAL AUTHENTICATE failed
 };
 
 /**
@@ -86,6 +87,7 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED, ///< Conditions of use not satisfied for selected application
 	EMV_TAL_RESULT_ODA_RECORD_INVALID, ///< Offline data authentication not possible due to an invalid record
 	EMV_TAL_RESULT_GET_DATA_FAILED, ///< Failed to retrieve data object
+	EMV_TAL_RESULT_EXT_AUTH_FAILED, ///< Failed to authenticate issuer
 };
 
 /**
@@ -289,6 +291,29 @@ int emv_tal_genac(
 	size_t data_len,
 	struct emv_tlv_list_t* list,
 	struct emv_oda_ctx_t* oda
+);
+
+/**
+ * Perform EXTERNAL AUTHENTICATE and interpret the response
+ * @remark See EMV 4.4 Book 3, 6.5.4
+ * @remark See EMV 4.4 Book 3, 10.9
+ * @remark See EMV 4.4 Book 3, Annex F
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param data Issuer Authentication Data (value field of tag 91), 8-16 bytes
+ * @param data_len Length of Issuer Authentication Data in bytes
+ *
+ * @return Zero for success
+ * @return @ref EMV_TAL_RESULT_EXT_AUTH_FAILED when the card returned a
+ *         non-success status word (issuer authentication failed but the
+ *         session may continue)
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ */
+int emv_tal_external_authenticate(
+	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len
 );
 
 __END_DECLS

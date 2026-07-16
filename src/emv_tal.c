@@ -1539,3 +1539,50 @@ exit:
 	emv_tlv_list_clear(&response_list);
 	return r;
 }
+
+int emv_tal_external_authenticate(
+	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len
+)
+{
+	int r;
+	uint16_t sw1sw2;
+
+	if (!ttl || !data) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	// See EMV 4.4 Book 3, 6.5.4.3
+	if (data_len < 8 || data_len > 16) {
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// EXTERNAL AUTHENTICATE
+	// See EMV 4.4 Book 3, 6.5.4
+	emv_debug_info_data("EXTERNAL AUTHENTICATE", data, data_len);
+	r = emv_ttl_external_authenticate(ttl, data, data_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_external_authenticate() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+
+	// See EMV 4.4 Book 3, 6.5.4.5
+	// See EMV 4.4 Book 3, Annex F, table 55
+	if (sw1sw2 == 0x9000) {
+		// Successful EXTERNAL AUTHENTICATE processing
+		return 0;
+	} else if (sw1sw2 == 0x6985) {
+		// Issuer authentication error; terminate session
+		emv_debug_error("Issuer authentication error");
+		return EMV_TAL_ERROR_EXT_AUTH_FAILED;
+	} else {
+		// Issuer authentication failed; terminal may continue session
+		emv_debug_info("Issuer authentication failed");
+		return EMV_TAL_RESULT_EXT_AUTH_FAILED;
+	}
+}

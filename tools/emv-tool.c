@@ -1137,14 +1137,24 @@ int main(int argc, char** argv)
 	if (pos_entry_mode == EMV_POS_ENTRY_MODE_ICC_WITH_CVV &&
 		(cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) == EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC
 	) {
-		printf("\nCompletion\n");
-		r = emv_completion(
+		printf("\nOnline processing\n");
+		r = emv_online_processing(
 			&emv,
 			(uint8_t[]){ 0x30, 0x30 }, // 00 - Approved or completed successfully
 			NULL,
-			0,
-			EMV_TTL_GENAC_TYPE_TC
+			0
 		);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
+
+		printf("\nCompletion\n");
+		r = emv_completion(&emv, EMV_TTL_GENAC_TYPE_TC);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
