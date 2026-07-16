@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <time.h>
 #include <argp.h>
 
@@ -46,6 +47,7 @@ struct emv_txn_t;
 
 // Helper functions
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
+static int parse_hex(const char* hex, void* buf, size_t* buf_len);
 static const char* pcsc_get_reader_state_string(unsigned int reader_state);
 static void print_pcsc_readers(pcsc_ctx_t pcsc);
 static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
@@ -61,6 +63,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_TXN_AMOUNT,
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
 	EMV_TOOL_PARAM_GENAC1_TYPE,
+	EMV_TOOL_PARAM_PROMPT_FOR_ISSUER_AUTH,
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
 	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
 	EMV_TOOL_PARAM_DEBUG_LEVEL,
@@ -82,6 +85,7 @@ static struct argp_option argp_options[] = {
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
 	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
+	{ "prompt-for-issuer-authentication", EMV_TOOL_PARAM_PROMPT_FOR_ISSUER_AUTH, NULL, 0, "Prompt for Issuer Authentication Data (field 91) if GENAC1 indicates ARQC" },
 
 	{ NULL, 0, NULL, 0, "Debug options", 3 },
 	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
@@ -116,6 +120,7 @@ static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
 static uint32_t txn_amount = 0;
 static uint32_t txn_amount_other = 0;
 static uint8_t genac1_ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
+static bool prompt_for_issuer_auth = false;
 
 // Debug parameters
 static bool debug_verbose = false;
@@ -300,6 +305,11 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			return 0;
 		}
 
+		case EMV_TOOL_PARAM_PROMPT_FOR_ISSUER_AUTH: {
+			prompt_for_issuer_auth = true;
+			return 0;
+		}
+
 		case EMV_TOOL_PARAM_DEBUG_VERBOSE: {
 			debug_verbose = true;
 			return 0;
@@ -373,6 +383,54 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		default:
 			return ARGP_ERR_UNKNOWN;
 	}
+}
+
+static int parse_hex(const char* hex, void* buf, size_t* buf_len)
+{
+	size_t max_buf_len;
+
+	if (!buf_len) {
+		return -1;
+	}
+	max_buf_len = *buf_len;
+	*buf_len = 0;
+
+	while (*hex && max_buf_len--) {
+		uint8_t* ptr = buf;
+		char str[3];
+		unsigned int str_idx = 0;
+
+		// Find next two valid hex digits
+		while (*hex && str_idx < 2) {
+			// Skip spaces
+			if (isspace(*hex)) {
+				++hex;
+				continue;
+			}
+			// Only allow hex digits
+			if (!isxdigit(*hex)) {
+				return -2;
+			}
+
+			str[str_idx++] = *hex;
+			++hex;
+		}
+		if (!str_idx) {
+			// No hex digits left
+			continue;
+		}
+		if (str_idx != 2) {
+			// Uneven number of hex digits
+			return 1;
+		}
+		str[2] = 0;
+
+		*ptr = strtoul(str, NULL, 16);
+		++buf;
+		++*buf_len;
+	}
+
+	return 0;
 }
 
 static const char* pcsc_get_reader_state_string(unsigned int reader_state)
@@ -1137,12 +1195,37 @@ int main(int argc, char** argv)
 	if (pos_entry_mode == EMV_POS_ENTRY_MODE_ICC_WITH_CVV &&
 		(cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) == EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC
 	) {
+		uint8_t iad[16]; // See EMV 4.4 Book 3, 6.5.4.3
+		size_t iad_len = 0;
+
+		if (prompt_for_issuer_auth) {
+			// Two hex digits per byte plus whitespace between digits
+			char input[sizeof(iad) * 2 + 16];
+
+			printf("\nEnter Issuer Authentication Data (ASCII-HEX, 8-16 bytes; empty to skip): ");
+			if (!fgets(input, sizeof(input), stdin)) {
+				fprintf(stderr, "Failed to read Issuer Authentication Data\n");
+				goto emv_exit;
+			}
+
+			iad_len = sizeof(iad);
+			r = parse_hex(input, iad, &iad_len);
+			if (r) {
+				fprintf(stderr, "Invalid Issuer Authentication Data\n");
+				goto emv_exit;
+			}
+			if (iad_len && (iad_len < 8 || iad_len > 16)) {
+				fprintf(stderr, "Issuer Authentication Data must be 8 to 16 bytes\n");
+				goto emv_exit;
+			}
+		}
+
 		printf("\nOnline processing\n");
 		r = emv_online_processing(
 			&emv,
 			(uint8_t[]){ 0x30, 0x30 }, // 00 - Approved or completed successfully
-			NULL,
-			0
+			iad_len ? iad : NULL,
+			iad_len
 		);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
