@@ -755,6 +755,53 @@ int emv_ttl_get_data(
 	return 0;
 }
 
+int emv_ttl_external_authenticate(
+	struct emv_ttl_t* ctx,
+	const void* data,
+	size_t data_len,
+	uint16_t* sw1sw2
+)
+{
+	int r;
+	struct iso7816_apdu_case_3s_t c_apdu;
+	uint8_t r_apdu[EMV_RAPDU_MAX];
+	size_t r_apdu_len = sizeof(r_apdu);
+
+	if (!ctx || !data || !data_len || !sw1sw2) {
+		return -1;
+	}
+	// See EMV 4.4 Book 3, 6.5.4.2, table 9
+	// See EMV 4.4 Book 3, 6.5.4.3
+	if (data_len < 8 || data_len > 16) {
+		return -2;
+	}
+
+	// Build EXTERNAL AUTHENTICATE command
+	c_apdu.CLA = 0x00; // See EMV 4.4 Book 3, 6.3.2
+	c_apdu.INS = 0x82; // See EMV 4.4 Book 3, 6.5.4.2, table 9
+	c_apdu.P1  = 0x00; // See EMV 4.4 Book 3, 6.5.4.2, table 9
+	c_apdu.P2  = 0x00; // See EMV 4.4 Book 3, 6.5.4.2, table 9
+	c_apdu.Lc  = data_len;
+	memcpy(c_apdu.data, data, c_apdu.Lc);
+
+	r = emv_ttl_trx(
+		ctx,
+		&c_apdu,
+		iso7816_apdu_case_3s_length(&c_apdu),
+		r_apdu,
+		&r_apdu_len,
+		sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+	if (r_apdu_len != 2) {
+		return -3;
+	}
+
+	return 0;
+}
+
 int emv_ttl_internal_authenticate(
 	struct emv_ttl_t* ctx,
 	const void* data,

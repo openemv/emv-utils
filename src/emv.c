@@ -1630,7 +1630,8 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	switch (ref_ctrl & EMV_TTL_GENAC_TYPE_MASK) {
 		case EMV_TTL_GENAC_TYPE_ARQC:
 			// Authorisation Response Code (field 8A) will be populated by
-			// emv_completion() based on online response
+			// emv_online_processing() based on online response or by
+			// emv_completion()
 			r = 0;
 			break;
 
@@ -1776,32 +1777,149 @@ exit:
 	return r;
 }
 
-int emv_completion(
+int emv_online_processing(
 	struct emv_ctx_t* ctx,
 	const uint8_t arc[2],
 	const uint8_t* iad,
-	size_t iad_len,
-	uint8_t ref_ctrl
+	size_t iad_len
 )
 {
 	int r;
-	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
-	const struct emv_tlv_t* cdol2;
-	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* tlv;
 
 	if (!ctx || !arc) {
 		emv_debug_trace_msg("ctx=%p, arc=%p", ctx, arc);
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
-	if (!ctx->tvr) {
-		emv_debug_trace_msg("tvr=%p", ctx->tvr);
+	if (!ctx->tvr || !ctx->tsi || !ctx->aip) {
+		emv_debug_trace_msg(
+			"tvr=%p, tsi=%p, aip=%p",
+			ctx->tvr, ctx->tsi, ctx->aip
+		);
 		emv_debug_error("Invalid context variable");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 	if (!iad && iad_len) {
 		emv_debug_trace_msg("iad=%p, iad_len=%zu", iad, iad_len);
 		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Ensure that Issuer Authentication Data length is valid
+	// See EMV 4.4 Book 3, 6.5.4.3
+	if (iad && (iad_len < 8 || iad_len > 16)) {
+		emv_debug_trace_msg("iad_len=%zu", iad_len);
+		emv_debug_error("Invalid Issuer Authentication Data length");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Online processing");
+
+	// See EMV 4.4 Book 4, 12.2.2
+	ctx->tsi->value[0] &= ~EMV_TSI_ISSUER_AUTHENTICATION_PERFORMED;
+
+	// Update terminal data list for issuer response fields
+	// See EMV 4.4 Book 4, 6.3.8
+	tlv = emv_tlv_list_find(&ctx->terminal, EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE);
+	if (tlv) {
+		// Authorisation Response Code (field 8A) was populated by
+		// emv_card_action_analysis() and must be updated
+		if (tlv->length != 2) {
+			emv_debug_error("Authorisation Response Code (8A) has invalid length %u",
+				tlv->length
+			);
+			return EMV_ERROR_INTERNAL;
+		}
+		memcpy(tlv->value, arc, 2);
+	} else {
+		r = emv_tlv_list_push(
+			&ctx->terminal,
+			EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+			2,
+			arc,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+	if (iad && iad_len) {
+		r = emv_tlv_list_push(
+			&ctx->terminal,
+			EMV_TAG_91_ISSUER_AUTHENTICATION_DATA,
+			iad_len,
+			iad,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	// Issuer authentication is only possible when the AIP indicates that it is
+	// supported and the Issuer Authentication Data is available
+	// See EMV 4.4 Book 3, 10.9
+	if (!(ctx->aip->value[0] & EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED)) {
+		emv_debug_info("EXTERNAL AUTHENTICATE not supported");
+		return 0;
+	}
+	if (!iad || !iad_len) {
+		return 0;
+	}
+
+	// Perform issuer authentication
+	// See EMV 4.4 Book 3, 10.9
+	r = emv_tal_external_authenticate(ctx->ttl, iad, iad_len);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_tal_external_authenticate() failed; r=%d", r);
+		emv_debug_error("Error during issuer authentication; terminate session");
+
+		if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+			return EMV_ERROR_INTERNAL;
+		} else {
+			// All other EXTERNAL AUTHENTICATE errors are card errors
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+	if (r > 0) {
+		if (r == EMV_TAL_RESULT_EXT_AUTH_FAILED) {
+			// See EMV 4.4 Book 3, Annex F, table 55
+			emv_debug_info("Issuer authentication failed");
+			ctx->tvr->value[4] |= EMV_TVR_ISSUER_AUTHENTICATION_FAILED;
+		} else {
+			// All other EXTERNAL AUTHENTICATE results are card errors
+			emv_debug_error("Error during issuer authentication; terminate session");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+
+	// See EMV 4.4 Book 3, 10.9
+	ctx->tsi->value[0] |= EMV_TSI_ISSUER_AUTHENTICATION_PERFORMED;
+
+	return 0;
+}
+
+int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
+{
+	int r;
+	const struct emv_tlv_t* arc;
+	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
+	const struct emv_tlv_t* cdol2;
+	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->tvr) {
+		emv_debug_trace_msg("tvr=%p", ctx->tvr);
+		emv_debug_error("Invalid context variable");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 	if (ref_ctrl != EMV_TTL_GENAC_TYPE_AAC &&
@@ -1814,29 +1932,29 @@ int emv_completion(
 
 	emv_debug_info("Completion");
 
-	// Append issuer response fields to terminal data list because these may be
-	// needed for CDOL2
-	// See EMV 4.4 Book 4, 6.3.8
-	r = emv_tlv_list_push(
-		&ctx->terminal,
-		EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
-		2,
-		arc,
-		0
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		return EMV_ERROR_INTERNAL;
-	}
-	if (iad && iad_len) {
-		r = emv_tlv_list_push(
-			&ctx->terminal,
-			EMV_TAG_91_ISSUER_AUTHENTICATION_DATA,
-			iad_len,
-			iad,
-			0
-		);
+	// Ensure that Authorisation Response Code (field 8A) is available if not
+	// already populated by emv_online_processing()
+	// See EMV 4.4 Book 4, 6.3.6
+	// See EMV 4.4 Book 4, 12.2
+	arc = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE);
+	if (!arc) {
+		if (ref_ctrl == EMV_TTL_GENAC_TYPE_TC) {
+			r = emv_tlv_list_push(
+				&ctx->terminal,
+				EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+				2,
+				(uint8_t[]){ 0x59, 0x33 }, // Y3 — Unable to go online, offline approved
+				0
+			);
+		} else {
+			r = emv_tlv_list_push(
+				&ctx->terminal,
+				EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+				2,
+				(uint8_t[]){ 0x5A, 0x33 }, // Z3 — Unable to go online, offline declined
+				0
+			);
+		}
 		if (r) {
 			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
 			emv_debug_error("Internal error");
