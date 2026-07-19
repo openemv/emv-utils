@@ -31,9 +31,10 @@ See [usage](#usage) for more examples.
 Installation
 ------------
 
-* For Ubuntu 22.04 LTS (Jammy) or 24.04 LTS (Noble), install the appropriate
-  Ubuntu [release package](https://github.com/openemv/emv-utils/releases)
-* For Fedora 41 or Fedora 42, install the appropriate Fedora
+* For Ubuntu 22.04 LTS (Jammy), 24.04 LTS (Noble), or 26.04 LTS (Resolute),
+  install the appropriate Ubuntu
+  [release package](https://github.com/openemv/emv-utils/releases)
+* For Fedora 43 or Fedora 44, install the appropriate Fedora
   [release package](https://github.com/openemv/emv-utils/releases)
 * For Gentoo, use the
   [OpenEMV overlay](https://github.com/openemv/openemv-overlay), set the

@@ -16,8 +16,14 @@ on:
 
 jobs:
   analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Ubuntu 26.04", os: "ubuntu-26.04", ubuntu_release_name: "resolute", build_type: "Debug" }
+
+    name: ${{ matrix.name }} build (CodeQL)
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 360
     permissions:
       security-events: write
@@ -26,15 +32,15 @@ jobs:
       contents: read
 
     steps:
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libmbedtls-dev libxml2-dev libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev qt6-base-dev
+
     - name: Checkout
       uses: actions/checkout@v6
       with:
         submodules: recursive
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libmbedtls-dev libxml2-dev libboost-locale-dev iso-codes libjson-c-dev libpcsclite-dev qtbase5-dev
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4
@@ -46,7 +52,7 @@ jobs:
     - name: Build
       run: |
         cmake -B build \
-          -DCMAKE_BUILD_TYPE="Debug" \
+          -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=YES \
           -DBUILD_EMV_VIEWER=YES
