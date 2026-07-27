@@ -35,7 +35,7 @@
 
 #include <string.h>
 #include <stdarg.h>
-#include <stdio.h> // for vsnprintf() and snprintf()
+#include <stdio.h> // For vsnprintf() and snprintf()
 #include <ctype.h>
 
 #if defined(__clang__)

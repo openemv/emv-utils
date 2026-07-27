@@ -2,7 +2,7 @@
  * @file iso7816.h
  * @brief ISO/IEC 7816 definitions and helper functions
  *
- * Copyright 2021, 2023 Leon Lynch
+ * Copyright 2021, 2023. 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -246,7 +246,7 @@ struct iso7816_atr_info_t {
 
 		// Global interface parameters provided by TA2
 		bool specific_mode; ///< Boolean indicating whether specific mode is available
-		unsigned int specific_mode_protocol; ///< Required protocol (if @ref specific_mode is true)
+		unsigned int specific_mode_protocol; ///< Required protocol (if @ref iso7816_atr_info_t::specific_mode is true)
 		bool etu_is_implicit; ///< Boolean indicating whether ETU duration is implicitly known by reader (otherwise it is defined by TA1)
 		bool specific_mode_may_change; ///< Boolean indicating that specific/negotiable mode may change (eg after warm ATR)
 

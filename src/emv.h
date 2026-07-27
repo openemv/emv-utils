@@ -152,7 +152,8 @@ struct emv_txn_log_entry_t {
 };
 
 /**
- * EMV errors
+ * @brief EMV errors
+ *
  * These are typically for internal errors and errors caused by invalid use of
  * the API functions in this header, and must have values less than zero.
  */
@@ -163,7 +164,8 @@ enum emv_error_t {
 };
 
 /**
- * EMV processing outcomes
+ * @brief EMV processing outcomes
+ *
  * These indicate the EMV processing outcome, if any, and must have values
  * greater than zero.
  */
@@ -182,7 +184,7 @@ enum emv_outcome_t {
 const char* emv_lib_version_string(void);
 
 /**
- * Initialize EMV processing context
+ * Initialise EMV processing context
  *
  * @param ctx EMV processing context
  * @param ttl Terminal Transport Layer (TTL) context. NULL if not available.
@@ -450,8 +452,9 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 );
 
 /**
- * Perform EMV Card Action Analysis to determined the risk management decision
- * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM.
+ * Perform EMV Card Action Analysis to determine the risk management decision
+ * by the ICC as indicated in the response from GENERATE APPLICATION CRYPTOGRAM
+ * (GENAC1).
  *
  * If CDA or XDA were selected during Offline Data Authentication (ODA), this
  * function will request the appropriate signature and process the resulting

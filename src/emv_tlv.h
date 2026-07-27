@@ -94,7 +94,8 @@ struct emv_tlv_sources_itr_t {
 
 /**
  * Free EMV TLV field
- * @note This function should not be used to free EMV TLV fields that are elements of a list
+ * @note This function should not be used to free EMV TLV fields that are
+ *       elements of a list
  * @param tlv EMV TLV field to free
  * @return Zero for success. Non-zero if it is unsafe to free the EMV TLV field.
  */
@@ -196,8 +197,8 @@ bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list);
 /**
  * Append one EMV TLV list to another
  * @param list EMV TLV list to which to append
- * @param other EMV TLV list that will be appended to the list provided in @c list.
- *              This list will be empty if the function succeeds.
+ * @param other EMV TLV list that will be appended to the list provided in
+ *              @c list. This list will be empty if the function succeeds.
  * @return Zero for success. Less than zero for error.
  */
 int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other);
@@ -233,7 +234,7 @@ const struct emv_tlv_t* emv_tlv_sources_find_const(
  * Initialise EMV TLV sources iterator
  * @param sources EMV TLV sources
  * @param itr EMV TLV sources iterator output
- * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ * @return Zero for success. Less than zero for internal error.
  */
 int emv_tlv_sources_itr_init(
 	const struct emv_tlv_sources_t* sources,
