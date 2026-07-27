@@ -690,7 +690,7 @@ static int pcsc_reader_internal_get_uid(pcsc_reader_ctx_t reader_ctx, uint8_t* u
 		return r;
 	}
 	if (rx_len < 2) {
-		// Invalid respones length
+		// Invalid response length
 		return -5;
 	}
 

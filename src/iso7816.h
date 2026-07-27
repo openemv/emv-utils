@@ -2,7 +2,7 @@
  * @file iso7816.h
  * @brief ISO/IEC 7816 definitions and helper functions
  *
- * Copyright 2021, 2023 Leon Lynch
+ * Copyright 2021, 2023, 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -153,9 +153,9 @@ struct iso7816_atr_info_t {
 	 *   - Low 4 bits encode the bit rate adjustment factor Di
 	 *   - High 4 bits encode the clock rate conversion factor Fi and maximum clock frequency fmax
 	 * - Interface byte TA[2] indicates that reader should use specific mode as indicated by earlier global interface bytes, instead of negotiable mode
-	 *     - Low 4 bits encode the protocol required for specific mode
-	 *     - Bit 5 indicates whether ETU duration is implicitly known by reader
-	 *     - Bit 8 indicating whether specific/negotiable mode may change (eg after warm ATR)
+	 *   - Low 4 bits encode the protocol required for specific mode
+	 *   - Bit 5 indicates whether ETU duration is implicitly known by reader
+	 *   - Bit 8 indicating whether specific/negotiable mode may change (eg after warm ATR)
 	 * - Further interface bytes TA[x>2] indicate the maximum receive block size (if protocol T=1)
 	 *   or supported card class supply voltages and clock stop support (if global T=15)
 	 */
@@ -246,7 +246,7 @@ struct iso7816_atr_info_t {
 
 		// Global interface parameters provided by TA2
 		bool specific_mode; ///< Boolean indicating whether specific mode is available
-		unsigned int specific_mode_protocol; ///< Required protocol (if @ref specific_mode is true)
+		unsigned int specific_mode_protocol; ///< Required protocol (if @ref iso7816_atr_info_t::specific_mode is true)
 		bool etu_is_implicit; ///< Boolean indicating whether ETU duration is implicitly known by reader (otherwise it is defined by TA1)
 		bool specific_mode_may_change; ///< Boolean indicating that specific/negotiable mode may change (eg after warm ATR)
 

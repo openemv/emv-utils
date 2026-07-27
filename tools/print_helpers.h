@@ -202,7 +202,7 @@ void print_emv_config_app(
 
 /**
  * Print EMV application configuration list
- * @param app EMV configuration object
+ * @param config EMV configuration object
  */
 void print_emv_config_app_list(const struct emv_config_t* config);
 

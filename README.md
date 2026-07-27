@@ -210,9 +210,10 @@ cmake --build build
 ```
 
 On MacOS, a bundle can also be built using the `BUILD_MACOSX_BUNDLE` option and
-packaged as a DMG installer. Assuming `QT_DIR` is already appropriately set,
-this is an example of how a self-contained, static, native bundle and installer
-can be built from scratch for MacOS:
+packaged as a DMG installer. Assuming the appropriate CMake environment
+variables have already been set for all dependencies to be found, this is an
+example of how a self-contained, static, native bundle and installer can be
+built from scratch for MacOS:
 ```shell
 rm -Rf build &&
 cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_MBEDTLS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_MACOSX_BUNDLE=YES &&
@@ -220,10 +221,10 @@ cmake --build build --target package
 ```
 
 On Windows, a standalone installation that includes external dependencies can
-also be built using the `BUILD_WIN_STANDALONE` option and packaged using NSIS.
-Assuming `QT_DIR` is already appropriately set to a Qt installation that can
-deploy its own dependencies, this is an example of how a self-contained
-installer can be built for Windows:
+be built using the `BUILD_WIN_STANDALONE` option and packaged using
+[NSIS](https://nsis.sourceforge.io). Assuming the appropriate CMake environment
+variables have already been set for all dependencies to be found, this is an
+example of how a self-contained installer can be built for Windows:
 ```shell
 rm -Rf build &&
 cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DBUILD_SHARED_LIBS=YES -DFETCH_MBEDTLS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_WIN_STANDALONE=YES &&
