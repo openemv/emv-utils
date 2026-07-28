@@ -167,7 +167,10 @@ struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list);
  * @param tag EMV tag to find
  * @return EMV TLV field. Do NOT free. NULL if not found.
  */
-struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int tag);
+struct emv_tlv_t* emv_tlv_list_find(
+	struct emv_tlv_list_t* list,
+	unsigned int tag
+);
 
 /**
  * Const alternative for @ref emv_tlv_list_find

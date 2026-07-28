@@ -161,9 +161,17 @@ int emv_tlv_list_push(
 		return -1;
 	}
 
+	if (length && !value) {
+		return -2;
+	}
+	if (length > 0xFFFF) {
+		// EMV TLV content should not be excessively large
+		return -3;
+	}
+
 	tlv = emv_tlv_alloc(tag, length, value, flags);
 	if (!tlv) {
-		return -2;
+		return -4;
 	}
 
 	if (list->back) {
@@ -184,6 +192,7 @@ int emv_tlv_list_push_asn1_object(
 	const uint8_t* ber_bytes
 ) {
 	int r;
+	size_t max_encoded_oid_length;
 	size_t encoded_oid_length;
 	size_t max_length;
 	uint8_t* value = NULL;
@@ -199,7 +208,6 @@ int emv_tlv_list_push_asn1_object(
 		return -2;
 	}
 
-
 	if (ber_length && !ber_bytes) {
 		return -3;
 	}
@@ -209,8 +217,8 @@ int emv_tlv_list_push_asn1_object(
 	}
 
 	// Assume a maximum of 5 octets per OID subidentifier
-	encoded_oid_length = oid->length * 5;
-	max_length = 1 + 1 + encoded_oid_length + ber_length;
+	max_encoded_oid_length = oid->length * 5;
+	max_length = 1 + 1 + max_encoded_oid_length + ber_length;
 	value = malloc(max_length);
 	if (!value) {
 		return -5;
@@ -218,12 +226,15 @@ int emv_tlv_list_push_asn1_object(
 
 	// Encode OID
 	value[0] = ASN1_OBJECT_IDENTIFIER;
+	encoded_oid_length = max_encoded_oid_length;
 	r = iso8825_ber_oid_encode(oid, value + 2, &encoded_oid_length);
 	if (r) {
 		r = -6;
 		goto exit;
 	}
-	if (encoded_oid_length > 127) {
+	if (encoded_oid_length > 127 || // Short length form
+		encoded_oid_length > max_encoded_oid_length // Max allocated length
+	) {
 		r = -7;
 		goto exit;
 	}
@@ -282,7 +293,10 @@ struct emv_tlv_t* emv_tlv_list_pop(struct emv_tlv_list_t* list)
 	return tlv;
 }
 
-struct emv_tlv_t* emv_tlv_list_find(struct emv_tlv_list_t* list, unsigned int tag)
+struct emv_tlv_t* emv_tlv_list_find(
+	struct emv_tlv_list_t* list,
+	unsigned int tag
+)
 {
 	struct emv_tlv_t* tlv = NULL;
 
