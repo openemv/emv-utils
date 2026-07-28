@@ -361,7 +361,7 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 	max_buf_len = *buf_len;
 	*buf_len = 0;
 
-	while (*hex && max_buf_len--) {
+	while (*hex && max_buf_len) {
 		uint8_t* ptr = buf;
 		char str[3];
 		unsigned int str_idx = 0;
@@ -369,12 +369,12 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 		// Find next two valid hex digits
 		while (*hex && str_idx < 2) {
 			// Skip spaces
-			if (isspace(*hex)) {
+			if (isspace((unsigned char)*hex)) {
 				++hex;
 				continue;
 			}
 			// Only allow hex digits
-			if (!isxdigit(*hex)) {
+			if (!isxdigit((unsigned char)*hex)) {
 				return -2;
 			}
 
@@ -394,6 +394,7 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 		*ptr = strtoul(str, NULL, 16);
 		++buf;
 		++*buf_len;
+		--max_buf_len;
 	}
 
 	return 0;
