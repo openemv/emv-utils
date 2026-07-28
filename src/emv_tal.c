@@ -1277,7 +1277,7 @@ int emv_tal_genac(
 
 	// GENERATE APPLICATION CRYPTOGRAM
 	// See EMV 4.4 Book 3, 9
-	emv_debug_info("GENAC [P1=0x%02X]", ref_ctrl);
+	emv_debug_info("GENAC [P1=0x%02X; Lc=%zu]", ref_ctrl, data_len);
 	r = emv_ttl_genac(ttl, ref_ctrl, data, data_len, response, &response_len, &sw1sw2);
 	if (r) {
 		emv_debug_trace_msg("emv_ttl_genac() failed; r=%d", r);
