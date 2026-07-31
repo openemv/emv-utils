@@ -139,6 +139,41 @@ install(
 		COMPONENT emv_development
 )
 
+# ISO 14443 library
+add_library(iso14443
+	iso14443.c
+)
+set(iso14443_HEADERS # PUBLIC_HEADER property requires a list instead of individual entries
+	iso14443.h
+)
+set(iso14443_HEADERS ${iso14443_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
+add_library(emv::iso14443 ALIAS iso14443)
+set_target_properties(iso14443
+	PROPERTIES
+		PUBLIC_HEADER "${iso14443_HEADERS}"
+		VERSION ${CMAKE_PROJECT_VERSION}
+		SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}
+)
+target_include_directories(iso14443 INTERFACE
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+	$<INSTALL_INTERFACE:include/iso14443>
+)
+install(
+	TARGETS
+		iso14443
+	EXPORT emvUtilsTargets # For use by install(EXPORT) command
+	PUBLIC_HEADER
+		DESTINATION "include/iso14443"
+		COMPONENT emv_development
+	RUNTIME
+		COMPONENT emv_runtime
+	LIBRARY
+		COMPONENT emv_runtime
+		NAMELINK_COMPONENT emv_development
+	ARCHIVE
+		COMPONENT emv_development
+)
+
 # ISO 8825 library
 add_library(iso8825
 	iso8825_ber.c
