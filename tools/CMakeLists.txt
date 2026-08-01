@@ -230,17 +230,37 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 
 	add_test(NAME emv_decode_ats_test1
-		COMMAND emv-decode --ats 0578804800
+		COMMAND emv-decode --ats 14788048000031C173C8211064414D3130079000
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_ats_test1_regex
-		"^ATS: 0578804800[\r\n]"
-		"  TL    = 0x05: Total ATS length \\(5 bytes\\)[\r\n]"
+		"^ATS: 14788048000031C173C8211064414D3130079000[\r\n]"
+		"  TL    = 0x14: Total ATS length \\(20 bytes\\)[\r\n]"
 		"  ----[\r\n]"
 		"  T0    = 0x78: TA\\(1\\),TB\\(1\\),TC\\(1\\)\\\\; FSC=256[\r\n]"
 		"  TA\\(1\\) = 0x80: DS=106 kbit/s\\\\; DR=106 kbit/s\\\\; same D required[\r\n]"
 		"  TB\\(1\\) = 0x48: FWI=4\\\\; SFGI=8[\r\n]"
-		"  TC\\(1\\) = 0x00: CID not supported\\\\; NAD not supported[\r\n]$"
+		"  TC\\(1\\) = 0x00: CID not supported\\\\; NAD not supported[\r\n]"
+		"  ----[\r\n]"
+		"  T1  = 0x00: COMPACT-TLV followed by mandatory status indicator[\r\n]"
+		"  Card service data \\(0x3\\): \\[1\\] C1[\r\n]"
+		"    - Application selection: by full DF name[\r\n]"
+		"    - Application selection: by partial DF name[\r\n]"
+		"    - EF\\.DIR and EF\\.ATR access services: by READ RECORD\\(S\\) command \\(record structure\\)[\r\n]"
+		"    - Card without MF[\r\n]"
+		"  Card capabilities \\(0x7\\): \\[3\\] C8 21 10[\r\n]"
+		"    - DF selection: by full DF NAME[\r\n]"
+		"    - DF selection: by partial DF NAME[\r\n]"
+		"    - DF selection: implicit[\r\n]"
+		"    - Behaviour of write functions: proprietary[\r\n]"
+		"    - FF as first byte of BER-TLV tag is invalid / padding[\r\n]"
+		"    - Data unit size: 1 bytes[\r\n]"
+		"    - Logical channel number assignment: by the card[\r\n]"
+		"    - Maximum number of logical channels: 1[\r\n]"
+		"  Pre-issuing data \\(0x6\\): \\[4\\] 41 4D 31 30[\r\n]"
+		"  ----[\r\n]"
+		"  LCS = 07: Operational state \\(activated\\)[\r\n]"
+		"  SW  = 9000: \\(Normal\\)[\r\n]$"
 	)
 	set_tests_properties(emv_decode_ats_test1
 		PROPERTIES

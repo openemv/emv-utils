@@ -158,6 +158,10 @@ target_include_directories(iso14443 INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 	$<INSTALL_INTERFACE:include/iso14443>
 )
+target_link_libraries(iso14443
+	PRIVATE
+		iso7816 # Used for COMPACT-TLV parsing
+)
 install(
 	TARGETS
 		iso14443
