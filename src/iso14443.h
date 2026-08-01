@@ -152,6 +152,42 @@ struct iso14443_ats_info_t {
  */
 int iso14443_ats_parse(const uint8_t* ats, size_t ats_len, struct iso14443_ats_info_t* ats_info);
 
+/**
+ * Stringify ISO/IEC 14443 ATS format byte T0
+ * @param ats_info Parsed ATS info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_ats_T0_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len);
+
+/**
+ * Stringify ISO/IEC 14443 ATS interface byte TA(1)
+ * @param ats_info Parsed ATS info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_ats_TA1_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len);
+
+/**
+ * Stringify ISO/IEC 14443 ATS interface byte TB(1)
+ * @param ats_info Parsed ATS info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_ats_TB1_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len);
+
+/**
+ * Stringify ISO/IEC 14443 ATS interface byte TC(1)
+ * @param ats_info Parsed ATS info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_ats_TC1_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len);
+
 __END_DECLS
 
 #endif

@@ -99,12 +99,12 @@ add_library(print_helpers OBJECT EXCLUDE_FROM_ALL print_helpers.c)
 target_include_directories(print_helpers INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
-target_link_libraries(print_helpers PRIVATE iso7816 emv emv_strings)
+target_link_libraries(print_helpers PRIVATE iso7816 iso14443 emv emv_strings)
 
 # EMV decode command line tool
 if(BUILD_EMV_DECODE)
 	add_executable(emv-decode emv-decode.c)
-	target_link_libraries(emv-decode PRIVATE print_helpers iso7816 emv emv_strings iso8859)
+	target_link_libraries(emv-decode PRIVATE print_helpers iso7816 iso14443 emv emv_strings iso8859)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-decode PRIVATE libargp::argp)
 	endif()
@@ -227,6 +227,24 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	set_tests_properties(emv_decode_test1
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION ${emv_decode_test1_regex}
+	)
+
+	add_test(NAME emv_decode_ats_test1
+		COMMAND emv-decode --ats 0578804800
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_ats_test1_regex
+		"^ATS: 0578804800[\r\n]"
+		"  TL    = 0x05: Total ATS length \\(5 bytes\\)[\r\n]"
+		"  ----[\r\n]"
+		"  T0    = 0x78: TA\\(1\\),TB\\(1\\),TC\\(1\\)\\\\; FSC=256[\r\n]"
+		"  TA\\(1\\) = 0x80: DS=106 kbit/s\\\\; DR=106 kbit/s\\\\; same D required[\r\n]"
+		"  TB\\(1\\) = 0x48: FWI=4\\\\; SFGI=8[\r\n]"
+		"  TC\\(1\\) = 0x00: CID not supported\\\\; NAD not supported[\r\n]$"
+	)
+	set_tests_properties(emv_decode_ats_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_ats_test1_regex}
 	)
 
 	add_test(NAME emv_decode_test2

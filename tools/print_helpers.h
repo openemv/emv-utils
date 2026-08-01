@@ -30,6 +30,7 @@
 
 // Forward declarations
 struct iso7816_atr_info_t;
+struct iso14443_ats_info_t;
 struct emv_ctx_t;
 struct emv_tlv_t;
 struct emv_tlv_list_t;
@@ -104,6 +105,12 @@ void print_atr(const struct iso7816_atr_info_t* atr_info);
  * @param atr_info Parsed ATR info
  */
 void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info);
+
+/**
+ * Print ATS details
+ * @param ats_info Parsed ATS info
+ */
+void print_ats(const struct iso14443_ats_info_t* ats_info);
 
 /**
  * Print C-APDU

@@ -25,6 +25,8 @@
 #include "iso7816_compact_tlv.h"
 #include "iso7816_strings.h"
 
+#include "iso14443.h"
+
 #include "iso8825_ber.h"
 #include "iso8825_strings.h"
 
@@ -267,6 +269,71 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 	if (r) {
 		printf("Failed to parse ATR historical bytes\n");
 		return;
+	}
+}
+
+void print_ats(const struct iso14443_ats_info_t* ats_info)
+{
+	char str[1024];
+
+	print_buf("ATS", ats_info->ats, ats_info->ats_len);
+
+	printf("  TL    = 0x%02X: Total ATS length (%u bytes)\n",
+		ats_info->TL,
+		ats_info->TL
+	);
+
+	printf("  ----\n");
+	if (ats_info->T0) {
+		printf("  T0    = 0x%02X: %s\n",
+			*ats_info->T0,
+			iso14443_ats_T0_get_string(ats_info, str, sizeof(str))
+		);
+	} else {
+		printf("  T0 absent: %s\n",
+			iso14443_ats_T0_get_string(ats_info, str, sizeof(str))
+		);
+	}
+
+	if (ats_info->TA1) {
+		printf("  TA(1) = 0x%02X: %s\n",
+			*ats_info->TA1,
+			iso14443_ats_TA1_get_string(ats_info, str, sizeof(str))
+		);
+	} else {
+		printf("  TA(1) absent: %s\n",
+			iso14443_ats_TA1_get_string(ats_info, str, sizeof(str))
+		);
+	}
+
+	if (ats_info->TB1) {
+		printf("  TB(1) = 0x%02X: %s\n",
+			*ats_info->TB1,
+			iso14443_ats_TB1_get_string(ats_info, str, sizeof(str))
+		);
+	} else {
+		printf("  TB(1) absent: %s\n",
+			iso14443_ats_TB1_get_string(ats_info, str, sizeof(str))
+		);
+	}
+
+	if (ats_info->TC1) {
+		printf("  TC(1) = 0x%02X: %s\n",
+			*ats_info->TC1,
+			iso14443_ats_TC1_get_string(ats_info, str, sizeof(str))
+		);
+	} else {
+		printf("  TC(1) absent: %s\n",
+			iso14443_ats_TC1_get_string(ats_info, str, sizeof(str))
+		);
+	}
+
+	if (ats_info->historical_bytes_len) {
+		printf("  ----\n");
+		print_buf("  Historical bytes",
+			ats_info->historical_bytes,
+			ats_info->historical_bytes_len
+		);
 	}
 }
 

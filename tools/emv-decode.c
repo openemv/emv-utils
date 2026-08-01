@@ -22,6 +22,7 @@
 #include "emv_capk.h"
 #include "emv_strings.h"
 #include "iso7816.h"
+#include "iso14443.h"
 #include "print_helpers.h"
 #include "isocodes_lookup.h"
 #include "iso8859.h"
@@ -55,6 +56,7 @@ static size_t arg_str_len = 0;
 enum emv_decode_mode_t {
 	EMV_DECODE_NONE = -255, // Negative value to avoid short options
 	EMV_DECODE_ATR,
+	EMV_DECODE_ATS,
 	EMV_DECODE_SW1SW2,
 	EMV_DECODE_BER,
 	EMV_DECODE_TLV,
@@ -111,8 +113,9 @@ static char* mcc_json = NULL;
 
 // argp option structure
 static struct argp_option argp_options[] = {
-	{ NULL, 0, NULL, 0, "ISO 7816:", 1 },
+	{ NULL, 0, NULL, 0, "ISO 7816 / ISO 14443:", 1 },
 	{ "atr", EMV_DECODE_ATR, NULL, 0, "Decode ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
+	{ "ats", EMV_DECODE_ATS, NULL, 0, "Decode ISO 14443 Answer-To-Select (ATS), including initial byte TL" },
 	{ "sw1sw2", EMV_DECODE_SW1SW2, NULL, 0, "Decode ISO 7816 Status bytes SW1-SW2, eg 9000" },
 
 	{ NULL, 0, NULL, 0, "TLV data:", 2 },
@@ -259,6 +262,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		}
 
 		case EMV_DECODE_ATR:
+		case EMV_DECODE_ATS:
 		case EMV_DECODE_SW1SW2:
 		case EMV_DECODE_BER:
 		case EMV_DECODE_TLV:
@@ -499,6 +503,31 @@ int main(int argc, char** argv)
 			}
 
 			print_atr(&atr_info);
+			break;
+		}
+
+		case EMV_DECODE_ATS: {
+			struct iso14443_ats_info_t ats_info;
+
+			if (data_len < ISO14443_ATS_MIN_SIZE) {
+				fprintf(stderr, "ATS may not have less than %u digits (thus %u bytes)\n", ISO14443_ATS_MIN_SIZE * 2, ISO14443_ATS_MIN_SIZE);
+				ret = EXIT_FAILURE;
+				break;
+			}
+			if (data_len > ISO14443_ATS_MAX_SIZE) {
+				fprintf(stderr, "ATS may not have more than %u digits (thus %u bytes)\n", ISO14443_ATS_MAX_SIZE * 2, ISO14443_ATS_MAX_SIZE);
+				ret = EXIT_FAILURE;
+				break;
+			}
+
+			r = iso14443_ats_parse(data, data_len, &ats_info);
+			if (r) {
+				fprintf(stderr, "Failed to parse ATS\n");
+				ret = EXIT_FAILURE;
+				break;
+			}
+
+			print_ats(&ats_info);
 			break;
 		}
 

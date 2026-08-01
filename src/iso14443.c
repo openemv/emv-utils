@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 // Helper functions
@@ -252,4 +253,121 @@ static int iso14443_ats_parse_TC1(uint8_t TC1, struct iso14443_ats_info_t* ats_i
 	ats_info->NAD_supported = (TC1 & ISO14443_ATS_TC1_NAD) != 0;
 
 	return 0;
+}
+
+const char* iso14443_ats_T0_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len)
+{
+	int r;
+	char* str_ptr = str;
+	const char* add_comma = "";
+
+	if (!ats_info) {
+		return NULL;
+	}
+
+	// List which interface bytes are announced by T0
+	// See ISO 14443-4:2008, 5.2.3
+	if (ats_info->T0) {
+		if (*ats_info->T0 & ISO14443_ATS_T0_TA1_PRESENT) {
+			r = snprintf(str_ptr, str_len, "%s%s", add_comma, "TA(1)");
+			if (r >= str_len) {
+				// Not enough space in string buffer; return truncated content
+				return str;
+			}
+			str_ptr += r;
+			str_len -= r;
+			add_comma = ",";
+		}
+		if (*ats_info->T0 & ISO14443_ATS_T0_TB1_PRESENT) {
+			r = snprintf(str_ptr, str_len, "%s%s", add_comma, "TB(1)");
+			if (r >= str_len) {
+				// Not enough space in string buffer; return truncated content
+				return str;
+			}
+			str_ptr += r;
+			str_len -= r;
+			add_comma = ",";
+		}
+		if (*ats_info->T0 & ISO14443_ATS_T0_TC1_PRESENT) {
+			r = snprintf(str_ptr, str_len, "%s%s", add_comma, "TC(1)");
+			if (r >= str_len) {
+				// Not enough space in string buffer; return truncated content
+				return str;
+			}
+			str_ptr += r;
+			str_len -= r;
+			add_comma = ",";
+		}
+	}
+
+	// Separator before FSC if any interface byte was listed
+	if (add_comma[0] != '\0') {
+		r = snprintf(str_ptr, str_len, "; ");
+		if (r >= str_len) {
+			// Not enough space in string buffer; return truncated content
+			return str;
+		}
+		str_ptr += r;
+		str_len -= r;
+	}
+
+	snprintf(str_ptr, str_len, "FSC=%u", ats_info->FSC);
+
+	return str;
+}
+
+const char* iso14443_ats_TA1_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len)
+{
+	if (!ats_info) {
+		return NULL;
+	}
+
+	// NOTE: It is not necessary to check ats_info->TA1 here. Even if TA(1) is
+	// absent, ats_info will nonetheless indicate the defaults.
+
+	snprintf(str, str_len,
+		"DS=106%s%s%s kbit/s; DR=106%s%s%s kbit/s%s",
+		ats_info->DS & ISO14443_D2_SUPPORTED ? ", 212" : "",
+		ats_info->DS & ISO14443_D4_SUPPORTED ? ", 424" : "",
+		ats_info->DS & ISO14443_D8_SUPPORTED ? ", 848" : "",
+		ats_info->DR & ISO14443_D2_SUPPORTED ? ", 212" : "",
+		ats_info->DR & ISO14443_D4_SUPPORTED ? ", 424" : "",
+		ats_info->DR & ISO14443_D8_SUPPORTED ? ", 848" : "",
+		ats_info->same_d_required ? "; same D required" : ""
+	);
+
+	return str;
+}
+
+const char* iso14443_ats_TB1_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len)
+{
+	if (!ats_info) {
+		return NULL;
+	}
+
+	// NOTE: It is not necessary to check ats_info->TB1 here. Even if TB(1) is
+	// absent, ats_info will nonetheless indicate the defaults.
+
+	snprintf(str, str_len, "FWI=%u; SFGI=%u",
+		ats_info->FWI, ats_info->SFGI
+	);
+
+	return str;
+}
+
+const char* iso14443_ats_TC1_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len)
+{
+	if (!ats_info) {
+		return NULL;
+	}
+
+	// NOTE: It is not necessary to check ats_info->TC1 here. Even if TC(1) is
+	// absent, ats_info will nonetheless indicate the defaults.
+
+	snprintf(str, str_len, "CID %ssupported; NAD %ssupported",
+		ats_info->CID_supported ? "" : "not ",
+		ats_info->NAD_supported ? "" : "not "
+	);
+
+	return str;
 }
