@@ -107,10 +107,16 @@ void print_atr(const struct iso7816_atr_info_t* atr_info);
 void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info);
 
 /**
- * Print ATS details
+ * Print ATS details, including historical bytes
  * @param ats_info Parsed ATS info
  */
 void print_ats(const struct iso14443_ats_info_t* ats_info);
+
+/**
+ * Print ATS historical bytes
+ * @param ats_info Parsed ATS info
+ */
+void print_ats_historical_bytes(const struct iso14443_ats_info_t* ats_info);
 
 /**
  * Print C-APDU

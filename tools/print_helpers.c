@@ -328,12 +328,95 @@ void print_ats(const struct iso14443_ats_info_t* ats_info)
 		);
 	}
 
-	if (ats_info->historical_bytes_len) {
+	if (ats_info->K_count) {
 		printf("  ----\n");
-		print_buf("  Historical bytes",
-			ats_info->historical_bytes,
-			ats_info->historical_bytes_len
+		print_ats_historical_bytes(ats_info);
+
+		if (ats_info->status_indicator_bytes) {
+			printf("  ----\n");
+
+			printf("  LCS = %02X: %s\n",
+				ats_info->status_indicator.LCS,
+				iso7816_lcs_get_string(ats_info->status_indicator.LCS)
+			);
+
+			if (ats_info->status_indicator.SW1 ||
+				ats_info->status_indicator.SW2
+			) {
+				printf("  SW  = %02X%02X: (%s)\n",
+					ats_info->status_indicator.SW1,
+					ats_info->status_indicator.SW2,
+					iso7816_sw1sw2_get_string(
+						ats_info->status_indicator.SW1,
+						ats_info->status_indicator.SW2,
+						str, sizeof(str)
+					)
+				);
+			}
+		}
+	}
+}
+
+void print_ats_historical_bytes(const struct iso14443_ats_info_t* ats_info)
+{
+	int r;
+	struct iso7816_compact_tlv_itr_t itr;
+	struct iso7816_compact_tlv_t tlv;
+	char str[1024];
+
+	printf("  T1  = 0x%02X: %s\n", ats_info->T1,
+		iso14443_ats_T1_get_string(ats_info)
+	);
+
+	if (ats_info->T1 != ISO14443_ATS_T1_COMPACT_TLV_SI &&
+		ats_info->T1 != ISO14443_ATS_T1_COMPACT_TLV
+	) {
+		// Unknown historical byte format
+		print_buf("  Historical bytes", ats_info->historical_bytes, ats_info->historical_bytes_len);
+		return;
+	}
+
+	r = iso7816_compact_tlv_itr_init(
+		ats_info->historical_bytes,
+		ats_info->historical_bytes_len,
+		&itr
+	);
+	if (r) {
+		printf("Failed to parse ATS historical bytes\n");
+		return;
+	}
+
+	while ((r = iso7816_compact_tlv_itr_next(&itr, &tlv)) > 0) {
+		printf("  %s (0x%X): [%u] ",
+			iso7816_compact_tlv_tag_get_string(tlv.tag),
+			tlv.tag,
+			tlv.length
 		);
+		for (size_t i = 0; i < tlv.length; ++i) {
+			printf("%s%02X", i ? " " : "", tlv.value[i]);
+		}
+		printf("\n");
+
+		switch (tlv.tag) {
+			case ISO7816_COMPACT_TLV_CARD_SERVICE_DATA:
+				r = iso7816_card_service_data_get_string_list(tlv.value[0], str, sizeof(str));
+				break;
+
+			case ISO7816_COMPACT_TLV_CARD_CAPABILITIES:
+				r = iso7816_card_capabilities_get_string_list(tlv.value, tlv.length, str, sizeof(str));
+				break;
+
+			default:
+				r = -1;
+		}
+
+		if (r == 0) {
+			print_str_list(str, "\n", "  ", 2, "- ", "\n");
+		}
+	}
+	if (r) {
+		printf("Failed to parse ATS historical bytes\n");
+		return;
 	}
 }
 

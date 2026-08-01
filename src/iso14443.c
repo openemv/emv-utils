@@ -20,6 +20,7 @@
  */
 
 #include "iso14443.h"
+#include "iso7816_compact_tlv.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -32,6 +33,7 @@ static int iso14443_ats_parse_T0(uint8_t T0, struct iso14443_ats_info_t* ats_inf
 static int iso14443_ats_parse_TA1(uint8_t TA1, struct iso14443_ats_info_t* ats_info);
 static int iso14443_ats_parse_TB1(uint8_t TB1, struct iso14443_ats_info_t* ats_info);
 static int iso14443_ats_parse_TC1(uint8_t TC1, struct iso14443_ats_info_t* ats_info);
+static int iso14443_ats_parse_historical_bytes(const void* historical_bytes, size_t historical_bytes_len, struct iso14443_ats_info_t* ats_info);
 
 int iso14443_ats_parse(const uint8_t* ats, size_t ats_len, struct iso14443_ats_info_t* ats_info)
 {
@@ -132,16 +134,78 @@ int iso14443_ats_parse(const uint8_t* ats, size_t ats_len, struct iso14443_ats_i
 
 	// Remaining bytes are historical bytes
 	// See ISO 14443-4:2008, 5.2.7
+	// See ISO 7816-4:2005, 8.1.1
 	if (ats_idx < ats_info->TL) {
+		ats_info->K_count = ats_info->TL - ats_idx;
+
+		// Category indicator byte
+		ats_info->T1 = ats_info->ats[ats_idx++];
+
+		// Store pointer to historical bytes for later parsing
 		ats_info->historical_bytes = &ats_info->ats[ats_idx];
-		ats_info->historical_bytes_len = ats_info->TL - ats_idx;
+
+		// Compute historical byte length without T1
+		ats_info->historical_bytes_len = ats_info->K_count - 1;
 		ats_idx += ats_info->historical_bytes_len;
+
+		// Parse historical byte COMPACT-TLV and extract status indicator bytes
+		// See ISO 7816-4:2005, 8.1.1
+		switch (ats_info->T1) {
+			case ISO14443_ATS_T1_COMPACT_TLV_SI:
+				if (ats_info->historical_bytes_len < 3) {
+					// Insufficient historical bytes for status indicator
+					return 8;
+				}
+
+				// Store status indicator bytes for later parsing
+				ats_info->historical_bytes_len -= 3;
+				ats_info->status_indicator_bytes = ats_info->historical_bytes + ats_info->historical_bytes_len;
+				ats_info->status_indicator_bytes_len = 3;
+
+				// Intentional fallthrough to COMPACT-TLV parsing
+
+			case ISO14443_ATS_T1_COMPACT_TLV:
+				r = iso14443_ats_parse_historical_bytes(ats_info->historical_bytes, ats_info->historical_bytes_len, ats_info);
+				if (r) {
+					return r;
+				}
+				break;
+
+			case ISO14443_ATS_T1_DIR_DATA_REF:
+				// TODO: implement
+				break;
+
+			default:
+				// Proprietary historical bytes
+				break;
+		}
 	}
 
 	// Sanity check
 	if (ats_idx > ats_info->ats_len) {
 		// Internal parsing error
 		return 7;
+	}
+
+	// Extract status indicator, if available
+	// See ISO 7816-4:2005, 8.1.1.3
+	if (ats_info->status_indicator_bytes) {
+		switch (ats_info->status_indicator_bytes_len) {
+			case 1:
+				ats_info->status_indicator.LCS = ats_info->status_indicator_bytes[0];
+				break;
+
+			case 2:
+				ats_info->status_indicator.SW1 = ats_info->status_indicator_bytes[0];
+				ats_info->status_indicator.SW2 = ats_info->status_indicator_bytes[1];
+				break;
+
+			case 3:
+				ats_info->status_indicator.LCS = ats_info->status_indicator_bytes[0];
+				ats_info->status_indicator.SW1 = ats_info->status_indicator_bytes[1];
+				ats_info->status_indicator.SW2 = ats_info->status_indicator_bytes[2];
+				break;
+		}
 	}
 
 	return 0;
@@ -251,6 +315,31 @@ static int iso14443_ats_parse_TC1(uint8_t TC1, struct iso14443_ats_info_t* ats_i
 	// See ISO 14443-4:2008, 5.2.6
 	ats_info->CID_supported = (TC1 & ISO14443_ATS_TC1_CID) != 0;
 	ats_info->NAD_supported = (TC1 & ISO14443_ATS_TC1_NAD) != 0;
+
+	return 0;
+}
+
+static int iso14443_ats_parse_historical_bytes(const void* historical_bytes, size_t historical_bytes_len, struct iso14443_ats_info_t* ats_info)
+{
+	int r;
+	struct iso7816_compact_tlv_itr_t itr;
+	struct iso7816_compact_tlv_t tlv;
+
+	r = iso7816_compact_tlv_itr_init(historical_bytes, historical_bytes_len, &itr);
+	if (r) {
+		return 9;
+	}
+
+	while ((r = iso7816_compact_tlv_itr_next(&itr, &tlv)) > 0) {
+		// Capture status indicator, if available
+		if (tlv.tag == ISO7816_COMPACT_TLV_SI) {
+			ats_info->status_indicator_bytes = tlv.value;
+			ats_info->status_indicator_bytes_len = tlv.length;
+		}
+	}
+	if (r) {
+		return 10;
+	}
 
 	return 0;
 }
@@ -370,4 +459,34 @@ const char* iso14443_ats_TC1_get_string(const struct iso14443_ats_info_t* ats_in
 	);
 
 	return str;
+}
+
+const char* iso14443_ats_T1_get_string(const struct iso14443_ats_info_t* ats_info)
+{
+	if (!ats_info) {
+		return NULL;
+	}
+	if (!ats_info->K_count) {
+		return NULL;
+	}
+
+	// See ISO 7816-4:2005, 8.1.1.1, table 83
+	switch (ats_info->T1) {
+		case ISO14443_ATS_T1_COMPACT_TLV_SI:
+			return "COMPACT-TLV followed by mandatory status indicator";
+
+		case ISO14443_ATS_T1_DIR_DATA_REF:
+			return "DIR data reference";
+
+		case ISO14443_ATS_T1_COMPACT_TLV:
+			return "COMPACT-TLV including optional status indicator";
+	}
+
+	if (ats_info->T1 > ISO14443_ATS_T1_COMPACT_TLV &&
+		ats_info->T1 <= 0x8F
+	) {
+		return "RFU";
+	}
+
+	return "Proprietary";
 }

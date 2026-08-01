@@ -61,6 +61,11 @@ __BEGIN_DECLS
 #define ISO14443_ATS_TC1_CID            (0x02) ///< TC(1) bit 2 indicates CID is supported
 #define ISO14443_ATS_TC1_NAD            (0x01) ///< TC(1) bit 1 indicates NAD is supported
 
+// ATS: Historical byte category indicator T1 definitions (ISO/IEC 7816-4:2005, 8.1.1)
+#define ISO14443_ATS_T1_COMPACT_TLV_SI  (0x00) ///< Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
+#define ISO14443_ATS_T1_DIR_DATA_REF    (0x10) ///< Subsequent historical byte is DIR data reference
+#define ISO14443_ATS_T1_COMPACT_TLV     (0x80) ///< Subsequent historical bytes are COMPACT-TLV encoded and may include status indicator
+
 /**
  * Parsed ATS (Answer To Select) information for ISO/IEC 14443 type A cards.
  *
@@ -123,8 +128,37 @@ struct iso14443_ats_info_t {
 	 */
 	const uint8_t* TC1;
 
-	const uint8_t* historical_bytes; ///< Historical bytes; NULL if absent
-	size_t historical_bytes_len; ///< Length of historical bytes in bytes
+	// ========================================
+	// Historical byte parsing...
+	// ========================================
+
+	uint8_t K_count; ///< Number of historical bytes, including category indicator byte T1
+
+	/**
+	 * Category indicator byte T1 indicates the format of the historical bytes.
+	 * Only valid when @ref K_count is non-zero.
+	 * - 0x00: Subsequent historical bytes are COMPACT-TLV encoded followed by mandatory status indicator
+	 * - 0x10: Subsequent historical byte is DIR data reference
+	 * - 0x80: Subsequent historical bytes are COMPACT-TLV encoded and may include status indicator
+	 * - 0x81-0x8F: RFU
+	 * - Other values are proprietary
+	 */
+	uint8_t T1;
+
+	const uint8_t* historical_bytes; ///< Historical byte payload after category indicator byte T1. NULL if absent.
+	size_t historical_bytes_len; ///< Length of historical byte payload, excluding explicit status indicator
+
+	/**
+	 * Pointer to status indicator bytes. Available when pointer is non-NULL. NULL if absent.
+	 * @see @ref status_indicator for extracted values
+	 */
+	const uint8_t* status_indicator_bytes;
+
+	/**
+	 * Number of status indicator bytes at @ref status_indicator_bytes
+	 * @see @ref status_indicator for extracted values
+	 */
+	size_t status_indicator_bytes_len;
 
 	// ========================================
 	// Extracted info...
@@ -141,6 +175,12 @@ struct iso14443_ats_info_t {
 	unsigned int SFGI; ///< Start-up Frame Guard time Integer; default is 0 (ISO/IEC 14443-4:2008, 5.2.5)
 	bool CID_supported; ///< Card Identifier (CID) supported; default is true (ISO/IEC 14443-4:2008, 5.2.6)
 	bool NAD_supported; ///< Node Address (NAD) supported; default is false (ISO/IEC 14443-4:2008, 5.2.6)
+
+	struct {
+		uint8_t LCS; ///< Card life cycle status; Zero if not available
+		uint8_t SW1; ///< Status Word byte 1; If both SW1 and SW2 are zero, then status word is not available
+		uint8_t SW2; ///< Status Word byte 2; If both SW1 and SW2 are zero, then status word is not available
+	} status_indicator; ///< Status indicator bytes (ISO/IEC 7816-4:2005, 8.1.1.3)
 };
 
 /**
@@ -187,6 +227,13 @@ const char* iso14443_ats_TB1_get_string(const struct iso14443_ats_info_t* ats_in
  * @return String. NULL for error.
  */
 const char* iso14443_ats_TC1_get_string(const struct iso14443_ats_info_t* ats_info, char* str, size_t str_len);
+
+/**
+ * Stringify ISO/IEC 14443 ATS category indicator byte T1
+ * @param ats_info Parsed ATS info
+ * @return String. NULL for error.
+ */
+const char* iso14443_ats_T1_get_string(const struct iso14443_ats_info_t* ats_info);
 
 __END_DECLS
 
