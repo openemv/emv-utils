@@ -34,6 +34,12 @@ static int iso14443_ats_parse_TA1(uint8_t TA1, struct iso14443_ats_info_t* ats_i
 static int iso14443_ats_parse_TB1(uint8_t TB1, struct iso14443_ats_info_t* ats_info);
 static int iso14443_ats_parse_TC1(uint8_t TC1, struct iso14443_ats_info_t* ats_info);
 static int iso14443_ats_parse_historical_bytes(const void* historical_bytes, size_t historical_bytes_len, struct iso14443_ats_info_t* ats_info);
+static void iso14443_atqb_populate_default_parameters(struct iso14443_atqb_info_t* atqb_info);
+static int iso14443_atqb_parse_PI1(uint8_t PI1, struct iso14443_atqb_info_t* atqb_info);
+static int iso14443_atqb_parse_PI2(uint8_t PI2, struct iso14443_atqb_info_t* atqb_info);
+static int iso14443_atqb_parse_PI3(uint8_t PI3, struct iso14443_atqb_info_t* atqb_info);
+static int iso14443_atqb_parse_PI4(uint8_t PI4, struct iso14443_atqb_info_t* atqb_info);
+static int iso14443_atqb_parse_application_data(const uint8_t* application_data, struct iso14443_atqb_info_t* atqb_info);
 
 int iso14443_ats_parse(const uint8_t* ats, size_t ats_len, struct iso14443_ats_info_t* ats_info)
 {
@@ -489,4 +495,228 @@ const char* iso14443_ats_T1_get_string(const struct iso14443_ats_info_t* ats_inf
 	}
 
 	return "Proprietary";
+}
+
+int iso14443_atqb_parse(const uint8_t* atqb, size_t atqb_len, struct iso14443_atqb_info_t* atqb_info)
+{
+	int r;
+
+	if (!atqb) {
+		return -1;
+	}
+
+	if (!atqb_info) {
+		return -1;
+	}
+
+	if (atqb_len < ISO14443_ATQB_MIN_SIZE || atqb_len > ISO14443_ATQB_MAX_SIZE) {
+		// Invalid number of ATQB bytes
+		return 1;
+	}
+
+	memset(atqb_info, 0, sizeof(*atqb_info));
+
+	// Copy ATQB bytes
+	memcpy(atqb_info->atqb, atqb, atqb_len);
+	atqb_info->atqb_len = atqb_len;
+
+	// Validate 0x50 marker byte
+	// See ISO 14443-3:2011, 7.9.1
+	if (atqb_info->atqb[0] != ISO14443_ATQB_MARKER) {
+		return 2;
+	}
+
+	// Populate default parameters
+	// These will be overridden by the parsing below
+	iso14443_atqb_populate_default_parameters(atqb_info);
+
+	// Populate Pseudo-Unique PICC Identifier (PUPI)
+	// See ISO 14443-3:2011, 7.9.2
+	atqb_info->pupi = &atqb_info->atqb[1];
+
+	// Populate Application Data
+	// It will be parsed once Application Data Coding (ADC) is available
+	// See ISO 14443-3:2011, 7.9.3
+	atqb_info->application_data = &atqb_info->atqb[5];
+
+	// Parse Protocol Info byte 1
+	// See ISO 14443-3:2011, 7.9.4.6
+	atqb_info->PI1 = &atqb_info->atqb[9];
+	r = iso14443_atqb_parse_PI1(*atqb_info->PI1, atqb_info);
+	if (r) {
+		return r;
+	}
+
+	// Parse Protocol Info byte 2
+	// See ISO 14443-3:2011, 7.9.4.4 and 7.9.4.5
+	atqb_info->PI2 = &atqb_info->atqb[10];
+	r = iso14443_atqb_parse_PI2(*atqb_info->PI2, atqb_info);
+	if (r) {
+		return r;
+	}
+
+	// Parse Protocol Info byte 3
+	// See ISO 14443-3:2011, 7.9.4.1 - 7.9.4.3
+	atqb_info->PI3 = &atqb_info->atqb[11];
+	r = iso14443_atqb_parse_PI3(*atqb_info->PI3, atqb_info);
+	if (r) {
+		return r;
+	}
+
+	// Parse optional Protocol Info byte 4 (extended ATQB)
+	// See ISO 14443-3:2011, 7.9.4.7
+	if (atqb_info->atqb_len == ISO14443_ATQB_MAX_SIZE) {
+		atqb_info->PI4 = &atqb_info->atqb[12];
+		r = iso14443_atqb_parse_PI4(*atqb_info->PI4, atqb_info);
+		if (r) {
+			return r;
+		}
+	}
+
+	// Unpack Application Data subfields; requires ADC from PI(3)
+	// See ISO 14443-3:2011, 7.9.3
+	r = iso14443_atqb_parse_application_data(atqb_info->application_data, atqb_info);
+	if (r) {
+		return r;
+	}
+
+	return 0;
+}
+
+static void iso14443_atqb_populate_default_parameters(struct iso14443_atqb_info_t* atqb_info)
+{
+	// ISO 14443-3 indicates these default parameters when Protocol Info byte 4
+	// is absent (basic ATQB):
+	// - SFGI = 0 (no SFGT needed)
+
+	// PI(4) default (see ISO 14443-3:2011, 7.9.4.7)
+	iso14443_atqb_parse_PI4(0x00, atqb_info);
+}
+
+static int iso14443_atqb_parse_PI1(uint8_t PI1, struct iso14443_atqb_info_t* atqb_info)
+{
+	// Bit 4 is RFU and if set then interpret entire PI(1) as 0x00
+	// See ISO 14443-3:2011, 7.9.4.6
+	if (PI1 & ISO14443_ATQB_PI1_RFU) {
+		PI1 = 0;
+	}
+
+	// Bit 8 indicates whether only the same D must be used for both directions
+	// See ISO 14443-3:2011, 7.9.4.6
+	atqb_info->same_d_required = (PI1 & ISO14443_ATQB_PI1_SAME_D);
+
+	// DS (supported divisors from PICC to PCD) encoded in bits 5 to 7
+	// See ISO 14443-3:2011, 7.9.4.6
+	atqb_info->DS = (PI1 & ISO14443_ATQB_PI1_DS_MASK) >> ISO14443_ATQB_PI1_DS_SHIFT;
+
+	// DR (supported divisors from PCD to PICC) encoded in bits 1 to 3
+	// See ISO 14443-3:2011, 7.9.4.6
+	atqb_info->DR = PI1 & ISO14443_ATQB_PI1_DR_MASK;
+
+	return 0;
+}
+
+static int iso14443_atqb_parse_PI2(uint8_t PI2, struct iso14443_atqb_info_t* atqb_info)
+{
+	uint8_t FSCI = (PI2 & ISO14443_ATQB_PI2_FSCI_MASK) >> ISO14443_ATQB_PI2_FSCI_SHIFT;
+
+	// Convert FSCI to FSC (frame size in bytes)
+	// See ISO 14443-3:2011, 7.9.4.5
+	// See ISO 14443-4:2008, 5.1, table 1
+	// EMV Level 1 Contactless Interface Specification v3.2, 6.3.2.6-6.3.2.7, table 6.7
+	switch (FSCI) {
+		case 0x0: atqb_info->FSC = 16; break;
+		case 0x1: atqb_info->FSC = 24; break;
+		case 0x2: atqb_info->FSC = 32; break;
+		case 0x3: atqb_info->FSC = 40; break;
+		case 0x4: atqb_info->FSC = 48; break;
+		case 0x5: atqb_info->FSC = 64; break;
+		case 0x6: atqb_info->FSC = 96; break;
+		case 0x7: atqb_info->FSC = 128; break;
+		case 0x8: atqb_info->FSC = 256; break;
+		// Although ISO 14443-3:2011, 7.9.4.5 considers FSCI values 9 to F as
+		// RFU, EMV allows values 9 to C, and interprets values D to F as
+		// FSCI=C (FSC=4096)
+		case 0x9: atqb_info->FSC = 512; break;
+		case 0xA: atqb_info->FSC = 1024; break;
+		case 0xB: atqb_info->FSC = 2048; break;
+		case 0xC: atqb_info->FSC = 4096; break;
+		default: atqb_info->FSC = 4096; break;
+	}
+
+	// Protocol_Type bit 4 is RFU and indicates that PCD should not continue
+	// communicating with PICC
+	// See ISO 14443-3:2011, 7.9.4.4
+	atqb_info->protocol_type_rfu = (PI2 & ISO14443_ATQB_PI2_PROTO_RFU);
+
+	// Protocol_Type bits 2-3 encode minimum TR2
+	// See ISO 14443-3:2011, 7.9.4.4
+	atqb_info->min_TR2 = (PI2 & ISO14443_ATQB_PI2_PROTO_MIN_TR2_MASK) >> ISO14443_ATQB_PI2_PROTO_MIN_TR2_SHIFT;
+
+	// Protocol_Type bit 1 indicates PICC compliant with ISO/IEC 14443-4
+	// See ISO 14443-3:2011, 7.9.4.4
+	atqb_info->iso14443_4_compliant = (PI2 & ISO14443_ATQB_PI2_PROTO_ISO14443_4);
+
+	return 0;
+}
+
+static int iso14443_atqb_parse_PI3(uint8_t PI3, struct iso14443_atqb_info_t* atqb_info)
+{
+	// FWI encodes FWT according to ISO 14443-3:2011, 7.9.4.3
+	atqb_info->FWI = (PI3 & ISO14443_ATQB_PI3_FWI_MASK) >> ISO14443_ATQB_PI3_FWI_SHIFT;
+	if (atqb_info->FWI == 15) {
+		// FWI = 15 is RFU and interpreted as FWI = 4
+		// See ISO 14443-3:2011, 7.9.4.3
+		atqb_info->FWI = 4;
+	}
+
+	// ADC encodes the Application Data coding used in the Application Data
+	// field
+	// See ISO 14443-3:2011, 7.9.4.2
+	atqb_info->ADC = (PI3 & ISO14443_ATQB_PI3_ADC_MASK) >> ISO14443_ATQB_PI3_ADC_SHIFT;
+
+	// FO indicates whether CID and NAD are supported by the PICC
+	// See ISO 14443-3:2011, 7.9.4.1
+	atqb_info->CID_supported = (PI3 & ISO14443_ATQB_PI3_FO_CID);
+	atqb_info->NAD_supported = (PI3 & ISO14443_ATQB_PI3_FO_NAD);
+
+	return 0;
+}
+
+static int iso14443_atqb_parse_PI4(uint8_t PI4, struct iso14443_atqb_info_t* atqb_info)
+{
+	// SFGI encodes a multiplier for SFGT according to ISO 14443-3:2011, 7.9.4.7
+	atqb_info->SFGI = (PI4 & ISO14443_ATQB_PI4_SFGI_MASK) >> ISO14443_ATQB_PI4_SFGI_SHIFT;
+	if (atqb_info->SFGI == 15) {
+		// SFGI = 15 is RFU and interpreted as SFGI = 0
+		// See ISO 14443-3:2011, 7.9.4.7
+		atqb_info->SFGI = 0;
+	}
+
+	return 0;
+}
+
+static int iso14443_atqb_parse_application_data(const uint8_t* application_data, struct iso14443_atqb_info_t* atqb_info)
+{
+	// Application Data field layout depends on ADC
+	// See ISO 14443-3:2011, 7.9.3
+	if (atqb_info->ADC != ISO14443_ADC_ISO14443_3) {
+		// Proprietary or RFU coding; leave extracted subfields unset
+		return 0;
+	}
+
+	// Application Family Identifier (AFI)
+	// See ISO 14443-3:2011, 7.9.3.1
+	atqb_info->AFI = application_data[0];
+
+	// CRC_B(AID)
+	// See ISO 14443-3:2011, 7.9.3.2
+	atqb_info->CRC_B_AID = application_data[1] | (application_data[2] << 8);
+
+	// Number of Applications matching AFI and total
+	// See ISO 14443-3:2011, 7.9.3.3
+	atqb_info->num_apps_matching_afi = (application_data[3] & ISO14443_NUM_APPS_MATCHING_MASK) >> ISO14443_NUM_APPS_MATCHING_SHIFT;
+	atqb_info->num_apps_total = application_data[3] & ISO14443_NUM_APPS_TOTAL_MASK;
+
+	return 0;
 }
