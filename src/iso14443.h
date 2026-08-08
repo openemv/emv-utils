@@ -67,6 +67,56 @@ __BEGIN_DECLS
 #define ISO14443_ATS_T1_DIR_DATA_REF    (0x10) ///< Subsequent historical byte is DIR data reference
 #define ISO14443_ATS_T1_COMPACT_TLV     (0x80) ///< Subsequent historical bytes are COMPACT-TLV encoded and may include status indicator
 
+// ATQB response format (ISO/IEC 14443-3:2011, 7.9.1)
+#define ISO14443_ATQB_MIN_SIZE                  (12)   ///< Minimum size of ATQB buffer (Basic ATQB)
+#define ISO14443_ATQB_MAX_SIZE                  (13)   ///< Maximum size of ATQB buffer (Extended ATQB)
+#define ISO14443_ATQB_MARKER                    (0x50) ///< Answer To Request Type B marker byte
+
+// ATQB: Protocol Info byte 1 definitions (ISO/IEC 14443-3:2011, 7.9.4.6)
+#define ISO14443_ATQB_PI1_SAME_D                (0x80) ///< PI(1) bit 8 indicates only same divisor D for both directions is supported
+#define ISO14443_ATQB_PI1_DS_MASK               (0x70) ///< PI(1) bits 5-7 mask for DS (divisor from PICC to PCD)
+#define ISO14443_ATQB_PI1_DS_SHIFT              (4)    ///< PI(1) bitshift to normalise DS to bits 1-3
+#define ISO14443_ATQB_PI1_RFU                   (0x08) ///< PI(1) bit 4 is RFU
+#define ISO14443_ATQB_PI1_DR_MASK               (0x07) ///< PI(1) bits 1-3 mask for DR (divisor from PCD to PICC)
+
+// ATQB: Protocol Info byte 2 definitions (ISO/IEC 14443-3:2011, 7.9.4.4 and 7.9.4.5)
+#define ISO14443_ATQB_PI2_FSCI_MASK             (0xF0) ///< PI(2) bits 5-8 encode Max_Frame_Size (FSCI)
+#define ISO14443_ATQB_PI2_FSCI_SHIFT            (4)    ///< PI(2) bitshift to normalise FSCI to bits 1-4
+#define ISO14443_ATQB_PI2_PROTO_MASK            (0x0F) ///< PI(2) bits 1-4 mask for Protocol_Type
+#define ISO14443_ATQB_PI2_PROTO_RFU             (0x08) ///< PI(2) bit 4 of Protocol_Type is RFU
+#define ISO14443_ATQB_PI2_PROTO_MIN_TR2_MASK    (0x06) ///< PI(2) bits 2-3 encode minimum TR2
+#define ISO14443_ATQB_PI2_PROTO_MIN_TR2_SHIFT   (1)    ///< PI(2) bitshift for minimum TR2 value
+#define ISO14443_ATQB_PI2_PROTO_ISO14443_4      (0x01) ///< PI(2) bit 1 indicates ISO/IEC 14443-4 compliant PICC
+
+// ATQB: Protocol Info byte 3 definitions (ISO/IEC 14443-3:2011, 7.9.4.1 - 7.9.4.3)
+#define ISO14443_ATQB_PI3_FWI_MASK              (0xF0) ///< PI(3) bits 5-8 encode FWI (Frame Waiting time Integer)
+#define ISO14443_ATQB_PI3_FWI_SHIFT             (4)    ///< PI(3) bitshift for FWI value
+#define ISO14443_ATQB_PI3_ADC_MASK              (0x0C) ///< PI(3) bits 3-4 encode ADC (Application Data Coding)
+#define ISO14443_ATQB_PI3_ADC_SHIFT             (2)    ///< PI(3) bitshift for ADC value
+#define ISO14443_ATQB_PI3_ADC_RFU               (0x08) ///< PI(3) bit 4 of ADC is RFU
+#define ISO14443_ATQB_PI3_ADC_ISO14443_3        (0x04) ///< PI(3) bit 3 of ADC indicates coding per ISO/IEC 14443-3, 7.9.3
+#define ISO14443_ATQB_PI3_FO_MASK               (0x03) ///< PI(3) bits 1-2 encode FO (Frame Options)
+#define ISO14443_ATQB_PI3_FO_NAD                (0x02) ///< PI(3) bit 2 indicates NAD is supported
+#define ISO14443_ATQB_PI3_FO_CID                (0x01) ///< PI(3) bit 1 indicates CID is supported
+
+// ATQB info: Application Data Coding (ADC) values (ISO/IEC 14443-3:2011, 7.9.4.2)
+#define ISO14443_ADC_PROPRIETARY                (0x00) ///< Application Data Coding (ADC) is proprietary
+#define ISO14443_ADC_ISO14443_3                 (0x01) ///< Application Data Coding (ADC) is as described in ISO/IEC 14443-3, 7.9.3
+
+// ATQB info: Application Family Identifier (AFI) encoding (ISO/IEC 14443-3:2011, 7.7.3, table 22)
+#define ISO14443_AFI_FAMILY_MASK                (0xF0) ///< Mask for application family
+#define ISO14443_AFI_SUBFAMILY_MASK             (0x0F) ///< Mask for application sub-family
+
+// ATQB info: Number of Applications encoding (ISO/IEC 14443-3:2011, 7.9.3.3)
+#define ISO14443_NUM_APPS_MATCHING_MASK         (0xF0) ///< Mask for number of applications matching AFI
+#define ISO14443_NUM_APPS_MATCHING_SHIFT        (4)    ///< Bitshift for number of applications matching AFI
+#define ISO14443_NUM_APPS_TOTAL_MASK            (0x0F) ///< Mask for total number of applications in the PICC
+#define ISO14443_NUM_APPS_MANY                  (15)   ///< Number of applications is 15 or more
+
+// ATQB: Protocol Info byte 4 definitions (ISO/IEC 14443-3:2011, 7.9.4.7)
+#define ISO14443_ATQB_PI4_SFGI_MASK             (0xF0) ///< PI(4) bits 5-8 encode Start-up Frame Guard time Integer (SFGI)
+#define ISO14443_ATQB_PI4_SFGI_SHIFT            (4)    ///< PI(4) bitshift for SFGI value
+
 /**
  * Parsed ATS (Answer To Select) information for ISO/IEC 14443 type A cards.
  *
@@ -238,6 +288,116 @@ const char* iso14443_ats_TC1_get_string(const struct iso14443_ats_info_t* ats_in
  * @return String. NULL for error.
  */
 const char* iso14443_ats_T1_get_string(const struct iso14443_ats_info_t* ats_info);
+
+/**
+ * Parsed ATQB (Answer To Request Type B) information for ISO/IEC 14443 type B
+ * cards.
+ *
+ * This structure represents the parsed and decoded ATQB information as defined
+ * by the ISO/IEC 14443-3 protocol activation procedure (REQB/WUPB response).
+ *
+ * The ATQB is either 12 bytes (basic) or 13 bytes (extended, when Protocol
+ * Info byte 4 is present). The leading byte is the mandatory 0x50 marker.
+ */
+struct iso14443_atqb_info_t {
+	// Store ATQB bytes for field pointers to use
+	uint8_t atqb[ISO14443_ATQB_MAX_SIZE]; ///< ATQB bytes
+	size_t atqb_len; ///< Length of ATQB in bytes
+
+	// ========================================
+	// Raw format parsing...
+	// ========================================
+
+	/**
+	 * Pseudo-Unique PICC Identifier (PUPI). Always 4 bytes.
+	 */
+	const uint8_t* pupi;
+
+	/**
+	 * Application Data field. Always 4 bytes.
+	 * When Application Data Coding (ADC) indicates ISO/IEC 14443-3, the layout
+	 * is:
+	 * - Byte 1: Application Family Identifier (AFI)
+	 * - Bytes 2-3: CRC_B(AID)
+	 * - Byte 4: Number of Applications
+	 */
+	const uint8_t* application_data;
+
+	/**
+	 * Protocol Info byte 1 indicates bit rate capabilities of the PICC.
+	 * - Bit 8: if set, only the same divisor D is supported for both directions
+	 * - Bits 5-7 encode DS (divisor from PICC to PCD)
+	 * - Bit 4 is RFU
+	 * - Bits 1-3 encode DR (divisor from PCD to PICC)
+	 */
+	const uint8_t* PI1;
+
+	/**
+	 * Protocol Info byte 2 indicates frame and protocol parameters.
+	 * - High 4 bits encode Max_Frame_Size (FSCI)
+	 * - Low 4 bits encode Protocol_Type:
+	 *   - Bit 4 is RFU
+	 *   - Bits 2-3 encode minimum TR2
+	 *   - Bit 1 indicates ISO/IEC 14443-4 compliant PICC
+	 */
+	const uint8_t* PI2;
+
+	/**
+	 * Protocol Info byte 3 indicates frame parameters.
+	 * - High 4 bits encode Frame Waiting time Integer (FWI)
+	 * - Bits 3-4 encode Application Data Coding (ADC)
+	 * - Bits 1-2 encode Frame Options (FO): CID (bit 1), NAD (bit 2)
+	 */
+	const uint8_t* PI3;
+
+	/**
+	 * Protocol Info byte 4 is optional and indicates frame parameters.
+	 * Non-NULL for extended ATQB. NULL for basic ATQB.
+	 * - High 4 bits encode Start-up Frame Guard time Integer (SFGI)
+	 * - Low 4 bits are RFU
+	 */
+	const uint8_t* PI4;
+
+	// ========================================
+	// Extracted info...
+	// ========================================
+
+	// Extracted from Application Data when ADC indicates ISO/IEC 14443-3 coding (ISO/IEC 14443-3:2011, 7.9.3)
+	// All zero when ADC does not indicate ISO/IEC 14443-3 coding.
+	uint8_t AFI; ///< Application Family Identifier
+	uint16_t CRC_B_AID; ///< CRC_B computed over AID, in host byte order
+	unsigned int num_apps_matching_afi; ///< Number of applications matching AFI; @ref ISO14443_NUM_APPS_MANY means 15 or more
+	unsigned int num_apps_total; ///< Total number of applications in PICC; @ref ISO14443_NUM_APPS_MANY means 15 or more
+
+	// Extracted from PI(1); defaults apply when PI(1) RFU bit is set (ISO/IEC 14443-3:2011, 7.9.4.6)
+	bool same_d_required; ///< If true, only same divisor D is supported for both directions; default is false
+	unsigned int DS; ///< Bitfield of supported divisors from PICC to PCD; default is @ref ISO14443_D_ONLY_1
+	unsigned int DR; ///< Bitfield of supported divisors from PCD to PICC; default is @ref ISO14443_D_ONLY_1
+
+	// Extracted from PI(2) (ISO/IEC 14443-3:2011, 7.9.4.4 and 7.9.4.5)
+	unsigned int FSC; ///< Frame Size for Card in bytes
+	bool protocol_type_rfu; ///< If true, PCD should not continue communicating with PICC
+	unsigned int min_TR2; ///< Minimum delay between PICC EOF start and PCD SOF start (TR2)
+	bool iso14443_4_compliant; ///< PICC compliant with ISO/IEC 14443-4
+
+	// Extracted from PI(3) (ISO/IEC 14443-3:2011, 7.9.4.1 - 7.9.4.3)
+	unsigned int FWI; ///< Frame Waiting time Integer
+	unsigned int ADC; ///< Application Data Coding
+	bool CID_supported; ///< Card Identifier (CID) supported
+	bool NAD_supported; ///< Node Address (NAD) supported
+
+	// Extracted from PI(4); defaults apply when PI(4) is absent (ISO/IEC 14443-3:2011, 7.9.4.7)
+	unsigned int SFGI; ///< Start-up Frame Guard time Integer; default is 0
+};
+
+/**
+ * Parse ISO/IEC 14443 Answer To Request Type B (ATQB) message
+ * @param atqb ATQB data (starting with mandatory 0x50 marker byte)
+ * @param atqb_len Length of ATQB data in bytes (12 for basic, 13 for extended)
+ * @param atqb_info Parsed ATQB info output
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int iso14443_atqb_parse(const uint8_t* atqb, size_t atqb_len, struct iso14443_atqb_info_t* atqb_info);
 
 __END_DECLS
 
