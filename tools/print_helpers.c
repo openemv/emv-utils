@@ -420,6 +420,53 @@ void print_ats_historical_bytes(const struct iso14443_ats_info_t* ats_info)
 	}
 }
 
+void print_atqb(const struct iso14443_atqb_info_t* atqb_info)
+{
+	char str[1024];
+
+	print_buf("ATQB", atqb_info->atqb, atqb_info->atqb_len);
+
+	printf("  50    = 0x%02X: Answer-to-Request Type B marker\n",
+		atqb_info->atqb[0]
+	);
+
+	printf("  ----\n");
+	printf("  PUPI  = %02X %02X %02X %02X\n",
+		atqb_info->pupi[0],
+		atqb_info->pupi[1],
+		atqb_info->pupi[2],
+		atqb_info->pupi[3]
+	);
+	printf("  App   = %s\n",
+		iso14443_atqb_application_data_get_string(atqb_info, str, sizeof(str))
+	);
+
+	printf("  ----\n");
+	printf("  PI(1) = 0x%02X: %s\n",
+		*atqb_info->PI1,
+		iso14443_atqb_PI1_get_string(atqb_info, str, sizeof(str))
+	);
+	printf("  PI(2) = 0x%02X: %s\n",
+		*atqb_info->PI2,
+		iso14443_atqb_PI2_get_string(atqb_info, str, sizeof(str))
+	);
+	printf("  PI(3) = 0x%02X: %s\n",
+		*atqb_info->PI3,
+		iso14443_atqb_PI3_get_string(atqb_info, str, sizeof(str))
+	);
+
+	if (atqb_info->PI4) {
+		printf("  PI(4) = 0x%02X: %s\n",
+			*atqb_info->PI4,
+			iso14443_atqb_PI4_get_string(atqb_info, str, sizeof(str))
+		);
+	} else {
+		printf("  PI(4) absent: %s\n",
+			iso14443_atqb_PI4_get_string(atqb_info, str, sizeof(str))
+		);
+	}
+}
+
 void print_capdu(const void* c_apdu, size_t c_apdu_len)
 {
 	int r;

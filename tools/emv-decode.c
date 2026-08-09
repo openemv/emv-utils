@@ -57,6 +57,7 @@ enum emv_decode_mode_t {
 	EMV_DECODE_NONE = -255, // Negative value to avoid short options
 	EMV_DECODE_ATR,
 	EMV_DECODE_ATS,
+	EMV_DECODE_ATQB,
 	EMV_DECODE_SW1SW2,
 	EMV_DECODE_BER,
 	EMV_DECODE_TLV,
@@ -116,6 +117,7 @@ static struct argp_option argp_options[] = {
 	{ NULL, 0, NULL, 0, "ISO 7816 / ISO 14443:", 1 },
 	{ "atr", EMV_DECODE_ATR, NULL, 0, "Decode ISO 7816 Answer-To-Reset (ATR), including initial character TS" },
 	{ "ats", EMV_DECODE_ATS, NULL, 0, "Decode ISO 14443 Answer-To-Select (ATS), including initial byte TL" },
+	{ "atqb", EMV_DECODE_ATQB, NULL, 0, "Decode ISO 14443 Answer-To-Request Type B (ATQB), including initial byte 0x50" },
 	{ "sw1sw2", EMV_DECODE_SW1SW2, NULL, 0, "Decode ISO 7816 Status bytes SW1-SW2, eg 9000" },
 
 	{ NULL, 0, NULL, 0, "TLV data:", 2 },
@@ -263,6 +265,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 		case EMV_DECODE_ATR:
 		case EMV_DECODE_ATS:
+		case EMV_DECODE_ATQB:
 		case EMV_DECODE_SW1SW2:
 		case EMV_DECODE_BER:
 		case EMV_DECODE_TLV:
@@ -528,6 +531,31 @@ int main(int argc, char** argv)
 			}
 
 			print_ats(&ats_info);
+			break;
+		}
+
+		case EMV_DECODE_ATQB: {
+			struct iso14443_atqb_info_t atqb_info;
+
+			if (data_len < ISO14443_ATQB_MIN_SIZE) {
+				fprintf(stderr, "ATQB may not have less than %u digits (thus %u bytes)\n", ISO14443_ATQB_MIN_SIZE * 2, ISO14443_ATQB_MIN_SIZE);
+				ret = EXIT_FAILURE;
+				break;
+			}
+			if (data_len > ISO14443_ATQB_MAX_SIZE) {
+				fprintf(stderr, "ATQB may not have more than %u digits (thus %u bytes)\n", ISO14443_ATQB_MAX_SIZE * 2, ISO14443_ATQB_MAX_SIZE);
+				ret = EXIT_FAILURE;
+				break;
+			}
+
+			r = iso14443_atqb_parse(data, data_len, &atqb_info);
+			if (r) {
+				fprintf(stderr, "Failed to parse ATQB\n");
+				ret = EXIT_FAILURE;
+				break;
+			}
+
+			print_atqb(&atqb_info);
 			break;
 		}
 

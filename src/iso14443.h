@@ -399,6 +399,51 @@ struct iso14443_atqb_info_t {
  */
 int iso14443_atqb_parse(const uint8_t* atqb, size_t atqb_len, struct iso14443_atqb_info_t* atqb_info);
 
+/**
+ * Stringify ISO/IEC 14443 ATQB Application Data
+ * @param atqb_info Parsed ATQB info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_atqb_application_data_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len);
+
+/**
+ * Stringify ISO/IEC 14443 ATQB Protocol Info byte 1 (Bit_Rate_Capability)
+ * @param atqb_info Parsed ATQB info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_atqb_PI1_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len);
+
+/**
+ * Stringify ISO/IEC 14443 ATQB Protocol Info byte 2 (Max_Frame_Size + Protocol_Type)
+ * @param atqb_info Parsed ATQB info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_atqb_PI2_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len);
+
+/**
+ * Stringify ISO/IEC 14443 ATQB Protocol Info byte 3 (FWI + ADC + FO)
+ * @param atqb_info Parsed ATQB info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_atqb_PI3_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len);
+
+/**
+ * Stringify ISO/IEC 14443 ATQB Protocol Info byte 4 (SFGI)
+ * @param atqb_info Parsed ATQB info
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return String. NULL for error.
+ */
+const char* iso14443_atqb_PI4_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len);
+
 __END_DECLS
 
 #endif

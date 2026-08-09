@@ -720,3 +720,151 @@ static int iso14443_atqb_parse_application_data(const uint8_t* application_data,
 
 	return 0;
 }
+
+const char* iso14443_atqb_application_data_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len)
+{
+	const char* family_str;
+	char matching_str[8];
+	char total_str[8];
+
+	if (!atqb_info) {
+		return NULL;
+	}
+
+	if (atqb_info->ADC != ISO14443_ADC_ISO14443_3) {
+		// Proprietary encoding of Application Data
+		snprintf(str, str_len, "%02X %02X %02X %02X (proprietary)",
+			atqb_info->application_data[0],
+			atqb_info->application_data[1],
+			atqb_info->application_data[2],
+			atqb_info->application_data[3]
+		);
+		return str;
+	}
+
+	// See ISO 14443-3:2011, table 22
+	switch (atqb_info->AFI & ISO14443_AFI_FAMILY_MASK) {
+		case 0x00: family_str = "All families"; break;
+		case 0x10: family_str = "Transport"; break;
+		case 0x20: family_str = "Financial"; break;
+		case 0x30: family_str = "Identification"; break;
+		case 0x40: family_str = "Telecommunication"; break;
+		case 0x50: family_str = "Medical"; break;
+		case 0x60: family_str = "Multimedia"; break;
+		case 0x70: family_str = "Gaming"; break;
+		case 0x80: family_str = "Data Storage"; break;
+		case 0xE0: family_str = "Machine Readable Travel Documents"; break;
+		default: family_str = "RFU"; break;
+	}
+
+	// See ISO 14443-3:2011, 7.9.3.3
+	if (atqb_info->num_apps_matching_afi == ISO14443_NUM_APPS_MANY) {
+		snprintf(matching_str, sizeof(matching_str), "15+");
+	} else {
+		snprintf(matching_str, sizeof(matching_str), "%u", atqb_info->num_apps_matching_afi);
+	}
+	if (atqb_info->num_apps_total == ISO14443_NUM_APPS_MANY) {
+		snprintf(total_str, sizeof(total_str), "15+");
+	} else {
+		snprintf(total_str, sizeof(total_str), "%u", atqb_info->num_apps_total);
+	}
+
+	snprintf(str, str_len,
+		"AFI=%02X (%s); CRC_B(AID)=%04X; Applications: %s matching / %s total",
+		atqb_info->AFI,
+		family_str,
+		atqb_info->CRC_B_AID,
+		matching_str,
+		total_str
+	);
+
+	return str;
+}
+
+const char* iso14443_atqb_PI1_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len)
+{
+	if (!atqb_info) {
+		return NULL;
+	}
+
+	snprintf(str, str_len,
+		"DS=106%s%s%s kbit/s; DR=106%s%s%s kbit/s%s",
+		atqb_info->DS & ISO14443_D2_SUPPORTED ? ", 212" : "",
+		atqb_info->DS & ISO14443_D4_SUPPORTED ? ", 424" : "",
+		atqb_info->DS & ISO14443_D8_SUPPORTED ? ", 848" : "",
+		atqb_info->DR & ISO14443_D2_SUPPORTED ? ", 212" : "",
+		atqb_info->DR & ISO14443_D4_SUPPORTED ? ", 424" : "",
+		atqb_info->DR & ISO14443_D8_SUPPORTED ? ", 848" : "",
+		atqb_info->same_d_required ? "; same D required" : ""
+	);
+
+	return str;
+}
+
+const char* iso14443_atqb_PI2_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len)
+{
+	const char* min_TR2_str;
+
+	if (!atqb_info) {
+		return NULL;
+	}
+
+	// See ISO 14443-3:2011, 7.9.4.4, table 27
+	switch (atqb_info->min_TR2) {
+		case 0: min_TR2_str = "10 etu + 32/fs"; break;
+		case 1: min_TR2_str = "10 etu + 128/fs"; break;
+		case 2: min_TR2_str = "10 etu + 256/fs"; break;
+		case 3: min_TR2_str = "10 etu + 512/fs"; break;
+		default: min_TR2_str = "unknown"; break;
+	}
+
+	snprintf(str, str_len, "FSC=%u; min_TR2=%s%s%s",
+		atqb_info->FSC,
+		min_TR2_str,
+		atqb_info->iso14443_4_compliant ? "; ISO 14443-4 compliant PICC" : "",
+		atqb_info->protocol_type_rfu ? "; PCD should not continue" : ""
+	);
+
+	return str;
+}
+
+const char* iso14443_atqb_PI3_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len)
+{
+	const char* adc_str;
+
+	if (!atqb_info) {
+		return NULL;
+	}
+
+	// See ISO 14443-3:2011, 7.9.4.2
+	switch (atqb_info->ADC) {
+		case ISO14443_ADC_PROPRIETARY: adc_str = "proprietary"; break;
+		case ISO14443_ADC_ISO14443_3: adc_str = "ISO 14443-3"; break;
+		default: adc_str = "RFU"; break;
+	}
+
+	snprintf(str, str_len,
+		"FWI=%u; ADC=%u (%s); CID %ssupported; NAD %ssupported",
+		atqb_info->FWI,
+		atqb_info->ADC,
+		adc_str,
+		atqb_info->CID_supported ? "" : "not ",
+		atqb_info->NAD_supported ? "" : "not "
+	);
+
+	return str;
+}
+
+const char* iso14443_atqb_PI4_get_string(const struct iso14443_atqb_info_t* atqb_info, char* str, size_t str_len)
+{
+	if (!atqb_info) {
+		return NULL;
+	}
+
+	// NOTE: It is not necessary to check atqb_info->PI4 here. Even if PI(4) is
+	// absent, atqb_info will nonetheless indicate the defaults.
+
+	snprintf(str, str_len, "SFGI=%u", atqb_info->SFGI);
+
+	return str;
+}
