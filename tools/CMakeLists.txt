@@ -267,6 +267,27 @@ if(TARGET emv-decode AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_decode_ats_test1_regex}
 	)
 
+	add_test(NAME emv_decode_atqb_test1
+		COMMAND emv-decode --atqb 50A1B2C3D420CDAB2377817540
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_atqb_test1_regex
+		"^ATQB: 50A1B2C3D420CDAB2377817540[\r\n]"
+		"  50    = 0x50: Answer-to-Request Type B marker[\r\n]"
+		"  ----[\r\n]"
+		"  PUPI  = A1 B2 C3 D4[\r\n]"
+		"  App   = AFI=20 \\(Financial\\)\\\\; CRC_B\\(AID\\)=ABCD\\\\; Applications: 2 matching / 3 total[\r\n]"
+		"  ----[\r\n]"
+		"  PI\\(1\\) = 0x77: DS=106, 212, 424, 848 kbit/s\\\\; DR=106, 212, 424, 848 kbit/s[\r\n]"
+		"  PI\\(2\\) = 0x81: FSC=256\\\\; min_TR2=10 etu \\+ 32/fs\\\\; ISO 14443-4 compliant PICC[\r\n]"
+		"  PI\\(3\\) = 0x75: FWI=7\\\\; ADC=1 \\(ISO 14443-3\\)\\\\; CID supported\\\\; NAD not supported[\r\n]"
+		"  PI\\(4\\) = 0x40: SFGI=4[\r\n]$"
+	)
+	set_tests_properties(emv_decode_atqb_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_atqb_test1_regex}
+	)
+
 	add_test(NAME emv_decode_test2
 		COMMAND emv-decode --tlv 810400000320
 			--mcc-json ${MCC_JSON_BUILD_PATH}
