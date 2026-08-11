@@ -2,7 +2,7 @@
  * @file emv_debug.h
  * @brief EMV debug implementation
  *
- * Copyright 2021, 2023, 2025 Leon Lynch
+ * Copyright 2021, 2023, 2025-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -55,6 +55,7 @@ enum emv_debug_type_t {
 	EMV_DEBUG_TYPE_BER,                         ///< Debug event contains ISO 8825-1 BER encoded data
 	EMV_DEBUG_TYPE_TLV_LIST,                    ///< Debug event contains EMV TLV list
 	EMV_DEBUG_TYPE_ATR,                         ///< Debug event contains ISO 7816 Answer To Reset (ATR) data
+	EMV_DEBUG_TYPE_ATS,                         ///< Debug event contains ISO 14443 Answer To Select (ATS) data
 	EMV_DEBUG_TYPE_CAPDU,                       ///< Debug event contains ISO 7816 C-APDU (command APDU) data
 	EMV_DEBUG_TYPE_RAPDU,                       ///< Debug event contains ISO 7816 R-APDU (response APDU) data
 	EMV_DEBUG_TYPE_CTPDU,                       ///< Debug event contains ISO 7816 C-TPDU (request TPDU) data
@@ -191,8 +192,16 @@ void emv_debug_internal(
  */
 #define emv_debug_atr_info(atr_info) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_CARD, EMV_DEBUG_TYPE_ATR, "ATR", atr_info, sizeof(*atr_info)); } while (0)
 
+/**
+ * Emit debug event with decoded ISO 14443 ATS
+ *
+ * @param ats_info Pointer to parsed ATS info (@ref iso14443_ats_info_t)
+ */
+#define emv_debug_ats_info(ats_info) do { emv_debug_internal(EMV_DEBUG_SOURCE, EMV_DEBUG_LEVEL_CARD, EMV_DEBUG_TYPE_ATS, "ATS", ats_info, sizeof(*ats_info)); } while (0)
+
 #else // EMV_DEBUG_ENABLED && !EMV_DEBUG_CARD_DISABLED
 #define emv_debug_atr_info(atr_info) do {} while (0)
+#define emv_debug_ats_info(ats_info) do {} while (0)
 #endif // EMV_DEBUG_ENABLED && !EMV_DEBUG_CARD_DISABLED
 
 #if defined(EMV_DEBUG_ENABLED) && !defined(EMV_DEBUG_CARD_DISABLED) && !defined(EMV_DEBUG_APDU_DISABLED)
