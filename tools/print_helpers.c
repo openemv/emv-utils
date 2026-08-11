@@ -1249,6 +1249,10 @@ static void print_emv_debug_internal(
 			print_atr(buf);
 			return;
 
+		case EMV_DEBUG_TYPE_ATS:
+			print_ats(buf);
+			return;
+
 		case EMV_DEBUG_TYPE_CAPDU:
 			printf("%s: ", str);
 			print_capdu(buf, buf_len);

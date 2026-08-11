@@ -353,6 +353,7 @@ target_link_libraries(emv
 		iso8825
 	PRIVATE
 		iso7816
+		iso14443
 		iso8859
 		crypto_mem
 		crypto_rand

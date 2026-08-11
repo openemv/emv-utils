@@ -260,6 +260,20 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome);
 int emv_atr_parse(const void* atr, size_t atr_len);
 
 /**
+ * Parse the ISO 14443 Answer To Select (ATS) message and determine whether the
+ * contactless type A card is suitable for EMV processing
+ * @remark See EMV Level 1 Contactless Interface Specification v3.2, 5.7.2
+ *
+ * @param ats ATS data (starting with mandatory TL byte)
+ * @param ats_len Length of ATS data in bytes
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_ats_parse(const void* ats, size_t ats_len);
+
+/**
  * Indicate that EMV card has been presented to reader
  *
  * @param ctx EMV processing context

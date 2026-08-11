@@ -31,6 +31,7 @@
 #include "emv_date.h"
 
 #include "iso7816.h"
+#include "iso14443.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
@@ -341,6 +342,106 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 	// TCK - Check Character
 	// See EMV Level 1 Contact Interface v1.0, 8.3.4
 	// Validated by iso7816_atr_parse()
+
+	return 0;
+}
+
+int emv_ats_parse(const void* ats, size_t ats_len)
+{
+	int r;
+	struct iso14443_ats_info_t ats_info;
+
+	if (!ats || !ats_len) {
+		emv_debug_trace_msg("ats=%p, ats_len=%zu", ats, ats_len);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = iso14443_ats_parse(ats, ats_len, &ats_info);
+	if (r) {
+		emv_debug_trace_msg("iso14443_ats_parse() failed; r=%d", r);
+
+		if (r < 0) {
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		if (r > 0) {
+			emv_debug_error("Failed to parse ATS");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+	emv_debug_ats_info(&ats_info);
+
+	// The intention of this function is to validate the ATS in accordance with
+	// EMV Level 1 Contactless Interface Specification v3.2, 5.7.2. Some of the
+	// validation may already be performed by iso14443_ats_parse() and should
+	// be noted below in comments. The intention is also not to require all
+	// interface bytes to be present, but instead to accept any ATS permitted
+	// by the specification. Note that iso14443_ats_parse() populates defaults
+	// when interface bytes are absent, and applies various normalisations when
+	// decoding the ATS.
+
+	// TL - Length byte
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2.2
+	// Validated by iso14443_ats_parse()
+
+	// T0 - Format byte
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2, table 5.16
+
+	// FSCI must be in the range 0 (FSC=16) to 'C' (FSC=4096)
+	// FSCI 'D'-'F' is already normalised to FSC=4096 by iso14443_ats_parse()
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2.5
+	if (ats_info.FSC < 16) {
+		// iso14443_ats_parse() never decodes any FSCI to FSC < 16
+		emv_debug_error("FSC is below minimum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+	if (ats_info.FSC > 4096) {
+		// iso14443_ats_parse() never decodes any FSCI to FSC > 4096
+		emv_debug_error("FSC exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// TA(1) - Interface byte
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2, table 5.18
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2.8 and 5.7.2.9a
+	// TA(1) with b4 set is already normalised by iso14443_ats_parse()
+
+	// TB(1) - Interface byte
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2, table 5.19
+
+	// FWI must be less than or equal to FWI-MAX (14 for PCD)
+	// FWI = 15 and SFGI = 15 are already normalised by iso14443_ats_parse()
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2.10a and 5.7.2.10b
+	// See EMV Level 1 Contactless Interface v3.2, Annex A.4, table A.5
+	if (ats_info.FWI > 14) {
+		// iso14443_ats_parse() never decodes any FWI to be > 14
+		emv_debug_error("FWI exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// SFGI must be less than or equal to SFGI-MAX (14 for PCD)
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2.11
+	// See EMV Level 1 Contactless Interface v3.2, Annex A.4, table A.5
+	if (ats_info.SFGI > 14) {
+		// iso14443_ats_parse() never decodes any SFGI to be > 14
+		emv_debug_error("SFGI exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// TC(1) - Interface byte
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2, table 5.20
+
+	// Disregard CID and NAD
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2.13
+
+	// Historical bytes
+	// See EMV Level 1 Contactless Interface v3.2, 5.7.2.14
+	// Allow up to 15 historical bytes
+	if (ats_info.K_count > 15) {
+		emv_debug_error("Too many historical bytes");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
 
 	return 0;
 }
