@@ -446,6 +446,112 @@ int emv_ats_parse(const void* ats, size_t ats_len)
 	return 0;
 }
 
+int emv_atqb_parse(const void* atqb, size_t atqb_len)
+{
+	int r;
+	struct iso14443_atqb_info_t atqb_info;
+
+	if (!atqb || !atqb_len) {
+		emv_debug_trace_msg("atqb=%p, atqb_len=%zu", atqb, atqb_len);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = iso14443_atqb_parse(atqb, atqb_len, &atqb_info);
+	if (r) {
+		emv_debug_trace_msg("iso14443_atqb_parse() failed; r=%d", r);
+
+		if (r < 0) {
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		if (r > 0) {
+			emv_debug_error("Failed to parse ATQB");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+	emv_debug_atqb_info(&atqb_info);
+
+	// The intention of this function is to validate the ATQB in accordance
+	// with EMV Level 1 Contactless Interface Specification v3.2, 6.3.2. Some
+	// of the validation may already be performed by iso14443_atqb_parse() and
+	// should be noted below in comments. Note that iso14443_atqb_parse() only
+	// populates defaults for optional Protocol Info byte 4 because all other
+	// ATQB bytes are mandatory, and applies various normalisations when
+	// decoding ATQB.
+
+	// Disregard Application Data
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.3
+
+	// Protocol Info byte 1
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2, table 6.5
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.5a
+	// Supported bitrates already decoded, and RFU bit 4 already normalised
+	// by iso14443_atqb_parse()
+
+	// Protocol Info byte 2
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2, table 6.5
+
+	// FSCI must be in the range 0 (FSC=16) to 'C' (FSC=4096)
+	// FSCI 'D'-'F' is already normalised to FSC=4096 by iso14443_atqb_parse()
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.7
+	if (atqb_info.FSC < 16) {
+		// iso14443_atqb_parse() never decodes any FSCI to FSC < 16
+		emv_debug_error("FSC is below minimum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+	if (atqb_info.FSC > 4096) {
+		// iso14443_atqb_parse() never decodes any FSCI to FSC > 4096
+		emv_debug_error("FSC exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Support PICC compliant with ISO/IEC 14443-4
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.8
+
+	// Protocol_Type bit 4 is RFU and rejected if set
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.8a
+	if (atqb_info.protocol_type_rfu) {
+		emv_debug_error("Protocol_Type RFU bit is set");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Disregard minimum TR2
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.10
+
+	// Protocol Info byte 3
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2, table 6.5
+
+	// FWI must be less than or equal to FWI-MAX (14 for PCD)
+	// FWI = 15 is already normalised by iso14443_atqb_parse()
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.12a and 6.3.2.12b
+	// See EMV Level 1 Contactless Interface v3.2, Annex A.4, table A.5
+	if (atqb_info.FWI > 14) {
+		// iso14443_atqb_parse() never decodes any FWI to be > 14
+		emv_debug_error("FWI exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Disregard Application Data Coding (ADC)
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.13
+
+	// Disregard CID and NAD
+	// See EMV Level 1 Contactless Interface v3.2, 6.3.2.14
+
+	// Protocol Info byte 4 (extended ATQB)
+	if (atqb_info.PI4) {
+		// SFGI must be less than or equal to SFGI-MAX (14 for PCD)
+		// SFGI = 15 is already normalised by iso14443_atqb_parse()
+		// See EMV Level 1 Contactless Interface v3.2, Annex A.4, table A.5
+		if (atqb_info.SFGI > 14) {
+			emv_debug_error("SFGI exceeds maximum");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+
+	return 0;
+}
+
 int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
 {
 	if (!ctx || !ttl) {

@@ -28,6 +28,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_ats_parse_test PRIVATE print_helpers emv)
 	add_test(emv_ats_parse_test emv_ats_parse_test)
 
+	add_executable(emv_atqb_parse_test emv_atqb_parse_test.c)
+	target_link_libraries(emv_atqb_parse_test PRIVATE print_helpers emv)
+	add_test(emv_atqb_parse_test emv_atqb_parse_test)
+
 	add_executable(emv_ttl_tpdu_test emv_ttl_tpdu_test.c)
 	target_link_libraries(emv_ttl_tpdu_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_ttl_tpdu_test emv_ttl_tpdu_test)
