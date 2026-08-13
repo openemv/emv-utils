@@ -274,6 +274,20 @@ int emv_atr_parse(const void* atr, size_t atr_len);
 int emv_ats_parse(const void* ats, size_t ats_len);
 
 /**
+ * Parse the ISO 14443 Answer To Request Type B (ATQB) message and determine
+ * whether the contactless type B card is suitable for EMV processing
+ * @remark See EMV Level 1 Contactless Interface Specification v3.2, 6.3.2
+ *
+ * @param atqb ATQB data (starting with mandatory 0x50 marker byte)
+ * @param atqb_len Length of ATQB data in bytes (12 for basic, 13 for extended)
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_atqb_parse(const void* atqb, size_t atqb_len);
+
+/**
  * Indicate that EMV card has been presented to reader
  *
  * @param ctx EMV processing context
