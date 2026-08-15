@@ -20,6 +20,14 @@ if (BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_debug_test_regex}
 	)
 
+	add_executable(iso14443_ats_parse_test iso14443_ats_parse_test.c)
+	target_link_libraries(iso14443_ats_parse_test PRIVATE iso14443)
+	add_test(iso14443_ats_parse_test iso14443_ats_parse_test)
+
+	add_executable(iso14443_atqb_parse_test iso14443_atqb_parse_test.c)
+	target_link_libraries(iso14443_atqb_parse_test PRIVATE iso14443)
+	add_test(iso14443_atqb_parse_test iso14443_atqb_parse_test)
+
 	add_executable(emv_atr_parse_test emv_atr_parse_test.c)
 	target_link_libraries(emv_atr_parse_test PRIVATE print_helpers emv)
 	add_test(emv_atr_parse_test emv_atr_parse_test)
