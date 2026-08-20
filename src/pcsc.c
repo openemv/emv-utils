@@ -90,13 +90,22 @@ struct pcsc_reader_t {
 	// Populated by pcsc_reader_connect()
 	uint8_t uid[10]; // See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3
 	size_t uid_len;
+	uint8_t ats_historical[PCSC_MAX_ATR_SIZE];
+	size_t ats_historical_len;
 	enum pcsc_card_type_t type;
 };
+
+// Registered application provider identifier (RID) of the PC/SC Workgroup
+// See PC/SC Part 3 Supplemental Rev 2.01.09, table 1
+static const uint8_t pcsc_rid[] = { 0xA0, 0x00, 0x00, 0x03, 0x06 };
 
 // Helper functions
 static int pcsc_reader_populate_features(struct pcsc_reader_t* reader);
 static int pcsc_reader_get_feature(struct pcsc_reader_t* reader, unsigned int feature, LPDWORD control_code);
+static int pcsc_reader_internal_get_data(pcsc_reader_ctx_t reader_ctx, uint8_t p1, void* response, size_t* response_len, uint16_t* sw1sw2);
 static int pcsc_reader_internal_get_uid(pcsc_reader_ctx_t reader_ctx, uint8_t* uid, size_t* uid_len);
+static int pcsc_reader_internal_get_ats_historical(pcsc_reader_ctx_t reader_ctx, uint8_t* ats, size_t* ats_len);
+static int pcsc_reader_internal_get_card_type(struct pcsc_reader_t* reader);
 
 int pcsc_init(pcsc_ctx_t* ctx)
 {
@@ -673,55 +682,283 @@ int pcsc_wait_for_card(pcsc_ctx_t ctx, unsigned long timeout_ms, size_t* idx)
 	return 1;
 }
 
-static int pcsc_reader_internal_get_uid(pcsc_reader_ctx_t reader_ctx, uint8_t* uid, size_t* uid_len)
+static int pcsc_reader_internal_get_data(
+	pcsc_reader_ctx_t reader_ctx,
+	uint8_t p1,
+	void* response,
+	size_t* response_len,
+	uint16_t* sw1sw2
+)
 {
 	int r;
-	uint8_t rx_buf[12]; // ISO 14443 Type A triple size UID + status bytes
-	size_t rx_len = sizeof(rx_buf);
+	uint8_t rx_buf[256 + 2]; // Maximum R-APDU, including status bytes
+	size_t rx_len;
 	uint8_t SW1;
 	uint8_t SW2;
 
-	// PC/SC GET DATA command for requesting contactless UID
-	// See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3
-	static const uint8_t pcsc_get_uid_capdu[] = { 0xFF, 0xCA, 0x00, 0x00, 0x00 };
-
-	r = pcsc_reader_trx(reader_ctx, pcsc_get_uid_capdu, sizeof(pcsc_get_uid_capdu), rx_buf, &rx_len);
-	if (r) {
-		return r;
-	}
-	if (rx_len < 2) {
-		// Invalid response length
+	if (!reader_ctx || !response || !response_len || !sw1sw2) {
 		return -5;
 	}
 
-	// Extract status bytes
-	SW1 = *((uint8_t*)(rx_buf + rx_len - 2));
-	SW2 = *((uint8_t*)(rx_buf + rx_len - 1));
+	// PC/SC GET DATA command for requesting card information
+	// See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3
+	uint8_t capdu[] = { 0xFF, 0xCA, p1, 0x00, 0x00 };
+
+	// Attempt PC/SC GET DATA with Le=0x00 for full response data and if PC/SC
+	// responds with SW1-SW2 6CXX then try again with the indicated Le field
+	for (unsigned int i = 0; i < 2; ++i) {
+		rx_len = sizeof(rx_buf);
+		r = pcsc_reader_trx(reader_ctx, capdu, sizeof(capdu), rx_buf, &rx_len);
+		if (r) {
+			return -6;
+		}
+		if (rx_len < 2) {
+			// Invalid response length
+			return -7;
+		}
+
+		// Extract status bytes
+		SW1 = *((uint8_t*)(rx_buf + rx_len - 2));
+		SW2 = *((uint8_t*)(rx_buf + rx_len - 1));
+
+		if (SW1 == 0x6C) {
+			// SW1-SW2 is 6CXX (Wrong Le field; SW2 encodes the exact number of
+			// available data bytes)
+			// Update Le in C-APDU and try again
+			capdu[4] = SW2;
+			continue;
+		}
+
+		// No retry necessary
+		break;
+	}
 
 	// Remove status bytes
 	rx_len -= 2;
 
+	// Ensure that response buffer has enough capacity for incoming data
+	// excluding trailing SW1-SW2
+	if (*response_len < rx_len) {
+		return -8;
+	}
+	memcpy(response, rx_buf, rx_len);
+	*response_len = rx_len;
+
+	// Output status bytes SW1-SW2 in host endianness
+	*sw1sw2 = ((uint16_t)SW1 << 8) | SW2;
+
+	return 0;
+}
+
+static int pcsc_reader_internal_get_uid(pcsc_reader_ctx_t reader_ctx, uint8_t* uid, size_t* uid_len)
+{
+	int r;
+	uint8_t response[10]; // ISO 14443 Type A triple size UID
+	size_t response_len = sizeof(response);
+	uint16_t sw1sw2;
+
+	if (!reader_ctx || !uid || !uid_len) {
+		return -9;
+	}
+
+	// PC/SC GET DATA command for requesting ISO 14443 UID/PUPI (using P1=0x00)
+	// See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3
+	r = pcsc_reader_internal_get_data(
+		reader_ctx,
+		0x00,
+		response,
+		&response_len,
+		&sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+
 	// Process warning/error status bytes
 	// See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3, table 3-9
-	if (SW1 == 0x6A && SW2 == 0x81) {
+	if (sw1sw2 == 0x6A81) {
 		// SW1-SW2 is 6A81 (Function not supported)
 		// Card is ISO 7816 contact
 		return 1;
 	}
-
-	if (SW1 != 0x90 || SW2 != 0x00) {
+	if (sw1sw2 != 0x9000 &&
+		sw1sw2 != 0x6282
+	) {
 		// SW1-SW2 is not 9000 (Normal)
+		// SW1-SW2 is not 6282 (End of file or record reached before reading Ne bytes)
 		// Unknown failure
-		return -6;
+		return -10;
 	}
 
+	switch (response_len) {
+		case 4:  // ISO 14443 type A single size UID or type B PUPI
+		case 7:  // ISO 14443 type A double size UID
+		case 8:  // ISO 15693 UID
+		case 10: // ISO 14443 type A triple size UID
+			break;
 
-	if (*uid_len < rx_len) {
+		default:
+			// Invalid response length
+			return -11;
+	}
+
+	if (*uid_len < response_len) {
 		// Output buffer too small
-		return -7;
+		return -12;
 	}
-	memcpy(uid, rx_buf, rx_len);
-	*uid_len = rx_len;
+
+	// Copy UID/PUPI from reponse buffer
+	memcpy(uid, response, response_len);
+	*uid_len = response_len;
+
+	return 0;
+}
+
+static int pcsc_reader_internal_get_ats_historical(
+	pcsc_reader_ctx_t reader_ctx,
+	uint8_t* ats_historical,
+	size_t* ats_historical_len
+)
+{
+	int r;
+	uint8_t response[256]; // Maximum R-APDU data, excluding status bytes
+	size_t response_len = sizeof(response);
+	uint16_t sw1sw2;
+
+	if (!reader_ctx || !ats_historical || !ats_historical_len) {
+		return -13;
+	}
+
+	// PC/SC GET DATA command for requesting ISO 14443 type A
+	// Answer-To-Select (ATS) historical bytes (using P1=0x01)
+	// See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3
+	r = pcsc_reader_internal_get_data(
+		reader_ctx,
+		0x01,
+		response,
+		&response_len,
+		&sw1sw2
+	);
+	if (r) {
+		return r;
+	}
+
+	// Process warning/error status bytes
+	// See PC/SC Part 3 Rev 2.01.09, 3.2.2.1.3, table 3-9
+	if (sw1sw2 == 0x6A81) {
+		// SW1-SW2 is 6A81 (Function not supported)
+		// Card is not ISO 14443 type A
+		return 1;
+	}
+	if (sw1sw2 != 0x9000 &&
+		sw1sw2 != 0x6282
+	) {
+		// SW1-SW2 is not 9000 (Normal)
+		// SW1-SW2 is not 6282 (End of file or record reached before reading Ne bytes)
+		// Unknown failure
+		return -14;
+	}
+
+	if (*ats_historical_len < response_len) {
+		// Output buffer too small
+		return -15;
+	}
+
+	// Copy ATS historical bytes from reponse buffer
+	memcpy(ats_historical, response, response_len);
+	*ats_historical_len = response_len;
+
+	return 0;
+}
+
+static int pcsc_reader_internal_get_card_type(struct pcsc_reader_t* reader)
+{
+	// Determine whether PC/SC ATR may be for contactless card
+	// See PC/SC Part 3 Rev 2.01.09, 3.1.3.2.3.1, table 3-5 and table 3-6
+	if (reader->atr_len > 4 && // TS,T0,TD1,TD2,Tk,TCK
+		reader->atr[0] == 0x3B && // TS == 0x3B
+		(reader->atr[1] & 0xF0) == 0x80 && // T0 == 0x8n
+		reader->atr[2] == 0x80 && // TD1 == 0x80
+		reader->atr[3] == 0x01 && // TD2 == 0x01
+		reader->atr_len == 5 + (reader->atr[1] & 0x0F) // Length == TCK + K
+	) {
+
+		const uint8_t* hist = &reader->atr[4];
+		unsigned int hist_len = reader->atr_len - 5;
+
+		// Determine whether PC/SC ATR may be for storage card
+		// See PC/SC Part 3 Rev 2.01.09, 3.1.3.2.3.1, table 3-6
+		if (hist_len >= 9 && // T1,T2,Len(RID),RID[5],SS
+			hist[0] == 0x80 && // T1 == 0x80
+			hist[1] == 0x4F && // T2 == 0x4F
+			hist[2] > 5 && // Len(RID) > 5
+			hist[2] == hist_len - 3 && // Length sanity check
+			memcmp(hist + 3, pcsc_rid, sizeof(pcsc_rid)) == 0 // PC/SC RID
+		) {
+			if (hist[8] >= 0x0D && hist[8] <= 0x10) { // PIX-SS == ISO 7816
+				reader->type = PCSC_CARD_TYPE_CONTACT;
+			} else {
+				reader->type = PCSC_CARD_TYPE_CONTACTLESS;
+			}
+		} else { // Not a storage card
+			int r;
+
+			// Determine whether it is a contactless card by requesting the
+			// contactless UID
+			reader->uid_len = sizeof(reader->uid);
+			r = pcsc_reader_internal_get_uid(
+				reader,
+				reader->uid,
+				&reader->uid_len
+			);
+			if (r < 0) {
+				// Error during UID retrieval; assume card error
+				return r;
+			}
+
+			if (r > 0) {
+				// Function not supported; assume contact card
+				reader->type = PCSC_CARD_TYPE_CONTACT;
+			} else {
+				// UID retrieved; assume contactless card
+				reader->type = PCSC_CARD_TYPE_CONTACTLESS;
+
+				if (reader->uid_len == 7 || // ISO 14443 type A double UID
+					reader->uid_len == 10 // ISO 14443 type A triple UID
+				) {
+					// UID present; assume type A
+					reader->type = PCSC_CARD_TYPE_CONTACTLESS_A;
+				} else if (reader->uid_len == 4) {
+					// Either ISO 14443 type A single UID or
+					// ISO 14443 type B PUPI
+
+					// Determine whether it is a contactless type A card by
+					// requesting the ATS historical bytes
+					reader->ats_historical_len = sizeof(reader->ats_historical);
+					r = pcsc_reader_internal_get_ats_historical(
+						reader,
+						reader->ats_historical,
+						&reader->ats_historical_len
+					);
+					if (r < 0) {
+						// Error during UID retrieval; assume card error
+						return r;
+					}
+
+					if (r > 0) {
+						// Function not supported; assume type B
+						reader->type = PCSC_CARD_TYPE_CONTACTLESS_B;
+					} else {
+						// ATS historical bytes present; assume type A
+						reader->type = PCSC_CARD_TYPE_CONTACTLESS_A;
+					}
+				}
+			}
+		}
+	} else {
+		// Real ATR; assume contact card
+		reader->type = PCSC_CARD_TYPE_CONTACT;
+	}
 
 	return 0;
 }
@@ -731,6 +968,7 @@ int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx)
 	struct pcsc_reader_t* reader;
 	LONG result;
 	DWORD state;
+	int r;
 
 	if (!reader_ctx) {
 		return -1;
@@ -760,37 +998,17 @@ int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx)
 		return -1;
 	}
 
-	// Determine whether PC/SC ATR may be for contactless card
-	// See PC/SC Part 3 Rev 2.01.09, 3.1.3.2.3.1
-	if (reader->atr_len > 4 &&
-		reader->atr[0] == 0x3B &&
-		(reader->atr[1] & 0x80) == 0x80 &&
-		reader->atr[2] == 0x80 &&
-		reader->atr[3] == 0x01 &&
-		reader->atr_len == 5 + (reader->atr[1] & 0x0F)
-	) {
-		int r;
-
-		// Determine whether it is a contactless card by requesting the
-		// contactless UID
-		reader->uid_len = sizeof(reader->uid);
-		r = pcsc_reader_internal_get_uid(
-			reader_ctx,
-			reader->uid,
-			&reader->uid_len
-		);
-		if (r < 0) {
-			// Error during UID retrieval; assume card error
-			return r;
-		} else if (r > 0) {
-			// Function not supported; assume contact card
-			reader->type = PCSC_CARD_TYPE_CONTACT;
-		} else {
-			// UID retrieved; assume contactless card
-			reader->type = PCSC_CARD_TYPE_CONTACTLESS;
-		}
-	} else {
-		reader->type = PCSC_CARD_TYPE_CONTACT;
+	// Attempt to identify card type
+	r = pcsc_reader_internal_get_card_type(reader);
+	if (r < 0) {
+		// Assume reader or card error
+		pcsc_reader_disconnect(reader);
+		return r;
+	}
+	if (r > 0) {
+		// Internal error
+		pcsc_reader_disconnect(reader);
+		return -20;
 	}
 
 	return reader->type;
@@ -821,6 +1039,18 @@ int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx)
 	reader->type = PCSC_CARD_TYPE_UNKNOWN;
 
 	return 0;
+}
+
+int pcsc_reader_get_card_type(pcsc_reader_ctx_t reader_ctx)
+{
+	struct pcsc_reader_t* reader;
+
+	if (!reader_ctx) {
+		return -1;
+	}
+	reader = reader_ctx;
+
+	return reader->type;
 }
 
 int pcsc_reader_get_atr(pcsc_reader_ctx_t reader_ctx, void* atr, size_t* atr_len)
