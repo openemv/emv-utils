@@ -2,7 +2,7 @@
  * @file pcsc.h
  * @brief PC/SC abstraction
  *
- * Copyright 2021, 2024-2025 Leon Lynch
+ * Copyright 2021, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -85,7 +85,9 @@ typedef void* pcsc_reader_ctx_t; ///< PC/SC reader context pointer type
 enum pcsc_card_type_t {
 	PCSC_CARD_TYPE_UNKNOWN = 0, ///< Unknown card type
 	PCSC_CARD_TYPE_CONTACT, ///< ISO 7816 contact card
-	PCSC_CARD_TYPE_CONTACTLESS, ///< ISO 14443 contactless card
+	PCSC_CARD_TYPE_CONTACTLESS, ///< ISO 14443 contactless card of unknown type
+	PCSC_CARD_TYPE_CONTACTLESS_A, ///< ISO 14443 type A contactless card
+	PCSC_CARD_TYPE_CONTACTLESS_B, ///< ISO 14443 type B contactless card
 };
 
 /**
@@ -182,9 +184,45 @@ int pcsc_reader_connect(pcsc_reader_ctx_t reader_ctx);
 int pcsc_reader_disconnect(pcsc_reader_ctx_t reader_ctx);
 
 /**
+ * Retrieve type of current card
+ * @param reader_ctx PC/SC reader context
+ * @return Less than zero for error. Otherwise @ref pcsc_card_type_t
+ */
+int pcsc_reader_get_card_type(pcsc_reader_ctx_t reader_ctx);
+
+/**
+ * Determine whether card type is contact
+ * @param card_type Card type. See @ref pcsc_card_type_t.
+ * @return Boolean indicating whether card type is contact
+ */
+static inline bool pcsc_reader_card_type_is_contact(enum pcsc_card_type_t card_type)
+{
+	return card_type == PCSC_CARD_TYPE_CONTACT;
+}
+
+/**
+ * Determine whether card type is contactless
+ * @param card_type Card type. See @ref pcsc_card_type_t.
+ * @return Boolean indicating whether card type is contactless
+ */
+static inline bool pcsc_reader_card_type_is_contactless(enum pcsc_card_type_t card_type)
+{
+	switch (card_type) {
+		case PCSC_CARD_TYPE_CONTACTLESS:
+		case PCSC_CARD_TYPE_CONTACTLESS_A:
+		case PCSC_CARD_TYPE_CONTACTLESS_B:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
+/**
  * Retrieve ISO 7816 Answer-To-Reset (ATR) for current card in reader
  * @note Although PC/SC provides an artificial ATR for contactless cards, this
  *       function will only retrieve the ATR for contact cards.
+ * @see @ref pcsc_card_type_t
  * @param reader_ctx PC/SC reader context
  * @param atr ATR output of at most @ref PCSC_MAX_ATR_SIZE bytes
  * @param atr_len Length of ATR output in bytes

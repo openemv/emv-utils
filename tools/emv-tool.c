@@ -738,6 +738,7 @@ int main(int argc, char** argv)
 	unsigned int reader_state;
 	const char* reader_state_str;
 	size_t reader_idx;
+	enum pcsc_card_type_t card_type;
 	uint8_t pos_entry_mode;
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
@@ -884,37 +885,54 @@ int main(int argc, char** argv)
 		printf("PC/SC reader activation failed\n");
 		goto pcsc_exit;
 	}
-	printf("Card activated\n");
+	card_type = r;
 
-	switch (r) {
+	switch (card_type) {
 		case PCSC_CARD_TYPE_CONTACT:
 			pos_entry_mode = EMV_POS_ENTRY_MODE_ICC_WITH_CVV;
+			printf("Contact card activated\n");
+
+			// For contact cards, validate ATR
+			r = pcsc_reader_get_atr(reader, atr, &atr_len);
+			if (r) {
+				printf("Failed to retrieve ATR\n");
+				goto pcsc_exit;
+			}
+			emv_debug_trace_data("ATR", atr, atr_len);
+
+			r = emv_atr_parse(atr, atr_len);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto pcsc_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				goto pcsc_exit;
+			}
+			break;
+
+		case PCSC_CARD_TYPE_CONTACTLESS_A:
+			pos_entry_mode = EMV_POS_ENTRY_MODE_CONTACTLESS_EMV;
+			printf("Contactless type A card activated\n");
+			break;
+
+		case PCSC_CARD_TYPE_CONTACTLESS_B:
+			pos_entry_mode = EMV_POS_ENTRY_MODE_CONTACTLESS_EMV;
+			printf("Contactless type B card activated\n");
 			break;
 
 		case PCSC_CARD_TYPE_CONTACTLESS:
 			pos_entry_mode = EMV_POS_ENTRY_MODE_CONTACTLESS_EMV;
-			printf("Contactless not (yet) supported\n");
-			goto pcsc_exit;
+			printf("Contactless card activated\n");
+			break;
 
 		default:
 			printf("Unknown card type\n");
 			goto pcsc_exit;
 	}
 
-	r = pcsc_reader_get_atr(reader, atr, &atr_len);
-	if (r) {
-		printf("Failed to retrieve ATR\n");
-		goto pcsc_exit;
-	}
-	emv_debug_trace_data("ATR", atr, atr_len);
-
-	r = emv_atr_parse(atr, atr_len);
-	if (r < 0) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		goto pcsc_exit;
-	}
-	if (r > 0) {
-		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+	if (pcsc_reader_card_type_is_contactless(card_type)) {
+		printf("Contactless not (yet) supported\n");
 		goto pcsc_exit;
 	}
 
