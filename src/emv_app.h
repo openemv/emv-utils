@@ -37,8 +37,9 @@ struct emv_config_app_t;
  * @brief EMV application
  *
  * Create using one of these function:
- * - @ref emv_app_create_from_pse()
+ * - @ref emv_app_create_from_pse_dir_entry()
  * - @ref emv_app_create_from_fci()
+ * - @ref emv_app_create_from_ppse_dir_entry()
  *
  * Free using @ref emv_app_free().
  */
@@ -111,7 +112,7 @@ struct emv_app_list_t {
  * @return New EMV application object. NULL for error.
  *         Use @ref emv_app_free() to free memory.
  */
-struct emv_app_t* emv_app_create_from_pse(
+struct emv_app_t* emv_app_create_from_pse_dir_entry(
 	const struct emv_tlv_list_t* pse_tlv_list,
 	const void* pse_dir_entry,
 	size_t pse_dir_entry_len
@@ -128,6 +129,21 @@ struct emv_app_t* emv_app_create_from_pse(
  *         Use @ref emv_app_free() to free memory.
  */
 struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len);
+
+/**
+ * Create new EMV application from encoded EMV data. The data should be the
+ * content of the Directory Entry (field 61) provided by a Proximity Payment
+ * System Environment (PPSE) response.
+ *
+ * @param ppse_dir_entry PPSE directory entry (field 61)
+ * @param ppse_dir_entry_len Length of PPSE directory entry in bytes
+ * @return New EMV application object. NULL for error.
+ *         Use @ref emv_app_free() to free memory.
+ */
+struct emv_app_t* emv_app_create_from_ppse_dir_entry(
+	const void* ppse_dir_entry,
+	size_t ppse_dir_entry_len
+);
 
 /**
  * Free EMV application and associated EMV TLVs

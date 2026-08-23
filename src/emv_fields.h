@@ -24,6 +24,7 @@
 
 #include <sys/cdefs.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 __BEGIN_DECLS
@@ -965,6 +966,43 @@ enum emv_card_product_t {
 	EMV_CARD_PRODUCT_MIR_CREDIT, ///< Mir Credit
 	EMV_CARD_PRODUCT_MIR_DEBIT, ///< Mir Debit
 };
+
+/**
+ * Determine whether Point-of-Service (POS) Entry Mode (field 9F39) is contact
+ * @param pos_entry_mode Point-of-Service (POS) Entry Mode (field 9F39) value.
+ *                       See @ref pos-entry-mode-values "values".
+ * @return Boolean indicating whether card type is contact
+ */
+static inline bool emv_pos_entry_mode_is_contact(uint8_t pos_entry_mode)
+{
+	switch (pos_entry_mode) {
+		case EMV_POS_ENTRY_MODE_ICC_WITH_CVV:
+		case EMV_POS_ENTRY_MODE_ICC_WITHOUT_CVV:
+			return true;
+
+		default:
+			return false;
+	}
+}
+
+/**
+ * Determine whether Point-of-Service (POS) Entry Mode (field 9F39) is
+ * contactless
+ * @param pos_entry_mode Point-of-Service (POS) Entry Mode (field 9F39) value.
+ *                       See @ref pos-entry-mode-values "values".
+ * @return Boolean indicating whether card type is contactless
+ */
+static inline bool emv_pos_entry_mode_is_contactless(uint8_t pos_entry_mode)
+{
+	switch (pos_entry_mode) {
+		case EMV_POS_ENTRY_MODE_CONTACTLESS_EMV:
+		case EMV_POS_ENTRY_MODE_CONTACTLESS_MAG:
+			return true;
+
+		default:
+			return false;
+	}
+}
 
 /// EMV Application Identifier (AID) information
 struct emv_aid_info_t {

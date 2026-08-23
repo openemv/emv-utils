@@ -931,11 +931,6 @@ int main(int argc, char** argv)
 			goto pcsc_exit;
 	}
 
-	if (pcsc_reader_card_type_is_contactless(card_type)) {
-		printf("Contactless not (yet) supported\n");
-		goto pcsc_exit;
-	}
-
 	// Populate Terminal Transport Layer (TTL) for current reader
 	memset(&ttl, 0, sizeof(ttl));
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
@@ -951,25 +946,52 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
-	printf("\nBuild candidate list\n");
-	r = emv_build_candidate_list(&emv, &app_list);
-	if (r < 0) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		goto emv_exit;
-	}
-	if (r > 0) {
-		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-		goto emv_exit;
-	}
+	if (emv_pos_entry_mode_is_contact(pos_entry_mode)) {
+		printf("\nBuild candidate list\n");
+		r = emv_build_candidate_list(&emv, &app_list);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
 
-	printf("Candidate applications:\n");
-	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
-		print_emv_app(app);
-	}
+		printf("\nCandidate applications:\n");
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
 
-	application_selection_required = emv_app_list_selection_is_required(&app_list);
-	if (application_selection_required) {
-		printf("Cardholder selection is required\n");
+		application_selection_required = emv_app_list_selection_is_required(&app_list);
+		if (application_selection_required) {
+			printf("Cardholder selection is required\n");
+		}
+
+	} else if (emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
+		printf("\nBuild combination list\n");
+		r = emv_build_combination_list(&emv, &app_list);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
+
+		printf("\nCandidate applications:\n");
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
+
+		// Contactless never requires user application selection
+		// See EMV Contactless Book B v2.11, 3.3.3.2
+		application_selection_required = false;
+
+	} else {
+		printf("Unknown POS Entry Mode 0x%02X\n", pos_entry_mode);
+		goto emv_exit;
 	}
 
 	do {
@@ -1051,6 +1073,12 @@ int main(int argc, char** argv)
 	// Application selection has been successful and the application list
 	// is no longer needed.
 	emv_app_list_clear(&app_list);
+
+	// Contactless processing ends here for now
+	if (emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
+		printf("\nContactless EMV processing is not (yet) supported\n");
+		goto emv_exit;
+	}
 
 	printf("\nRead application data\n");
 	r = emv_read_application_data(&emv);
