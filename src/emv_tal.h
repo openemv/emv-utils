@@ -79,6 +79,15 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_PSE_SFI_INVALID, ///< Invalid Short File Identifier (SFI) for Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_AEF_PARSE_FAILED, ///< Failed to parse Application Elementary File (AEF) of Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_AEF_INVALID, ///< Invalid Payment System Environment (PSE) Application Elementary File (AEF) record
+
+	EMV_TAL_RESULT_PPSE_NOT_FOUND, ///< Proximity Payment System Environment (PPSE) not found
+	EMV_TAL_RESULT_PPSE_BLOCKED, ///< Proximity Payment System Environment (PPSE) is blocked
+	EMV_TAL_RESULT_PPSE_SELECT_FAILED, ///< Failed to select Proximity Payment System Environment (PPSE)
+	EMV_TAL_RESULT_PPSE_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for Proximity Payment System Environment (PPSE)
+	EMV_TAL_RESULT_PPSE_A5_NOT_FOUND, ///< Failed to find FCI Proprietary Template (A5) for Proximity Payment System Environment (PPSE)
+	EMV_TAL_RESULT_PPSE_A5_INVALID, ///< Invalid FCI Proprietary Template (A5) for Proximity Payment System Environment (PPSE)
+	EMV_TAL_RESULT_PPSE_DIR_ENTRY_PARSE_FAILED, /// Failed to parse Directory Entry of Proximity Payment System Environment (PPSE)
+
 	EMV_TAL_RESULT_APP_NOT_FOUND, ///< Selected application not found
 	EMV_TAL_RESULT_APP_BLOCKED, ///< Selected application is blocked
 	EMV_TAL_RESULT_APP_SELECTION_FAILED, ///< Application selection failed
@@ -108,6 +117,25 @@ enum emv_tal_result_t {
 int emv_tal_read_pse(
 	struct emv_ttl_t* ttl,
 	const struct emv_config_t* config,
+	struct emv_app_list_t* app_list
+);
+
+/**
+ * Read Proximity Payment System Environment (PPSE) and parse directory entries
+ * @remark See EMV Contactless Book B v2.11, 3.3.1
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param app_list PPSE application list output
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ * @return Greater than zero indicates that selection or processing of PPSE
+ *         failed that the terminal should terminate the card session. See
+ *         @ref emv_tal_result_t
+ */
+int emv_tal_read_ppse(
+	struct emv_ttl_t* ttl,
 	struct emv_app_list_t* app_list
 );
 

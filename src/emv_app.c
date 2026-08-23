@@ -35,7 +35,7 @@ static int emv_app_extract_display_name(struct emv_app_t* app, const struct emv_
 static int emv_app_extract_priority_indicator(struct emv_app_t* app);
 static inline bool emv_app_list_is_valid(const struct emv_app_list_t* list);
 
-struct emv_app_t* emv_app_create_from_pse(
+struct emv_app_t* emv_app_create_from_pse_dir_entry(
 	const struct emv_tlv_list_t* pse_tlv_list,
 	const void* pse_dir_entry,
 	size_t pse_dir_entry_len
@@ -50,7 +50,7 @@ struct emv_app_t* emv_app_create_from_pse(
 	}
 	memset(app, 0, sizeof(*app));
 
-	// Parse PSE dir entry
+	// Parse PSE directory entry
 	r = emv_tlv_parse(pse_dir_entry, pse_dir_entry_len, &app->tlv_list);
 	if (r < 0) {
 		// Internal error
@@ -62,8 +62,9 @@ struct emv_app_t* emv_app_create_from_pse(
 	}
 
 	// Use ADF Name field for AID
+	// See EMV 4.4 Book 1, 12.2.1
 	app->aid = emv_tlv_list_find_const(&app->tlv_list, EMV_TAG_4F_APPLICATION_DF_NAME);
-	if (!app->aid || app->aid->length < 5) {
+	if (!app->aid || app->aid->length < 5 || app->aid->length > 16) {
 		// Invalid AID in ADF
 		goto error;
 	}
@@ -123,6 +124,57 @@ struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len)
 	app->aid = emv_tlv_list_find_const(&app->tlv_list, EMV_TAG_84_DF_NAME);
 	if (!app->aid || app->aid->length < 5) {
 		// Invalid AID in FCI
+		goto error;
+	}
+
+	r = emv_app_extract_display_name(app, NULL);
+	if (r) {
+		goto error;
+	}
+
+	r = emv_app_extract_priority_indicator(app);
+	if (r) {
+		goto error;
+	}
+
+	return app;
+
+error:
+	emv_app_free(app);
+	return NULL;
+}
+
+struct emv_app_t* emv_app_create_from_ppse_dir_entry(
+	const void* pse_dir_entry,
+	size_t pse_dir_entry_len
+)
+{
+	int r;
+	struct emv_app_t* app;
+
+	app = malloc(sizeof(*app));
+	if (!app) {
+		return NULL;
+	}
+	memset(app, 0, sizeof(*app));
+
+	// Parse PPSE directory entry
+	r = emv_tlv_parse(pse_dir_entry, pse_dir_entry_len, &app->tlv_list);
+	if (r < 0) {
+		// Internal error
+		goto error;
+	}
+	if (r > 0) {
+		// Parse error
+		goto error;
+	}
+
+	// Use ADF Name field for AID
+	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2A
+	// See EMV 4.4 Book 1, 12.2.1
+	app->aid = emv_tlv_list_find_const(&app->tlv_list, EMV_TAG_4F_APPLICATION_DF_NAME);
+	if (!app->aid || app->aid->length < 5 || app->aid->length > 16) {
+		// Invalid AID in ADF
 		goto error;
 	}
 

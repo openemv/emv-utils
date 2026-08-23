@@ -37,7 +37,7 @@
 #include <string.h>
 
 // Helper functions
-static int emv_tal_parse_aef_record(
+static int emv_tal_parse_pse_aef_record(
 	struct emv_tlv_list_t* pse_tlv_list,
 	const void* aef_record,
 	size_t aef_record_len,
@@ -185,7 +185,7 @@ int emv_tal_read_pse(
 
 		emv_debug_info_ber("AEF", aef_record, aef_record_len);
 
-		r = emv_tal_parse_aef_record(
+		r = emv_tal_parse_pse_aef_record(
 			&pse_tlv_list,
 			aef_record,
 			aef_record_len,
@@ -193,7 +193,7 @@ int emv_tal_read_pse(
 			app_list
 		);
 		if (r) {
-			emv_debug_trace_msg("emv_tal_parse_aef_record() failed; r=%d", r);
+			emv_debug_trace_msg("emv_tal_parse_pse_aef_record() failed; r=%d", r);
 			if (r < 0) {
 				// Unknown error; terminate session
 				emv_debug_error("Unknown PSE AEF record error");
@@ -218,7 +218,7 @@ exit:
 	return r;
 }
 
-static int emv_tal_parse_aef_record(
+static int emv_tal_parse_pse_aef_record(
 	struct emv_tlv_list_t* pse_tlv_list,
 	const void* aef_record,
 	size_t aef_record_len,
@@ -227,9 +227,9 @@ static int emv_tal_parse_aef_record(
 )
 {
 	int r;
-	struct iso8825_tlv_t aef_template_tlv;
+	struct iso8825_tlv_t aef_template_tlv = { 0 };
 	struct iso8825_ber_itr_t itr;
-	struct iso8825_tlv_t tlv;
+	struct iso8825_tlv_t dir_entry_tlv = { 0 };
 
 	// Record should contain AEF template (field 70)
 	// See EMV 4.4 Book 1, 12.2.3, table 11
@@ -261,19 +261,23 @@ static int emv_tal_parse_aef_record(
 	}
 
 	// Iterate Application Templates (field 61)
-	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+	while ((r = iso8825_ber_itr_next(&itr, &dir_entry_tlv)) > 0) {
 		struct emv_app_t* app;
 
-		if (tlv.tag != EMV_TAG_61_APPLICATION_TEMPLATE) {
+		if (dir_entry_tlv.tag != EMV_TAG_61_APPLICATION_TEMPLATE) {
 			// Ignore unexpected data elements in AEF template
 			// See EMV 4.4 Book 1, 12.2.3
-			emv_debug_error("Unexpected data element 0x%02X in AEF template", tlv.tag);
+			emv_debug_error("Unexpected data element 0x%02X in AEF template", dir_entry_tlv.tag);
 			continue;
 		}
 
 		// Create EMV application object
 		// See EMV 4.4 Book 1, 12.2.3, table 12
-		app = emv_app_create_from_pse(pse_tlv_list, tlv.value, tlv.length);
+		app = emv_app_create_from_pse_dir_entry(
+			pse_tlv_list,
+			dir_entry_tlv.value,
+			dir_entry_tlv.length
+		);
 		if (!app) {
 			// Ignore invalid Application Template (field 61) content
 			// See EMV 4.4 Book 1, 12.2.3
@@ -461,6 +465,183 @@ int emv_tal_find_supported_apps(
 	} while (true);
 
 	return 0;
+}
+
+int emv_tal_read_ppse(
+	struct emv_ttl_t* ttl,
+	struct emv_app_list_t* app_list
+)
+{
+	int r;
+	uint8_t fci[EMV_RAPDU_DATA_MAX];
+	size_t fci_len = sizeof(fci);
+	uint16_t sw1sw2;
+
+	struct iso8825_tlv_t fci_template_tlv = { 0 };
+	struct iso8825_ber_itr_t fci_template_itr;
+	struct iso8825_tlv_t fci_prop_template_tlv = { 0 };
+	struct iso8825_tlv_t fci_issuer_disc_data_tlv = { 0 };
+	struct iso8825_ber_itr_t dir_entry_itr;
+	struct iso8825_tlv_t dir_entry_tlv = { 0 };
+
+	if (!ttl || !app_list) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// SELECT Proximity Payment System Environment (PPSE) Directory Definition File (DDF)
+	// See EMV Contactless Book B v2.11, 3.3.1
+	// See EMV Contactless Book B v2.11, 3.3.2.2
+	emv_debug_info("SELECT %s", EMV_PPSE);
+	r = emv_ttl_select_by_df_name(ttl, EMV_PPSE, strlen(EMV_PPSE), fci, &fci_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_select_by_df_name() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+
+	if (sw1sw2 == 0x6A81) {
+		// Card blocked or SELECT not supported; terminate session
+		// See EMV Contactless Book B v2.11, 3.3.2.3
+		emv_debug_error("Card blocked or SELECT not supported");
+		return EMV_TAL_ERROR_CARD_BLOCKED;
+	}
+
+	if (sw1sw2 == 0x6A82) {
+		// PPSE not found; terminate session
+		// See EMV Contactless Book B v2.11, 3.3.2.3
+		emv_debug_info("PPSE not found");
+		return EMV_TAL_RESULT_PPSE_NOT_FOUND;
+	}
+
+	if (sw1sw2 == 0x6283) {
+		// PSE is blocked; terminate session
+		// See EMV Contactless Book B v2.11, 3.3.2.3
+		emv_debug_error("PPSE is blocked");
+		return EMV_TAL_RESULT_PPSE_BLOCKED;
+	}
+
+	if (sw1sw2 != 0x9000) {
+		// Failed to SELECT PPSE; terminate session
+		// See EMV Contactless Book B v2.11, 3.3.2.3
+		// See EMV Contactless Book B v2.11, 3.3.2.7
+		emv_debug_error("Failed to SELECT PPSE");
+		return EMV_TAL_RESULT_PPSE_SELECT_FAILED;
+	}
+
+	emv_debug_info_ber("FCI", fci, fci_len);
+
+	// Decode FCI Template (field 6F)
+	// See EMV Contactless Book B v2.11, 3.3.1, table 3-2
+	r = iso8825_ber_decode(fci, fci_len, &fci_template_tlv);
+	if (r <= 0) {
+		emv_debug_trace_msg("iso8825_ber_decode() failed; r=%d", r);
+
+		// Failed to parse PPSE; terminate session
+		// See EMV Contactless Book B v2.11, 3.3.2
+		emv_debug_error("Failed to parse FCI for PPSE");
+		return EMV_TAL_RESULT_PPSE_FCI_PARSE_FAILED;
+	}
+
+	// FCI Template (field 6F) may contain multiple fields
+	// See EMV Contactless Book B v2.11, 3.3.1, table 3-2
+	r = iso8825_ber_itr_init(
+		fci_template_tlv.value,
+		fci_template_tlv.length,
+		&fci_template_itr
+	);
+	if (r) {
+		emv_debug_trace_msg("iso8825_ber_itr_init() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
+
+	// Find FCI Proprietary Template (field A5)
+	while ((r = iso8825_ber_itr_next(&fci_template_itr, &fci_prop_template_tlv)) > 0) {
+		if (fci_prop_template_tlv.tag != EMV_TAG_A5_FCI_PROPRIETARY_TEMPLATE) {
+			// Ignore unexpected data elements in FCI template
+			continue;
+		}
+	}
+
+	if (fci_prop_template_tlv.tag != EMV_TAG_A5_FCI_PROPRIETARY_TEMPLATE) {
+		// Failed to parse PPSE; terminate session
+		// See EMV Contactless Book B v2.11, 3.3.2
+		emv_debug_error("Failed to find A5 template in PPSE");
+		return EMV_TAL_RESULT_PPSE_A5_NOT_FOUND;
+	}
+
+	// Decode FCI Issuer Discretionary Data (field BF0C)
+	r = iso8825_ber_decode(
+		fci_prop_template_tlv.value,
+		fci_prop_template_tlv.length,
+		&fci_issuer_disc_data_tlv
+	);
+	if (r <= 0) {
+		// Failed to parse PPSE; terminate session
+		// See EMV Contactless Book B v2.11, 3.3.2
+		emv_debug_error("Invalid A5 template in PPSE");
+		return EMV_TAL_RESULT_PPSE_A5_INVALID;
+	}
+
+	// FCI Issuer Discretionary Data (field BF0C) may contain multiple
+	// Directory Entries (field 61)
+	// See EMV Contactless Book B v2.11, 3.3.1, table 3-2
+	r = iso8825_ber_itr_init(
+		fci_issuer_disc_data_tlv.value,
+		fci_issuer_disc_data_tlv.length,
+		&dir_entry_itr
+	);
+	if (r) {
+		emv_debug_trace_msg("iso8825_ber_itr_init() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_TAL_ERROR_INTERNAL;
+	}
+
+	// Iterate Directory Entries (field 61)
+	while ((r = iso8825_ber_itr_next(&dir_entry_itr, &dir_entry_tlv)) > 0) {
+		struct emv_app_t* app;
+
+		if (dir_entry_tlv.tag != EMV_TAG_61_APPLICATION_TEMPLATE) {
+			// Ignore unexpected data elements in FCI Issuer Discretionary Data
+			continue;
+		}
+
+		app = emv_app_create_from_ppse_dir_entry(dir_entry_tlv.value, dir_entry_tlv.length);
+		if (!app) {
+			// Ignore invalid Directory Entry (field 61) content
+			// See EMV Contactless Book B v2.11, 3.3.2.5, step 2A
+			emv_debug_error("Invalid PPSE directory entry");
+			continue;
+		}
+
+		emv_app_list_push(app_list, app);
+	}
+	if (r < 0) {
+		// Failed to parse PPSE; terminate session
+		// See EMV Contactless Book B v2.11, 3.3.2
+		emv_debug_trace_msg("iso8825_ber_itr_next() failed; r=%d", r);
+		emv_debug_error("Failed to parse directory entry in PPSE");
+		r = EMV_TAL_RESULT_PPSE_DIR_ENTRY_PARSE_FAILED;
+		goto exit;
+	}
+
+	// Successful PPSE processing
+	r = 0;
+	goto exit;
+
+exit:
+	if (r) {
+		emv_app_list_clear(app_list);
+	}
+	return r;
 }
 
 int emv_tal_select_app(

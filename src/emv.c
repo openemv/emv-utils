@@ -108,13 +108,21 @@ int emv_ctx_clear(struct emv_ctx_t* ctx)
 
 const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 {
-	// See EMV 4.4 Book 4, 11.2, table 8
 	switch (outcome) {
+		// Generic EMV outcomes
+		// See EMV 4.4 Book 4, 11.2, table 8
 		case EMV_OUTCOME_CARD_ERROR: return "Card error"; // Message 06
 		case EMV_OUTCOME_CARD_BLOCKED: return "Card blocked"; // Not in EMV specification
 		case EMV_OUTCOME_NOT_ACCEPTED: return "Not accepted"; // Message 0C
 		case EMV_OUTCOME_TRY_AGAIN: return "Try again"; // Message 13
 		case EMV_OUTCOME_GPO_NOT_ACCEPTED: return "Not accepted"; // Message 0C
+
+		// Contactless outcomes
+		// See EMV Contactless Book A v2.11, Appendix B
+		case EMV_OUTCOME_TRY_ANOTHER_INTERFACE: return "Insert or swipe card"; // Message 18
+		case EMV_OUTCOME_TRY_AGAIN_SEE_PHONE: return "See phone for instructions"; // Message 20
+		case EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD: return "Insert, swipe or try another card"; // Message 1C
+		case EMV_OUTCOME_END_APPLICATION_RESTART: return "Present card again"; // Message 21
 	}
 
 	return "Invalid outcome";
@@ -619,6 +627,80 @@ int emv_build_candidate_list(
 
 	// Sort application list according to priority
 	// See EMV 4.4 Book 1, 12.4, step 4
+	r = emv_app_list_sort_priority(app_list);
+	if (r) {
+		emv_debug_trace_msg("emv_app_list_sort_priority() failed; r=%d", r);
+		emv_debug_error("Failed to sort application list; terminate session");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	return 0;
+}
+
+int emv_build_combination_list(
+	const struct emv_ctx_t* ctx,
+	struct emv_app_list_t* app_list
+)
+{
+	int r;
+	struct emv_app_list_t ppse_list = EMV_APP_LIST_INIT;
+	struct emv_app_t* app;
+
+	if (!ctx || !app_list) {
+		emv_debug_trace_msg("ctx=%p, app_list=%p", ctx, app_list);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Select Proximity Payment System Environment (PPSE)");
+	r = emv_tal_read_ppse(ctx->ttl, &ppse_list);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
+		emv_debug_error("Failed to read PPSE; terminate session");
+		if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
+			return EMV_OUTCOME_CARD_BLOCKED;
+		} else {
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+	if (r > 0) {
+		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
+		emv_debug_info("Failed to process PPSE; terminate session");
+		return EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+	}
+
+	// Apply contactless pre-processing to PPSE application list to build
+	// supported combination list
+	while ((app = emv_app_list_pop(&ppse_list))) {
+		const struct emv_config_app_t* config_app;
+
+		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2B
+		config_app = emv_config_app_find_supported(&ctx->config, app);
+		if (!config_app) {
+			emv_debug_info("Combination is not supported");
+			emv_app_free(app);
+			app = NULL;
+
+			// Ignore app and continue
+			continue;
+		}
+
+		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2E
+		emv_debug_info("Combination is supported");
+		app->config = config_app;
+		emv_app_list_push(app_list, app);
+
+	}
+
+	// If there are no mutually supported applications, terminate session
+	// See EMV Contactless Book B v2.11, 3.3.2.7
+	if (emv_app_list_is_empty(app_list)) {
+		emv_debug_info("Combination list empty; terminate session");
+		return EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+	}
+
+	// Sort application list according to priority
+	// See EMV Contactless Book B v2.11, 3.3.3.2
 	r = emv_app_list_sort_priority(app_list);
 	if (r) {
 		emv_debug_trace_msg("emv_app_list_sort_priority() failed; r=%d", r);
