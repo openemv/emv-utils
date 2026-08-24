@@ -98,13 +98,12 @@ enum emv_tal_result_t {
 };
 
 /**
- * Read Payment System Environment (PSE) records and build candidate
- * application list
+ * Read Payment System Environment (PSE), AEF records and parse directory
+ * entries
  * @remark See EMV 4.4 Book 1, 12.3.2
  *
  * @param ttl EMV Terminal Transport Layer context
- * @param config EMV configuration containing supported applications
- * @param app_list Candidate application list output
+ * @param app_list PSE application list output
  *
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
@@ -116,7 +115,6 @@ enum emv_tal_result_t {
  */
 int emv_tal_read_pse(
 	struct emv_ttl_t* ttl,
-	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 );
 
