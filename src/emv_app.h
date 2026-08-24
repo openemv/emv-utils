@@ -198,6 +198,8 @@ struct emv_app_t* emv_app_list_remove_index(
 
 /**
  * Sort EMV application list according to the priority field
+ * @note This function assumes that the existing list is in the same order as
+ *       PSE or PPSE, if applicable.
  * @param list EMV application list
  * @return Zero for success. Less than zero for error.
  */
