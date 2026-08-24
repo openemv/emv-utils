@@ -41,7 +41,6 @@ static int emv_tal_parse_pse_aef_record(
 	struct emv_tlv_list_t* pse_tlv_list,
 	const void* aef_record,
 	size_t aef_record_len,
-	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 );
 static int emv_tal_read_sfi_records(
@@ -53,7 +52,6 @@ static int emv_tal_read_sfi_records(
 
 int emv_tal_read_pse(
 	struct emv_ttl_t* ttl,
-	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 )
 {
@@ -65,7 +63,7 @@ int emv_tal_read_pse(
 
 	const struct emv_tlv_t* pse_sfi;
 
-	if (!ttl || !config || !app_list) {
+	if (!ttl || !app_list) {
 		// Invalid parameters; terminate session
 		return EMV_TAL_ERROR_INVALID_PARAMETER;
 	}
@@ -189,7 +187,6 @@ int emv_tal_read_pse(
 			&pse_tlv_list,
 			aef_record,
 			aef_record_len,
-			config,
 			app_list
 		);
 		if (r) {
@@ -222,7 +219,6 @@ static int emv_tal_parse_pse_aef_record(
 	struct emv_tlv_list_t* pse_tlv_list,
 	const void* aef_record,
 	size_t aef_record_len,
-	const struct emv_config_t* config,
 	struct emv_app_list_t* app_list
 )
 {
@@ -285,17 +281,7 @@ static int emv_tal_parse_pse_aef_record(
 			continue;
 		}
 
-		if (emv_config_app_find_supported(config, app)) {
-			// App supported; add to candidate list
-			// See EMV 4.4 Book 1, 12.3.2, step 3
-			emv_debug_info("Application is supported");
-			emv_app_list_push(app_list, app);
-		} else {
-			// App not supported; ignore app and continue
-			emv_debug_info("Application is not supported");
-			emv_app_free(app);
-			app = NULL;
-		}
+		emv_app_list_push(app_list, app);
 	}
 
 	return 0;
