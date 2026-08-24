@@ -32,7 +32,7 @@
 
 // Helper functions
 static int emv_app_extract_display_name(struct emv_app_t* app, const struct emv_tlv_list_t* pse_tlv_list);
-static int emv_app_extract_priority_indicator(struct emv_app_t* app);
+static int emv_app_extract_priority_indicator(struct emv_app_t* app, bool contactless);
 static inline bool emv_app_list_is_valid(const struct emv_app_list_t* list);
 
 struct emv_app_t* emv_app_create_from_pse_dir_entry(
@@ -74,7 +74,7 @@ struct emv_app_t* emv_app_create_from_pse_dir_entry(
 		goto error;
 	}
 
-	r = emv_app_extract_priority_indicator(app);
+	r = emv_app_extract_priority_indicator(app, false);
 	if (r) {
 		goto error;
 	}
@@ -132,7 +132,7 @@ struct emv_app_t* emv_app_create_from_fci(const void* fci, size_t fci_len)
 		goto error;
 	}
 
-	r = emv_app_extract_priority_indicator(app);
+	r = emv_app_extract_priority_indicator(app, false);
 	if (r) {
 		goto error;
 	}
@@ -183,7 +183,7 @@ struct emv_app_t* emv_app_create_from_ppse_dir_entry(
 		goto error;
 	}
 
-	r = emv_app_extract_priority_indicator(app);
+	r = emv_app_extract_priority_indicator(app, true);
 	if (r) {
 		goto error;
 	}
@@ -293,7 +293,7 @@ static int emv_app_extract_display_name(struct emv_app_t* app, const struct emv_
 	return 1; // Mandatory field not found
 }
 
-static int emv_app_extract_priority_indicator(struct emv_app_t* app)
+static int emv_app_extract_priority_indicator(struct emv_app_t* app, bool contactless)
 {
 	const struct emv_tlv_t* tlv;
 
@@ -313,6 +313,17 @@ static int emv_app_extract_priority_indicator(struct emv_app_t* app)
 	// See EMV 4.4 Book 1, 12.2.3, table 13
 	app->priority = tlv->value[0] & EMV_APP_PRIORITY_INDICATOR_MASK;
 	app->confirmation_required = tlv->value[0] & EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED;
+
+	// See EMV Contactless Book B v2.11, 3.3.3.2
+	if (contactless) {
+		// Contactless considers 0, F and no priority as equal lowest priority
+		if (app->priority == 0xF) {
+			app->priority = 0;
+		}
+
+		// Contactless never requires user application selection
+		app->confirmation_required = false;
+	}
 
 	return 0;
 }
@@ -532,18 +543,35 @@ int emv_app_list_sort_priority(struct emv_app_list_t* list)
 		struct emv_app_t* pos = NULL;
 
 		// Value of 1 is the highest priority
+
 		// See EMV 4.4 Book 1, 12.2.3, table 13
-		// However, the EMV specification does not state how an application
+		// The EMV contact specification does not state how an application
 		// without a priority indicator should be prioritised relative to an
 		// application with a priority indicator, and therefore this
 		// implementation chooses to favour applications with a priority
 		// indicator over those without.
+
+		// See EMV Contactless Book B v2.11, 3.3.3.2
+		// - emv_app_extract_priority_indicator() ensures that no priority
+		//   indicator, or values of 0 or 0xF, are considered to be equal
+		// - emv_tal_read_ppse() ensures that the existing list is already in
+		//   the same order as PPSE
+
 		for (struct emv_app_t* cur = sorted_list.front; cur != NULL; cur = cur->next) {
-			if (!cur->priority) {
-				break;
-			}
-			if (app->priority && app->priority < cur->priority) {
-				break;
+			if (app->priority) {
+				// If the next app being sorted has a priority but the current
+				// app in the sorted list does not, insert before the current
+				// app
+				if (!cur->priority) {
+					break;
+				}
+
+				// If the next app being sorted has a priority and it's less
+				// than (therefore higher priority) than the current app in the
+				// sorted list, insert before the current app
+				if (app->priority < cur->priority) {
+					break;
+				}
 			}
 			pos = cur;
 		}

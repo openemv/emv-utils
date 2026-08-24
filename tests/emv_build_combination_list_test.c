@@ -98,6 +98,46 @@ static const struct xpdu_t test_ppse_multi_app_supported[] = {
 	{ 0 }
 };
 
+static const struct xpdu_t test_ppse_priority_sorting[] = {
+	{
+		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 2PAY.SYS.DDF01
+		106, (uint8_t[]){
+			0x6F, 0x66, 0x84, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53,
+			0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x54, 0xBF, 0x0C, 0x51,
+			// Application Priority Indicator 0xF
+			0x61, 0x13, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x32, 0x87, 0x01, 0x0F,
+			// Application Priority Indicator 0
+			0x61, 0x13, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x33, 0x87, 0x01, 0x00,
+			// No Application Priority Indicator
+			0x61, 0x10, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x34,
+			// Application Priority Indicator 1; highest priority
+			0x61, 0x13, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x31, 0x87, 0x01, 0x01,
+			0x90, 0x00,
+		}, // FCI
+	},
+	{ 0 }
+};
+
+static const struct xpdu_t test_ppse_confirmation_bit_ignored[] = {
+	{
+		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 2PAY.SYS.DDF01
+		52, (uint8_t[]){
+			0x6F, 0x30, 0x84, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53,
+			0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x1E, 0xBF, 0x0C, 0x1B,
+			// Application Priority Indicator has cardholder confirmation bit set
+			0x61, 0x19, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x50,
+			0x0B, 0x56, 0x49, 0x53, 0x41, 0x20, 0x43, 0x52, 0x45, 0x44, 0x49, 0x54,
+			0x87, 0x01, 0x81,
+			0x90, 0x00,
+		}, // FCI
+	},
+	{ 0 }
+};
+
 int main(void)
 {
 	int r;
@@ -105,6 +145,7 @@ int main(void)
 	struct emv_ttl_t ttl;
 	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
+	size_t app_count;
 
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = &emul_ctx;
@@ -306,6 +347,77 @@ int main(void)
 	}
 	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
 		print_emv_app(app);
+	}
+	printf("Success\n");
+
+	printf("\nTesting PPSE application priority sorting...\n");
+	emul_ctx.xpdu_list = test_ppse_priority_sorting;
+	emul_ctx.xpdu_current = NULL;
+	emv_app_list_clear(&app_list);
+	r = emv_build_combination_list(&emv, &app_list);
+	if (r) {
+		fprintf(stderr, "Unexpected emv_build_combination_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	if (emul_ctx.xpdu_current->c_xpdu_len != 0) {
+		fprintf(stderr, "Incomplete card interaction\n");
+		r = 1;
+		goto exit;
+	}
+	if (emv_app_list_is_empty(&app_list)) {
+		fprintf(stderr, "Combination list unexpectedly empty\n");
+		r = 1;
+		goto exit;
+	}
+	app_count = 0;
+	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+		print_emv_app(app);
+		++app_count;
+
+		// Use application display name to validate sorted app order
+		char tmp[] = "APP x";
+		tmp[4] = '0' + app_count;
+		if (strcmp(tmp, app->display_name) != 0) {
+			fprintf(stderr, "Invalid combination list order\n");
+			r = 1;
+			goto exit;
+		}
+	}
+	printf("Success\n");
+
+	printf("\nTesting PPSE cardholder confirmation required bit ignored...\n");
+	emul_ctx.xpdu_list = test_ppse_confirmation_bit_ignored;
+	emul_ctx.xpdu_current = NULL;
+	emv_app_list_clear(&app_list);
+	r = emv_build_combination_list(&emv, &app_list);
+	if (r) {
+		fprintf(stderr, "Unexpected emv_build_combination_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	if (emul_ctx.xpdu_current->c_xpdu_len != 0) {
+		fprintf(stderr, "Incomplete card interaction\n");
+		r = 1;
+		goto exit;
+	}
+	if (emv_app_list_is_empty(&app_list)) {
+		fprintf(stderr, "Combination list unexpectedly empty\n");
+		r = 1;
+		goto exit;
+	}
+	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+		print_emv_app(app);
+	}
+	if (app_list.front != app_list.back) {
+		fprintf(stderr, "Combination list unexpectedly contains more than one app\n");
+		r = 1;
+		goto exit;
+	}
+	if (app_list.front->confirmation_required) {
+		fprintf(stderr, "Confirmation bit unexpectedly set\n");
+		r = 1;
+		goto exit;
 	}
 	printf("Success\n");
 
