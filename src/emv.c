@@ -579,6 +579,8 @@ int emv_build_candidate_list(
 )
 {
 	int r;
+	struct emv_app_list_t pse_list = EMV_APP_LIST_INIT;
+	struct emv_app_t* app;
 
 	if (!ctx || !app_list) {
 		emv_debug_trace_msg("ctx=%p, app_list=%p", ctx, app_list);
@@ -587,7 +589,7 @@ int emv_build_candidate_list(
 	}
 
 	emv_debug_info("Select Payment System Environment (PSE)");
-	r = emv_tal_read_pse(ctx->ttl, &ctx->config, app_list);
+	r = emv_tal_read_pse(ctx->ttl, &pse_list);
 	if (r < 0) {
 		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
 		emv_debug_error("Failed to read PSE; terminate session");
@@ -600,6 +602,30 @@ int emv_build_candidate_list(
 	if (r > 0) {
 		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
 		emv_debug_info("Failed to process PSE; continue session");
+	}
+
+	if (r == 0) {
+		// Process PSE application list to build supported candidate list
+		while ((app = emv_app_list_pop(&pse_list))) {
+			const struct emv_config_app_t* config_app;
+
+			// See EMV 4.4 Book 1, 12.3.2, step 3
+			config_app = emv_config_app_find_supported(&ctx->config, app);
+			if (!config_app) {
+				emv_debug_info("Application is not supported");
+				emv_app_free(app);
+				app = NULL;
+
+				// Ignore app and continue
+				continue;
+			}
+
+			// Update candidate list
+			// See EMV 4.4 Book 1, 12.3.2, step 3
+			emv_debug_info("Application is supported");
+			app->config = config_app;
+			emv_app_list_push(app_list, app);
+		}
 	}
 
 	// If PSE failed or no apps found by PSE, use list of AIDs method
