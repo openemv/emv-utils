@@ -122,6 +122,36 @@ static const struct xpdu_t test_ppse_priority_sorting[] = {
 	{ 0 }
 };
 
+static const struct xpdu_t test_ppse_kernel_id[] = {
+	{
+		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 2PAY.SYS.DDF01
+		142, (uint8_t[]){
+			0x6F, 0x81, 0x89, 0x84, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59,
+			0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x77, 0xBF, 0x0C, 0x74,
+			// Visa Electron with no kernel ID
+			0x61, 0x13, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x32, 0x87, 0x01, 0x0F,
+			// V Pay with unsupported kernel ID
+			0x61, 0x19, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x34, 0x87, 0x01, 0x00, 0x9F, 0x2A, 0x03,
+			0x83, 0x05, 0x28,
+			// Maestro with no kernel ID
+			0x61, 0x10, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30, 0x60, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x35,
+			// V Pay with supported kernel ID
+			0x61, 0x17, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x33, 0x87, 0x01, 0x00, 0x9F, 0x2A, 0x01,
+			0x03,
+			// Visa Credit/Debit with default kernel ID
+			0x61, 0x17, 0x4F, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x50,
+			0x05, 0x41, 0x50, 0x50, 0x20, 0x31, 0x87, 0x01, 0x01, 0x9F, 0x2A, 0x01,
+			0x00,
+			0x90, 0x00,
+		}, // FCI
+	},
+	{ 0 }
+};
+
 static const struct xpdu_t test_ppse_confirmation_bit_ignored[] = {
 	{
 		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 2PAY.SYS.DDF01
@@ -144,6 +174,7 @@ int main(void)
 	struct emv_cardreader_emul_ctx_t emul_ctx;
 	struct emv_ttl_t ttl;
 	struct emv_ctx_t emv;
+	struct emv_tlv_list_t app_data = EMV_TLV_LIST_INIT;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
 	size_t app_count;
 
@@ -159,30 +190,59 @@ int main(void)
 	}
 
 	// Supported applications
-	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, NULL, NULL); // Visa Credit/Debit
+	r = emv_tlv_list_push(&app_data, EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL, 8, (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0 ); // Kernel C-3
+	if (r) {
+		fprintf(stderr, "emv_tlv_list_push() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &app_data, NULL); // Visa Credit/Debit
 	if (r) {
 		fprintf(stderr, "emv_config_app_create() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
-	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, 7, EMV_ASI_EXACT_MATCH, NULL, NULL); // Visa Electron
+
+	r = emv_tlv_list_push(&app_data, EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL, 8, (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0 ); // Kernel C-3
+	if (r) {
+		fprintf(stderr, "emv_tlv_list_push() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10 }, 7, EMV_ASI_EXACT_MATCH, &app_data, NULL); // Visa Electron
 	if (r) {
 		fprintf(stderr, "emv_config_app_create() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
-	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, 7, EMV_ASI_EXACT_MATCH, NULL, NULL); // V Pay
+
+	r = emv_tlv_list_push(&app_data, EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL, 8, (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0 ); // Kernel C-3
+	if (r) {
+		fprintf(stderr, "emv_tlv_list_push() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20 }, 7, EMV_ASI_EXACT_MATCH, &app_data, NULL); // V Pay
 	if (r) {
 		fprintf(stderr, "emv_config_app_create() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
-	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, NULL, NULL); // Mastercard
+
+	r = emv_tlv_list_push(&app_data, EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL, 8, (uint8_t[]){ 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0 ); // Kernel C-2
+	if (r) {
+		fprintf(stderr, "emv_tlv_list_push() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10 }, 7, EMV_ASI_PARTIAL_MATCH, &app_data, NULL); // Mastercard
 	if (r) {
 		fprintf(stderr, "emv_config_app_create() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
+
+	// Omit kernel identifier to disable contactless support
 	r = emv_config_app_create(&emv, (uint8_t[]){ 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30, 0x60 }, 7, EMV_ASI_PARTIAL_MATCH, NULL, NULL); // Maestro
 	if (r) {
 		fprintf(stderr, "emv_config_app_create() failed; r=%d\n", r);
@@ -352,6 +412,42 @@ int main(void)
 
 	printf("\nTesting PPSE application priority sorting...\n");
 	emul_ctx.xpdu_list = test_ppse_priority_sorting;
+	emul_ctx.xpdu_current = NULL;
+	emv_app_list_clear(&app_list);
+	r = emv_build_combination_list(&emv, &app_list);
+	if (r) {
+		fprintf(stderr, "Unexpected emv_build_combination_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	if (emul_ctx.xpdu_current->c_xpdu_len != 0) {
+		fprintf(stderr, "Incomplete card interaction\n");
+		r = 1;
+		goto exit;
+	}
+	if (emv_app_list_is_empty(&app_list)) {
+		fprintf(stderr, "Combination list unexpectedly empty\n");
+		r = 1;
+		goto exit;
+	}
+	app_count = 0;
+	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+		print_emv_app(app);
+		++app_count;
+
+		// Use application display name to validate sorted app order
+		char tmp[] = "APP x";
+		tmp[4] = '0' + app_count;
+		if (strcmp(tmp, app->display_name) != 0) {
+			fprintf(stderr, "Invalid combination list order\n");
+			r = 1;
+			goto exit;
+		}
+	}
+	printf("Success\n");
+
+	printf("\nTesting PPSE kernel ID processing...\n");
+	emul_ctx.xpdu_list = test_ppse_kernel_id;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
 	r = emv_build_combination_list(&emv, &app_list);

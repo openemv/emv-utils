@@ -699,10 +699,100 @@ int emv_build_combination_list(
 	// supported combination list
 	while ((app = emv_app_list_pop(&ppse_list))) {
 		const struct emv_config_app_t* config_app;
+		const struct emv_tlv_t* terminal_kernel_id_tlv;
+		const struct emv_tlv_t* requested_kernel_id_tlv;
+		uint8_t requested_kernel_id[3];
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2B
 		config_app = emv_config_app_find_supported(&ctx->config, app);
 		if (!config_app) {
+			emv_debug_info("Combination is not supported");
+			emv_app_free(app);
+			app = NULL;
+
+			// Ignore app and continue
+			continue;
+		}
+		terminal_kernel_id_tlv = emv_tlv_list_find_const(
+			&config_app->data,
+			EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
+		);
+		if (!terminal_kernel_id_tlv || terminal_kernel_id_tlv->length != 8) {
+			emv_debug_info("Combination does not support contactless");
+			emv_app_free(app);
+			app = NULL;
+
+			// Ignore app and continue
+			continue;
+		}
+
+		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2C
+		memset(requested_kernel_id, 0, sizeof(requested_kernel_id));
+		requested_kernel_id_tlv = emv_tlv_list_find_const(
+			&app->tlv_list,
+			EMV_TAG_9F2A_KERNEL_IDENTIFIER
+		);
+		if (requested_kernel_id_tlv &&
+			requested_kernel_id_tlv->length > 0 &&
+			requested_kernel_id_tlv->value[0] != 0
+		) {
+			if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_INTERNATIONAL ||
+				(requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_RFU
+			) {
+				requested_kernel_id[0] = requested_kernel_id_tlv->value[0];
+			}
+
+			if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO ||
+				(requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY
+			) {
+				if (requested_kernel_id_tlv->length < 3) {
+					emv_debug_error("Invalid PPSE directory entry domestic kernel ID");
+					emv_app_free(app);
+					app = NULL;
+
+					// Ignore app and continue
+					continue;
+				}
+				if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_SHORT_MASK) == 0) {
+					emv_debug_error("Proprietary PPSE directory entry domestic kernel ID");
+					emv_app_free(app);
+					app = NULL;
+
+					// Ignore app and continue
+					continue;
+				}
+
+				memcpy(requested_kernel_id, requested_kernel_id_tlv->value, 3);
+			}
+		} else {
+			struct emv_aid_info_t aid_info;
+			r = emv_aid_get_info(app->aid->value, app->aid->length, &aid_info);
+			if (r) {
+				emv_debug_trace_msg("emv_aid_get_info() failed; r=%d", r);
+				emv_debug_error("Invalid PPSE directory entry AID");
+				emv_app_free(app);
+				app = NULL;
+
+				// Ignore app and continue
+				continue;
+			}
+
+			// See EMV Contactless Book B v2.11, 3.3.2.5, table 3-6
+			switch (aid_info.scheme) {
+				case EMV_CARD_SCHEME_MASTERCARD: requested_kernel_id[0] = 2; break;
+				case EMV_CARD_SCHEME_VISA: requested_kernel_id[0] = 3; break;
+				case EMV_CARD_SCHEME_AMEX: requested_kernel_id[0] = 4; break;
+				case EMV_CARD_SCHEME_JCB: requested_kernel_id[0] = 5; break;
+				case EMV_CARD_SCHEME_DISCOVER: requested_kernel_id[0] = 6; break;
+				case EMV_CARD_SCHEME_UNIONPAY: requested_kernel_id[0] = 7; break;
+				default: requested_kernel_id[0] = 0; break;
+			}
+		}
+
+		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
+		if (requested_kernel_id[0] &&
+			memcmp(requested_kernel_id, terminal_kernel_id_tlv->value, 3) != 0
+		) {
 			emv_debug_info("Combination is not supported");
 			emv_app_free(app);
 			app = NULL;
