@@ -112,6 +112,9 @@
   <!-- Visa Credit/Debit -->
   <app aid='A0000000031010' match='partial'>
     <data>
+      <!-- Kernel Identifier (Terminal) -->
+      <tlv id='96'>0300000000000000</tlv>
+
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>012C</tlv>
     </data>
@@ -124,6 +127,9 @@
   <!-- Visa Electron -->
   <app aid='A0000000032010' match='partial'>
     <data>
+      <!-- Kernel Identifier (Terminal) -->
+      <tlv id='96'>0300000000000000</tlv>
+
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>012C</tlv>
 
@@ -135,6 +141,9 @@
   <!-- V Pay -->
   <app aid='A0000000032020' match='partial'>
     <data>
+      <!-- Kernel Identifier (Terminal) -->
+      <tlv id='96'>0300000000000000</tlv>
+
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>012C</tlv>
 
@@ -152,6 +161,9 @@
   <!-- Mastercard Credit/Debit -->
   <app aid='A0000000041010' match='partial'>
     <data>
+      <!-- Kernel Identifier (Terminal) -->
+      <tlv id='96'>0200000000000000</tlv>
+
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>0002</tlv>
     </data>
@@ -164,6 +176,9 @@
   <!-- Maestro -->
   <app aid='A0000000043060' match='partial'>
     <data>
+      <!-- Kernel Identifier (Terminal) -->
+      <tlv id='96'>0200000000000000</tlv>
+
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>0002</tlv>
 
@@ -179,6 +194,9 @@
   -->
   <app aid='A000000025' match='partial'>
     <data>
+      <!-- Kernel Identifier (Terminal) -->
+      <tlv id='96'>0400000000000000</tlv>
+
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>0001</tlv>
     </data>
