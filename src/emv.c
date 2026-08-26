@@ -698,8 +698,8 @@ int emv_build_combination_list(
 	// supported combination list
 	while ((app = emv_app_list_pop(&ppse_list))) {
 		const struct emv_config_app_t* config_app;
-		const struct emv_tlv_t* terminal_kernel_id_tlv;
-		const struct emv_tlv_t* requested_kernel_id_tlv;
+		const struct emv_tlv_t* kernel_id_config;
+		const struct emv_tlv_t* kernel_id_icc;
 		uint8_t requested_kernel_id[3];
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2B
@@ -712,11 +712,11 @@ int emv_build_combination_list(
 			// Ignore app and continue
 			continue;
 		}
-		terminal_kernel_id_tlv = emv_tlv_list_find_const(
+		kernel_id_config = emv_tlv_list_find_const(
 			&config_app->data,
 			EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
 		);
-		if (!terminal_kernel_id_tlv || terminal_kernel_id_tlv->length != 8) {
+		if (!kernel_id_config || kernel_id_config->length != 8) {
 			emv_debug_info("Combination does not support contactless");
 			emv_app_free(app);
 			app = NULL;
@@ -727,24 +727,24 @@ int emv_build_combination_list(
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2C
 		memset(requested_kernel_id, 0, sizeof(requested_kernel_id));
-		requested_kernel_id_tlv = emv_tlv_list_find_const(
+		kernel_id_icc = emv_tlv_list_find_const(
 			&app->tlv_list,
 			EMV_TAG_9F2A_KERNEL_IDENTIFIER
 		);
-		if (requested_kernel_id_tlv &&
-			requested_kernel_id_tlv->length > 0 &&
-			requested_kernel_id_tlv->value[0] != 0
+		if (kernel_id_icc &&
+			kernel_id_icc->length > 0 &&
+			kernel_id_icc->value[0] != 0
 		) {
-			if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_INTERNATIONAL ||
-				(requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_RFU
+			if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_INTERNATIONAL ||
+				(kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_RFU
 			) {
-				requested_kernel_id[0] = requested_kernel_id_tlv->value[0];
+				requested_kernel_id[0] = kernel_id_icc->value[0];
 			}
 
-			if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO ||
-				(requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY
+			if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO ||
+				(kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY
 			) {
-				if (requested_kernel_id_tlv->length < 3) {
+				if (kernel_id_icc->length < 3) {
 					emv_debug_error("Invalid PPSE directory entry domestic kernel ID");
 					emv_app_free(app);
 					app = NULL;
@@ -752,7 +752,7 @@ int emv_build_combination_list(
 					// Ignore app and continue
 					continue;
 				}
-				if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_SHORT_MASK) == 0) {
+				if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_SHORT_MASK) == 0) {
 					emv_debug_error("Proprietary PPSE directory entry domestic kernel ID");
 					emv_app_free(app);
 					app = NULL;
@@ -761,7 +761,7 @@ int emv_build_combination_list(
 					continue;
 				}
 
-				memcpy(requested_kernel_id, requested_kernel_id_tlv->value, 3);
+				memcpy(requested_kernel_id, kernel_id_icc->value, 3);
 			}
 		} else {
 			struct emv_aid_info_t aid_info;
@@ -790,7 +790,7 @@ int emv_build_combination_list(
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
 		if (requested_kernel_id[0] &&
-			memcmp(requested_kernel_id, terminal_kernel_id_tlv->value, 3) != 0
+			memcmp(requested_kernel_id, kernel_id_config->value, 3) != 0
 		) {
 			emv_debug_info("Combination is not supported");
 			emv_app_free(app);
@@ -937,51 +937,13 @@ exit:
 	return r;
 }
 
-int emv_initiate_application_processing(
+static int emv_create_initial_terminal_data(
 	struct emv_ctx_t* ctx,
 	uint8_t pos_entry_mode
 )
 {
 	int r;
 	uint8_t un[4];
-	const struct emv_tlv_t* pdol;
-	uint8_t gpo_data_buf[EMV_CAPDU_DATA_MAX];
-	uint8_t* gpo_data;
-	size_t gpo_data_len;
-	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
-
-	if (!ctx) {
-		emv_debug_trace_msg("ctx=%p", ctx);
-		emv_debug_error("Invalid parameter");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
-	if (!ctx->selected_app) {
-		emv_debug_trace_msg("selected_app=%p", ctx->selected_app);
-		emv_debug_error("Invalid context variable");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
-
-	emv_debug_info("Initiate application processing");
-
-	// Clear existing ICC data and terminal data lists to avoid ambiguity
-	emv_tlv_list_clear(&ctx->icc);
-	emv_tlv_list_clear(&ctx->terminal);
-
-	// Clear existing ODA state to avoid ambiguity
-	r = emv_oda_init(&ctx->oda);
-	if (r) {
-		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		return EMV_ERROR_INTERNAL;
-	}
-
-	// NOTE: EMV 4.4 Book 1, 12.4, states that the terminal should set the
-	// value of Application Identifier (AID) - terminal (field 9F06) before
-	// GET PROCESSING OPTIONS. It is not explicitly stated that PDOL may list
-	// 9F06, but the assumption is that the PDOL may list any field having the
-	// terminal as the source. Therefore, this implementation will create the
-	// initial terminal data fields for the current transaction before PDOL
-	// processing and GET PROCESSING OPTIONS.
 
 	// Create Point-of-Service (POS) Entry Mode (field 9F39)
 	r = emv_tlv_list_push(
@@ -1067,6 +1029,143 @@ int emv_initiate_application_processing(
 		// Internal error; terminate session
 		emv_debug_error("Internal error");
 		return EMV_ERROR_INTERNAL;
+	}
+
+	return 0;
+}
+
+static int emv_create_ep_terminal_data(
+	struct emv_ctx_t* ctx,
+	uint8_t pos_entry_mode
+)
+{
+	int r;
+	const struct emv_tlv_t* kernel_id_config;
+	uint8_t kernel_id_term[8];
+
+	if (!emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
+		emv_debug_trace_msg(
+			"emv_create_ep_terminal_data() called with pos_entry_mode=%02X",
+			pos_entry_mode
+		);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	if (!ctx->selected_app->config) {
+		emv_debug_trace_msg(
+			"emv_create_ep_terminal_data() called with selected_app->config=%p",
+			ctx->selected_app->config
+		);
+
+		// Application configuration for the selected application should have
+		// been set by emv_select_application().
+		emv_debug_error("No configuration for selected application");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Prepare Kernel Identifier - Terminal (field 96)
+	kernel_id_config = emv_tlv_list_find_const(
+		&ctx->selected_app->config->data,
+		EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
+	);
+	if (!kernel_id_config || kernel_id_config->length != 8) {
+		emv_debug_error("Kernel Identifier - Terminal (96) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
+	// See EMV Contactless Book B v2.11, 3.4.1.4
+	memset(kernel_id_term, 0, sizeof(kernel_id_term));
+	memcpy(kernel_id_term, kernel_id_config->value, 3);
+	kernel_id_term[3] &= ~EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT; // Kernel C-8 not implemented
+	kernel_id_term[3] &= ~EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT; // Kernel C-8 not configured
+
+	// Create Kernel Identifier - Terminal (field 96)
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL,
+		sizeof(kernel_id_term),
+		kernel_id_term,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	return 0;
+}
+
+int emv_initiate_application_processing(
+	struct emv_ctx_t* ctx,
+	uint8_t pos_entry_mode
+)
+{
+	int r;
+	const struct emv_tlv_t* pdol;
+	uint8_t gpo_data_buf[EMV_CAPDU_DATA_MAX];
+	uint8_t* gpo_data;
+	size_t gpo_data_len;
+	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->selected_app) {
+		emv_debug_trace_msg("selected_app=%p", ctx->selected_app);
+		emv_debug_error("No selected application");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Initiate application processing");
+
+	// Clear existing ICC data and terminal data lists to avoid ambiguity
+	emv_tlv_list_clear(&ctx->icc);
+	emv_tlv_list_clear(&ctx->terminal);
+
+	// Clear existing ODA state to avoid ambiguity
+	r = emv_oda_init(&ctx->oda);
+	if (r) {
+		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// NOTE: EMV 4.4 Book 1, 12.4, states that the terminal should set the
+	// value of Application Identifier (AID) - terminal (field 9F06) before
+	// GET PROCESSING OPTIONS. It is not explicitly stated that PDOL may list
+	// 9F06, but the assumption is that the PDOL may list any field having the
+	// terminal as the source. Therefore, this implementation will create the
+	// initial terminal data fields for the current transaction before PDOL
+	// processing and GET PROCESSING OPTIONS.
+
+	r = emv_create_initial_terminal_data(ctx, pos_entry_mode);
+	if (r) {
+		emv_debug_trace_msg("emv_create_initial_terminal_data() failed; r=%d", r);
+		emv_debug_error("Failed to create initial terminal data");
+		return r;
+	}
+
+	// Similarly, EMV Contactless Book B v2.11, 3.1 - 3.3, requires various
+	// terminal data fields to be prepared during pre-processing and
+	// combination selection. This implementation will perform pre-processing
+	// that isn't needed for combination selection here, as well as create
+	// Kernel Identifier - Terminal (field 96).
+
+	if (emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
+		r = emv_create_ep_terminal_data(ctx, pos_entry_mode);
+		if (r) {
+			emv_debug_trace_msg("emv_create_ep_terminal_data() failed; r=%d", r);
+			emv_debug_error("Failed to create entry point terminal data");
+			return r;
+		}
 	}
 
 	// Cache various terminal fields
