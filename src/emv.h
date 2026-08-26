@@ -384,7 +384,8 @@ int emv_select_application(
  *       application's TLV data will be moved to @ref emv_ctx_t.icc and the
  *       output of GET PROCESSING OPTIONS will be appended. Upon success,
  *       @ref emv_ctx_t.terminal will be populated with various fields,
- *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE and @ref EMV_TAG_9F06_AID.
+ *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE, @ref EMV_TAG_9F06_AID, and
+ *       (if applicable) @ref EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL.
  *
  * @remark See EMV 4.4 Book 3, 10.1
  * @remark See EMV 4.4 Book 4, 6.3.1
