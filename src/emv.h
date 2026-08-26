@@ -375,16 +375,17 @@ int emv_select_application(
  *
  * When building the PDOL data required for GET PROCESSING OPTIONS, this
  * function will search the TLV lists in this order:
+ * - @ref emv_ctx_t.terminal
  * - @ref emv_ctx_t.params
  * - @ref emv_ctx_t.config
- * - @ref emv_ctx_t.terminal
  *
  * @note This function clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
  *       and then populates them appropriately. Upon success, the selected
  *       application's TLV data will be moved to @ref emv_ctx_t.icc and the
  *       output of GET PROCESSING OPTIONS will be appended. Upon success,
  *       @ref emv_ctx_t.terminal will be populated with various fields,
- *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE and @ref EMV_TAG_9F06_AID.
+ *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE, @ref EMV_TAG_9F06_AID, and
+ *       (if applicable) @ref EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL.
  *
  * @remark See EMV 4.4 Book 3, 10.1
  * @remark See EMV 4.4 Book 4, 6.3.1
