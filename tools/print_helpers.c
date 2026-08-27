@@ -1194,6 +1194,27 @@ void print_emv_config_app(
 		}
 		printf("Random selection threshold: %u\n", app->random_selection_threshold);
 	}
+
+	if (app->contactless_transaction_limit_enabled) {
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Contactless transaction limit: %u\n", app->contactless_transaction_limit);
+	}
+
+	if (app->contactless_floor_limit_enabled) {
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Contactless floor limit: %u\n", app->contactless_floor_limit);
+	}
+
+	if (app->contactless_cvm_required_limit_enabled) {
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Contactless CVM required limit: %u\n", app->contactless_cvm_required_limit);
+	}
 }
 
 void print_emv_config_app_list(const struct emv_config_t* config)

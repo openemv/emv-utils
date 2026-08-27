@@ -35,6 +35,12 @@
 #include "emv_debug.h"
 #include "print_helpers.h"
 
+// Reuse source data for all tests
+static const struct emv_tlv_t test_param_data[] = {
+	{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x07, 0x5B, 0xCD, 0x15 }, 0 }}, NULL }, // Numeric 123456789
+	{ {{ EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0 }}, NULL }, // Binary 0x75BCD15
+};
+
 static const struct xpdu_t test_ppse_card_blocked[] = {
 	{
 		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 2PAY.SYS.DDF01
@@ -168,6 +174,25 @@ static const struct xpdu_t test_ppse_confirmation_bit_ignored[] = {
 	{ 0 }
 };
 
+static int populate_tlv_list(
+	const struct emv_tlv_t* tlv_array,
+	size_t tlv_array_count,
+	struct emv_tlv_list_t* list
+)
+{
+	int r;
+
+	emv_tlv_list_clear(list);
+	for (size_t i = 0; i < tlv_array_count; ++i) {
+		r = emv_tlv_list_push(list, tlv_array[i].tag, tlv_array[i].length, tlv_array[i].value, 0);
+		if (r) {
+			return r;
+		}
+	}
+
+	return 0;
+}
+
 int main(void)
 {
 	int r;
@@ -187,6 +212,13 @@ int main(void)
 		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
+	}
+
+	// Populate transaction parameters
+	r = populate_tlv_list(test_param_data, sizeof(test_param_data) / sizeof(test_param_data[0]), &emv.params);
+	if (r) {
+		fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
+		return 1;
 	}
 
 	// Supported applications

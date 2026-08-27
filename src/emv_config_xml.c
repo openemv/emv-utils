@@ -29,6 +29,7 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -424,6 +425,12 @@ static int parse_app_node(struct emv_ctx_t* ctx, xmlNode* app_node)
 	unsigned int random_selection_percentage = 0;
 	unsigned int random_selection_max_percentage = 0;
 	unsigned int random_selection_threshold = 0;
+	bool contactless_transaction_limit_enabled = false;
+	unsigned int contactless_transaction_limit = 0;
+	bool contactless_floor_limit_enabled = false;
+	unsigned int contactless_floor_limit = 0;
+	bool contactless_cvm_required_limit_enabled = false;
+	unsigned int contactless_cvm_required_limit = 0;
 
 	// Parse aid attribute
 	aid_attr = xmlGetProp(app_node, (const xmlChar*)"aid");
@@ -470,6 +477,15 @@ static int parse_app_node(struct emv_ctx_t* ctx, xmlNode* app_node)
 			r = parse_unsigned_int_node(node, &random_selection_max_percentage);
 		} else if (xmlStrcmp(node->name, (const xmlChar*)"random_selection_threshold") == 0) {
 			r = parse_unsigned_int_node(node, &random_selection_threshold);
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"contactless_transaction_limit") == 0) {
+			contactless_transaction_limit_enabled = true;
+			r = parse_unsigned_int_node(node, &contactless_transaction_limit);
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"contactless_floor_limit") == 0) {
+			contactless_floor_limit_enabled = true;
+			r = parse_unsigned_int_node(node, &contactless_floor_limit);
+		} else if (xmlStrcmp(node->name, (const xmlChar*)"contactless_cvm_required_limit") == 0) {
+			contactless_cvm_required_limit_enabled = true;
+			r = parse_unsigned_int_node(node, &contactless_cvm_required_limit);
 		}
 		if (r) {
 			emv_tlv_list_clear(&list);
@@ -495,6 +511,12 @@ static int parse_app_node(struct emv_ctx_t* ctx, xmlNode* app_node)
 	app->random_selection_percentage = random_selection_percentage;
 	app->random_selection_max_percentage = random_selection_max_percentage;
 	app->random_selection_threshold = random_selection_threshold;
+	app->contactless_transaction_limit_enabled = contactless_transaction_limit_enabled;
+	app->contactless_transaction_limit = contactless_transaction_limit;
+	app->contactless_floor_limit_enabled = contactless_floor_limit_enabled;
+	app->contactless_floor_limit = contactless_floor_limit;
+	app->contactless_cvm_required_limit_enabled = contactless_cvm_required_limit_enabled;
+	app->contactless_cvm_required_limit = contactless_cvm_required_limit;
 
 	return 0;
 }

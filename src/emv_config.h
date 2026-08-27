@@ -98,6 +98,57 @@ struct emv_config_app_t {
 	 */
 	unsigned int random_selection_threshold;
 
+	/**
+	 * @brief Boolean indicating whether Entry Point pre-processing should
+	 * apply @ref emv_config_app_t.contactless_transaction_limit.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	bool contactless_transaction_limit_enabled;
+
+	/**
+	 * @brief Maximum allowed contactless transaction value during Entry Point
+	 * pre-processing. Zero is a valid value and will be applied if
+	 * @ref emv_config_app_t.contactless_transaction_limit_enabled is true.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	unsigned int contactless_transaction_limit;
+
+	/**
+	 * @brief Boolean indicating whether Entry Point pre-processing should
+	 * apply @ref emv_config_app_t.contactless_floor_limit.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	bool contactless_floor_limit_enabled;
+
+	/**
+	 * @brief Contactless floor limit above which transactions require online
+	 * authorisation. Zero is a valid value and will be applied if
+	 * @ref emv_config_app_t.contactless_floor_limit_enabled is true.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	unsigned int contactless_floor_limit;
+
+	/**
+	 * @brief Boolean indicating whether Entry Point pre-processing should
+	 * apply @ref emv_config_app_t.contactless_cvm_required_limit.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	bool contactless_cvm_required_limit_enabled;
+
+	/**
+	 * @brief Contactless limit above which CVM is required. Zero is a valid
+	 * value and will be applied if
+	 * @ref emv_config_app_t.contactless_cvm_required_limit_enabled is true.
+	 *
+	 * Populate after @ref emv_config_app_create() and before EMV processing.
+	 */
+	unsigned int contactless_cvm_required_limit;
+
 	/// Next EMV application configuration in list
 	struct emv_config_app_t* next;
 };
