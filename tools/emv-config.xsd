@@ -138,6 +138,9 @@
       <random_selection_percentage>...</random_selection_percentage>?
       <random_selection_max_percentage>...</random_selection_max_percentage>?
       <random_selection_threshold>...</random_selection_threshold>?
+      <contactless_transaction_limit>...</contactless_transaction_limit>?
+      <contactless_floor_limit>...</contactless_floor_limit>?
+      <contactless_cvm_required_limit>...</contactless_cvm_required_limit>?
     </app>
   -->
   <xs:complexType name='appType'>
@@ -146,6 +149,9 @@
       <xs:element name='random_selection_percentage' type='percentageType' minOccurs='0'/>
       <xs:element name='random_selection_max_percentage' type='percentageType' minOccurs='0'/>
       <xs:element name='random_selection_threshold' type='xs:nonNegativeInteger' minOccurs='0'/>
+      <xs:element name='contactless_transaction_limit' type='xs:nonNegativeInteger' minOccurs='0'/>
+      <xs:element name='contactless_floor_limit' type='xs:nonNegativeInteger' minOccurs='0'/>
+      <xs:element name='contactless_cvm_required_limit' type='xs:nonNegativeInteger' minOccurs='0'/>
     </xs:all>
     <xs:attribute name='aid' type='aidType' use='required'/>
     <xs:attribute name='match' type='matchType' use='required'/>
