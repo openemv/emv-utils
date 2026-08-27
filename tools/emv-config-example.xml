@@ -117,11 +117,22 @@
 
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>012C</tlv>
+
+      <!--
+        Terminal Transaction Qualifiers (TTQ):
+        - EMV mode, Online PIN, Signature, ODA for online auth
+        - CDCVM supported
+      -->
+      <tlv id='9F66'>37004000</tlv>
     </data>
 
     <random_selection_percentage>25</random_selection_percentage>
     <random_selection_max_percentage>50</random_selection_max_percentage>
     <random_selection_threshold>5000</random_selection_threshold>
+
+    <contactless_transaction_limit>1000000</contactless_transaction_limit>
+    <contactless_floor_limit>5000</contactless_floor_limit>
+    <contactless_cvm_required_limit>10000</contactless_cvm_required_limit>
   </app>
 
   <!-- Visa Electron -->
@@ -135,7 +146,18 @@
 
       <!-- Terminal Floor Limit -->
       <tlv id='9F1B'>00000000</tlv>
+
+      <!--
+        Terminal Transaction Qualifiers (TTQ):
+        - EMV mode, Online PIN, ODA for online auth
+        - CDCVM supported
+      -->
+      <tlv id='9F66'>35004000</tlv>
     </data>
+
+    <contactless_transaction_limit>100000</contactless_transaction_limit>
+    <contactless_floor_limit>0</contactless_floor_limit>
+    <contactless_cvm_required_limit>5000</contactless_cvm_required_limit>
   </app>
 
   <!-- V Pay -->
@@ -149,7 +171,18 @@
 
       <!-- Terminal Floor Limit -->
       <tlv id='9F1B'>00000000</tlv>
+
+      <!--
+        Terminal Transaction Qualifiers (TTQ):
+        - EMV mode, Online PIN, ODA for online auth
+        - CDCVM supported
+      -->
+      <tlv id='9F66'>35004000</tlv>
     </data>
+
+    <contactless_transaction_limit>100000</contactless_transaction_limit>
+    <contactless_floor_limit>0</contactless_floor_limit>
+    <contactless_cvm_required_limit>5000</contactless_cvm_required_limit>
   </app>
 
   <!--
@@ -171,6 +204,10 @@
     <random_selection_percentage>25</random_selection_percentage>
     <random_selection_max_percentage>50</random_selection_max_percentage>
     <random_selection_threshold>5000</random_selection_threshold>
+
+    <contactless_transaction_limit>1000000</contactless_transaction_limit>
+    <contactless_floor_limit>5000</contactless_floor_limit>
+    <contactless_cvm_required_limit>10000</contactless_cvm_required_limit>
   </app>
 
   <!-- Maestro -->
@@ -185,6 +222,10 @@
       <!-- Terminal Floor Limit -->
       <tlv id='9F1B'>00000000</tlv>
     </data>
+
+    <contactless_transaction_limit>100000</contactless_transaction_limit>
+    <contactless_floor_limit>5000</contactless_floor_limit>
+    <contactless_cvm_required_limit>10000</contactless_cvm_required_limit>
   </app>
 
   <!--
@@ -204,6 +245,10 @@
     <random_selection_percentage>25</random_selection_percentage>
     <random_selection_max_percentage>50</random_selection_max_percentage>
     <random_selection_threshold>5000</random_selection_threshold>
+
+    <contactless_transaction_limit>100000</contactless_transaction_limit>
+    <contactless_floor_limit>0</contactless_floor_limit>
+    <contactless_cvm_required_limit>0</contactless_cvm_required_limit>
   </app>
 
   <!--

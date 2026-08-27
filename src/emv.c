@@ -669,6 +669,8 @@ int emv_build_combination_list(
 )
 {
 	int r;
+	const struct emv_tlv_t* txn_amount;
+	uint32_t amount_value;
 	struct emv_app_list_t ppse_list = EMV_APP_LIST_INIT;
 	struct emv_app_t* app;
 
@@ -677,6 +679,33 @@ int emv_build_combination_list(
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
+
+	// Ensure mandatory transaction parameters are present and have valid length
+	txn_amount = emv_tlv_list_find_const(
+		&ctx->params,
+		EMV_TAG_81_AMOUNT_AUTHORISED_BINARY
+	);
+	if (!txn_amount || txn_amount->length != 4) {
+		emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
+			txn_amount, txn_amount ? txn_amount->length : 0);
+		emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	r = emv_format_b_to_uint(
+		txn_amount->value,
+		txn_amount->length,
+		&amount_value
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+	emv_debug_trace_msg("Amount, Authorised (Binary) value is %u",
+		(unsigned int)amount_value
+	);
 
 	emv_debug_info("Select Proximity Payment System Environment (PPSE)");
 	r = emv_tal_read_ppse(ctx->ttl, &ppse_list);
@@ -695,13 +724,17 @@ int emv_build_combination_list(
 		return EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 	}
 
-	// Apply contactless pre-processing to PPSE application list to build
-	// supported combination list
+	// Apply contactless pre-processing as well as contactless combination
+	// selection processing to PPSE application list to build supported
+	// combination list. This implementation does not perform pre-processing as
+	// described in EMV Contactless Book B v2.11, 3.1.1, before PPSE and
+	// instead applies it when filtering the PPSE application list.
 	while ((app = emv_app_list_pop(&ppse_list))) {
 		const struct emv_config_app_t* config_app;
 		const struct emv_tlv_t* terminal_kernel_id_tlv;
 		const struct emv_tlv_t* requested_kernel_id_tlv;
 		uint8_t requested_kernel_id[3];
+		const struct emv_tlv_t* ttq_config;
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2B
 		config_app = emv_config_app_find_supported(&ctx->config, app);
@@ -799,6 +832,42 @@ int emv_build_combination_list(
 
 			// Ignore app and continue
 			continue;
+		}
+
+		// Pre-process Contactless Transaction Limit
+		if (config_app->contactless_transaction_limit_enabled) {
+			emv_debug_trace_msg("Contactless Transaction Limit value is %u",
+				config_app->contactless_transaction_limit
+			);
+			// See EMV Contactless Book B v2.11, 3.1.1.5
+			if (amount_value >= config_app->contactless_transaction_limit) {
+				emv_debug_info("Contactless Transaction Limit exceeded for combination");
+				emv_app_free(app);
+				app = NULL;
+
+				// Ignore app and continue
+				continue;
+			}
+		}
+
+		// Pre-process TTQ for applications that configure it
+		// See EMV Contactless Book B v2.11, 3.1.1.2
+		ttq_config = emv_tlv_list_find_const(
+			&config_app->data,
+			EMV_TAG_9F66_TTQ
+		);
+		if (ttq_config) {
+			// See EMV Contactless Book B v2.11, 3.1.1.11
+			if (amount_value == 0 &&
+				(ttq_config->value[0] & EMV_TTQ_OFFLINE_ONLY_READER)
+			) {
+				emv_debug_info("Contactless Zero Amount not allowed for combination");
+				emv_app_free(app);
+				app = NULL;
+
+				// Ignore app and continue
+				continue;
+			}
 		}
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2E
@@ -1042,6 +1111,7 @@ int emv_create_ep_terminal_data(
 	int r;
 	const struct emv_tlv_t* kernel_id_config;
 	uint8_t kernel_id_term[8];
+	const struct emv_tlv_t* ttq_config;
 
 	if (!emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
 		emv_debug_trace_msg(
@@ -1092,6 +1162,140 @@ int emv_create_ep_terminal_data(
 		// Internal error; terminate session
 		emv_debug_error("Internal error");
 		return EMV_ERROR_INTERNAL;
+	}
+
+	// Only prepare TTQ for applications that configure it
+	// See EMV Contactless Book B v2.11, 3.1.1.2
+	ttq_config = emv_tlv_list_find_const(
+		&ctx->selected_app->config->data,
+		EMV_TAG_9F66_TTQ
+	);
+	if (ttq_config) {
+		const struct emv_tlv_t* txn_amount;
+		uint32_t amount_value;
+		const struct emv_tlv_t* term_floor_limit;
+		uint32_t term_floor_limit_value;
+		uint8_t ttq[4];
+
+		if (ttq_config->length != 4) {
+			emv_debug_error("Terminal Transaction Qualifiers (9F66) invalid");
+			return EMV_ERROR_INVALID_CONFIG;
+		}
+
+		// Ensure mandatory transaction parameters are present and have valid length
+		txn_amount = emv_tlv_list_find_const(
+			&ctx->params,
+			EMV_TAG_81_AMOUNT_AUTHORISED_BINARY
+		);
+		if (!txn_amount || txn_amount->length != 4) {
+			emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
+				txn_amount, txn_amount ? txn_amount->length : 0);
+			emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+		r = emv_format_b_to_uint(
+			txn_amount->value,
+			txn_amount->length,
+			&amount_value
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		emv_debug_trace_msg("Amount, Authorised (Binary) value is %u",
+			(unsigned int)amount_value
+		);
+
+		// Ensure mandatory configuration fields are present and have valid length
+		term_floor_limit = emv_config_data_get(ctx, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
+		if (!term_floor_limit || term_floor_limit->length != 4) {
+			emv_debug_trace_msg("term_floor_limit=%p, term_floor_limit->length=%u",
+				term_floor_limit, term_floor_limit ? term_floor_limit->length : 0);
+			emv_debug_error("Terminal Floor Limit (9F1B) not found or invalid");
+			return EMV_ERROR_INVALID_CONFIG;
+		}
+		r = emv_format_b_to_uint(
+			term_floor_limit->value,
+			term_floor_limit->length,
+			&term_floor_limit_value
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// Pre-processing for Terminal Transaction Qualifiers (field 9F66)
+		// See EMV Contactless Book B v2.11, 3.1.1
+		memcpy(ttq, ttq_config->value, sizeof(ttq));
+		ttq[1] &= ~EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
+		ttq[1] &= ~EMV_TTQ_CVM_REQUIRED;
+
+		// Apply Contactless Floor Limit
+		if (ctx->selected_app->config->contactless_floor_limit_enabled) {
+			// See EMV Contactless Book B v2.11, 3.1.1.6
+			emv_debug_trace_msg("Contactless Floor Limit value is %u",
+				ctx->selected_app->config->contactless_floor_limit
+			);
+			// See EMV Contactless Book B v2.11, 3.1.1.9
+			if (amount_value > ctx->selected_app->config->contactless_floor_limit) {
+				emv_debug_info("Contactless Floor Limit exceeded");
+				ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
+			}
+		} else {
+			// See EMV Contactless Book B v2.11, 3.1.1.7
+			emv_debug_trace_msg("Terminal Floor Limit value is %u",
+				(unsigned int)term_floor_limit_value
+			);
+			// See EMV Contactless Book B v2.11, 3.1.1.9
+			if (amount_value > term_floor_limit_value) {
+				emv_debug_info("Terminal Floor Limit exceeded");
+				ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
+			}
+		}
+
+		// Apply Contactless CVM Required Limit
+		if (ctx->selected_app->config->contactless_cvm_required_limit_enabled) {
+			// See EMV Contactless Book B v2.11, 3.1.1.8
+			emv_debug_trace_msg("Contactless CVM Required Limit value is %u",
+				ctx->selected_app->config->contactless_cvm_required_limit
+			);
+			// See EMV Contactless Book B v2.11, 3.1.1.12
+			if (amount_value >= ctx->selected_app->config->contactless_cvm_required_limit) {
+				emv_debug_info("Contactless CVM Required Limit exceeded");
+				ttq[1] |= EMV_TTQ_CVM_REQUIRED;
+			}
+		}
+
+		// Apply Contactless Zero Amount if online-capable
+		// See EMV Contactless Book B v2.11, 3.1.1.11
+		if (amount_value == 0 &&
+			!(ttq[0] & EMV_TTQ_OFFLINE_ONLY_READER)
+		) {
+			emv_debug_info("Contactless Zero Amount");
+			ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
+		}
+
+		// Create Terminal Transaction Qualifiers (field 9F66)
+		r = emv_tlv_list_push(
+			&ctx->terminal,
+			EMV_TAG_9F66_TTQ,
+			sizeof(ttq),
+			ttq,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
 	}
 
 	return 0;
