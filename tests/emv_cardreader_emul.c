@@ -2,7 +2,7 @@
  * @file emv_cardreader_emul.c
  * @brief Basic card reader emulation for unit tests
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024, 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -54,10 +54,32 @@ int emv_cardreader_emul(
 		exit(1);
 		return -102;
 	}
-	if (memcmp(tx_buf, xpdu->c_xpdu, xpdu->c_xpdu_len) != 0) {
-		fprintf(stderr, "Incorrect transmit data\n");
-		exit(1);
-		return -103;
+	if (xpdu->c_xpdu_ignore_len != 0) {
+		size_t remaining_offset;
+		size_t remaining_len;
+
+		// Validate transmit data up to ignore snippet
+		if (memcmp(tx_buf, xpdu->c_xpdu, xpdu->c_xpdu_ignore_offset) != 0) {
+			fprintf(stderr, "Incorrect transmit data\n");
+			exit(1);
+			return -103;
+		}
+
+		// Validate transmit data after ignroe snippet
+		remaining_offset = xpdu->c_xpdu_ignore_offset + xpdu->c_xpdu_ignore_len;
+		remaining_len = xpdu->c_xpdu_len - remaining_offset;
+		if (memcmp(tx_buf + remaining_offset, xpdu->c_xpdu + remaining_offset, remaining_len) != 0) {
+			fprintf(stderr, "Incorrect transmit data\n");
+			exit(1);
+			return -104;
+		}
+	} else {
+		// Validate all transmit data
+		if (memcmp(tx_buf, xpdu->c_xpdu, xpdu->c_xpdu_len) != 0) {
+			fprintf(stderr, "Incorrect transmit data\n");
+			exit(1);
+			return -105;
+		}
 	}
 
 	memcpy(rx_buf, xpdu->r_xpdu, xpdu->r_xpdu_len);
