@@ -2,7 +2,7 @@
  * @file emv_cardreader_emul.h
  * @brief Basic card reader emulation for unit tests
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024, 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,6 +31,8 @@ struct xpdu_t {
 	const uint8_t* c_xpdu;
 	size_t r_xpdu_len;
 	const uint8_t* r_xpdu;
+	size_t c_xpdu_ignore_offset;
+	size_t c_xpdu_ignore_len;
 };
 
 /// Card reader emulator context
