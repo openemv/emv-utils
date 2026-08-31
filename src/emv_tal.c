@@ -493,7 +493,7 @@ int emv_tal_read_ppse(
 		// Card blocked or SELECT not supported; terminate session
 		// See EMV Contactless Book B v2.11, 3.3.2.3
 		emv_debug_error("Card blocked or SELECT not supported");
-		return EMV_TAL_ERROR_CARD_BLOCKED;
+		return EMV_TAL_RESULT_PPSE_SELECT_FAILED;
 	}
 
 	if (sw1sw2 == 0x6A82) {

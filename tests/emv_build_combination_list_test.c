@@ -297,7 +297,7 @@ int main(void)
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
 	r = emv_build_combination_list(&emv, &app_list);
-	if (r != EMV_OUTCOME_CARD_BLOCKED) {
+	if (r != EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD) {
 		fprintf(stderr, "Unexpected emv_build_combination_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
 		goto exit;
