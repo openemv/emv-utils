@@ -721,7 +721,7 @@ int emv_build_combination_list(
 	if (r > 0) {
 		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
 
-		// If PPSE fails, end application
+		// If PPSE failed, outcome is End Application
 		// See EMV Contactless Book B v2.11, 3.3.2.3
 		emv_debug_info("Failed to process PPSE; try another card");
 		return EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
@@ -889,7 +889,8 @@ int emv_build_combination_list(
 
 	}
 
-	// If there are no mutually supported applications, end application
+	// If there are no mutually supported applications, outcome is
+	// End Application
 	// See EMV Contactless Book B v2.11, 3.3.2.7
 	if (emv_app_list_is_empty(app_list)) {
 		emv_debug_info("Combination list empty; try another card");
