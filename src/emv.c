@@ -731,8 +731,8 @@ int emv_build_combination_list(
 	// instead applies it when filtering the PPSE application list.
 	while ((app = emv_app_list_pop(&ppse_list))) {
 		const struct emv_config_app_t* config_app;
-		const struct emv_tlv_t* terminal_kernel_id_tlv;
-		const struct emv_tlv_t* requested_kernel_id_tlv;
+		const struct emv_tlv_t* kernel_id_config;
+		const struct emv_tlv_t* kernel_id_icc;
 		uint8_t requested_kernel_id[3];
 		const struct emv_tlv_t* ttq_config;
 
@@ -746,11 +746,11 @@ int emv_build_combination_list(
 			// Ignore app and continue
 			continue;
 		}
-		terminal_kernel_id_tlv = emv_tlv_list_find_const(
+		kernel_id_config = emv_tlv_list_find_const(
 			&config_app->data,
 			EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
 		);
-		if (!terminal_kernel_id_tlv || terminal_kernel_id_tlv->length != 8) {
+		if (!kernel_id_config || kernel_id_config->length != 8) {
 			emv_debug_info("Combination does not support contactless");
 			emv_app_free(app);
 			app = NULL;
@@ -761,24 +761,24 @@ int emv_build_combination_list(
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2C
 		memset(requested_kernel_id, 0, sizeof(requested_kernel_id));
-		requested_kernel_id_tlv = emv_tlv_list_find_const(
+		kernel_id_icc = emv_tlv_list_find_const(
 			&app->tlv_list,
 			EMV_TAG_9F2A_KERNEL_IDENTIFIER
 		);
-		if (requested_kernel_id_tlv &&
-			requested_kernel_id_tlv->length > 0 &&
-			requested_kernel_id_tlv->value[0] != 0
+		if (kernel_id_icc &&
+			kernel_id_icc->length > 0 &&
+			kernel_id_icc->value[0] != 0
 		) {
-			if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_INTERNATIONAL ||
-				(requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_RFU
+			if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_INTERNATIONAL ||
+				(kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_RFU
 			) {
-				requested_kernel_id[0] = requested_kernel_id_tlv->value[0];
+				requested_kernel_id[0] = kernel_id_icc->value[0];
 			}
 
-			if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO ||
-				(requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY
+			if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO ||
+				(kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY
 			) {
-				if (requested_kernel_id_tlv->length < 3) {
+				if (kernel_id_icc->length < 3) {
 					emv_debug_error("Invalid PPSE directory entry domestic kernel ID");
 					emv_app_free(app);
 					app = NULL;
@@ -786,7 +786,7 @@ int emv_build_combination_list(
 					// Ignore app and continue
 					continue;
 				}
-				if ((requested_kernel_id_tlv->value[0] & EMV_KERNEL_ID_SHORT_MASK) == 0) {
+				if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_SHORT_MASK) == 0) {
 					emv_debug_error("Proprietary PPSE directory entry domestic kernel ID");
 					emv_app_free(app);
 					app = NULL;
@@ -795,7 +795,7 @@ int emv_build_combination_list(
 					continue;
 				}
 
-				memcpy(requested_kernel_id, requested_kernel_id_tlv->value, 3);
+				memcpy(requested_kernel_id, kernel_id_icc->value, 3);
 			}
 		} else {
 			struct emv_aid_info_t aid_info;
@@ -824,7 +824,7 @@ int emv_build_combination_list(
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
 		if (requested_kernel_id[0] &&
-			memcmp(requested_kernel_id, terminal_kernel_id_tlv->value, 3) != 0
+			memcmp(requested_kernel_id, kernel_id_config->value, 3) != 0
 		) {
 			emv_debug_info("Combination is not supported");
 			emv_app_free(app);
@@ -1103,7 +1103,7 @@ static int emv_create_initial_terminal_data(
 	return 0;
 }
 
-int emv_create_ep_terminal_data(
+static int emv_create_ep_terminal_data(
 	struct emv_ctx_t* ctx,
 	uint8_t pos_entry_mode
 )
@@ -1136,6 +1136,7 @@ int emv_create_ep_terminal_data(
 		return EMV_ERROR_INTERNAL;
 	}
 
+	// Prepare Kernel Identifier - Terminal (field 96)
 	kernel_id_config = emv_tlv_list_find_const(
 		&ctx->selected_app->config->data,
 		EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
@@ -1145,15 +1146,18 @@ int emv_create_ep_terminal_data(
 		return EMV_ERROR_INVALID_CONFIG;
 	}
 
-	// Create Kernel Identifier - Terminal (field 96)
 	// See EMV Contactless Book B v2.11, 3.4.1.4
 	memset(kernel_id_term, 0, sizeof(kernel_id_term));
 	memcpy(kernel_id_term, kernel_id_config->value, 3);
+	kernel_id_term[3] &= ~EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT; // Kernel C-8 not implemented
+	kernel_id_term[3] &= ~EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT; // Kernel C-8 not configured
+
+	// Create Kernel Identifier - Terminal (field 96)
 	r = emv_tlv_list_push(
 		&ctx->terminal,
 		EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL,
-		kernel_id_config->length,
-		kernel_id_config->value,
+		sizeof(kernel_id_term),
+		kernel_id_term,
 		0
 	);
 	if (r) {
