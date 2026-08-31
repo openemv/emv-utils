@@ -860,6 +860,15 @@ int emv_build_combination_list(
 			EMV_TAG_9F66_TTQ
 		);
 		if (ttq_config) {
+			if (ttq_config->length != 4) {
+				emv_debug_error("Terminal Transaction Qualifiers (9F66) invalid");
+				emv_app_free(app);
+				app = NULL;
+
+				// Ignore app and continue
+				continue;
+			}
+
 			// See EMV Contactless Book B v2.11, 3.1.1.11
 			if (amount_value == 0 &&
 				(ttq_config->value[0] & EMV_TTQ_OFFLINE_ONLY_READER)
