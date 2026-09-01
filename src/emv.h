@@ -298,6 +298,11 @@ int emv_atqb_parse(const void* atqb, size_t atqb_len);
 /**
  * Indicate that EMV card has been presented to reader
  *
+ * @note The value of @ref emv_ttl_t.contactless should be populated accurately
+ *       and will be used by other EMV processing functions to determine
+ *       whether EMV contact processing or EMV contactless processing should be
+ *       applied.
+ *
  * @param ctx EMV processing context
  * @param ttl Terminal Transport Layer (TTL) context
  *

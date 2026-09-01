@@ -560,6 +560,11 @@ int emv_atqb_parse(const void* atqb, size_t atqb_len)
 	return 0;
 }
 
+static inline bool emv_card_is_contactless(const struct emv_ctx_t* ctx)
+{
+	return (ctx && ctx->ttl && ctx->ttl->contactless);
+}
+
 int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
 {
 	if (!ctx || !ttl) {
@@ -999,14 +1004,22 @@ int emv_select_application(
 	goto exit;
 
 try_again:
-	// If no applications remain, terminate session
-	// Otherwise, try again
-	// See EMV 4.4 Book 1, 12.4
-	// See EMV 4.4 Book 4, 11.3
 	if (emv_app_list_is_empty(app_list)) {
-		emv_debug_info("Candidate list empty");
-		r = EMV_OUTCOME_NOT_ACCEPTED;
+		if (emv_card_is_contactless(ctx)) {
+			// If no applications remain, outcome is End Application
+			// See EMV Contactless Book B v2.11, 3.3.2.7
+			emv_debug_info("Candidate list empty; try another card");
+			r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		} else {
+			// If no applications remain, terminate session
+			// See EMV 4.4 Book 1, 12.4
+			// See EMV 4.4 Book 4, 11.3
+			emv_debug_info("Candidate list empty; not accepted");
+			r = EMV_OUTCOME_NOT_ACCEPTED;
+		}
 	} else {
+		// Otherwise, try again
+		// See EMV 4.4 Book 4, 11.3
 		r = EMV_OUTCOME_TRY_AGAIN;
 	}
 
@@ -1116,21 +1129,15 @@ static int emv_create_initial_terminal_data(
 	return 0;
 }
 
-static int emv_create_ep_terminal_data(
-	struct emv_ctx_t* ctx,
-	uint8_t pos_entry_mode
-)
+static int emv_create_ep_terminal_data(struct emv_ctx_t* ctx)
 {
 	int r;
 	const struct emv_tlv_t* kernel_id_config;
 	uint8_t kernel_id_term[8];
 	const struct emv_tlv_t* ttq_config;
 
-	if (!emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
-		emv_debug_trace_msg(
-			"emv_create_ep_terminal_data() called with pos_entry_mode=%02X",
-			pos_entry_mode
-		);
+	if (!emv_card_is_contactless(ctx)) {
+		emv_debug_trace_msg("emv_create_ep_terminal_data() called for non-contactless");
 
 		// Internal error; terminate session
 		emv_debug_error("Internal error");
@@ -1376,8 +1383,8 @@ int emv_initiate_application_processing(
 	// that isn't needed for combination selection here, as well as create
 	// Kernel Identifier - Terminal (field 96).
 
-	if (emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
-		r = emv_create_ep_terminal_data(ctx, pos_entry_mode);
+	if (emv_card_is_contactless(ctx)) {
+		r = emv_create_ep_terminal_data(ctx);
 		if (r) {
 			emv_debug_trace_msg("emv_create_ep_terminal_data() failed; r=%d", r);
 			emv_debug_error("Failed to create entry point terminal data");

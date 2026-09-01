@@ -24,6 +24,7 @@
 
 #include <sys/cdefs.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 __BEGIN_DECLS
@@ -70,6 +71,7 @@ struct emv_cardreader_t {
 /// EMV Terminal Transport Layer (TTL) context
 struct emv_ttl_t {
 	struct emv_cardreader_t cardreader;         ///< Card reader to be used by EMV Terminal Transport Layer (TTL)
+	bool contactless;                           ///< Boolean indicating whether it is a contactless card
 };
 
 /**
