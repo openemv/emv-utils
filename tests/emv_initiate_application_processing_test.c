@@ -27,6 +27,7 @@
 #include "emv_fields.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -368,6 +369,7 @@ int main(void)
 	const struct emv_tlv_t* afl;
 	struct emv_config_app_t config_app;
 
+	memset(&ttl, 0, sizeof(ttl));
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = &emul_ctx;
 	ttl.cardreader.trx = &emv_cardreader_emul;
@@ -714,6 +716,7 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 7: No PDOL and GPO response format 2 for kernel C-2...\n");
+	emv.ttl->contactless = true;
 	emv.selected_app = emv_app_create_from_fci(test7_fci, sizeof(test7_fci));
 	if (!emv.selected_app) {
 		fprintf(stderr, "emv_app_create_from_fci() failed; selected_app=%p\n", emv.selected_app);
@@ -789,6 +792,7 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 8: PDOL requiring TTQ, and GPO response format 2 for kernel C-3...\n");
+	emv.ttl->contactless = true;
 	emv.selected_app = emv_app_create_from_fci(test8_fci, sizeof(test8_fci));
 	if (!emv.selected_app) {
 		fprintf(stderr, "emv_app_create_from_fci() failed; selected_app=%p\n", emv.selected_app);

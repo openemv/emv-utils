@@ -356,6 +356,7 @@ int main(void)
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT;
 	size_t app_count;
 
+	memset(&ttl, 0, sizeof(ttl));
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = &emul_ctx;
 	ttl.cardreader.trx = &emv_cardreader_emul;

@@ -298,6 +298,11 @@ int emv_atqb_parse(const void* atqb, size_t atqb_len);
 /**
  * Indicate that EMV card has been presented to reader
  *
+ * @note The value of @ref emv_ttl_t.contactless should be populated accurately
+ *       and will be used by other EMV processing functions to determine
+ *       whether EMV contact processing or EMV contactless processing should be
+ *       applied.
+ *
  * @param ctx EMV processing context
  * @param ttl Terminal Transport Layer (TTL) context
  *
@@ -349,11 +354,13 @@ int emv_build_combination_list(
  * Select EMV application by index from the candidate application list. The
  * candidate application list will be updated by removing the selected
  * application regardless of processing outcome. If application selection fails
- * this function will return either @ref EMV_OUTCOME_NOT_ACCEPTED or
- * @ref EMV_OUTCOME_TRY_AGAIN, depending on whether the candidate application
- * list is empty or not.
+ * this function will return @ref EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD,
+ * @ref EMV_OUTCOME_NOT_ACCEPTED, or @ref EMV_OUTCOME_TRY_AGAIN, depending on
+ * whether the candidate application list is empty or not, and depending on
+ * whether it is a contactless card or not.
  * @remark See EMV 4.4 Book 1, 12.4
  * @remark See EMV 4.4 Book 4, 11.3
+ * @remark See EMV Contactless Book B v2.11, 3.3.3
  *
  * @param ctx EMV processing context
  * @param app_list Candidate application list

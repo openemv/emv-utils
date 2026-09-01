@@ -2,7 +2,7 @@
  * @file emv_read_application_data_test.c
  * @brief Unit tests for EMV Read Application Data
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,6 +27,7 @@
 #include "emv_tags.h"
 
 #include <stdio.h>
+#include <string.h>
 
 // For debug output
 #include "emv_debug.h"
@@ -287,6 +288,7 @@ int main(void)
 	struct emv_ttl_t ttl;
 	struct emv_ctx_t emv;
 
+	memset(&ttl, 0, sizeof(ttl));
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = &emul_ctx;
 	ttl.cardreader.trx = &emv_cardreader_emul;

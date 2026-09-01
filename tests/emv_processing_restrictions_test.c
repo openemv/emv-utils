@@ -441,7 +441,7 @@ static int populate_tlv_list(
 int main(void)
 {
 	int r;
-	struct emv_ttl_t ttl = { { 0, NULL, NULL } };
+	struct emv_ttl_t ttl;
 	struct emv_ctx_t emv;
 
 	r = emv_debug_init(
@@ -458,6 +458,7 @@ int main(void)
 		printf("Test %zu (%s)...\n", i + 1, test[i].name);
 
 		// Prepare EMV context for current test
+		memset(&ttl, 0, sizeof(ttl));
 		r = emv_ctx_init(&emv, &ttl);
 		if (r) {
 			fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
