@@ -2,7 +2,7 @@
  * @file emv_ttl_pcsc_test.c
  * @brief Unit tests for EMV TTL APDU cases using typical PC/SC APDUs
  *
- * Copyright 2021, 2023-2025 Leon Lynch
+ * Copyright 2021, 2023-2026 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -251,6 +251,8 @@ int main(void)
 
 	struct emv_ttl_t ttl;
 	struct emv_cardreader_emul_ctx_t emul_ctx;
+
+	memset(&ttl, 0, sizeof(ttl));
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = &emul_ctx;
 	ttl.cardreader.trx = &emv_cardreader_emul;

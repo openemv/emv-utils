@@ -936,6 +936,7 @@ int main(int argc, char** argv)
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = reader;
 	ttl.cardreader.trx = &pcsc_reader_trx;
+	ttl.contactless = pcsc_reader_card_type_is_contactless(card_type);
 	r = emv_card_activated(&emv, &ttl);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
@@ -946,7 +947,7 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
-	if (emv_pos_entry_mode_is_contact(pos_entry_mode)) {
+	if (!emv.ttl->contactless) {
 		printf("\nBuild candidate list\n");
 		r = emv_build_candidate_list(&emv, &app_list);
 		if (r < 0) {
@@ -968,7 +969,7 @@ int main(int argc, char** argv)
 			printf("Cardholder selection is required\n");
 		}
 
-	} else if (emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
+	} else {
 		printf("\nBuild combination list\n");
 		r = emv_build_combination_list(&emv, &app_list);
 		if (r < 0) {
@@ -988,10 +989,6 @@ int main(int argc, char** argv)
 		// Contactless never requires user application selection
 		// See EMV Contactless Book B v2.11, 3.3.3.2
 		application_selection_required = false;
-
-	} else {
-		printf("Unknown POS Entry Mode 0x%02X\n", pos_entry_mode);
-		goto emv_exit;
 	}
 
 	do {
@@ -1075,7 +1072,7 @@ int main(int argc, char** argv)
 	emv_app_list_clear(&app_list);
 
 	// Contactless processing ends here for now
-	if (emv_pos_entry_mode_is_contactless(pos_entry_mode)) {
+	if (emv.ttl->contactless) {
 		printf("\nContactless EMV processing is not (yet) supported\n");
 		goto emv_exit;
 	}
