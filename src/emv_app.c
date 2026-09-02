@@ -145,8 +145,8 @@ error:
 }
 
 struct emv_app_t* emv_app_create_from_ppse_dir_entry(
-	const void* pse_dir_entry,
-	size_t pse_dir_entry_len
+	const void* ppse_dir_entry,
+	size_t ppse_dir_entry_len
 )
 {
 	int r;
@@ -159,7 +159,7 @@ struct emv_app_t* emv_app_create_from_ppse_dir_entry(
 	memset(app, 0, sizeof(*app));
 
 	// Parse PPSE directory entry
-	r = emv_tlv_parse(pse_dir_entry, pse_dir_entry_len, &app->tlv_list);
+	r = emv_tlv_parse(ppse_dir_entry, ppse_dir_entry_len, &app->tlv_list);
 	if (r < 0) {
 		// Internal error
 		goto error;
