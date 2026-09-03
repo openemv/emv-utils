@@ -332,14 +332,14 @@ int emv_build_candidate_list(
 );
 
 /**
- * Build combination application list using Proximity Payment System
- * Environment (PPSE), and then sort according to Application Priority
- * Indicator. This function is intended for contactless cards, not contact
- * cards.
+ * Build application combination pre-processing list, apply to Proximity
+ * Payment System Environment (PPSE), and then sort according to Application
+ * Priority Indicator. This function is intended for contactless cards, not
+ * contact cards.
  * @remark See EMV Contactless Book B v2.11, 3.3
  *
  * @param ctx EMV processing context
- * @param app_list Combination application list output
+ * @param app_list Candidate application list output
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
