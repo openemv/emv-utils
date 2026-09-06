@@ -720,7 +720,8 @@ int emv_build_combination_list(
 	r = emv_ep_preprocess(&ctx->config, amount_value, &ep_list);
 	if (r) {
 		emv_debug_trace_msg("emv_ep_preprocess() failed; r=%d", r);
-		return r;
+		// Return error as-is
+		goto exit;;
 	}
 
 	emv_debug_info("Select Proximity Payment System Environment (PPSE)");
@@ -729,10 +730,11 @@ int emv_build_combination_list(
 		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
 		emv_debug_error("Failed to read PPSE; terminate session");
 		if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
-			return EMV_OUTCOME_CARD_BLOCKED;
+			r = EMV_OUTCOME_CARD_BLOCKED;
 		} else {
-			return EMV_OUTCOME_CARD_ERROR;
+			r = EMV_OUTCOME_CARD_ERROR;
 		}
+		goto exit;
 	}
 	if (r > 0) {
 		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
@@ -740,7 +742,8 @@ int emv_build_combination_list(
 		// If PPSE failed, outcome is End Application
 		// See EMV Contactless Book B v2.11, 3.3.2.3
 		emv_debug_info("Failed to process PPSE; try another card");
-		return EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		goto exit;
 	}
 
 	// See EMV Contactless Book B v2.11, 3.3.2.5
@@ -763,14 +766,13 @@ int emv_build_combination_list(
 		emv_app_list_push(app_list, app);
 	}
 
-	emv_ep_app_list_clear(&ep_list);
-
 	// If there are no mutually supported applications, outcome is
 	// End Application
 	// See EMV Contactless Book B v2.11, 3.3.2.7
 	if (emv_app_list_is_empty(app_list)) {
 		emv_debug_info("Candidate list empty; try another card");
-		return EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		goto exit;
 	}
 
 	// Sort application list according to priority
@@ -779,10 +781,18 @@ int emv_build_combination_list(
 	if (r) {
 		emv_debug_trace_msg("emv_app_list_sort_priority() failed; r=%d", r);
 		emv_debug_error("Failed to sort application list; terminate session");
-		return EMV_ERROR_INTERNAL;
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
 	}
 
-	return 0;
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	emv_app_list_clear(&ppse_list);
+	emv_ep_app_list_clear(&ep_list);
+	return r;
 }
 
 int emv_select_application(

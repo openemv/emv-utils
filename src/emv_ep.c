@@ -35,10 +35,8 @@
 #include <assert.h>
 
 static struct emv_ep_app_t* emv_ep_app_alloc(
-	const uint8_t* aid,
-	unsigned int aid_len,
-	const uint8_t* kernel_id,
-	const struct emv_config_app_t* config_app
+	const struct emv_config_app_t* config_app,
+	const uint8_t* kernel_id
 )
 {
 	struct emv_ep_app_t* app;
@@ -49,10 +47,8 @@ static struct emv_ep_app_t* emv_ep_app_alloc(
 	}
 	memset(app, 0, sizeof(*app));
 
-	memcpy(app->aid, aid, aid_len);
-	app->aid_len = aid_len;
-	memcpy(app->kernel_id, kernel_id, sizeof(app->kernel_id));
 	app->config = config_app;
+	memcpy(app->kernel_id, kernel_id, sizeof(app->kernel_id));
 
 	return app;
 }
@@ -112,10 +108,8 @@ static struct emv_ep_app_t* emv_ep_app_list_pop(struct emv_ep_app_list_t* list)
 
 int emv_ep_app_list_push(
 	struct emv_ep_app_list_t* list,
-	const uint8_t* aid,
-	unsigned int aid_len,
-	const uint8_t* kernel_id,
-	const struct emv_config_app_t* config_app
+	const struct emv_config_app_t* config_app,
+	const uint8_t* kernel_id
 )
 {
 	struct emv_ep_app_t* app;
@@ -124,16 +118,13 @@ int emv_ep_app_list_push(
 		return -1;
 	}
 
-	if (!aid || aid_len < 5 || aid_len > 16) {
+	if (!kernel_id) {
 		return -2;
 	}
-	if (!kernel_id) {
-		return -3;
-	}
 
-	app = emv_ep_app_alloc(aid, aid_len, kernel_id, config_app);
+	app = emv_ep_app_alloc(config_app, kernel_id);
 	if (!app) {
-		return -4;
+		return -3;
 	}
 
 	if (list->back) {
@@ -273,10 +264,8 @@ int emv_ep_preprocess(
 		// Valid combination
 		r = emv_ep_app_list_push(
 			list,
-			config_app->aid,
-			config_app->aid_len,
-			kernel_id_config->value,
-			config_app
+			config_app,
+			kernel_id_config->value
 		);
 		if (r) {
 			// Internal error; terminate session
@@ -319,6 +308,10 @@ const struct emv_config_app_t* emv_ep_find_supported_combination(
 		// Invalid app; not supported
 		return NULL;
 	}
+
+	emv_debug_trace_data("app",
+		app->aid->value, app->aid->length
+	);
 
 	// Extract Requested Kernel ID
 	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2C
@@ -375,6 +368,7 @@ const struct emv_config_app_t* emv_ep_find_supported_combination(
 			default: requested_kernel_id[0] = 0; break;
 		}
 	}
+	emv_debug_trace_data("requested_kernel_id", requested_kernel_id, sizeof(requested_kernel_id));
 
 	// Find matching contactless application combination
 	// See EMV Contactless Book B v2.11, 3.3.2.5
@@ -416,7 +410,7 @@ const struct emv_config_app_t* emv_ep_find_supported_combination(
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
 		if (requested_kernel_id[0] == 0 ||
-			memcmp(requested_kernel_id, combination->kernel_id, 3) != 0
+			memcmp(requested_kernel_id, combination->kernel_id, 3) == 0
 		) {
 			return combination->config;
 		}

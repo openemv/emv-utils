@@ -38,19 +38,11 @@ struct emv_app_t;
  */
 struct emv_ep_app_t {
 	/**
-	 * @brief Application Identifier (AID)
+	 * @brief EMV application configuration for this combination
 	 *
 	 * Populated by @ref emv_ep_preprocess via @ref emv_ep_app_list_push().
 	 */
-	uint8_t aid[16];
-
-	/**
-	 * @brief Length of Application Identifier (AID) in bytes.
-	 * Must be 5 - 16 bytes.
-	 *
-	 * Populated by @ref emv_ep_preprocess via @ref emv_ep_app_list_push().
-	 */
-	unsigned int aid_len;
+	const struct emv_config_app_t* config;
 
 	/**
 	 * @brief Kernel Identifier - Terminal (field 96)
@@ -60,13 +52,6 @@ struct emv_ep_app_t {
 	 * Populated by @ref emv_ep_preprocess via @ref emv_ep_app_list_push().
 	 */
 	uint8_t kernel_id[8];
-
-	/**
-	 * @brief EMV application configuration for this combination
-	 *
-	 * Populated by @ref emv_ep_preprocess via @ref emv_ep_app_list_push().
-	 */
-	const struct emv_config_app_t* config;
 
 	/// Next application combination in list
 	struct emv_ep_app_t* next;
@@ -88,19 +73,15 @@ struct emv_ep_app_list_t {
  * Push EMV contactless application combination on to the back of a list
  *
  * @param list EMV contactless application combination list
- * @param aid Application Identifier (AID) field
- * @param aid_len Length of Application Identifier (AID) field in bytes
- * @param kernel_id Kernel Identifier - Terminal (field 96). Must be 8 bytes.
  * @param config_app EMV application configuration
+ * @param kernel_id Kernel Identifier - Terminal (field 96). Must be 8 bytes.
  *
  * @return Zero for success. Less than zero for error.
  */
 int emv_ep_app_list_push(
 	struct emv_ep_app_list_t* list,
-	const uint8_t* aid,
-	unsigned int aid_len,
-	const uint8_t* kernel_id,
-	const struct emv_config_app_t* config_app
+	const struct emv_config_app_t* config_app,
+	const uint8_t* kernel_id
 );
 
 /**
