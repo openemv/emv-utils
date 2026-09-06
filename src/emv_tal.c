@@ -385,6 +385,7 @@ int emv_tal_find_supported_apps(
 			exact_match = true;
 			continue;
 		}
+		app->config = config_app;
 
 		// NOTE: It is assumed that the SELECT command will only provide
 		// AIDs that are already a partial or exact match. Therefore it is
