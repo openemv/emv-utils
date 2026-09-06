@@ -799,9 +799,6 @@ int emv_select_application(
 {
 	int r;
 	struct emv_app_t* current_app = NULL;
-	uint8_t current_aid[16];
-	size_t current_aid_len;
-	const struct emv_config_app_t* config_app;
 
 	if (!ctx || !app_list) {
 		emv_debug_trace_msg("ctx=%p, app_list=%p, index=%u", ctx, app_list, index);
@@ -828,19 +825,15 @@ int emv_select_application(
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
-
-	if (current_app->aid->length > sizeof(current_aid)) {
+	if (!current_app->config) {
+		emv_debug_error("Candidate application has no config");
 		goto try_again;
 	}
-	current_aid_len = current_app->aid->length;
-	memcpy(current_aid, current_app->aid->value, current_app->aid->length);
-	emv_app_free(current_app);
-	current_app = NULL;
 
 	r = emv_tal_select_app(
 		ctx->ttl,
-		current_aid,
-		current_aid_len,
+		current_app->aid->value,
+		current_app->aid->length,
 		&ctx->selected_app
 	);
 	if (r) {
@@ -867,14 +860,40 @@ int emv_select_application(
 	}
 
 	// Populate matching application dependent data
-	config_app = emv_config_app_find_supported(&ctx->config, ctx->selected_app);
-	if (!config_app) {
-		emv_debug_error("Application configuration not found");
-		r = EMV_ERROR_INTERNAL;
-		goto exit;
+	emv_debug_info_tlv_list("Application dependent data", &current_app->config->data);
+	ctx->selected_app->config = current_app->config;
+
+	if (emv_card_is_contactless(ctx)) {
+		const struct emv_tlv_t* kernel_id_icc;
+
+		// Kernel Identifier (field 9F2A) is only available in the PPSE
+		// directory entry, not the FCI response of the application selection.
+		// But it is needed for Kernel Identifier - Terminal (field 96) later.
+		kernel_id_icc = emv_tlv_list_find_const(
+			&current_app->tlv_list,
+			EMV_TAG_9F2A_KERNEL_IDENTIFIER
+		);
+		if (kernel_id_icc &&
+			kernel_id_icc->length > 0 &&
+			kernel_id_icc->length <= 8
+		) {
+			r = emv_tlv_list_push(
+				&ctx->selected_app->tlv_list,
+				EMV_TAG_9F2A_KERNEL_IDENTIFIER,
+				kernel_id_icc->length,
+				kernel_id_icc->value,
+				0
+			);
+			if (r) {
+				emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_ERROR_INTERNAL;
+				goto exit;
+			}
+		}
 	}
-	emv_debug_info_tlv_list("Application dependent data", &config_app->data);
-	ctx->selected_app->config = config_app;
 
 	// Success
 	r = 0;
@@ -1011,6 +1030,7 @@ static int emv_create_ep_terminal_data(struct emv_ctx_t* ctx)
 {
 	int r;
 	const struct emv_tlv_t* kernel_id_config;
+	const struct emv_tlv_t* kernel_id_icc;
 	uint8_t kernel_id_term[8];
 	const struct emv_tlv_t* ttq_config;
 
@@ -1035,6 +1055,8 @@ static int emv_create_ep_terminal_data(struct emv_ctx_t* ctx)
 	}
 
 	// Prepare Kernel Identifier - Terminal (field 96)
+	// NOTE: emv_select_application() copies Kernel Identifier (field 9F2A)
+	// when available
 	kernel_id_config = emv_tlv_list_find_const(
 		&ctx->selected_app->config->data,
 		EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
@@ -1043,10 +1065,24 @@ static int emv_create_ep_terminal_data(struct emv_ctx_t* ctx)
 		emv_debug_error("Kernel Identifier - Terminal (96) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
 	}
+	kernel_id_icc = emv_tlv_list_find_const(
+		&ctx->selected_app->tlv_list,
+		EMV_TAG_9F2A_KERNEL_IDENTIFIER
+	);
 
 	// See EMV Contactless Book B v2.11, 3.4.1.4
 	memset(kernel_id_term, 0, sizeof(kernel_id_term));
 	memcpy(kernel_id_term, kernel_id_config->value, 3);
+	if (!kernel_id_icc ||
+		kernel_id_icc->length < 3 ||
+		(kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_INTERNATIONAL ||
+		(kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_RFU
+	) {
+		// Kernel Identifier (field 9F2A) not found or
+		// Extended Kernel ID not present
+		kernel_id_term[1] = 0;
+		kernel_id_term[2] = 0;
+	}
 	kernel_id_term[3] &= ~EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT; // Kernel C-8 not implemented
 	kernel_id_term[3] &= ~EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT; // Kernel C-8 not configured
 
