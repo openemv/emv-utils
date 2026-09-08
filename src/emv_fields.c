@@ -217,6 +217,7 @@ int emv_aid_get_info(
 	// JCB
 	if (emv_aid_match(aid, aid_len, jcb_aid)) {
 		info->scheme = EMV_CARD_SCHEME_JCB;
+		return 0;
 	}
 
 	// Dankort
