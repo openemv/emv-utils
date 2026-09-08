@@ -865,6 +865,7 @@ int emv_select_application(
 
 	if (emv_card_is_contactless(ctx)) {
 		const struct emv_tlv_t* kernel_id_icc;
+		const struct emv_tlv_t* kernel_id_config;
 
 		// Kernel Identifier (field 9F2A) is only available in the PPSE
 		// directory entry, not the FCI response of the application selection.
@@ -891,6 +892,57 @@ int emv_select_application(
 				emv_debug_error("Internal error");
 				r = EMV_ERROR_INTERNAL;
 				goto exit;
+			}
+		}
+
+		kernel_id_config = emv_tlv_list_find_const(
+			&ctx->selected_app->config->data,
+			EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
+		);
+
+		// When Visa kernel 3 is selected, ensure that PDOL contains
+		// TTQ (field 9F66)
+		// See EMV Contactless Book B v2.11, 3.3.3.6
+		const uint8_t visa_aid[] = { 0xA0, 0x00, 0x00, 0x00, 0x03 };
+		if (ctx->selected_app->aid->length >= sizeof(visa_aid) &&
+			memcmp(ctx->selected_app->aid->value, visa_aid, sizeof(visa_aid)) == 0 &&
+			kernel_id_config &&
+			kernel_id_config->length > 0 &&
+			kernel_id_config->value[0] == 3
+		) {
+			const struct emv_tlv_t* pdol;
+			struct emv_dol_itr_t itr;
+			struct emv_dol_entry_t entry;
+			bool found_9F66 = false;
+
+			pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
+			if (!pdol) {
+				emv_debug_error("Visa Kernel 3 has no PDOL");
+				goto try_again;
+			}
+			r = emv_dol_itr_init(pdol->value, pdol->length, &itr);
+			if (r) {
+				emv_debug_trace_msg("emv_dol_itr_init() failed; r=%d", r);
+
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				r = EMV_ERROR_INTERNAL;
+				goto exit;
+			}
+			while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
+				if (entry.tag == EMV_TAG_9F66_TTQ) {
+					found_9F66 = true;
+					// No break to confirm that whole PDOL is valid
+				}
+			}
+			if (r != 0) {
+				emv_debug_trace_msg("emv_dol_itr_next() failed; r=%d", r);
+				emv_debug_error("Invalid Processing Options Data Object List (PDOL)");
+				goto try_again;
+			}
+			if (!found_9F66) {
+				emv_debug_error("Visa Kernel 3 PDOL does not contain TTQ (9F66)");
+				goto try_again;
 			}
 		}
 	}
