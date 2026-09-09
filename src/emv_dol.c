@@ -2,7 +2,7 @@
  * @file emv_dol.c
  * @brief EMV Data Object List (DOL) processing functions
  *
- * Copyright 2021, 2024-2025 Leon Lynch
+ * Copyright 2021, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,6 +23,7 @@
 #include "iso8825_ber.h"
 #include "emv_tlv.h"
 
+#include <stdbool.h>
 #include <string.h>
 
 int emv_dol_decode(const void* ptr, size_t len, struct emv_dol_entry_t* entry)
@@ -96,6 +97,50 @@ int emv_dol_itr_next(struct emv_dol_itr_t* itr, struct emv_dol_entry_t* entry)
 	}
 
 	return r;
+}
+
+int emv_dol_find_tag(
+	const void* ptr,
+	size_t len,
+	unsigned int tag,
+	struct emv_dol_entry_t* entry
+)
+{
+	int r;
+	struct emv_dol_itr_t itr;
+	struct emv_dol_entry_t itr_entry;
+	bool found = false;
+
+	if (!ptr || !len) {
+		return -1;
+	}
+
+	r = emv_dol_itr_init(ptr, len, &itr);
+	if (r) {
+		return -2;
+	}
+
+	// Iterate the whole Data Object List (DOL) to ensure that it is valid,
+	// even if the EMV tag is found
+	while ((r = emv_dol_itr_next(&itr, &itr_entry)) > 0) {
+		if (!found && itr_entry.tag == tag) {
+			found = true;
+			if (entry) {
+				*entry = itr_entry;
+			}
+		}
+	}
+	if (r != 0) {
+		// Invalid DOL
+		return -3;
+	}
+
+	if (!found) {
+		// EMV tag not found
+		return 1;
+	}
+
+	return 0;
 }
 
 int emv_dol_compute_data_length(const void* ptr, size_t len)

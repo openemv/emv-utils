@@ -911,36 +911,25 @@ int emv_select_application(
 			kernel_id_config->value[0] == 3
 		) {
 			const struct emv_tlv_t* pdol;
-			struct emv_dol_itr_t itr;
-			struct emv_dol_entry_t entry;
-			bool found_9F66 = false;
 
 			pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
 			if (!pdol) {
 				emv_debug_error("Visa Kernel 3 has no PDOL");
 				goto try_again;
 			}
-			r = emv_dol_itr_init(pdol->value, pdol->length, &itr);
-			if (r) {
-				emv_debug_trace_msg("emv_dol_itr_init() failed; r=%d", r);
 
-				// Internal error; terminate session
-				emv_debug_error("Internal error");
-				r = EMV_ERROR_INTERNAL;
-				goto exit;
-			}
-			while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
-				if (entry.tag == EMV_TAG_9F66_TTQ) {
-					found_9F66 = true;
-					// No break to confirm that whole PDOL is valid
-				}
-			}
-			if (r != 0) {
-				emv_debug_trace_msg("emv_dol_itr_next() failed; r=%d", r);
+			r = emv_dol_find_tag(
+				pdol->value,
+				pdol->length,
+				EMV_TAG_9F66_TTQ,
+				NULL
+			);
+			if (r < 0) {
+				emv_debug_trace_msg("emv_dol_find_tag() failed; r=%d", r);
 				emv_debug_error("Invalid Processing Options Data Object List (PDOL)");
 				goto try_again;
 			}
-			if (!found_9F66) {
+			if (r > 0) {
 				emv_debug_error("Visa Kernel 3 PDOL does not contain TTQ (9F66)");
 				goto try_again;
 			}

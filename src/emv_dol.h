@@ -3,7 +3,7 @@
  * @brief EMV Data Object List (DOL) processing functions
  * @remark See EMV 4.4 Book 3, 5.4
  *
- * Copyright 2021, 2024-2025 Leon Lynch
+ * Copyright 2021, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -71,6 +71,27 @@ int emv_dol_itr_init(const void* ptr, size_t len, struct emv_dol_itr_t* itr);
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int emv_dol_itr_next(struct emv_dol_itr_t* itr, struct emv_dol_entry_t* entry);
+
+/**
+ * Find Data Object List (DOL) entry by tag
+ * @remark See EMV 4.4 Book 3, 5.4
+ *
+ * @note The entire Data Object List (DOL) is validated, regardless of whether
+ *       the specified EMV tag is found.
+ *
+ * @param ptr Encoded EMV Data Object List (DOL)
+ * @param len Length of encoded EMV Data Object List (DOL) in bytes
+ * @param tag EMV tag to find
+ * @param entry Decoded Data Object List (DOL) entry output for first matching
+ *              EMV tag. NULL to ignore output.
+ * @return Zero for success. Less than zero for error. Greater than zero if EMV tag not found.
+ */
+int emv_dol_find_tag(
+	const void* ptr,
+	size_t len,
+	unsigned int tag,
+	struct emv_dol_entry_t* entry
+);
 
 /**
  * Compute concatenated data length required by Data Object List (DOL)
