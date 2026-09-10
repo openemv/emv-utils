@@ -132,6 +132,12 @@ int emv_config_app_create(
 	if (!aid || aid_len < 5 || aid_len > 16) {
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
+	if (asi != EMV_ASI_EXACT_MATCH &&
+		asi != EMV_ASI_PARTIAL_MATCH &&
+		asi != EMV_ASI_DISABLED
+	) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
 	if (data && emv_tlv_list_has_duplicate(data)) {
 		return EMV_ERROR_INVALID_CONFIG;
 	}
