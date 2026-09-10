@@ -146,6 +146,15 @@ struct emv_app_t* emv_app_create_from_ppse_dir_entry(
 );
 
 /**
+ * Clone EMV application from another application
+ *
+ * @param other EMV application to clone
+ * @return New EMV application object. NULL for error.
+ *         Use @ref emv_app_free() to free memory.
+ */
+struct emv_app_t* emv_app_clone(const struct emv_app_t* other);
+
+/**
  * Free EMV application and associated EMV TLVs
  * @note This function should not be used to free EMV applications that are elements of a list
  * @param app EMV application to free

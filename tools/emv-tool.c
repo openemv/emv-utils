@@ -29,6 +29,7 @@
 #include "emv_strings.h"
 #include "emv_tlv.h"
 #include "emv_app.h"
+#include "emv_ep.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
 #include "emv_debug.h"
@@ -745,6 +746,7 @@ int main(int argc, char** argv)
 	struct emv_ttl_t ttl;
 	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
+	struct emv_ep_app_list_t ep_list = EMV_EP_APP_LIST_INIT; // Combination list
 	bool application_selection_required;
 
 	if (argc == 1) {
@@ -971,7 +973,18 @@ int main(int argc, char** argv)
 
 	} else {
 		printf("\nBuild combination list\n");
-		r = emv_build_combination_list(&emv, &app_list);
+		r = emv_ep_preprocess(&emv.config, txn_amount, &ep_list);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
+
+		printf("\nBuild candidate list\n");
+		r = emv_ep_build_candidate_list(&emv, &ep_list, &app_list);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
@@ -1146,6 +1159,7 @@ int main(int argc, char** argv)
 	printf("\nCard deactivated\n");
 
 emv_exit:
+	emv_ep_app_list_clear(&ep_list);
 	emv_app_list_clear(&app_list);
 pcsc_exit:
 	pcsc_release(&pcsc);

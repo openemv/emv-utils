@@ -316,7 +316,7 @@ int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl);
  * Build candidate application list using Payment System Environment (PSE) or
  * discovery of supported AIDs, and then sort according to Application Priority
  * Indicator. This function is intended for contact cards, not contactless
- * cards.
+ * cards. Use @ref emv_ep_build_candidate_list() for contactless cards.
  * @remark See EMV 4.4 Book 1, 12.3
  *
  * @param ctx EMV processing context
@@ -327,25 +327,6 @@ int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl);
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_build_candidate_list(
-	const struct emv_ctx_t* ctx,
-	struct emv_app_list_t* app_list
-);
-
-/**
- * Build application combination pre-processing list, apply to Proximity
- * Payment System Environment (PPSE), and then sort according to Application
- * Priority Indicator. This function is intended for contactless cards, not
- * contact cards.
- * @remark See EMV Contactless Book B v2.11, 3.3
- *
- * @param ctx EMV processing context
- * @param app_list Candidate application list output
- *
- * @return Zero for success
- * @return Less than zero for errors. See @ref emv_error_t
- * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
- */
-int emv_build_combination_list(
 	const struct emv_ctx_t* ctx,
 	struct emv_app_list_t* app_list
 );

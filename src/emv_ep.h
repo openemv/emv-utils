@@ -31,7 +31,8 @@ __BEGIN_DECLS
 // Forward declarations
 struct emv_config_app_t;
 struct emv_config_t;
-struct emv_app_t;
+struct emv_ctx_t;
+struct emv_app_list_t;
 
 /**
  * EMV contactless application combination
@@ -121,25 +122,25 @@ int emv_ep_preprocess(
 );
 
 /**
- * Find matching EMV application configuration for provided EMV application.
+ * Build contactless candidate application list using Proximity Payment System
+ * Environment (PPSE) together with provided application combination
+ * pre-processing list, and then sort according to Application
+ * Priority Indicator. This function is intended for contactless cards, not
+ * contact cards. Use @ref emv_build_candidate_list() for contact cards.
+ * @remark See EMV Contactless Book B v2.11, 3.3
  *
- * This function will compare the provided EMV application to the supported
- * contactless application combinations according to their:
- * - Application Identifier (AID)
- * - @ref emv-asi-values "Application Selection Indicator (ASI)" flags
- * - Kernel Identifier
+ * @param ctx EMV processing context
+ * @param ep_list EMV contactless application combination list
+ * @param app_list Candidate application list output
  *
- * @remark See EMV Contactless Book B v2.11, 3.3.2.5
- *
- * @param list EMV contactless application combination list
- * @param app EMV application
- *
- * @return Pointer to matching EMV application configuration. Do NOT free.
- *         NULL if no matching EMV application configuration found.
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
-const struct emv_config_app_t* emv_ep_find_supported_combination(
-	const struct emv_ep_app_list_t* list,
-	const struct emv_app_t* app
+int emv_ep_build_candidate_list(
+	const struct emv_ctx_t* ctx,
+	const struct emv_ep_app_list_t* ep_list,
+	struct emv_app_list_t* app_list
 );
 
 __END_DECLS
