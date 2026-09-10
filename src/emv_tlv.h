@@ -207,6 +207,17 @@ bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list);
 int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other);
 
 /**
+ * Clone EMV TLV list from another list
+ * @param list EMV TLV list to which to append
+ * @param other EMV TLV list to clone
+ * @return Zero for success. Less than zero for error.
+ */
+int emv_tlv_list_clone(
+	struct emv_tlv_list_t* list,
+	const struct emv_tlv_list_t* other
+);
+
+/**
  * Initialise EMV TLV sources from EMV processing context.
  * Sources will have this order:
  * - Terminal data created during the current transaction takes precendence

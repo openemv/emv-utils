@@ -35,6 +35,14 @@
 #include "emv_debug.h"
 #include "print_helpers.h"
 
+static const struct xpdu_t test_pse_ttl_error[] = {
+	{
+		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 1PAY.SYS.DDF01
+		1, (uint8_t[]){ 0x00 }, // Invalid response
+	},
+	{ 0 }
+};
+
 static const struct xpdu_t test_pse_card_blocked[] = {
 	{
 		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 1PAY.SYS.DDF01
@@ -95,6 +103,34 @@ static const struct xpdu_t test_pse_blocked[] = {
 	{
 		5, (uint8_t[]){ 0x00, 0xC0, 0x00, 0x00, 0x1A }, // GET RESPONSE Le=36
 		36, (uint8_t[]){ 0x6F, 0x20, 0x84, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0xA5, 0x0E, 0x88, 0x01, 0x01, 0x5F, 0x2D, 0x04, 0x6E, 0x6C, 0x65, 0x6E, 0x9F, 0x11, 0x01, 0x01, 0x90, 0x00 }, // FCI
+	},
+	{
+		13, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x00 }, // SELECT A0000000031010
+		2, (uint8_t[]){ 0x6A, 0x82 }, // File or application not found
+	},
+	{
+		13, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x10, 0x00 }, // SELECT A0000000032010
+		2, (uint8_t[]){ 0x6A, 0x82 }, // File or application not found
+	},
+	{
+		13, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x20, 0x20, 0x00 }, // SELECT A0000000032020
+		2, (uint8_t[]){ 0x6A, 0x82 }, // File or application not found
+	},
+	{
+		13, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x04, 0x10, 0x10, 0x00 }, // SELECT A0000000041010
+		2, (uint8_t[]){ 0x6A, 0x82 }, // File or application not found
+	},
+	{
+		13, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x04, 0x30, 0x60, 0x00 }, // SELECT A0000000043060
+		2, (uint8_t[]){ 0x6A, 0x82 }, // File or application not found
+	},
+	{ 0 }
+};
+
+static const struct xpdu_t test_pse_select_failed[] = {
+	{
+		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x31, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 1PAY.SYS.DDF01
+		2, (uint8_t[]){ 0x6A, 0x86 }, // Incorrect parameters P1-P2
 	},
 	{
 		13, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x00, 0x03, 0x10, 0x10, 0x00 }, // SELECT A0000000031010
@@ -410,6 +446,54 @@ int main(void)
 		return 1;
 	}
 
+	printf("\nTesting invalid parameters...\n");
+	emul_ctx.xpdu_list = NULL;
+	emul_ctx.xpdu_current = NULL;
+	emv_app_list_clear(&app_list);
+	r = emv_build_candidate_list(NULL, &app_list);
+	if (r != EMV_ERROR_INVALID_PARAMETER) {
+		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	r = emv_build_candidate_list(&emv, NULL);
+	if (r != EMV_ERROR_INVALID_PARAMETER) {
+		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	if (emul_ctx.xpdu_current) {
+		fprintf(stderr, "Card interaction while there should have been none\n");
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
+	printf("\nTesting PSE TTL error...\n");
+	emul_ctx.xpdu_list = test_pse_ttl_error;
+	emul_ctx.xpdu_current = NULL;
+	emv_app_list_clear(&app_list);
+	r = emv_build_candidate_list(&emv, &app_list);
+	if (r != EMV_OUTCOME_CARD_ERROR) {
+		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	if (emul_ctx.xpdu_current->c_xpdu_len != 0) {
+		fprintf(stderr, "Incomplete card interaction\n");
+		r = 1;
+		goto exit;
+	}
+	if (!emv_app_list_is_empty(&app_list)) {
+		fprintf(stderr, "Combination list unexpectedly NOT empty\n");
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
 	printf("\nTesting PSE card blocked or SELECT not supported...\n");
 	emul_ctx.xpdu_list = test_pse_card_blocked;
 	emul_ctx.xpdu_current = NULL;
@@ -502,6 +586,36 @@ int main(void)
 
 	printf("\nTesting PSE blocked and no supported applications...\n");
 	emul_ctx.xpdu_list = test_pse_blocked;
+	emul_ctx.xpdu_current = NULL;
+	emv_app_list_clear(&app_list);
+	r = emv_build_candidate_list(&emv, &app_list);
+	if (r != EMV_OUTCOME_NOT_ACCEPTED) {
+		fprintf(stderr, "Unexpected emv_build_candidate_list() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
+		r = 1;
+		goto exit;
+	}
+	if (emul_ctx.xpdu_current->c_xpdu_len != 0) {
+		fprintf(stderr, "Incomplete card interaction\n");
+		r = 1;
+		goto exit;
+	}
+	if (!emv_app_list_is_empty(&app_list)) {
+		fprintf(stderr, "Candidate list unexpectedly NOT empty\n");
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
+		r = 1;
+		goto exit;
+	}
+	if (emv_app_list_selection_is_required(&app_list)) {
+		fprintf(stderr, "Cardholder application selection unexpectedly required\n");
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
+	printf("\nTesting PSE SELECT failed and no supported applications...\n");
+	emul_ctx.xpdu_list = test_pse_select_failed;
 	emul_ctx.xpdu_current = NULL;
 	emv_app_list_clear(&app_list);
 	r = emv_build_candidate_list(&emv, &app_list);

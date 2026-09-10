@@ -24,7 +24,6 @@
 #include "emv_ttl.h"
 #include "emv_tal.h"
 #include "emv_app.h"
-#include "emv_ep.h"
 #include "emv_dol.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
@@ -668,127 +667,6 @@ int emv_build_candidate_list(
 	}
 
 	return 0;
-}
-
-int emv_build_combination_list(
-	const struct emv_ctx_t* ctx,
-	struct emv_app_list_t* app_list
-)
-{
-	int r;
-	const struct emv_tlv_t* txn_amount;
-	uint32_t amount_value;
-	struct emv_ep_app_list_t ep_list = EMV_EP_APP_LIST_INIT;
-	struct emv_app_list_t ppse_list = EMV_APP_LIST_INIT;
-	struct emv_app_t* app;
-
-	if (!ctx || !app_list) {
-		emv_debug_trace_msg("ctx=%p, app_list=%p", ctx, app_list);
-		emv_debug_error("Invalid parameter");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
-
-	// Ensure mandatory transaction parameters are present and have valid length
-	txn_amount = emv_tlv_list_find_const(
-		&ctx->params,
-		EMV_TAG_81_AMOUNT_AUTHORISED_BINARY
-	);
-	if (!txn_amount || txn_amount->length != 4) {
-		emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
-			txn_amount, txn_amount ? txn_amount->length : 0);
-		emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
-	r = emv_format_b_to_uint(
-		txn_amount->value,
-		txn_amount->length,
-		&amount_value
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		return EMV_ERROR_INTERNAL;
-	}
-	emv_debug_trace_msg("Amount, Authorised (Binary) value is %u",
-		(unsigned int)amount_value
-	);
-
-	// Perform contactless pre-processing for factors that impact whether PPSE
-	// should be performed at all
-	r = emv_ep_preprocess(&ctx->config, amount_value, &ep_list);
-	if (r) {
-		emv_debug_trace_msg("emv_ep_preprocess() failed; r=%d", r);
-		// Return error as-is
-		goto exit;
-	}
-
-	emv_debug_info("Select Proximity Payment System Environment (PPSE)");
-	r = emv_tal_read_ppse(ctx->ttl, &ppse_list);
-	if (r < 0) {
-		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
-		emv_debug_error("Failed to read PPSE; terminate session");
-		r = EMV_OUTCOME_CARD_ERROR;
-		goto exit;
-	}
-	if (r > 0) {
-		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
-
-		// If PPSE failed, outcome is End Application
-		// See EMV Contactless Book B v2.11, 3.3.2.3
-		emv_debug_info("Failed to process PPSE; try another card");
-		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
-		goto exit;
-	}
-
-	// See EMV Contactless Book B v2.11, 3.3.2.5
-	while ((app = emv_app_list_pop(&ppse_list))) {
-		const struct emv_config_app_t* config_app;
-
-		config_app = emv_ep_find_supported_combination(&ep_list, app);
-		if (!config_app) {
-			emv_debug_info("Combination is not supported");
-			emv_app_free(app);
-			app = NULL;
-
-			// Ignore app and continue
-			continue;
-		}
-
-		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2E
-		emv_debug_info("Combination is supported");
-		app->config = config_app;
-		emv_app_list_push(app_list, app);
-	}
-
-	// If there are no mutually supported applications, outcome is
-	// End Application
-	// See EMV Contactless Book B v2.11, 3.3.2.7
-	if (emv_app_list_is_empty(app_list)) {
-		emv_debug_info("Candidate list empty; try another card");
-		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
-		goto exit;
-	}
-
-	// Sort application list according to priority
-	// See EMV Contactless Book B v2.11, 3.3.3.2
-	r = emv_app_list_sort_priority(app_list);
-	if (r) {
-		emv_debug_trace_msg("emv_app_list_sort_priority() failed; r=%d", r);
-		emv_debug_error("Failed to sort application list; terminate session");
-		r = EMV_ERROR_INTERNAL;
-		goto exit;
-	}
-
-	// Success
-	r = 0;
-	goto exit;
-
-exit:
-	emv_app_list_clear(&ppse_list);
-	emv_ep_app_list_clear(&ep_list);
-	return r;
 }
 
 int emv_select_application(

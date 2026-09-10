@@ -23,7 +23,10 @@
 #include "emv.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
+#include "emv_tlv.h"
 #include "emv_app.h"
+#include "emv_ttl.h"
+#include "emv_tal.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
@@ -172,6 +175,11 @@ void emv_ep_app_list_clear(struct emv_ep_app_list_t* list)
 	assert(list->back == NULL);
 }
 
+static inline bool emv_card_is_contactless(const struct emv_ctx_t* ctx)
+{
+	return (ctx && ctx->ttl && ctx->ttl->contactless);
+}
+
 int emv_ep_preprocess(
 	const struct emv_config_t* config,
 	uint32_t amount,
@@ -307,19 +315,18 @@ int emv_ep_preprocess(
 	return 0;
 }
 
-const struct emv_config_app_t* emv_ep_find_supported_combination(
-	const struct emv_ep_app_list_t* list,
-	const struct emv_app_t* app
+static int emv_ep_extract_requested_kernel_id(
+	const struct emv_app_t* app,
+	uint8_t* requested_kernel_id
 )
 {
 	int r;
 	const struct emv_tlv_t* kernel_id_icc;
-	uint8_t requested_kernel_id[3];
-	const struct emv_ep_app_t* combination;
 
-	if (!app || !app->aid) {
-		// Invalid app; not supported
-		return NULL;
+	if (!app || !requested_kernel_id) {
+		emv_debug_trace_msg("app=%p, requested_kernel_id=%p", app, requested_kernel_id);
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
 	}
 
 	emv_debug_trace_data("app",
@@ -328,41 +335,45 @@ const struct emv_config_app_t* emv_ep_find_supported_combination(
 
 	// Extract Requested Kernel ID
 	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2C
-	memset(requested_kernel_id, 0, sizeof(requested_kernel_id));
+	memset(requested_kernel_id, 0, 3);
 	kernel_id_icc = emv_tlv_list_find_const(
 		&app->tlv_list,
 		EMV_TAG_9F2A_KERNEL_IDENTIFIER
 	);
 	if (kernel_id_icc && kernel_id_icc->length > 8) {
+		emv_debug_trace_msg("Kernel ID length %u", kernel_id_icc->length);
 		emv_debug_error("Invalid PPSE directory entry kernel ID length");
-		// Skip application
-		return NULL;
+		return EMV_OUTCOME_CARD_ERROR;
 	}
 	if (kernel_id_icc &&
 		kernel_id_icc->length > 0 &&
 		(kernel_id_icc->length > 1 || kernel_id_icc->value[0] != 0)
 	) {
-		if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_INTERNATIONAL ||
-			(kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_RFU
-		) {
-			requested_kernel_id[0] = kernel_id_icc->value[0];
-		}
+		uint8_t kernel_id_type = kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK;
 
-		if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO ||
-			(kernel_id_icc->value[0] & EMV_KERNEL_ID_TYPE_MASK) == EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY
-		) {
-			if (kernel_id_icc->length < 3) {
-				emv_debug_error("Invalid PPSE directory entry domestic kernel ID");
-				// Skip application
-				return NULL;
-			}
-			if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_SHORT_MASK) == 0) {
-				emv_debug_error("Proprietary PPSE directory entry domestic kernel ID");
-				// Skip application
-				return NULL;
-			}
+		switch (kernel_id_type) {
+			case EMV_KERNEL_ID_TYPE_INTERNATIONAL:
+			case EMV_KERNEL_ID_TYPE_RFU:
+				requested_kernel_id[0] = kernel_id_icc->value[0];
+				break;
 
-			memcpy(requested_kernel_id, kernel_id_icc->value, 3);
+			case EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO:
+			case EMV_KERNEL_ID_TYPE_DOMESTIC_PROPRIETARY:
+				if (kernel_id_icc->length < 3) {
+					emv_debug_error("Invalid PPSE directory entry domestic kernel ID");
+					return EMV_OUTCOME_CARD_ERROR;
+				}
+				if ((kernel_id_icc->value[0] & EMV_KERNEL_ID_SHORT_MASK) == 0) {
+					emv_debug_error("Proprietary PPSE directory entry domestic kernel ID");
+					return EMV_OUTCOME_CARD_ERROR;
+				}
+
+				memcpy(requested_kernel_id, kernel_id_icc->value, 3);
+				break;
+
+			default:
+				emv_debug_error("Internal error");
+				return EMV_ERROR_INTERNAL;
 		}
 	} else {
 		struct emv_aid_info_t aid_info;
@@ -370,9 +381,7 @@ const struct emv_config_app_t* emv_ep_find_supported_combination(
 		if (r) {
 			emv_debug_trace_msg("emv_aid_get_info() failed; r=%d", r);
 			emv_debug_error("Invalid PPSE directory entry AID");
-
-			// Skip application
-			return NULL;
+			return EMV_ERROR_INTERNAL;
 		}
 
 		// See EMV Contactless Book B v2.11, 3.3.2.5, table 3-6
@@ -386,51 +395,214 @@ const struct emv_config_app_t* emv_ep_find_supported_combination(
 			default: requested_kernel_id[0] = 0; break;
 		}
 	}
-	emv_debug_trace_data("requested_kernel_id", requested_kernel_id, sizeof(requested_kernel_id));
+	emv_debug_trace_data("requested_kernel_id", requested_kernel_id, 3);
 
-	// Find matching contactless application combination
-	// See EMV Contactless Book B v2.11, 3.3.2.5
-	for (
-		combination = list->front;
-		combination != NULL;
-		combination = combination->next
-	) {
-		const struct emv_config_app_t* config_app;
+	return 0;
+}
 
-		if (!combination->config) {
-			// Skip invalid contactless application combination
-			continue;
-		}
-		config_app = combination->config;
+static bool emv_ep_combination_is_supported(
+	const struct emv_ep_app_t* combination,
+	const struct emv_tlv_t* aid,
+	const uint8_t* requested_kernel_id
+)
+{
+	const struct emv_config_app_t* config_app;
 
-		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2B
-		// See EMV 4.4 Book 1, 12.3.1
-		if (config_app->asi == EMV_ASI_EXACT_MATCH) {
-			if (config_app->aid_len != app->aid->length ||
-				memcmp(config_app->aid, app->aid->value, config_app->aid_len) != 0
-			) {
-				// Exact match failed; skip combination
-				continue;
-			}
-		} else if (config_app->asi == EMV_ASI_PARTIAL_MATCH) {
-			if (config_app->aid_len > app->aid->length ||
-				memcmp(config_app->aid, app->aid->value, config_app->aid_len) != 0
-			) {
-				// Partial match failed; skip combination
-				continue;
-			}
-		} else {
-			// Invalid Application Selection Indicator (ASI); skip combination
-			continue;
-		}
-
-		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
-		if (requested_kernel_id[0] == 0 ||
-			memcmp(requested_kernel_id, combination->kernel_id, 3) == 0
-		) {
-			return combination->config;
-		}
+	if (!combination || !aid || !requested_kernel_id) {
+		emv_debug_trace_msg("combination=%p, aid=%p, requested_kernel_id=%p",
+			combination, aid, requested_kernel_id);
+		emv_debug_error("Internal error");
+		return false;
 	}
 
-	return NULL;
+	if (!combination->config) {
+		// Skip invalid contactless application combination
+		emv_debug_error("Application combination has no config");
+		return false;
+	}
+	config_app = combination->config;
+
+	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2B
+	// See EMV 4.4 Book 1, 12.3.1
+	if (config_app->asi == EMV_ASI_EXACT_MATCH) {
+		if (config_app->aid_len != aid->length ||
+			memcmp(config_app->aid, aid->value, config_app->aid_len) != 0
+		) {
+			// Exact match failed; skip combination
+			return false;
+		}
+	} else if (config_app->asi == EMV_ASI_PARTIAL_MATCH) {
+		if (config_app->aid_len > aid->length ||
+			memcmp(config_app->aid, aid->value, config_app->aid_len) != 0
+		) {
+			// Partial match failed; skip combination
+			return false;
+		}
+	} else {
+		// Invalid Application Selection Indicator (ASI); skip combination
+		emv_debug_error("Application combination has invalid ASI 0x%02X",
+			config_app->asi
+		);
+		return false;
+	}
+
+	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
+	if (requested_kernel_id[0] == 0 ||
+		memcmp(requested_kernel_id, combination->kernel_id, 3) == 0
+	) {
+		return true;
+	}
+
+	return false;
+}
+
+int emv_ep_build_candidate_list(
+	const struct emv_ctx_t* ctx,
+	const struct emv_ep_app_list_t* ep_list,
+	struct emv_app_list_t* app_list
+)
+{
+	int r;
+	struct emv_app_list_t ppse_list = EMV_APP_LIST_INIT;
+	struct emv_app_t* app = NULL;
+	struct emv_app_t* candidate = NULL;
+
+	if (!ctx || !ep_list || !app_list) {
+		emv_debug_trace_msg("ctx=%p, ep_list=%p, app_list=%p",
+			ctx, ep_list, app_list);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	if (!emv_card_is_contactless(ctx)) {
+		emv_debug_trace_msg("emv_ep_build_candidate_list() called for non-contactless");
+		emv_debug_error("Entry Point not supported for non-contactless");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Select Proximity Payment System Environment (PPSE)");
+	r = emv_tal_read_ppse(ctx->ttl, &ppse_list);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
+		emv_debug_error("Failed to read PPSE; terminate session");
+		r = EMV_OUTCOME_CARD_ERROR;
+		goto exit;
+	}
+	if (r > 0) {
+		emv_debug_trace_msg("emv_tal_read_ppse() failed; r=%d", r);
+
+		// If PPSE failed, outcome is End Application
+		// See EMV Contactless Book B v2.11, 3.3.2.3
+		emv_debug_info("Failed to process PPSE; try another card");
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		goto exit;
+	}
+
+	// See EMV Contactless Book B v2.11, 3.3.2.5
+	while ((app = emv_app_list_pop(&ppse_list))) {
+		uint8_t requested_kernel_id[3];
+		const struct emv_ep_app_t* combination;
+
+		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2C
+		r = emv_ep_extract_requested_kernel_id(app, requested_kernel_id);
+		if (r < 0) {
+			// Internal error; terminate session
+			emv_app_free(app);
+			app = NULL;
+			goto exit;
+		}
+		if (r > 0) {
+			// Failed to extract requested kernel id; skip application
+			emv_app_free(app);
+			app = NULL;
+			continue;
+		}
+
+		// For each application, add every supported combination to the
+		// candidate list
+		for (
+			combination = ep_list->front;
+			combination != NULL;
+			combination = combination->next
+		) {
+			bool supported;
+
+			// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
+			supported = emv_ep_combination_is_supported(
+				combination,
+				app->aid,
+				requested_kernel_id
+			);
+
+			if (!supported) {
+				emv_debug_info("Combination is not supported");
+
+				// Ignore combination and continue
+				continue;
+			}
+
+			// See EMV Contactless Book B v2.11, 3.3.2.5, step 2E
+			emv_debug_info_data("Combination is supported for kernel 0x%02X",
+				combination->config->aid,
+				combination->config->aid_len,
+				combination->kernel_id[0]
+			);
+			candidate = emv_app_clone(app);
+			if (!candidate) {
+				emv_debug_trace_msg("emv_app_clone() failed");
+				emv_debug_error("Internal error");
+				r = EMV_ERROR_INTERNAL;
+				goto exit;
+			}
+			candidate->config = combination->config;
+			r = emv_app_list_push(app_list, candidate);
+			if (r) {
+				emv_debug_trace_msg("emv_app_list_push() failed; r=%d", r);
+				emv_debug_error("Internal error");
+				r = EMV_ERROR_INTERNAL;
+				goto exit;
+			}
+			candidate = NULL;
+		}
+
+		// Cleanup
+		emv_app_free(app);
+		app = NULL;
+	}
+
+	// If there are no mutually supported applications, outcome is
+	// End Application
+	// See EMV Contactless Book B v2.11, 3.3.2.7
+	if (emv_app_list_is_empty(app_list)) {
+		emv_debug_info("Candidate list empty; try another card");
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		goto exit;
+	}
+
+	// Sort application list according to priority
+	// See EMV Contactless Book B v2.11, 3.3.3.2
+	r = emv_app_list_sort_priority(app_list);
+	if (r) {
+		emv_debug_trace_msg("emv_app_list_sort_priority() failed; r=%d", r);
+		emv_debug_error("Failed to sort application list; terminate session");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	if (candidate) {
+		emv_app_free(candidate);
+		candidate = NULL;
+	}
+	if (app) {
+		emv_app_free(app);
+		app = NULL;
+	}
+	emv_app_list_clear(&ppse_list);
+
+	return r;
 }

@@ -328,6 +328,46 @@ static int emv_app_extract_priority_indicator(struct emv_app_t* app, bool contac
 	return 0;
 }
 
+struct emv_app_t* emv_app_clone(const struct emv_app_t* other)
+{
+	int r;
+	struct emv_app_t* app;
+
+	if (!other) {
+		return NULL;
+	}
+
+	app = malloc(sizeof(*app));
+	if (!app) {
+		return NULL;
+	}
+
+	memcpy(app, other, sizeof(*app));
+	app->aid = NULL;
+	app->tlv_list = EMV_TLV_LIST_INIT;
+	app->next = NULL;
+
+	r = emv_tlv_list_clone(&app->tlv_list, &other->tlv_list);
+	if (r) {
+		// Internal error
+		goto error;
+	}
+
+	app->aid = emv_tlv_list_find_const(&app->tlv_list, EMV_TAG_4F_APPLICATION_DF_NAME);
+	if (!app->aid) {
+		app->aid = emv_tlv_list_find_const(&app->tlv_list, EMV_TAG_84_DF_NAME);
+	}
+	if (!app->aid) {
+		goto error;
+	}
+
+	return app;
+
+error:
+	emv_app_free(app);
+	return NULL;
+}
+
 int emv_app_free(struct emv_app_t* app)
 {
 	if (!app) {

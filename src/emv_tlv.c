@@ -381,6 +381,31 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 	return 0;
 }
 
+int emv_tlv_list_clone(
+	struct emv_tlv_list_t* list,
+	const struct emv_tlv_list_t* other
+)
+{
+	int r;
+
+	if (!emv_tlv_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (!emv_tlv_list_is_valid(other)) {
+		return -2;
+	}
+
+	for (const struct emv_tlv_t* tlv = other->front; tlv != NULL; tlv = tlv->next) {
+		r = emv_tlv_list_push(list, tlv->tag, tlv->length, tlv->value, tlv->flags);
+		if (r) {
+			return -3;
+		}
+	}
+
+	return 0;
+}
+
 int emv_tlv_sources_init_from_ctx(
 	struct emv_tlv_sources_t* sources,
 	const struct emv_ctx_t* ctx
