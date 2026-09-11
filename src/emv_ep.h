@@ -143,6 +143,31 @@ int emv_ep_build_candidate_list(
 	struct emv_app_list_t* app_list
 );
 
+/**
+ * Select contactless EMV application by highest priority in candidate
+ * application list. The candidate application list will be updated by removing
+ * the selected application regardless of processing outcome. If application
+ * selection fails this function will return @ref EMV_OUTCOME_TRY_AGAIN or
+ * @ref EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD, depending on whether the
+ * candidate application list is empty or not.
+ * @remark See EMV 4.4 Book 1, 12.4
+ * @remark See EMV 4.4 Book 4, 11.3
+ * @remark See EMV Contactless Book B v2.11, 3.3.3
+ *
+ * @param ctx EMV processing context
+ * @param app_list Candidate application list
+ * @param kernel_id Selected kernel ID output. Must be 3 bytes.
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_ep_select_application(
+	struct emv_ctx_t* ctx,
+	struct emv_app_list_t* app_list,
+	uint8_t* kernel_id
+);
+
 __END_DECLS
 
 #endif

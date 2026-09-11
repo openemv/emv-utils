@@ -122,6 +122,7 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 		// See EMV Contactless Book A v2.11, Appendix B
 		case EMV_OUTCOME_TRY_ANOTHER_INTERFACE: return "Insert or swipe card"; // Message 18
 		case EMV_OUTCOME_TRY_AGAIN_SEE_PHONE: return "See phone for instructions"; // Message 20
+		case EMV_OUTCOME_SELECT_NEXT: return "Select next contactless application"; // Not a UI message
 		case EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD: return "Insert, swipe or try another card"; // Message 1C
 		case EMV_OUTCOME_END_APPLICATION_RESTART: return "Present card again"; // Message 21
 	}
@@ -718,12 +719,15 @@ int emv_select_application(
 		emv_debug_trace_msg("emv_tal_select_app() failed; r=%d", r);
 		if (r < 0) {
 			emv_debug_error("Error during application selection; terminate session");
-			if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
+
+			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+				r = EMV_ERROR_INTERNAL;
+			} else if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
 				r = EMV_OUTCOME_CARD_BLOCKED;
 			} else {
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
-			goto exit;
+			goto error;
 		}
 		if (r > 0) {
 			emv_debug_info("Failed to select application; continue session");
@@ -734,85 +738,12 @@ int emv_select_application(
 		emv_debug_trace_msg("emv_tal_select_app() failed to populate selected_app");
 		emv_debug_error("Internal error");
 		r = EMV_ERROR_INTERNAL;
-		goto exit;
+		goto error;
 	}
 
 	// Populate matching application dependent data
 	emv_debug_info_tlv_list("Application dependent data", &current_app->config->data);
 	ctx->selected_app->config = current_app->config;
-
-	if (emv_card_is_contactless(ctx)) {
-		const struct emv_tlv_t* kernel_id_icc;
-		const struct emv_tlv_t* kernel_id_config;
-
-		// Kernel Identifier (field 9F2A) is only available in the PPSE
-		// directory entry, not the FCI response of the application selection.
-		// But it is needed for Kernel Identifier - Terminal (field 96) later.
-		kernel_id_icc = emv_tlv_list_find_const(
-			&current_app->tlv_list,
-			EMV_TAG_9F2A_KERNEL_IDENTIFIER
-		);
-		if (kernel_id_icc &&
-			kernel_id_icc->length > 0 &&
-			kernel_id_icc->length <= 8
-		) {
-			r = emv_tlv_list_push(
-				&ctx->selected_app->tlv_list,
-				EMV_TAG_9F2A_KERNEL_IDENTIFIER,
-				kernel_id_icc->length,
-				kernel_id_icc->value,
-				0
-			);
-			if (r) {
-				emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
-
-				// Internal error; terminate session
-				emv_debug_error("Internal error");
-				r = EMV_ERROR_INTERNAL;
-				goto exit;
-			}
-		}
-
-		kernel_id_config = emv_tlv_list_find_const(
-			&ctx->selected_app->config->data,
-			EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
-		);
-
-		// When Visa kernel 3 is selected, ensure that PDOL contains
-		// TTQ (field 9F66)
-		// See EMV Contactless Book B v2.11, 3.3.3.6
-		const uint8_t visa_aid[] = { 0xA0, 0x00, 0x00, 0x00, 0x03 };
-		if (ctx->selected_app->aid->length >= sizeof(visa_aid) &&
-			memcmp(ctx->selected_app->aid->value, visa_aid, sizeof(visa_aid)) == 0 &&
-			kernel_id_config &&
-			kernel_id_config->length > 0 &&
-			kernel_id_config->value[0] == 3
-		) {
-			const struct emv_tlv_t* pdol;
-
-			pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
-			if (!pdol) {
-				emv_debug_error("Visa Kernel 3 has no PDOL");
-				goto try_again;
-			}
-
-			r = emv_dol_find_tag(
-				pdol->value,
-				pdol->length,
-				EMV_TAG_9F66_TTQ,
-				NULL
-			);
-			if (r < 0) {
-				emv_debug_trace_msg("emv_dol_find_tag() failed; r=%d", r);
-				emv_debug_error("Invalid Processing Options Data Object List (PDOL)");
-				goto try_again;
-			}
-			if (r > 0) {
-				emv_debug_error("Visa Kernel 3 PDOL does not contain TTQ (9F66)");
-				goto try_again;
-			}
-		}
-	}
 
 	// Success
 	r = 0;
@@ -820,23 +751,21 @@ int emv_select_application(
 
 try_again:
 	if (emv_app_list_is_empty(app_list)) {
-		if (emv_card_is_contactless(ctx)) {
-			// If no applications remain, outcome is End Application
-			// See EMV Contactless Book B v2.11, 3.3.2.7
-			emv_debug_info("Candidate list empty; try another card");
-			r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
-		} else {
-			// If no applications remain, terminate session
-			// See EMV 4.4 Book 1, 12.4
-			// See EMV 4.4 Book 4, 11.3
-			emv_debug_info("Candidate list empty; not accepted");
-			r = EMV_OUTCOME_NOT_ACCEPTED;
-		}
+		// If no applications remain, terminate session
+		// See EMV 4.4 Book 1, 12.4
+		// See EMV 4.4 Book 4, 11.3
+		emv_debug_info("Candidate list empty; not accepted");
+		r = EMV_OUTCOME_NOT_ACCEPTED;
 	} else {
 		// Otherwise, try again
 		// See EMV 4.4 Book 4, 11.3
-		// See EMV Contactless Book B v2.11, 3.3.2.6
 		r = EMV_OUTCOME_TRY_AGAIN;
+	}
+
+error:
+	if (ctx->selected_app) {
+		emv_app_free(ctx->selected_app);
+		ctx->selected_app = NULL;
 	}
 
 exit:
@@ -968,13 +897,13 @@ static int emv_create_ep_terminal_data(struct emv_ctx_t* ctx)
 		);
 
 		// Application configuration for the selected application should have
-		// been set by emv_select_application().
+		// been set by emv_ep_select_application().
 		emv_debug_error("No configuration for selected application");
 		return EMV_ERROR_INTERNAL;
 	}
 
 	// Prepare Kernel Identifier - Terminal (field 96)
-	// NOTE: emv_select_application() copies Kernel Identifier (field 9F2A)
+	// NOTE: emv_ep_select_application() copies Kernel Identifier (field 9F2A)
 	// when available
 	kernel_id_config = emv_tlv_list_find_const(
 		&ctx->selected_app->config->data,

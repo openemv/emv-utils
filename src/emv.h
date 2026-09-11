@@ -181,6 +181,7 @@ enum emv_outcome_t {
 	// See EMV Contactless Book A v2.11, Appendix B
 	EMV_OUTCOME_TRY_ANOTHER_INTERFACE = 20, ///< Contactless not possible; insert or swipe card
 	EMV_OUTCOME_TRY_AGAIN_SEE_PHONE, ///< Contactless field off request; see phone for instructions
+	EMV_OUTCOME_SELECT_NEXT, ///< Select next contactless application
 	EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD, ///< Contactless not possible; insert, swipe or try another card
 	EMV_OUTCOME_END_APPLICATION_RESTART, ///< Restart contactless; present card again
 };
@@ -335,13 +336,13 @@ int emv_build_candidate_list(
  * Select EMV application by index from the candidate application list. The
  * candidate application list will be updated by removing the selected
  * application regardless of processing outcome. If application selection fails
- * this function will return @ref EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD,
- * @ref EMV_OUTCOME_NOT_ACCEPTED, or @ref EMV_OUTCOME_TRY_AGAIN, depending on
- * whether the candidate application list is empty or not, and depending on
- * whether it is a contactless card or not.
+ * this function will return either @ref EMV_OUTCOME_NOT_ACCEPTED or
+ * @ref EMV_OUTCOME_TRY_AGAIN, depending on whether the candidate application
+ * list is empty or not. This function is intended for contact cards, not
+ * contactless cards. Use @ref emv_ep_select_application() for contactless
+ * cards.
  * @remark See EMV 4.4 Book 1, 12.4
  * @remark See EMV 4.4 Book 4, 11.3
- * @remark See EMV Contactless Book B v2.11, 3.3.3
  *
  * @param ctx EMV processing context
  * @param app_list Candidate application list
