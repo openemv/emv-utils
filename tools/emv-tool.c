@@ -747,7 +747,6 @@ int main(int argc, char** argv)
 	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
 	struct emv_ep_app_list_t ep_list = EMV_EP_APP_LIST_INIT; // Combination list
-	bool application_selection_required;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -950,6 +949,8 @@ int main(int argc, char** argv)
 	}
 
 	if (!emv.ttl->contactless) {
+		bool application_selection_required;
+
 		printf("\nBuild candidate list\n");
 		r = emv_build_candidate_list(&emv, &app_list);
 		if (r < 0) {
@@ -970,6 +971,82 @@ int main(int argc, char** argv)
 		if (application_selection_required) {
 			printf("Cardholder selection is required\n");
 		}
+
+		do {
+			unsigned int index;
+
+			if (application_selection_required) {
+				unsigned int app_count = 0;
+				char s[4]; // two digits, newline and null
+				unsigned int input = 0;
+
+				printf("\nSelect application:\n");
+				for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+					++app_count;
+					printf("%u - %s\n", app_count, app->display_name);
+				}
+				printf("Enter number: ");
+				if (!fgets(s, sizeof(s), stdin)) {
+					printf("Invalid input. Try again.\n");
+					continue;
+				}
+				r = sscanf(s, "%u", &input);
+				if (r != 1) {
+					printf("Invalid input. Try again.\n");
+					continue;
+				}
+				if (!input || input > app_count) {
+					printf("Invalid input. Try again.\n");
+					continue;
+				}
+
+				index = input - 1;
+
+			} else {
+				// Use first application
+				printf("\nSelect first application\n");
+				index = 0;
+			}
+
+			r = emv_select_application(&emv, &app_list, index);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				if (r == EMV_OUTCOME_TRY_AGAIN) {
+					// Return to cardholder application selection/confirmation
+					// See EMV 4.4 Book 4, 11.3
+					continue;
+				}
+				goto emv_exit;
+			}
+			if (!emv.selected_app) {
+				fprintf(stderr, "selected_app unexpectedly NULL\n");
+				goto emv_exit;
+			}
+
+			printf("\nInitiate application processing\n");
+			r = emv_initiate_application_processing(&emv, pos_entry_mode);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
+					// Return to cardholder application selection/confirmation
+					// See EMV 4.4 Book 4, 6.3.1
+					continue;
+				}
+				goto emv_exit;
+			}
+
+			// Application processing successfully initiated
+			break;
+
+		} while (true);
 
 	} else {
 		printf("\nBuild combination list\n");
@@ -999,86 +1076,53 @@ int main(int argc, char** argv)
 			print_emv_app(app);
 		}
 
-		// Contactless never requires user application selection
-		// See EMV Contactless Book B v2.11, 3.3.3.2
-		application_selection_required = false;
+		do {
+			uint8_t kernel_id[3];
+
+			// Start C
+			// See EMV Contactless Book B v2.11, 3.3.2.6
+			printf("\nSelect application\n");
+			r = emv_ep_select_application(&emv, &app_list, kernel_id);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				if (r == EMV_OUTCOME_SELECT_NEXT) {
+					// Return to Start C
+					// See EMV Contactless Book B v2.11, 3.3.3.5
+					continue;
+				}
+				goto emv_exit;
+			}
+			if (!emv.selected_app) {
+				fprintf(stderr, "selected_app unexpectedly NULL\n");
+				goto emv_exit;
+			}
+
+			printf("\nInitiate application processing\n");
+			r = emv_initiate_application_processing(&emv, pos_entry_mode);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
+					// Outcome is Select Next; return to Start C
+					// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.9.2
+					// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+					continue;
+				}
+				goto emv_exit;
+			}
+
+			// Application processing successfully initiated
+			break;
+
+		} while (true);
 	}
-
-	do {
-		unsigned int index;
-
-		if (application_selection_required) {
-			unsigned int app_count = 0;
-			char s[4]; // two digits, newline and null
-			unsigned int input = 0;
-
-			printf("\nSelect application:\n");
-			for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
-				++app_count;
-				printf("%u - %s\n", app_count, app->display_name);
-			}
-			printf("Enter number: ");
-			if (!fgets(s, sizeof(s), stdin)) {
-				printf("Invalid input. Try again.\n");
-				continue;
-			}
-			r = sscanf(s, "%u", &input);
-			if (r != 1) {
-				printf("Invalid input. Try again.\n");
-				continue;
-			}
-			if (!input || input > app_count) {
-				printf("Invalid input. Try again.\n");
-				continue;
-			}
-
-			index = input - 1;
-
-		} else {
-			// Use first application
-			printf("\nSelect first application\n");
-			index = 0;
-		}
-
-		r = emv_select_application(&emv, &app_list, index);
-		if (r < 0) {
-			printf("ERROR: %s\n", emv_error_get_string(r));
-			goto emv_exit;
-		}
-		if (r > 0) {
-			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-			if (r == EMV_OUTCOME_TRY_AGAIN) {
-				// Return to cardholder application selection/confirmation
-				// See EMV 4.4 Book 4, 11.3
-				continue;
-			}
-			goto emv_exit;
-		}
-		if (!emv.selected_app) {
-			fprintf(stderr, "selected_app unexpectedly NULL\n");
-			goto emv_exit;
-		}
-
-		printf("\nInitiate application processing\n");
-		r = emv_initiate_application_processing(&emv, pos_entry_mode);
-		if (r < 0) {
-			printf("ERROR: %s\n", emv_error_get_string(r));
-			goto emv_exit;
-		}
-		if (r > 0) {
-			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-			if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
-				// Return to cardholder application selection/confirmation
-				// See EMV 4.4 Book 4, 6.3.1
-				continue;
-			}
-			goto emv_exit;
-		}
-
-		// Application processing successfully initiated
-		break;
-
-	} while (true);
 
 	// Application selection has been successful and the application list
 	// is no longer needed.
