@@ -722,14 +722,17 @@ int emv_select_application(
 
 			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
 				r = EMV_ERROR_INTERNAL;
-			} else if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
-				r = EMV_OUTCOME_CARD_BLOCKED;
 			} else {
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
 			goto error;
 		}
 		if (r > 0) {
+			if (r == EMV_TAL_RESULT_APP_SELECT_NOT_SUPPORTED) {
+				emv_debug_error("Card blocked; terminate session");
+				r = EMV_OUTCOME_CARD_BLOCKED;
+				goto exit;
+			}
 			emv_debug_info("Failed to select application; continue session");
 			goto try_again;
 		}

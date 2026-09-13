@@ -87,6 +87,7 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_PPSE_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for Proximity Payment System Environment (PPSE)
 	EMV_TAL_RESULT_PPSE_DIR_ENTRY_PARSE_FAILED, ///< Failed to parse Directory Entry for Proximity Payment System Environment (PPSE)
 
+	EMV_TAL_RESULT_APP_SELECT_NOT_SUPPORTED, ///< Application selection not supported
 	EMV_TAL_RESULT_APP_NOT_FOUND, ///< Selected application not found
 	EMV_TAL_RESULT_APP_BLOCKED, ///< Selected application is blocked
 	EMV_TAL_RESULT_APP_SELECTION_FAILED, ///< Application selection failed

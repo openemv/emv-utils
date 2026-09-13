@@ -717,20 +717,16 @@ int emv_ep_select_application(
 
 			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
 				r = EMV_ERROR_INTERNAL;
-			} else if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
-				// Contactless does not terminate the session when application
-				// selection indicates that the card is blocked. Instead, it
-				// continues to the next application.
-				// See EMV Contactless Book B v2.11, 3.3.3.5
-				goto select_next;
 			} else {
+				// See EMV Contactless Book B v2.11, 3.3.3.7
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
-
 			goto error;
 		}
 		if (r > 0) {
 			emv_debug_info("Failed to select application");
+
+			// See EMV Contactless Book B v2.11, 3.3.3.5
 			goto select_next;
 		}
 	}

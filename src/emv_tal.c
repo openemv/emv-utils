@@ -673,9 +673,10 @@ int emv_tal_select_app(
 	if (sw1sw2 != 0x9000) {
 		switch (sw1sw2) {
 			case 0x6A81:
-				// Card blocked or SELECT not supported; terminate session
+				// Card blocked or SELECT not supported; terminate session for
+				// contact, or continue session for contactless
 				emv_debug_error("Card blocked or SELECT not supported");
-				return EMV_TAL_ERROR_CARD_BLOCKED;
+				return EMV_TAL_RESULT_APP_SELECT_NOT_SUPPORTED;
 
 			case 0x6A82:
 				// Application not found; ignore app and continue
