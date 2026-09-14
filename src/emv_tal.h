@@ -92,7 +92,9 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_APP_BLOCKED, ///< Selected application is blocked
 	EMV_TAL_RESULT_APP_SELECTION_FAILED, ///< Application selection failed
 	EMV_TAL_RESULT_APP_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for selected application
+	EMV_TAL_RESULT_GPO_DATA_NOT_USABLE, ///< Reference data not usable for selected application
 	EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED, ///< Conditions of use not satisfied for selected application
+	EMV_TAL_RESULT_GPO_NOT_ALLOWED, ///< Command not allowed for selected application
 	EMV_TAL_RESULT_ODA_RECORD_INVALID, ///< Offline data authentication not possible due to an invalid record
 	EMV_TAL_RESULT_GET_DATA_FAILED, ///< Failed to retrieve data object
 };
@@ -195,11 +197,11 @@ int emv_tal_select_app(
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
  *         card session. See @ref emv_tal_error_t
- * @return Greater than zero indicates that the terminal may continue the card
- *         session with a different application. Typically this occurs when the
- *         conditions of use are not satisfied for the current application and
- *         this function indicates this condition using a return value of
- *         @ref EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED
+ * @return Greater than zero indicates specific GET PROCESSING OPTIONS status
+ *         word responses that determine how the terminal should proceed. These
+ *         include @ref EMV_TAL_RESULT_GPO_DATA_NOT_USABLE,
+ *         @ref EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED and
+ *         @ref EMV_TAL_RESULT_GPO_NOT_ALLOWED.
  */
 int emv_tal_get_processing_options(
 	struct emv_ttl_t* ttl,

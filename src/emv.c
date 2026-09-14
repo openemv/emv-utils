@@ -90,6 +90,7 @@ int emv_ctx_reset(struct emv_ctx_t* ctx)
 	ctx->tsi = NULL;
 	ctx->aip = NULL;
 	ctx->afl = NULL;
+	ctx->kernel_id = NULL;
 
 	return 0;
 }
@@ -1119,6 +1120,14 @@ int emv_initiate_application_processing(
 	emv_tlv_list_clear(&ctx->icc);
 	emv_tlv_list_clear(&ctx->terminal);
 
+	// Clear existing cached terminal fields to avoid stale pointers
+	ctx->aid = NULL;
+	ctx->tvr = NULL;
+	ctx->tsi = NULL;
+	ctx->aip = NULL;
+	ctx->afl = NULL;
+	ctx->kernel_id = NULL;
+
 	// Clear existing ODA state to avoid ambiguity
 	r = emv_oda_init(&ctx->oda);
 	if (r) {
@@ -1154,6 +1163,14 @@ int emv_initiate_application_processing(
 			emv_debug_trace_msg("emv_create_ep_terminal_data() failed; r=%d", r);
 			emv_debug_error("Failed to create entry point terminal data");
 			return r;
+		}
+
+		// Cache kernel ID of selected combination
+		ctx->kernel_id = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL);
+		if (!ctx->kernel_id) {
+			// Should have been created by emv_create_ep_terminal_data()
+			emv_debug_error("Kernel Identifier - Terminal (96) not found");
+			return EMV_ERROR_INTERNAL;
 		}
 	}
 
@@ -1271,24 +1288,23 @@ int emv_initiate_application_processing(
 
 			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
 				r = EMV_ERROR_INTERNAL;
-			} else {
-				// All other GPO errors are card errors
-				r = EMV_OUTCOME_CARD_ERROR;
+				goto error;
 			}
-			goto error;
-		}
-		if (r > 0) {
+			goto gpo_failed;
+		} else {
 			emv_debug_info("Failed to initiate application processing");
+			goto gpo_failed;
+		}
+	}
 
-			if (r == EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED) {
-				// Conditions of use not satisfied; ignore app and continue
-				// See EMV 4.4 Book 3, 10.1
-				// See EMV 4.4 Book 4, 6.3.1
-				r = EMV_OUTCOME_GPO_NOT_ACCEPTED;
-			} else {
-				// All other GPO outcomes are card errors
-				r = EMV_OUTCOME_CARD_ERROR;
-			}
+	if (emv_card_is_contactless(ctx) &&
+		ctx->kernel_id &&
+		ctx->kernel_id->value[0] == 0x02
+	) {
+		if (!(ctx->aip->value[1] & EMV_AIP_EMV_MODE_SUPPORTED)) {
+			// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.16
+			emv_debug_error("EMV mode not supported in AIP");
+			r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 			goto error;
 		}
 	}
@@ -1312,7 +1328,90 @@ int emv_initiate_application_processing(
 	r = 0;
 	goto exit;
 
+gpo_failed:
+	if (emv_card_is_contactless(ctx) && ctx->kernel_id) {
+		if (ctx->kernel_id->value[0] == 0x02) {
+			// GPO failure for Kernel C-2
+			switch (r) {
+				// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.4
+				case EMV_TAL_ERROR_TTL_FAILURE:
+					r = EMV_OUTCOME_CARD_ERROR;
+					break;
+
+				// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.8
+				case EMV_TAL_RESULT_GPO_DATA_NOT_USABLE:
+				case EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED:
+				case EMV_TAL_RESULT_GPO_NOT_ALLOWED:
+				case EMV_TAL_ERROR_GPO_FAILED:
+					r = EMV_OUTCOME_SELECT_NEXT;
+					break;
+
+				// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.12
+				case EMV_TAL_ERROR_GPO_PARSE_FAILED:
+				case EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND:
+					r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+					break;
+
+				default:
+					r = EMV_OUTCOME_CARD_ERROR;
+					break;
+			}
+
+		} else if (ctx->kernel_id->value[0] == 0x03) {
+			// GPO failure for Kernel C-3
+			switch (r) {
+				case EMV_TAL_ERROR_TTL_FAILURE:
+					r = EMV_OUTCOME_CARD_ERROR;
+					break;
+
+				// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+				case EMV_TAL_RESULT_GPO_DATA_NOT_USABLE:
+					r = EMV_OUTCOME_TRY_ANOTHER_INTERFACE;
+					break;
+
+				// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+				case EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED:
+					r = EMV_OUTCOME_SELECT_NEXT;
+					break;
+
+				// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+				case EMV_TAL_RESULT_GPO_NOT_ALLOWED:
+					r = EMV_OUTCOME_TRY_AGAIN_SEE_PHONE;
+					break;
+
+				// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+				case EMV_TAL_ERROR_GPO_FAILED:
+					r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+					break;
+
+				// See EMV Contactless Book C-3 v2.11, 4.2.1.1
+				default:
+					r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+					break;
+			}
+
+		} else {
+			// GPO failure for other kernels
+			r = EMV_OUTCOME_CARD_ERROR;
+		}
+
+	} else {
+		if (r == EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED) {
+			// Conditions of use not satisfied; ignore app and continue
+			// See EMV 4.4 Book 3, 10.1
+			// See EMV 4.4 Book 4, 6.3.1
+			r = EMV_OUTCOME_GPO_NOT_ACCEPTED;
+
+		} else {
+			// All other GPO failures are card errors
+			// See EMV 4.4 Book 3, 10.1
+			r = EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+
 error:
+	ctx->aip = NULL;
+	ctx->afl = NULL;
 	emv_tlv_list_clear(&gpo_output);
 exit:
 	return r;

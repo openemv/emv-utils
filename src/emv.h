@@ -138,6 +138,7 @@ struct emv_ctx_t {
 	const struct emv_tlv_t* tsi;
 	const struct emv_tlv_t* aip;
 	const struct emv_tlv_t* afl;
+	const struct emv_tlv_t* kernel_id;
 	/// @endcond
 };
 
