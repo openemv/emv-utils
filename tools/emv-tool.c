@@ -1109,12 +1109,24 @@ int main(int argc, char** argv)
 			}
 			if (r > 0) {
 				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-				if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
-					// Outcome is Select Next; return to Start C
+				if (r == EMV_OUTCOME_SELECT_NEXT) {
+					// Outcome is Select Next
+					// See EMV Contactless Book B v2.11, 3.5.1.4
 					// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.9.2
 					// See EMV Contactless Book C-3 v2.11, 5.2.2.2
-					continue;
+					if (!emv_app_list_is_empty(&app_list)) {
+						// Return to Start C
+						// See EMV Contactless Book B v2.11, 3.3.2.6
+						continue;
+					} else {
+						// Otherwise outcome is End Application
+						// See EMV Contactless Book B v2.11, 3.3.2.7
+						r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+					}
+					printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 				}
+
+				// All other outcomes require Start B or terminate
 				goto emv_exit;
 			}
 

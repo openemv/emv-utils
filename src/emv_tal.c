@@ -778,16 +778,26 @@ int emv_tal_get_processing_options(
 
 	if (sw1sw2 != 0x9000) {
 		switch (sw1sw2) {
+			case 0x6984:
+				// Interpretation depends on specific interface and kernel
+				emv_debug_info("Reference data not usable");
+				return EMV_TAL_RESULT_GPO_DATA_NOT_USABLE;
+
 			case 0x6985:
 				// Conditions of use not satisfied; ignore app and continue
 				// See EMV 4.4 Book 3, 10.1
+				// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.8
+				// See EMV Contactless Book C-3 v2.11, 5.2.2.2
 				emv_debug_info("Conditions of use not satisfied");
 				return EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED;
 
+			case 0x6986:
+				// Interpretation depends on specific interface and kernel
+				emv_debug_info("Command not allowed");
+				return EMV_TAL_RESULT_GPO_NOT_ALLOWED;
+
 			default:
-				// Unknown error; terminate session
-				// According to EMV 4.4 Book 3, 10.1 the card should provide
-				// no status other than 9000 or 6985
+				// Unexpected GPO response
 				emv_debug_error("SW1SW2=0x%04hX", sw1sw2);
 				return EMV_TAL_ERROR_GPO_FAILED;
 		}
@@ -889,10 +899,10 @@ int emv_tal_get_processing_options(
 
 	// Populate AIP pointer
 	tlv = emv_tlv_list_find_const(&gpo_list, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
-	if (!tlv) {
-		// Mandatory field missing; terminate session
+	if (!tlv || tlv->length != 2) {
+		// Mandatory field missing or invalid; terminate session
 		// See EMV 4.4 Book 3, 6.5.8.4
-		emv_debug_error("AIP not found in GPO response");
+		emv_debug_error("AIP in GPO response not found or invalid");
 		r = EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND;
 		goto exit;
 	}
@@ -902,10 +912,10 @@ int emv_tal_get_processing_options(
 
 	// Populate AFL pointer
 	tlv = emv_tlv_list_find_const(&gpo_list, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
-	if (!tlv) {
-		// Mandatory field missing; terminate session
+	if (!tlv || !tlv->length || (tlv->length & 0x3) != 0) {
+		// Mandatory field missing or invalid; terminate session
 		// See EMV 4.4 Book 3, 6.5.8.4
-		emv_debug_error("AFL not found in GPO response");
+		emv_debug_error("AFL in GPO response not found or invalid");
 		r = EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND;
 		goto exit;
 	}
