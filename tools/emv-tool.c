@@ -30,6 +30,8 @@
 #include "emv_tlv.h"
 #include "emv_app.h"
 #include "emv_ep.h"
+#include "emv_c2.h"
+#include "emv_c3.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
 #include "emv_debug.h"
@@ -1101,8 +1103,22 @@ int main(int argc, char** argv)
 				goto emv_exit;
 			}
 
-			printf("\nInitiate application processing\n");
-			r = emv_initiate_application_processing(&emv, pos_entry_mode);
+			switch (kernel_id[0]) {
+				case 0x02:
+					printf("\nInitiate kernel C-2 processing\n");
+					r = emv_c2_initiate_kernel_processing(&emv, pos_entry_mode);
+					break;
+
+				case 0x03:
+					printf("\nInitiate kernel C-3 processing\n");
+					r = emv_c3_initiate_kernel_processing(&emv, pos_entry_mode);
+					break;
+
+				default:
+					printf("\nContactless kernel 0x%02X is not (yet) supported\n", kernel_id[0]);
+					goto emv_exit;
+			}
+
 			if (r < 0) {
 				printf("ERROR: %s\n", emv_error_get_string(r));
 				goto emv_exit;

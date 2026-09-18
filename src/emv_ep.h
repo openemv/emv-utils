@@ -33,6 +33,7 @@ struct emv_config_app_t;
 struct emv_config_t;
 struct emv_ctx_t;
 struct emv_app_list_t;
+struct emv_tlv_list_t;
 
 /**
  * EMV contactless application combination
@@ -166,6 +167,59 @@ int emv_ep_select_application(
 	struct emv_ctx_t* ctx,
 	struct emv_app_list_t* app_list,
 	uint8_t* kernel_id
+);
+
+/**
+ * Create EMV fields commonly used by contactless kernels and expected by
+ * various EMV processing functions.
+ * @remark See EMV Contactless Book B v2.11, 3.4
+ *
+ * @note This function is intended to be used by individual contactless kernel
+ *       implementations and should only be used directly for use cases beyond
+ *       EMV requirements.
+ *
+ * This function populates @ref emv_ctx_t.terminal with these fields:
+ * - @ref EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL
+ * - @ref EMV_TAG_9F39_POS_ENTRY_MODE
+ * - @ref EMV_TAG_9F06_AID
+ * - @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION
+ * - @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS
+ * - @ref EMV_TAG_9F37_UNPREDICTABLE_NUMBER
+ * - @ref EMV_TAG_9F66_TTQ (if configured)
+ *
+ * @param ctx EMV processing context
+ * @param pos_entry_mode Point-of-Service (POS) Entry Mode (field 9F39) value.
+ *                       See @ref pos-entry-mode-values "values".
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_ep_create_common_kernel_data(
+	struct emv_ctx_t* ctx,
+	uint8_t pos_entry_mode
+);
+
+/**
+ * Initiate contactless kernel processing by assessing the Processing Options
+ * Data Object List (PDOL), performing GET PROCESSING OPTIONS, and making the
+ * response available to the calling contactless kernel.
+ *
+ * @note This function is intended to be used by individual contactless kernel
+ *       implementations and should only be used directly for use cases beyond
+ *       EMV requirements.
+ *
+ * @param ctx EMV processing context
+ * @param gpo_list List to which decoded GPO response fields will be appended
+ * @param gpo_tal_result GPO result provided by TAL
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_ep_initiate_kernel_processing(
+	struct emv_ctx_t* ctx,
+	struct emv_tlv_list_t* gpo_list,
+	int* gpo_tal_result
 );
 
 __END_DECLS

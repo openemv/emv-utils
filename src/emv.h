@@ -121,6 +121,7 @@ struct emv_ctx_t {
 	 * @brief Offline Data Authentication (ODA) context.
 	 *
 	 * Populated and used by:
+	 * - @ref emv_initiate_application_processing()
 	 * - @ref emv_read_application_data()
 	 * - @ref emv_offline_data_authentication()
 	 */
@@ -133,12 +134,12 @@ struct emv_ctx_t {
 	 * various functions.
 	 */
 	/// @cond INTERNAL
+	const struct emv_tlv_t* kernel_id;
 	const struct emv_tlv_t* aid;
 	const struct emv_tlv_t* tvr;
 	const struct emv_tlv_t* tsi;
 	const struct emv_tlv_t* aip;
 	const struct emv_tlv_t* afl;
-	const struct emv_tlv_t* kernel_id;
 	/// @endcond
 };
 
@@ -374,8 +375,7 @@ int emv_select_application(
  *       application's TLV data will be moved to @ref emv_ctx_t.icc and the
  *       output of GET PROCESSING OPTIONS will be appended. Upon success,
  *       @ref emv_ctx_t.terminal will be populated with various fields,
- *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE, @ref EMV_TAG_9F06_AID, and
- *       (if applicable) @ref EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL.
+ *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE and @ref EMV_TAG_9F06_AID.
  *
  * @remark See EMV 4.4 Book 3, 10.1
  * @remark See EMV 4.4 Book 4, 6.3.1
