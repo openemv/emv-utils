@@ -731,9 +731,7 @@ int emv_tal_get_processing_options(
 	struct emv_ttl_t* ttl,
 	const void* data,
 	size_t data_len,
-	struct emv_tlv_list_t* list,
-	const struct emv_tlv_t** aip,
-	const struct emv_tlv_t** afl
+	struct emv_tlv_list_t* list
 )
 {
 	int r;
@@ -742,7 +740,6 @@ int emv_tal_get_processing_options(
 	uint16_t sw1sw2;
 	struct iso8825_tlv_t gpo_tlv;
 	struct emv_tlv_list_t gpo_list = EMV_TLV_LIST_INIT;
-	const struct emv_tlv_t* tlv;
 
 	if (!ttl || !list) {
 		// Invalid parameters; terminate session
@@ -755,12 +752,6 @@ int emv_tal_get_processing_options(
 	if (!data && data_len) {
 		// Invalid parameters; terminate session
 		return EMV_TAL_ERROR_INVALID_PARAMETER;
-	}
-	if (aip) {
-		*aip = NULL;
-	}
-	if (afl) {
-		*afl = NULL;
 	}
 
 	// GET PROCESSING OPTIONS
@@ -895,32 +886,6 @@ int emv_tal_get_processing_options(
 		emv_debug_error("Invalid GPO response format");
 		r = EMV_TAL_ERROR_GPO_PARSE_FAILED;
 		goto exit;
-	}
-
-	// Populate AIP pointer
-	tlv = emv_tlv_list_find_const(&gpo_list, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
-	if (!tlv || tlv->length != 2) {
-		// Mandatory field missing or invalid; terminate session
-		// See EMV 4.4 Book 3, 6.5.8.4
-		emv_debug_error("AIP in GPO response not found or invalid");
-		r = EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND;
-		goto exit;
-	}
-	if (aip) {
-		*aip = tlv;
-	}
-
-	// Populate AFL pointer
-	tlv = emv_tlv_list_find_const(&gpo_list, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
-	if (!tlv || !tlv->length || (tlv->length & 0x3) != 0) {
-		// Mandatory field missing or invalid; terminate session
-		// See EMV 4.4 Book 3, 6.5.8.4
-		emv_debug_error("AFL in GPO response not found or invalid");
-		r = EMV_TAL_ERROR_GPO_FIELD_NOT_FOUND;
-		goto exit;
-	}
-	if (afl) {
-		*afl = tlv;
 	}
 
 	r = emv_tlv_list_append(list, &gpo_list);

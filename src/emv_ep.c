@@ -32,6 +32,9 @@
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
 
+#include "crypto_mem.h"
+#include "crypto_rand.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h> // For malloc() and free()
@@ -853,5 +856,436 @@ exit:
 		current_app = NULL;
 	}
 
+	return r;
+}
+
+int emv_ep_create_common_kernel_data(
+	struct emv_ctx_t* ctx,
+	uint8_t pos_entry_mode
+)
+{
+	int r;
+	uint8_t kernel_id_term[8];
+	uint8_t un[4];
+	const struct emv_tlv_t* ttq_config;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->selected_app) {
+		emv_debug_trace_msg("selected_app=%p", ctx->selected_app);
+		emv_debug_error("No selected application");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->selected_app->config) {
+		emv_debug_trace_msg("ctx->selected_app->config=%p", ctx->selected_app->config);
+
+		// Application configuration for the selected application should have
+		// been set by emv_ep_select_application().
+		emv_debug_error("No configuration for selected application");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	if (!emv_card_is_contactless(ctx)) {
+		emv_debug_trace_msg("emv_ep_create_common_kernel_data() called for non-contactless");
+		emv_debug_error("Entry Point not supported for non-contactless");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Create Kernel Identifier - Terminal (field 96)
+	// NOTE: emv_ep_select_application() copies Kernel Identifier (field 9F2A)
+	// when available
+	// See EMV Contactless Book B v2.11, 3.4.1.4
+	memset(kernel_id_term, 0, sizeof(kernel_id_term));
+	r = emv_ep_extract_selected_kernel_id(
+		ctx->selected_app,
+		kernel_id_term
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_ep_extract_selected_kernel_id() failed; r=%d", r);
+		emv_debug_error("Failed to extract selected kernel ID");
+
+		// Return error as-is
+		return r;
+	}
+	kernel_id_term[3] &= ~EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT; // Kernel C-8 not implemented
+	kernel_id_term[3] &= ~EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT; // Kernel C-8 not configured
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL,
+		sizeof(kernel_id_term),
+		kernel_id_term,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Point-of-Service (POS) Entry Mode (field 9F39)
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9F39_POS_ENTRY_MODE,
+		1,
+		&pos_entry_mode,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Application Identifier (AID) - terminal (field 9F06)
+	// See EMV 4.4 Book 1, 12.4
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9F06_AID,
+		ctx->selected_app->aid->length,
+		ctx->selected_app->aid->value,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Transaction Status Information (TSI, field 9B)
+	// See EMV 4.4 Book 3, 10.1
+	// TSI is needed by various EMV processing functions even if not needed
+	// by all contactless kernels. It can be excluded from the transaction
+	// record if not necessary.
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION,
+		2,
+		(uint8_t[]){ 0x00, 0x00 },
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Terminal Verification Results (TVR, field 95)
+	// See EMV 4.4 Book 3, 10.1
+	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.9
+	// See EMV Contactless Book C-3 v2.11, A.2
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS,
+		5,
+		(uint8_t[]){ 0x00, 0x00, 0x00, 0x00, 0x00 },
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Create Unpredictable Number (field 9F37)
+	// See EMV Contactless Book A, v2.11, 8.1.1.7
+	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.9
+	// See EMV Contactless Book C-3 v2.11, 2.1
+	crypto_rand(un, sizeof(un));
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9F37_UNPREDICTABLE_NUMBER,
+		sizeof(un),
+		un,
+		0
+	);
+	crypto_cleanse(un, sizeof(un));
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Only prepare TTQ for applications that configure it
+	// See EMV Contactless Book B v2.11, 3.1.1.2
+	ttq_config = emv_tlv_list_find_const(
+		&ctx->selected_app->config->data,
+		EMV_TAG_9F66_TTQ
+	);
+	if (ttq_config) {
+		const struct emv_tlv_t* txn_amount;
+		uint32_t amount_value;
+		const struct emv_tlv_t* term_floor_limit;
+		uint32_t term_floor_limit_value;
+		uint8_t ttq[4];
+
+		if (ttq_config->length != 4) {
+			emv_debug_error("Terminal Transaction Qualifiers (9F66) invalid");
+			return EMV_ERROR_INVALID_CONFIG;
+		}
+
+		// Ensure mandatory transaction parameters are present and have valid length
+		txn_amount = emv_tlv_list_find_const(
+			&ctx->params,
+			EMV_TAG_81_AMOUNT_AUTHORISED_BINARY
+		);
+		if (!txn_amount || txn_amount->length != 4) {
+			emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
+				txn_amount, txn_amount ? txn_amount->length : 0);
+			emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+		r = emv_format_b_to_uint(
+			txn_amount->value,
+			txn_amount->length,
+			&amount_value
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		emv_debug_trace_msg("Amount, Authorised (Binary) value is %u",
+			(unsigned int)amount_value
+		);
+
+		// Ensure mandatory configuration fields are present and have valid length
+		term_floor_limit = emv_config_data_get(ctx, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
+		if (!term_floor_limit || term_floor_limit->length != 4) {
+			emv_debug_trace_msg("term_floor_limit=%p, term_floor_limit->length=%u",
+				term_floor_limit, term_floor_limit ? term_floor_limit->length : 0);
+			emv_debug_error("Terminal Floor Limit (9F1B) not found or invalid");
+			return EMV_ERROR_INVALID_CONFIG;
+		}
+		r = emv_format_b_to_uint(
+			term_floor_limit->value,
+			term_floor_limit->length,
+			&term_floor_limit_value
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// Pre-processing for Terminal Transaction Qualifiers (field 9F66)
+		// See EMV Contactless Book B v2.11, 3.1.1
+		memcpy(ttq, ttq_config->value, sizeof(ttq));
+		ttq[1] &= ~EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
+		ttq[1] &= ~EMV_TTQ_CVM_REQUIRED;
+
+		// Apply Contactless Floor Limit
+		if (ctx->selected_app->config->contactless_floor_limit_enabled) {
+			// See EMV Contactless Book B v2.11, 3.1.1.6
+			emv_debug_trace_msg("Contactless Floor Limit value is %u",
+				ctx->selected_app->config->contactless_floor_limit
+			);
+			// See EMV Contactless Book B v2.11, 3.1.1.9
+			if (amount_value > ctx->selected_app->config->contactless_floor_limit) {
+				emv_debug_info("Contactless Floor Limit exceeded");
+				ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
+			}
+		} else {
+			// See EMV Contactless Book B v2.11, 3.1.1.7
+			emv_debug_trace_msg("Terminal Floor Limit value is %u",
+				(unsigned int)term_floor_limit_value
+			);
+			// See EMV Contactless Book B v2.11, 3.1.1.9
+			if (amount_value > term_floor_limit_value) {
+				emv_debug_info("Terminal Floor Limit exceeded");
+				ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
+			}
+		}
+
+		// Apply Contactless CVM Required Limit
+		if (ctx->selected_app->config->contactless_cvm_required_limit_enabled) {
+			// See EMV Contactless Book B v2.11, 3.1.1.8
+			emv_debug_trace_msg("Contactless CVM Required Limit value is %u",
+				ctx->selected_app->config->contactless_cvm_required_limit
+			);
+			// See EMV Contactless Book B v2.11, 3.1.1.12
+			if (amount_value >= ctx->selected_app->config->contactless_cvm_required_limit) {
+				emv_debug_info("Contactless CVM Required Limit exceeded");
+				ttq[1] |= EMV_TTQ_CVM_REQUIRED;
+			}
+		}
+
+		// Apply Contactless Zero Amount if online-capable
+		// See EMV Contactless Book B v2.11, 3.1.1.11
+		if (amount_value == 0 &&
+			!(ttq[0] & EMV_TTQ_OFFLINE_ONLY_READER)
+		) {
+			emv_debug_info("Contactless Zero Amount");
+			ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
+		}
+
+		// Create Terminal Transaction Qualifiers (field 9F66)
+		r = emv_tlv_list_push(
+			&ctx->terminal,
+			EMV_TAG_9F66_TTQ,
+			sizeof(ttq),
+			ttq,
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	return 0;
+}
+
+int emv_ep_initiate_kernel_processing(
+	struct emv_ctx_t* ctx,
+	struct emv_tlv_list_t* gpo_list,
+	int* gpo_tal_result
+)
+{
+	int r;
+	const struct emv_tlv_t* pdol;
+	uint8_t gpo_data_buf[EMV_CAPDU_DATA_MAX];
+	uint8_t* gpo_data;
+	size_t gpo_data_len;
+
+	if (!ctx || !gpo_list || !gpo_tal_result) {
+		emv_debug_trace_msg("ctx=%p, gpo_list=%p, gpo_tal_result=%p",
+			ctx, gpo_list, gpo_tal_result);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->selected_app) {
+		emv_debug_trace_msg("selected_app=%p", ctx->selected_app);
+		emv_debug_error("No selected application");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	*gpo_tal_result = EMV_TAL_ERROR_INTERNAL;
+
+	// Process PDOL, if available
+	// See EMV 4.4 Book 3, 10.1
+	pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
+	if (pdol) {
+		struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
+		int pdol_data_len;
+		size_t pdol_data_offset;
+
+		emv_debug_info_data("PDOL found", pdol->value, pdol->length);
+
+		// Prepare ordered data sources
+		r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+			emv_debug_error("Failed to build PDOL sources");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// Validate PDOL data length
+		pdol_data_len = emv_dol_compute_data_length(pdol->value, pdol->length);
+		if (pdol_data_len < 0) {
+			emv_debug_trace_msg("emv_dol_compute_data_length() failed; pdol_data_len=%d", pdol_data_len);
+			emv_debug_error("Failed to compute PDOL data length");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+		if (pdol_data_len > sizeof(ctx->oda.pdol_data)) {
+			emv_debug_error("Invalid PDOL data length of %u", pdol_data_len);
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+
+		// Prepare GPO data buffer with field 83
+		gpo_data = gpo_data_buf;
+		gpo_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
+		pdol_data_offset = 1;
+		if (pdol_data_len < 0x80) {
+			// Short length form
+			gpo_data[1] = pdol_data_len;
+			pdol_data_offset += 1;
+		} else {
+			// Long length form
+			gpo_data[1] = 0x81;
+			gpo_data[2] = pdol_data_len;
+			pdol_data_offset += 2;
+		}
+
+		// Populate PDOL data in cache buffer
+		ctx->oda.pdol_data_len = sizeof(ctx->oda.pdol_data);
+		r = emv_dol_build_data(
+			pdol->value,
+			pdol->length,
+			&sources,
+			ctx->oda.pdol_data,
+			&ctx->oda.pdol_data_len
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_dol_build_data() failed; r=%d", r);
+			emv_debug_error("Failed to build PDOL data");
+
+			// This is considered an internal error because the PDOL has
+			// already been sucessfully parsed and the PDOL data length is
+			// already known not to exceed the GPO data buffer.
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// Finalise GPO data buffer
+		if (ctx->oda.pdol_data_len > sizeof(gpo_data_buf) - pdol_data_offset) {
+			emv_debug_error("Error during PDOL processing; "
+				"pdol_data_len=%zu; sizeof(gpo_data_buf)=%zu; pdol_data_offset=%zu",
+				ctx->oda.pdol_data_len, sizeof(gpo_data_buf), pdol_data_offset
+			);
+			return EMV_ERROR_INTERNAL;
+		}
+		memcpy(gpo_data + pdol_data_offset, ctx->oda.pdol_data, ctx->oda.pdol_data_len);
+		gpo_data_len = pdol_data_offset + ctx->oda.pdol_data_len;
+
+	} else {
+		// PDOL not available. emv_ttl_get_processing_options() will build
+		// empty Command Template (field 83) if no GPO data is provided
+		gpo_data = NULL;
+		gpo_data_len = 0;
+	}
+
+	r = emv_tal_get_processing_options(
+		ctx->ttl,
+		gpo_data,
+		gpo_data_len,
+		gpo_list
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_get_processing_options() failed; r=%d", r);
+
+		if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+			r = EMV_ERROR_INTERNAL;
+			goto error;
+		}
+	}
+	*gpo_tal_result = r;
+
+	// Success
+	r = 0;
+	goto exit;
+
+error:
+	emv_tlv_list_clear(gpo_list);
+exit:
 	return r;
 }

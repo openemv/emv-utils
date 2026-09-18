@@ -189,10 +189,6 @@ int emv_tal_select_app(
  * @param data Command Template (field 83) according to Processing Options Data Object List (PDOL). NULL if no PDOL.
  * @param data_len Length of Command Template (field 83) in bytes. Zero if no PDOL.
  * @param list List to which decoded EMV TLV fields will be appended
- * @param aip Pointer to Application Interchange Profile (AIP) field on
- *            @c list for convenience. Do not free. NULL to ignore.
- * @param afl Pointer to Application File Locator (AFL) field on @c list
- *            for convenience. Do not free. NULL to ignore.
  *
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
@@ -207,9 +203,7 @@ int emv_tal_get_processing_options(
 	struct emv_ttl_t* ttl,
 	const void* data,
 	size_t data_len,
-	struct emv_tlv_list_t* list,
-	const struct emv_tlv_t** aip,
-	const struct emv_tlv_t** afl
+	struct emv_tlv_list_t* list
 );
 
 /**
