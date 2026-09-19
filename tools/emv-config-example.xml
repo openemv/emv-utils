@@ -199,6 +199,18 @@
 
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>0002</tlv>
+
+      <!--
+        Card Data Input Capability:
+        - IC with Contacts
+      -->
+      <tlv id='DF8117'>20</tlv>
+
+      <!--
+        Security Capability
+        - Combined DDA/Application Cryptogram Generation (CDA)
+      -->
+      <tlv id='DF811F'>08</tlv>
     </data>
 
     <random_selection_percentage>25</random_selection_percentage>
@@ -219,6 +231,18 @@
 
       <!-- Terminal Floor Limit -->
       <tlv id='9F1B'>00000000</tlv>
+
+      <!--
+        Card Data Input Capability:
+        - IC with Contacts
+      -->
+      <tlv id='DF8117'>20</tlv>
+
+      <!--
+        Security Capability
+        - Combined DDA/Application Cryptogram Generation (CDA)
+      -->
+      <tlv id='DF811F'>08</tlv>
     </data>
 
     <contactless_transaction_limit>100000</contactless_transaction_limit>
