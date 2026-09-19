@@ -66,6 +66,9 @@ static int emv_uint_to_str(uint32_t value, char* str, size_t str_len);
 static void emv_str_list_init(struct str_itr_t* itr, char* buf, size_t len);
 static void emv_str_list_add(struct str_itr_t* itr, const char* fmt, ...) ATTRIBUTE_FORMAT_PRINTF(2, 3);
 static void emv_str_list_add_data(struct str_itr_t* itr, const char* str, const void* data, size_t data_len);
+static int emv_card_data_input_caps_get_string_list(uint8_t card_data_input_caps, char* str, size_t str_len);
+static int emv_cvm_caps_get_string_list(uint8_t cvm_caps, char* str, size_t str_len);
+static int emv_security_caps_get_string_list(uint8_t security_caps, char* str, size_t str_len);
 static int emv_app_preferred_name_get_string(const uint8_t* buf, size_t buf_len, const struct emv_tlv_sources_t* sources, char* str, size_t str_len);
 static int emv_kernel_id_decode(const uint8_t* buf, size_t buf_len, struct emv_kernel_id_info_t* info);
 static const char* emv_terminal_category_get_string(uint16_t category);
@@ -1677,6 +1680,62 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_VAR;
 			return 0;
 
+		case EMV_C2_TAG_DF8117_CARD_DATA_INPUT_CAPABILITY:
+			info->tag_name = "Card Data Input Capability";
+			info->tag_desc =
+				"Indicates the card data input capability of the Terminal and "
+				"Reader.";
+			info->format = EMV_FORMAT_B;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
+			return emv_card_data_input_caps_get_string_list(tlv->value[0], value_str, value_str_len);
+
+		case EMV_C2_TAG_DF8118_CVM_CAPABILITY_CVM_REQUIRED:
+			info->tag_name = "CVM Capability - CVM Required";
+			info->tag_desc =
+				"Indicates the CVM capability of the Terminal and Reader when "
+				"the transaction amount is greater than the Reader CVM "
+				"Required Limit.";
+			info->format = EMV_FORMAT_B;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
+			return emv_cvm_caps_get_string_list(tlv->value[0], value_str, value_str_len);
+
+		case EMV_C2_TAG_DF8119_CVM_CAPABILITY_NO_CVM_REQUIRED:
+			info->tag_name = "CVM Capability - No CVM Required";
+			info->tag_desc =
+				"Indicates the CVM capability of the Terminal and Reader when "
+				"the transaction amount is less than or equal to the Reader "
+				"CVM Required Limit.";
+			info->format = EMV_FORMAT_B;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
+			return emv_cvm_caps_get_string_list(tlv->value[0], value_str, value_str_len);
+
+		case EMV_C2_TAG_DF811F_SECURITY_CAPABILITY:
+			info->tag_name = "Security Capability";
+			info->tag_desc = "Indicates the security capability of the Kernel.";
+			info->format = EMV_FORMAT_B;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
+			return emv_security_caps_get_string_list(tlv->value[0], value_str, value_str_len);
+
 		default: {
 			// If it is not a known EMV field, attempt to decode it as an
 			// ASN.1 field
@@ -2582,6 +2641,117 @@ int emv_term_type_get_string_list(
 	return 0;
 }
 
+static int emv_card_data_input_caps_get_string_list(
+	uint8_t card_data_input_caps,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Card Data Input Capability
+	// See EMV 4.4 Book 4, Annex A2, table 25
+	if (!card_data_input_caps) {
+		emv_str_list_add(&itr, "Card Data Input Capability: None");
+	}
+	if ((card_data_input_caps & EMV_TERM_CAPS_INPUT_MANUAL_KEY_ENTRY)) {
+		emv_str_list_add(&itr, "Card Data Input Capability: Manual key entry");
+	}
+	if ((card_data_input_caps & EMV_TERM_CAPS_INPUT_MAGNETIC_STRIPE)) {
+		emv_str_list_add(&itr, "Card Data Input Capability: Magnetic stripe");
+	}
+	if ((card_data_input_caps & EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS)) {
+		emv_str_list_add(&itr, "Card Data Input Capability: IC with contacts");
+	}
+	if ((card_data_input_caps & EMV_TERM_CAPS_INPUT_RFU)) {
+		emv_str_list_add(&itr, "Card Data Input Capability: RFU");
+	}
+
+	return 0;
+}
+
+static int emv_cvm_caps_get_string_list(
+	uint8_t cvm_caps,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// CVM Capability
+	// See EMV 4.4 Book 4, Annex A2, table 26
+	if (!cvm_caps) {
+		emv_str_list_add(&itr, "CVM Capability: None");
+	}
+	if ((cvm_caps & EMV_TERM_CAPS_CVM_PLAINTEXT_PIN_OFFLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Plaintext PIN for ICC verification");
+	}
+	if ((cvm_caps & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for online verification");
+	}
+	if ((cvm_caps & EMV_TERM_CAPS_CVM_SIGNATURE)) {
+		emv_str_list_add(&itr, "CVM Capability: Signature");
+	}
+	if ((cvm_caps & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_RSA)) {
+		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for offline verification (RSA ODE)");
+	}
+	if ((cvm_caps & EMV_TERM_CAPS_CVM_NO_CVM)) {
+		emv_str_list_add(&itr, "CVM Capability: No CVM required");
+	}
+	if ((cvm_caps & EMV_TERM_CAPS_CVM_BIOMETRIC_ONLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Online Biometric");
+	}
+	if ((cvm_caps & EMV_TERM_CAPS_CVM_BIOMETRIC_OFFLINE)) {
+		emv_str_list_add(&itr, "CVM Capability: Offline Biometric");
+	}
+	if ((cvm_caps & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_ECC)) {
+		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for offline verification (ECC ODE)");
+	}
+
+	return 0;
+}
+
+static int emv_security_caps_get_string_list(
+	uint8_t security_caps,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// Security Capability
+	// See EMV 4.4 Book 4, Annex A2, table 27
+	if (!security_caps) {
+		emv_str_list_add(&itr, "Security Capability: None");
+	}
+	if ((security_caps & EMV_TERM_CAPS_SECURITY_SDA)) {
+		emv_str_list_add(&itr, "Security Capability: Static Data Authentication (SDA)");
+	}
+	if ((security_caps & EMV_TERM_CAPS_SECURITY_DDA)) {
+		emv_str_list_add(&itr, "Security Capability: Dynamic Data Authentication (DDA)");
+	}
+	if ((security_caps & EMV_TERM_CAPS_SECURITY_CARD_CAPTURE)) {
+		emv_str_list_add(&itr, "Security Capability: Card capture");
+	}
+	if ((security_caps & EMV_TERM_CAPS_SECURITY_CDA)) {
+		emv_str_list_add(&itr, "Security Capability: Combined DDA/Application Cryptogram Generation (CDA)");
+	}
+	if ((security_caps & EMV_TERM_CAPS_SECURITY_XDA)) {
+		emv_str_list_add(&itr, "Security Capability: Extended Data Authentication (XDA)");
+	}
+	if ((security_caps & EMV_TERM_CAPS_SECURITY_RFU)) {
+		emv_str_list_add(&itr, "Security Capability: RFU");
+	}
+
+	return 0;
+}
+
 int emv_term_caps_get_string_list(
 	const uint8_t* term_caps,
 	size_t term_caps_len,
@@ -2589,9 +2759,10 @@ int emv_term_caps_get_string_list(
 	size_t str_len
 )
 {
+	char caps_str[2048];
 	struct str_itr_t itr;
 
-	if (!term_caps || !term_caps_len || !str || !str_len) {
+	if (!term_caps || !term_caps_len) {
 		return -1;
 	}
 
@@ -2604,74 +2775,41 @@ int emv_term_caps_get_string_list(
 
 	// Card Data Input Capability
 	// See EMV 4.4 Book 4, Annex A2, table 25
-	if (!term_caps[0]) {
-		emv_str_list_add(&itr, "Card Data Input Capability: None");
-	}
-	if ((term_caps[0] & EMV_TERM_CAPS_INPUT_MANUAL_KEY_ENTRY)) {
-		emv_str_list_add(&itr, "Card Data Input Capability: Manual key entry");
-	}
-	if ((term_caps[0] & EMV_TERM_CAPS_INPUT_MAGNETIC_STRIPE)) {
-		emv_str_list_add(&itr, "Card Data Input Capability: Magnetic stripe");
-	}
-	if ((term_caps[0] & EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS)) {
-		emv_str_list_add(&itr, "Card Data Input Capability: IC with contacts");
-	}
-	if ((term_caps[0] & EMV_TERM_CAPS_INPUT_RFU)) {
-		emv_str_list_add(&itr, "Card Data Input Capability: RFU");
+	caps_str[0] = 0;
+	emv_card_data_input_caps_get_string_list(
+		term_caps[0],
+		caps_str,
+		sizeof(caps_str)
+	);
+	if (caps_str[0] && strlen(caps_str) > 1) {
+		caps_str[strlen(caps_str) - 1] = 0; // Remove trailing newline
+		emv_str_list_add(&itr, "%s", caps_str);
 	}
 
 	// CVM Capability
 	// See EMV 4.4 Book 4, Annex A2, table 26
-	if (!term_caps[1]) {
-		emv_str_list_add(&itr, "CVM Capability: None");
-	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_PLAINTEXT_PIN_OFFLINE)) {
-		emv_str_list_add(&itr, "CVM Capability: Plaintext PIN for ICC verification");
-	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE)) {
-		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for online verification");
-	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_SIGNATURE)) {
-		emv_str_list_add(&itr, "CVM Capability: Signature");
-	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_RSA)) {
-		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for offline verification (RSA ODE)");
-	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_NO_CVM)) {
-		emv_str_list_add(&itr, "CVM Capability: No CVM required");
-	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_BIOMETRIC_ONLINE)) {
-		emv_str_list_add(&itr, "CVM Capability: Online Biometric");
-	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_BIOMETRIC_OFFLINE)) {
-		emv_str_list_add(&itr, "CVM Capability: Offline Biometric");
-	}
-	if ((term_caps[1] & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_ECC)) {
-		emv_str_list_add(&itr, "CVM Capability: Enciphered PIN for offline verification (ECC ODE)");
+	caps_str[0] = 0;
+	emv_cvm_caps_get_string_list(
+		term_caps[1],
+		caps_str,
+		sizeof(caps_str)
+	);
+	if (caps_str[0] && strlen(caps_str) > 1) {
+		caps_str[strlen(caps_str) - 1] = 0; // Remove trailing newline
+		emv_str_list_add(&itr, "%s", caps_str);
 	}
 
 	// Security Capability
 	// See EMV 4.4 Book 4, Annex A2, table 27
-	if (!term_caps[2]) {
-		emv_str_list_add(&itr, "Security Capability: None");
-	}
-	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_SDA)) {
-		emv_str_list_add(&itr, "Security Capability: Static Data Authentication (SDA)");
-	}
-	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_DDA)) {
-		emv_str_list_add(&itr, "Security Capability: Dynamic Data Authentication (DDA)");
-	}
-	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_CARD_CAPTURE)) {
-		emv_str_list_add(&itr, "Security Capability: Card capture");
-	}
-	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_CDA)) {
-		emv_str_list_add(&itr, "Security Capability: Combined DDA/Application Cryptogram Generation (CDA)");
-	}
-	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_XDA)) {
-		emv_str_list_add(&itr, "Security Capability: Extended Data Authentication (XDA)");
-	}
-	if ((term_caps[2] & EMV_TERM_CAPS_SECURITY_RFU)) {
-		emv_str_list_add(&itr, "Security Capability: RFU");
+	caps_str[0] = 0;
+	emv_security_caps_get_string_list(
+		term_caps[2],
+		caps_str,
+		sizeof(caps_str)
+	);
+	if (caps_str[0] && strlen(caps_str) > 1) {
+		caps_str[strlen(caps_str) - 1] = 0; // Remove trailing newline
+		emv_str_list_add(&itr, "%s", caps_str);
 	}
 
 	return 0;

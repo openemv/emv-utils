@@ -43,6 +43,9 @@ int emv_c2_initiate_kernel_processing(
 )
 {
 	int r;
+	uint8_t term_caps[3];
+	const struct emv_tlv_t* card_data_input_caps;
+	const struct emv_tlv_t* security_caps;
 	struct emv_tlv_list_t gpo_list = EMV_TLV_LIST_INIT;
 	int gpo_tal_result;
 
@@ -94,6 +97,38 @@ int emv_c2_initiate_kernel_processing(
 		emv_debug_trace_msg("emv_ep_create_common_kernel_data() failed; r=%d", r);
 		emv_debug_error("Failed to create initial terminal data");
 		return r;
+	}
+
+	// Create Terminal Capabilities (field 9F33) from:
+	// - Card Data Input Capability (field DF8117)
+	// - Security Capability (field DF811F)
+	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.9
+	memset(term_caps, 0, sizeof(term_caps));
+	card_data_input_caps = emv_config_data_get(ctx, EMV_C2_TAG_DF8117_CARD_DATA_INPUT_CAPABILITY);
+	if (!card_data_input_caps || card_data_input_caps->length != 1) {
+		emv_debug_error("Card Data Input Capability (DF8117) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	security_caps = emv_config_data_get(ctx, EMV_C2_TAG_DF811F_SECURITY_CAPABILITY);
+	if (!security_caps || security_caps->length != 1) {
+		emv_debug_error("Security Capability (DF811F) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	term_caps[0] = card_data_input_caps->value[0];
+	term_caps[2] = security_caps->value[0];
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_9F33_TERMINAL_CAPABILITIES,
+		sizeof(term_caps),
+		term_caps,
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
 	}
 
 	// Cache various terminal fields

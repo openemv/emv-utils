@@ -5,7 +5,7 @@
  * @remark See EMV 4.4 Book 3, Annex A
  * @remark See ISO 7816-4:2005, 5.2.4
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -561,6 +561,22 @@ __BEGIN_DECLS
 
 /// EMV tag BF4D Preferred Attempts Template
 #define EMV_TAG_BF4D_PREFERRED_ATTEMPTS_TEMPLATE                (0xBF4D)
+
+/// EMV kernel C-2 tag DF8117 Card Data Input Capability
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.27
+#define EMV_C2_TAG_DF8117_CARD_DATA_INPUT_CAPABILITY            (0xDF8117)
+
+/// EMV kernel C-2 tag DF8118 CVM Capability - CVM Required
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.33
+#define EMV_C2_TAG_DF8118_CVM_CAPABILITY_CVM_REQUIRED           (0xDF8118)
+
+/// EMV kernel C-2 tag DF8119 CVM Capability - No CVM Required
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.34
+#define EMV_C2_TAG_DF8119_CVM_CAPABILITY_NO_CVM_REQUIRED        (0xDF8119)
+
+/// EMV kernel C-2 tag DF811F Security Capability
+/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.141
+#define EMV_C2_TAG_DF811F_SECURITY_CAPABILITY                   (0xDF811F)
 
 __END_DECLS
 
