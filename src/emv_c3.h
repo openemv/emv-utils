@@ -66,6 +66,31 @@ int emv_c3_initiate_kernel_processing(
 	uint8_t pos_entry_mode
 );
 
+/**
+ * Read EMV application data for kernel C-3 by performing READ RECORD if the
+ * Application File Locator (AFL) is present. This function will exit with
+ * success when the Application File Locator (AFL) is not present. No further
+ * checks are performed for duplication of fields or enforcing mandatory
+ * fields.
+ *
+ * While reading the application records, this function will also concatenate
+ * the data required for Offline Data Authentication (ODA) and update
+ * @ref emv_ctx_t.oda accordingly.
+ *
+ * @note Upon success, this function will append the application data to
+ *       @ref emv_ctx_t.icc
+ *
+ * @remark See EMV Contactless Book C-3 v2.11, 2.4.2
+ * @remark See EMV Contactless Book C-3 v2.11, 5.3
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_c3_read_application_data(struct emv_ctx_t* ctx);
+
 __END_DECLS
 
 #endif

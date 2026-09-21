@@ -119,6 +119,19 @@
       <tlv id='9F09'>012C</tlv>
 
       <!--
+        Terminal Capabilities:
+        - Card Data Input Capability:
+          - IC with Contacts
+        - CVM Capability:
+          - Enciphered online PIN
+          - Signature
+          - No CVM
+        - Security Capability:
+          - No ODA
+      -->
+      <tlv id='9F33'>206800</tlv>
+
+      <!--
         Terminal Transaction Qualifiers (TTQ):
         - EMV mode, Online PIN, Signature, ODA for online auth
         - CDCVM supported
@@ -148,6 +161,18 @@
       <tlv id='9F1B'>00000000</tlv>
 
       <!--
+        Terminal Capabilities:
+        - Card Data Input Capability:
+          - IC with Contacts
+        - CVM Capability:
+          - Enciphered online PIN
+          - No CVM
+        - Security Capability:
+          - No ODA
+      -->
+      <tlv id='9F33'>204800</tlv>
+
+      <!--
         Terminal Transaction Qualifiers (TTQ):
         - EMV mode, Online PIN, ODA for online auth
         - CDCVM supported
@@ -171,6 +196,18 @@
 
       <!-- Terminal Floor Limit -->
       <tlv id='9F1B'>00000000</tlv>
+
+      <!--
+        Terminal Capabilities:
+        - Card Data Input Capability:
+          - IC with Contacts
+        - CVM Capability:
+          - Enciphered online PIN
+          - No CVM
+        - Security Capability:
+          - No ODA
+      -->
+      <tlv id='9F33'>204800</tlv>
 
       <!--
         Terminal Transaction Qualifiers (TTQ):
