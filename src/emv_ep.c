@@ -28,6 +28,7 @@
 #include "emv_app.h"
 #include "emv_ttl.h"
 #include "emv_tal.h"
+#include "emv_oda.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
@@ -1286,6 +1287,78 @@ int emv_ep_initiate_kernel_processing(
 
 error:
 	emv_tlv_list_clear(gpo_list);
+exit:
+	return r;
+}
+
+int emv_ep_read_application_data(
+	struct emv_ctx_t* ctx,
+	struct emv_tlv_list_t* record_data,
+	int* rr_tal_result
+)
+{
+	int r;
+
+	if (!ctx || !record_data || !rr_tal_result) {
+		emv_debug_trace_msg("ctx=%p, gpo_list=%p, rr_tal_result=%p",
+			ctx, record_data, rr_tal_result);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	*rr_tal_result = EMV_TAL_ERROR_INTERNAL;
+
+	// Application File Locator (AFL) is required to read application records
+	if (!ctx->afl) {
+		// AFL not found; terminate session
+		// See EMV 4.4 Book 3, 6.5.8.4
+		emv_debug_error("AFL not found");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Ensure that Offline Data Authentication (ODA) context is ready when
+	// reading application records
+	r = emv_oda_prepare_records(&ctx->oda, ctx->afl->value, ctx->afl->length);
+	if (r) {
+		emv_debug_trace_msg("emv_oda_prepare_records() failed; r=%d", r);
+
+		if (r == EMV_ODA_ERROR_INTERNAL ||
+			r == EMV_ODA_ERROR_INVALID_PARAMETER
+		) {
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		} else {
+			// All other ODA errors are card errors
+			emv_debug_error("Invalid ICC data during ODA initialisation");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+
+	// Process Application File Locator (AFL)
+	// See EMV 4.4 Book 3, 10.2
+	r = emv_tal_read_afl_records(
+		ctx->ttl,
+		ctx->afl->value,
+		ctx->afl->length,
+		record_data,
+		&ctx->oda
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tal_read_afl_records() failed; r=%d", r);
+
+		if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+			r = EMV_ERROR_INTERNAL;
+			goto error;
+		}
+	}
+	*rr_tal_result = r;
+
+	// Success
+	r = 0;
+	goto exit;
+
+error:
+	emv_tlv_list_clear(record_data);
 exit:
 	return r;
 }

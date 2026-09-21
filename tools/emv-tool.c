@@ -749,6 +749,7 @@ int main(int argc, char** argv)
 	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
 	struct emv_ep_app_list_t ep_list = EMV_EP_APP_LIST_INIT; // Combination list
+	uint8_t kernel_id[3];
 
 	if (argc == 1) {
 		// No command line arguments
@@ -1079,8 +1080,6 @@ int main(int argc, char** argv)
 		}
 
 		do {
-			uint8_t kernel_id[3];
-
 			// Start C
 			// See EMV Contactless Book B v2.11, 3.3.2.6
 			printf("\nSelect application\n");
@@ -1156,21 +1155,32 @@ int main(int argc, char** argv)
 	// is no longer needed.
 	emv_app_list_clear(&app_list);
 
-	// Contactless processing ends here for now
-	if (emv.ttl->contactless) {
-		printf("\nContactless EMV processing is not (yet) supported\n");
-		goto emv_exit;
-	}
 
 	printf("\nRead application data\n");
-	r = emv_read_application_data(&emv);
-	if (r < 0) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		goto emv_exit;
-	}
-	if (r > 0) {
-		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-		goto emv_exit;
+	if (emv.ttl->contactless) {
+		switch (kernel_id[0]) {
+			case 0x02:
+				r = emv_c2_read_application_data(&emv);
+				break;
+
+			case 0x03:
+				r = emv_c3_read_application_data(&emv);
+				break;
+
+			default:
+				printf("\nContactless kernel 0x%02X is not (yet) supported\n", kernel_id[0]);
+				goto emv_exit;
+		}
+	} else {
+		r = emv_read_application_data(&emv);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
 	}
 
 	printf("\nOffline data authentication\n");
@@ -1206,6 +1216,11 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
+	// Contactless processing ends here for kernel C-3
+	if (emv.ttl->contactless && kernel_id[0] == 0x03) {
+		goto emv_outcome_data;
+	}
+
 	printf("\nCard action analysis\n");
 	r = emv_card_action_analysis(&emv);
 	if (r < 0) {
@@ -1217,6 +1232,7 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
+emv_outcome_data:
 	printf("\nICC data:\n");
 	print_emv_tlv_list(&emv.icc);
 

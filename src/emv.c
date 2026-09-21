@@ -1213,6 +1213,13 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		}
 	}
 	if (!found_5F24 || !found_5A || !found_8C || !found_8D) {
+		emv_debug_trace_msg("5F24=%s, 5A=%s, 8C=%s, 8D=%s",
+			found_5F24 ? "found" : "missing",
+			found_5A ? "found" : "missing",
+			found_8C ? "found" : "missing",
+			found_8D ? "found" : "missing"
+		);
+
 		// Mandatory field not found; terminate session
 		// See EMV 4.4 Book 3, 10.2
 		emv_debug_error("Mandatory field not found");

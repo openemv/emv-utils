@@ -210,3 +210,77 @@ error:
 exit:
 	return r;
 }
+
+int emv_c3_read_application_data(struct emv_ctx_t* ctx)
+{
+	int r;
+	struct emv_tlv_list_t record_data = EMV_TLV_LIST_INIT;
+	int rr_tal_result;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Application File Locator (AFL) is optional for kernel C-3
+	if (!ctx->afl) {
+		// AFL not found; skip read application data
+		// See EMV Contactless Book C-3 v2.11, 5.3.2.1
+		emv_debug_error("No AFL; skip read application data");
+		return 0;
+	}
+
+	emv_debug_info("Read application data");
+
+	// See EMV Contactless Book C-3 v2.11, 5.3.2
+	// See EMV 4.4 Book 3, 10.2
+	r = emv_ep_read_application_data(ctx, &record_data, &rr_tal_result);
+	if (r) {
+		emv_debug_trace_msg("emv_ep_read_application_data() failed; r=%d", r);
+
+		// Return error as-is
+		goto error;
+	}
+	if (rr_tal_result && rr_tal_result != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
+		emv_debug_trace_msg("rr_tal_result=%d", rr_tal_result);
+
+		if (r < 0) {
+			emv_debug_error("Error while reading application data");
+			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+				r = EMV_ERROR_INTERNAL;
+			} else {
+				r = EMV_OUTCOME_CARD_ERROR;
+			}
+			goto error;
+		}
+		if (r != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
+			emv_debug_error("Failure while reading application data");
+			r = EMV_OUTCOME_CARD_ERROR;
+			goto error;
+		}
+
+		// Continue regardless of offline data authentication failure
+		// See EMV 4.4 Book 3, 10.3 (page 98)
+	}
+
+	r = emv_tlv_list_append(&ctx->icc, &record_data);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_TAL_ERROR_INTERNAL;
+		goto error;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+error:
+	emv_oda_clear(&ctx->oda);
+exit:
+	emv_tlv_list_clear(&record_data);
+	return r;
+}
