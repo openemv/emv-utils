@@ -32,6 +32,7 @@
 #include "emv_ep.h"
 #include "emv_c2.h"
 #include "emv_c3.h"
+#include "emv_c4.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
 #include "emv_debug.h"
@@ -1111,6 +1112,11 @@ int main(int argc, char** argv)
 				case 0x03:
 					printf("\nInitiate kernel C-3 processing\n");
 					r = emv_c3_initiate_kernel_processing(&emv, pos_entry_mode);
+					break;
+
+				case 0x04:
+					printf("\nInitiate kernel C-4 processing\n");
+					r = emv_c4_initiate_kernel_processing(&emv, pos_entry_mode);
 					break;
 
 				default:

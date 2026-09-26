@@ -241,9 +241,11 @@ __BEGIN_DECLS
 // Application Interchange Profile (field 82) byte 2
 // See EMV Contactless Book C-2 v2.11, Annex A.1.16
 // See EMV Contactless Book C-3 v2.11, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
+// See EMV Contactless Book C-4 v2.11, 5.3, Table 5-2
 #define EMV_AIP_EMV_MODE_SUPPORTED                              (0x80) ///< Application Interchange Profile: Contactless EMV mode is supported
 #define EMV_AIP_MOBILE_PHONE                                    (0x40) ///< Application Interchange Profile: Mobile phone
-#define EMV_AIP_CONTACTLESS_TXN                                 (0x20) ///< Application Interchange Profile: Contactless transaction
+#define EMV_AIP_CONTACTLESS_TXN                                 (0x20) ///< Application Interchange Profile: Contactless transaction (for kernel C-3)
+#define EMV_AIP_HCE_SUPPORTED                                   (0x20) ///< Application Interchange Profile: Host Card Emulation (HCE) is supported (for kernel C-4)
 #define EMV_AIP_RFU                                             (0x1E) ///< Application Interchange Profile: RFU
 #define EMV_AIP_RRP_SUPPORTED                                   (0x01) ///< Application Interchange Profile: Relay Resistance Protocol (RRP) is supported
 
@@ -781,6 +783,7 @@ enum emv_iad_format_t {
 #define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED            (0x80) ///< Contactless Reader Capabilities: Deprecated - Contactless EMV and Mag-stripe
 #define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED          (0xC0) ///< Contactless Reader Capabilities: Contactless EMV and Mag-stripe CVM Not Required
 #define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED              (0xC8) ///< Contactless Reader Capabilities: Contactless EMV and Mag-stripe CVM Required
+#define AMEX_CL_READER_CAPS_CVM_REQUIRED                        (0x08) ///< Contactless Reader Capabilities: CVM Required
 
 // Visa Form Factor Indicator (field 9F6E) byte 1
 // See EMV Contactless Book C-3 v2.11, Annex A.2

@@ -326,6 +326,7 @@ add_library(emv
 	emv_ep.c
 	emv_c2.c
 	emv_c3.c
+	emv_c4.c
 )
 set_property(
 	SOURCE emv_debug.c
@@ -350,6 +351,7 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_ep.h
 	emv_c2.h
 	emv_c3.h
+	emv_c4.h
 )
 set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
 add_library(emv::emv ALIAS emv)

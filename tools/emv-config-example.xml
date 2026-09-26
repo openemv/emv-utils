@@ -297,15 +297,21 @@
 
       <!-- Application Version Number (Terminal) -->
       <tlv id='9F09'>0001</tlv>
+
+      <!-- Contactless Reader Capabilities -->
+      <tlv id='9F6D'>C0</tlv>
+
+      <!-- Enhanced Contactless Reader Capabilities -->
+      <tlv id='9F6E'>9CC00003</tlv>
     </data>
 
-    <random_selection_percentage>25</random_selection_percentage>
-    <random_selection_max_percentage>50</random_selection_max_percentage>
+    <random_selection_percentage>10</random_selection_percentage>
+    <random_selection_max_percentage>10</random_selection_max_percentage>
     <random_selection_threshold>5000</random_selection_threshold>
 
     <contactless_transaction_limit>100000</contactless_transaction_limit>
     <contactless_floor_limit>0</contactless_floor_limit>
-    <contactless_cvm_required_limit>0</contactless_cvm_required_limit>
+    <contactless_cvm_required_limit>2000</contactless_cvm_required_limit>
   </app>
 
   <!--
