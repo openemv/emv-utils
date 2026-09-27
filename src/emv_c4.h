@@ -67,6 +67,29 @@ int emv_c4_initiate_kernel_processing(
 	uint8_t pos_entry_mode
 );
 
+/**
+ * Read EMV application data for kernel C-4 by performing READ RECORD for all
+ * records specified by the Application File Locator (AFL), checking that there
+ * are no redundant TLV fields provided by the application records, and
+ * checking for the mandatory fields.
+ *
+ * While reading the application records, this function will also concatenate
+ * the data required for Offline Data Authentication (ODA) and update
+ * @ref emv_ctx_t.oda accordingly.
+ *
+ * @note Upon success, this function will append the application data to
+ *       @ref emv_ctx_t.icc
+ *
+ * @remark See EMV Contactless Book C-4 v2.11, 5.3
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_c4_read_application_data(struct emv_ctx_t* ctx);
+
 __END_DECLS
 
 #endif

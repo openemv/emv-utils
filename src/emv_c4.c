@@ -392,3 +392,114 @@ error:
 exit:
 	return r;
 }
+
+int emv_c4_read_application_data(struct emv_ctx_t* ctx)
+{
+	int r;
+	struct emv_tlv_list_t record_data = EMV_TLV_LIST_INIT;
+	int rr_tal_result;
+	bool found_5F24 = false;
+	bool found_5A = false;
+	bool found_8C = false;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Read application data");
+
+	// See EMV Contactless Book C-4 v2.11, 5.3.1
+	r = emv_ep_read_application_data(ctx, &record_data, &rr_tal_result);
+	if (r) {
+		emv_debug_trace_msg("emv_ep_read_application_data() failed; r=%d", r);
+
+		// Return error as-is
+		goto error;
+	}
+	if (rr_tal_result && rr_tal_result != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
+		emv_debug_trace_msg("rr_tal_result=%d", rr_tal_result);
+
+		// NOTE: Kernel C-4 does not specify how READ RECORD response should
+		// interpreted. Therefore assume that interface errors are card error
+		// outcomes, and response errors are End Application - Try Another Card
+		// outcomes.
+
+		switch (rr_tal_result) {
+			case EMV_TAL_ERROR_TTL_FAILURE:
+				r = EMV_OUTCOME_CARD_ERROR;
+				break;
+
+			case EMV_TAL_ERROR_AFL_INVALID:
+			case EMV_TAL_ERROR_READ_RECORD_FAILED:
+			case EMV_TAL_ERROR_READ_RECORD_INVALID:
+			case EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED:
+				// See EMV Contactless Book C-4 v2.11, 5.3.5
+				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+				break;
+
+			default:
+				r = EMV_OUTCOME_CARD_ERROR;
+				break;
+		}
+
+		goto error;
+	}
+
+	if (emv_tlv_list_has_duplicate(&record_data)) {
+		// Redundant primitive data objects are not permitted
+		// See EMV Contactless Book C-4 v2.11, 5.3.2
+		emv_debug_error("Application data contains redundant fields");
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		goto error;
+	}
+
+	for (const struct emv_tlv_t* tlv = record_data.front; tlv != NULL; tlv = tlv->next) {
+		// Mandatory data objects
+		// See EMV Contactless Book C-4 v2.11, 5.3.3
+		// See EMV Contactless Book C-4 v2.11, Annex A.3, Table 14-3
+		if (tlv->tag == EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE) {
+			found_5F24 = true;
+		}
+		if (tlv->tag == EMV_TAG_5A_APPLICATION_PAN) {
+			found_5A = true;
+		}
+		if (tlv->tag == EMV_TAG_8C_CDOL1) {
+			found_8C = true;
+		}
+	}
+	if (!found_5F24 || !found_5A || !found_8C) {
+		emv_debug_trace_msg("5F24=%s, 5A=%s, 8C=%s",
+			found_5F24 ? "found" : "missing",
+			found_5A ? "found" : "missing",
+			found_8C ? "found" : "missing"
+		);
+
+		// Mandatory field not found; terminate session
+		// See EMV Contactless Book C-4 v2.11, 5.3.3
+		emv_debug_error("Mandatory field not found");
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		goto error;
+	}
+
+	r = emv_tlv_list_append(&ctx->icc, &record_data);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
+		goto error;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+error:
+	emv_oda_clear(&ctx->oda);
+exit:
+	emv_tlv_list_clear(&record_data);
+	return r;
+}

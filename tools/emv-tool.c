@@ -1172,6 +1172,10 @@ int main(int argc, char** argv)
 				r = emv_c3_read_application_data(&emv);
 				break;
 
+			case 0x04:
+				r = emv_c4_read_application_data(&emv);
+				break;
+
 			default:
 				printf("\nContactless kernel 0x%02X is not (yet) supported\n", kernel_id[0]);
 				goto emv_exit;
