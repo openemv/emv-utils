@@ -936,7 +936,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 
 		// Internal error; terminate session
 		emv_debug_error("Internal error");
-		r = EMV_TAL_ERROR_INTERNAL;
+		r = EMV_ERROR_INTERNAL;
 		goto error;
 	}
 
