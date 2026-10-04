@@ -363,11 +363,13 @@ if(APPLE AND BUILD_MACOSX_BUNDLE AND SIGN_MACOSX_BUNDLE)
 	# When using install(CODE) instead of CPACK_PRE_BUILD_SCRIPTS to sign
 	# the bundle, it must always be the last install() command to ensure
 	# that all of the bundle files are already present.
+	# --force is required because macdeployqt has already applied an ad-hoc
+	# signature that must be overwritten.
 	if(TARGET emv-decode)
 		install(CODE
 			"
 			execute_process(COMMAND \"${CMAKE_COMMAND}\" -E echo \"Using identity '${SIGN_MACOSX_BUNDLE}' to sign binary at \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-decode\")
-			execute_process(COMMAND ${CODESIGN_EXECUTABLE} --sign \"${SIGN_MACOSX_BUNDLE}\" --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-decode\")
+			execute_process(COMMAND ${CODESIGN_EXECUTABLE} --force --sign \"${SIGN_MACOSX_BUNDLE}\" --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-decode\")
 			execute_process(COMMAND ${CODESIGN_EXECUTABLE} --display --verbose --verbose=4 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-decode\")
 			execute_process(COMMAND \"${CMAKE_COMMAND}\" -E echo \"Verifying binary at \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-decode\")
 			execute_process(COMMAND ${CODESIGN_EXECUTABLE} --verify --verbose --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-decode\")
@@ -379,7 +381,7 @@ if(APPLE AND BUILD_MACOSX_BUNDLE AND SIGN_MACOSX_BUNDLE)
 		install(CODE
 			"
 			execute_process(COMMAND \"${CMAKE_COMMAND}\" -E echo \"Using identity '${SIGN_MACOSX_BUNDLE}' to sign binary at \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-tool\")
-			execute_process(COMMAND ${CODESIGN_EXECUTABLE} --sign \"${SIGN_MACOSX_BUNDLE}\" --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-tool\")
+			execute_process(COMMAND ${CODESIGN_EXECUTABLE} --force --sign \"${SIGN_MACOSX_BUNDLE}\" --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-tool\")
 			execute_process(COMMAND ${CODESIGN_EXECUTABLE} --display --verbose --verbose=4 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-tool\")
 			execute_process(COMMAND \"${CMAKE_COMMAND}\" -E echo \"Verifying binary at \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-tool\")
 			execute_process(COMMAND ${CODESIGN_EXECUTABLE} --verify --verbose --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>/Contents/bin/emv-tool\")
@@ -390,7 +392,7 @@ if(APPLE AND BUILD_MACOSX_BUNDLE AND SIGN_MACOSX_BUNDLE)
 	install(CODE
 		"
 		execute_process(COMMAND \"${CMAKE_COMMAND}\" -E echo \"Using identity '${SIGN_MACOSX_BUNDLE}' to sign binary at \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>\")
-		execute_process(COMMAND ${CODESIGN_EXECUTABLE} --sign \"${SIGN_MACOSX_BUNDLE}\" --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>\")
+		execute_process(COMMAND ${CODESIGN_EXECUTABLE} --force --sign \"${SIGN_MACOSX_BUNDLE}\" --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>\")
 		execute_process(COMMAND ${CODESIGN_EXECUTABLE} --display --verbose --verbose=4 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>\")
 		execute_process(COMMAND \"${CMAKE_COMMAND}\" -E echo \"Verifying binary at \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>\")
 		execute_process(COMMAND ${CODESIGN_EXECUTABLE} --verify --verbose --deep \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\$<TARGET_BUNDLE_DIR_NAME:emv-viewer>\")

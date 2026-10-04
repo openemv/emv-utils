@@ -2,7 +2,7 @@
  * @file emv_ttl.h
  * @brief EMV Terminal Transport Layer (TTL)
  *
- * Copyright 2021, 2024-2025 Leon Lynch
+ * Copyright 2021, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -67,9 +67,9 @@ struct emv_cardreader_t {
 	emv_cardreader_trx_t trx;                   ///< Card reader transceive function
 };
 
-/// EMV Terminal Transport Layer context
+/// EMV Terminal Transport Layer (TTL) context
 struct emv_ttl_t {
-	struct emv_cardreader_t cardreader;
+	struct emv_cardreader_t cardreader;         ///< Card reader to be used by EMV Terminal Transport Layer (TTL)
 };
 
 /**

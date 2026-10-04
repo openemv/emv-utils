@@ -70,6 +70,8 @@ jobs:
           -DFETCH_ARGP=${{ matrix.fetch_deps }} \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
+          -DCMAKE_DISABLE_FIND_PACKAGE_Qt5=${{ !contains(matrix.deps, 'qt5') && 'YES' || 'NO' }} \
+          -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=${{ !contains(matrix.deps, 'qt6') && 'YES' || 'NO' }} \
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
 
     - name: Build

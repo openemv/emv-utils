@@ -26,7 +26,7 @@
 #include "iso8859.h"
 
 #include <stdbool.h>
-#include <stdlib.h> // for malloc() and free()
+#include <stdlib.h> // For malloc() and free()
 #include <string.h>
 #include <assert.h>
 

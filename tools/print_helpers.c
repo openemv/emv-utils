@@ -102,7 +102,7 @@ void print_str_list(
 	char* save_ptr = NULL;
 
 	while ((str = strtok_r(str_tmp, delim, &save_ptr))) {
-		// for strtok_r()
+		// For strtok_r()
 		if (str_tmp) {
 			str_tmp = NULL;
 		}

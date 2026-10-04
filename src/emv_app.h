@@ -34,7 +34,13 @@ __BEGIN_DECLS
 struct emv_config_app_t;
 
 /**
- * EMV application
+ * @brief EMV application
+ *
+ * Create using one of these function:
+ * - @ref emv_app_create_from_pse()
+ * - @ref emv_app_create_from_fci()
+ *
+ * Free using @ref emv_app_free().
  */
 struct emv_app_t {
 	/**

@@ -13,22 +13,33 @@
 # - KEYCHAIN_PASSWORD
 
 # Temporary paths
-OPENEMV_MACOS_CERT_PATH=$RUNNER_TEMP/certificate.p12
-KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+KEYCHAIN_FILE=$RUNNER_TEMP/app-signing.keychain-db
+OPENEMV_MACOS_CERT_P12=$RUNNER_TEMP/certificate.p12
+OPENEMV_MACOS_CERT_PEM=$RUNNER_TEMP/certificate.pem
 
 # Create temporary keychain
-security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_FILE
+security set-keychain-settings -lut 21600 $KEYCHAIN_FILE
+security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_FILE
 
 # Decode and import signing certificate
-echo -n "$OPENEMV_MACOS_CERT_BASE64" | base64 --decode > $OPENEMV_MACOS_CERT_PATH
-security import $OPENEMV_MACOS_CERT_PATH -P "$OPENEMV_MACOS_CERT_PWD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-security list-keychains -d user -s $KEYCHAIN_PATH
-security find-identity -v -p codesigning
+echo -n "$OPENEMV_MACOS_CERT_BASE64" | base64 --decode > $OPENEMV_MACOS_CERT_P12
+security import $OPENEMV_MACOS_CERT_P12 -P "$OPENEMV_MACOS_CERT_PWD" -A -t cert -f pkcs12 -k $KEYCHAIN_FILE
+security list-keychains -d user -s $KEYCHAIN_FILE
+
+# Trust signing certificate
+security find-certificate -p -c openemv.org $KEYCHAIN_FILE > $OPENEMV_MACOS_CERT_PEM
+sudo security add-trusted-cert -d -r trustRoot $OPENEMV_MACOS_CERT_PEM
 
 # Allow codesign application to use signing key
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_FILE
 
 # Cleanup
-rm $OPENEMV_MACOS_CERT_PATH
+rm $OPENEMV_MACOS_CERT_P12 $OPENEMV_MACOS_CERT_PEM
+
+# Verify that codesigning identity is ready
+if ! security find-identity -v -p codesigning $KEYCHAIN_FILE \
+        | grep -q "openemv.org"; then
+    echo "ERROR: openemv.org codesigning identity not present" >&2
+    exit 1
+fi

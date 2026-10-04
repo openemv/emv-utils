@@ -349,6 +349,8 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
 {
 	if (!ctx || !ttl) {
+		emv_debug_trace_msg("ctx=%p, ttl=%p", ctx, ttl);
+		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
@@ -544,9 +546,14 @@ int emv_initiate_application_processing(
 	size_t gpo_data_len;
 	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
 
-	if (!ctx || !ctx->selected_app) {
-		emv_debug_trace_msg("ctx=%p, selected_app=%p", ctx, ctx->selected_app);
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
 		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->selected_app) {
+		emv_debug_trace_msg("selected_app=%p", ctx->selected_app);
+		emv_debug_error("Invalid context variable");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
@@ -932,7 +939,7 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 
 		// Internal error; terminate session
 		emv_debug_error("Internal error");
-		r = EMV_TAL_ERROR_INTERNAL;
+		r = EMV_ERROR_INTERNAL;
 		goto error;
 	}
 

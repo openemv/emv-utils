@@ -140,8 +140,8 @@ struct emv_ctx_t {
 	 *
 	 * Populated by @ref emv_initiate_application_processing() and used by
 	 * various functions.
-	 * @cond INTERNAL
 	 */
+	/// @cond INTERNAL
 	const struct emv_tlv_t* aid;
 	const struct emv_tlv_t* tvr;
 	const struct emv_tlv_t* tsi;
@@ -161,7 +161,8 @@ struct emv_txn_log_entry_t {
 };
 
 /**
- * EMV errors
+ * @brief EMV errors
+ *
  * These are typically for internal errors and errors caused by invalid use of
  * the API functions in this header, and must have values less than zero.
  */
@@ -172,7 +173,8 @@ enum emv_error_t {
 };
 
 /**
- * EMV processing outcomes
+ * @brief EMV processing outcomes
+ *
  * These indicate the EMV processing outcome, if any, and must have values
  * greater than zero.
  */
@@ -191,7 +193,7 @@ enum emv_outcome_t {
 const char* emv_lib_version_string(void);
 
 /**
- * Initialize EMV processing context
+ * Initialise EMV processing context
  *
  * @param ctx EMV processing context
  * @param ttl Terminal Transport Layer (TTL) context. NULL if not available.

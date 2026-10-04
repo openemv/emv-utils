@@ -25,8 +25,13 @@
 #include <string>
 #include <map>
 
+// Some versions of json-c headers have unused static inline functions that
+// trigger -Wunused-function
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 #include <json-c/json.h>
 #include <json-c/json_visit.h>
+#pragma GCC diagnostic pop
 
 typedef bool (*mcc_map_add_func_t)(json_object* jso);
 
