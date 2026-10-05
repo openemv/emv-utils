@@ -324,7 +324,8 @@ emv-tool --config-xml tools/emv-config-example.xml --txn-type 00 --txn-amount 12
 
 The debug level, debug sources and debug verbosity can be specified using the
 `--debug-level`, `--debug-source` and `--debug-verbose` options respectively.
-See `emv-tool --help` for more information about debug options.
+
+Use the `--help` option to display all available options.
 
 ### emv-viewer
 

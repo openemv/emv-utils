@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <time.h>
 #include <argp.h>
 
@@ -50,6 +51,8 @@ static const char* pcsc_get_reader_state_string(unsigned int reader_state);
 static void print_pcsc_readers(pcsc_ctx_t pcsc);
 static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
 static int emv_txn_load_config(struct emv_ctx_t* emv);
+static int parse_hex(const char* hex, void* buf, size_t* buf_len);
+static int online_auth_prompt(uint8_t* arc, uint8_t* iad, size_t* iad_len);
 
 // argp option keys
 enum emv_tool_param_t {
@@ -61,6 +64,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_TXN_AMOUNT,
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
 	EMV_TOOL_PARAM_GENAC1_TYPE,
+	EMV_TOOL_PARAM_ONLINE_AUTH,
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
 	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
 	EMV_TOOL_PARAM_DEBUG_LEVEL,
@@ -82,6 +86,7 @@ static struct argp_option argp_options[] = {
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
 	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
+	{ "online-auth", EMV_TOOL_PARAM_ONLINE_AUTH, "decline|approve|unable|prompt", 0, "Online authorisation method. Default is decline." },
 
 	{ NULL, 0, NULL, 0, "Debug options", 3 },
 	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
@@ -116,6 +121,15 @@ static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
 static uint32_t txn_amount = 0;
 static uint32_t txn_amount_other = 0;
 static uint8_t genac1_ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
+static uint8_t genac2_ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
+
+enum online_auth_method_t {
+	ONLINE_AUTH_METHOD_DECLINE = 1,
+	ONLINE_AUTH_METHOD_APPROVE,
+	ONLINE_AUTH_METHOD_UNABLE,
+	ONLINE_AUTH_METHOD_PROMPT,
+};
+static enum online_auth_method_t online_auth_method = ONLINE_AUTH_METHOD_DECLINE;
 
 // Debug parameters
 static bool debug_verbose = false;
@@ -295,6 +309,22 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				genac1_ref_ctrl = EMV_TTL_GENAC_TYPE_TC;
 			} else {
 				argp_error(state, "GENAC1 type (--genac1) argument must be AAC, ARQC or TC");
+				return EINVAL;
+			}
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_ONLINE_AUTH: {
+			if (strcasecmp(arg, "decline") == 0) {
+				online_auth_method = ONLINE_AUTH_METHOD_DECLINE;
+			} else if (strcasecmp(arg, "approve") == 0) {
+				online_auth_method = ONLINE_AUTH_METHOD_APPROVE;
+			} else if (strcasecmp(arg, "unable") == 0) {
+				online_auth_method = ONLINE_AUTH_METHOD_UNABLE;
+			} else if (strcasecmp(arg, "prompt") == 0) {
+				online_auth_method = ONLINE_AUTH_METHOD_PROMPT;
+			} else {
+				argp_error(state, "Online authorisation method (--online-auth) argument must be decline, approve, unable or prompt");
 				return EINVAL;
 			}
 			return 0;
@@ -746,6 +776,112 @@ static int emv_txn_load_config(struct emv_ctx_t* emv)
 	return 0;
 }
 
+static int parse_hex(const char* hex, void* buf, size_t* buf_len)
+{
+	size_t max_buf_len;
+
+	if (!buf_len) {
+		return -1;
+	}
+	max_buf_len = *buf_len;
+	*buf_len = 0;
+
+	while (*hex && max_buf_len--) {
+		uint8_t* ptr = buf;
+		char str[3];
+		unsigned int str_idx = 0;
+
+		// Find next two valid hex digits
+		while (*hex && str_idx < 2) {
+			// Skip spaces
+			if (isspace(*hex)) {
+				++hex;
+				continue;
+			}
+			// Only allow hex digits
+			if (!isxdigit(*hex)) {
+				return -2;
+			}
+
+			str[str_idx++] = *hex;
+			++hex;
+		}
+		if (!str_idx) {
+			// No hex digits left
+			continue;
+		}
+		if (str_idx != 2) {
+			// Uneven number of hex digits
+			return 1;
+		}
+		str[2] = 0;
+
+		*ptr = strtoul(str, NULL, 16);
+		++buf;
+		++*buf_len;
+	}
+
+	return 0;
+}
+
+static int online_auth_prompt(uint8_t* arc, uint8_t* iad, size_t* iad_len)
+{
+	int r;
+	char input[1024];
+	uint8_t buf[512];
+	size_t buf_len = sizeof(buf);
+	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* tlv;
+
+	if (!arc || !iad || !iad_len) {
+		return -1;
+	}
+	memset(arc, 0, 2);
+	*iad_len = 0;
+
+	printf("\nEnter authorisation response (BER encoded as ASCII-HEX; empty if unable): ");
+	if (!fgets(input, sizeof(input), stdin)) {
+		fprintf(stderr, "Failed to read authorisation response\n");
+		return 1;
+	}
+
+	r = parse_hex(input, buf, &buf_len);
+	if (r) {
+		fprintf(stderr, "Invalid authorisation response\n");
+		return 1;
+	}
+
+	r = emv_tlv_parse(buf, buf_len, &list);
+	if (r) {
+		fprintf(stderr, "Failed to parse authorisation response\n");
+		emv_tlv_list_clear(&list);
+		return 1;
+	}
+	print_emv_tlv_list(&list);
+
+	tlv = emv_tlv_list_find_const(&list, EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE);
+	if (tlv) {
+		if (tlv->length == 2) {
+			memcpy(arc, tlv->value, 2);
+		} else {
+			fprintf(stderr, "Authorisation Response Code (8A) must be 2 bytes\n");
+		}
+	}
+
+	tlv = emv_tlv_list_find_const(&list, EMV_TAG_91_ISSUER_AUTHENTICATION_DATA);
+	if (tlv) {
+		if (tlv->length >= 8 && tlv->length <= 16) { // See EMV 4.4 Book 3, 6.5.4.3
+			memcpy(iad, tlv->value, tlv->length);
+			*iad_len = tlv->length;
+		} else {
+			fprintf(stderr, "Issuer Authentication Data (91) must be 8 to 16 bytes\n");
+		}
+	}
+
+	emv_tlv_list_clear(&list);
+	return 0;
+}
+
 int main(int argc, char** argv)
 {
 	int r;
@@ -1137,24 +1273,60 @@ int main(int argc, char** argv)
 	if (pos_entry_mode == EMV_POS_ENTRY_MODE_ICC_WITH_CVV &&
 		(cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) == EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC
 	) {
-		printf("\nOnline processing\n");
-		r = emv_online_processing(
-			&emv,
-			(uint8_t[]){ 0x30, 0x30 }, // 00 - Approved or completed successfully
-			NULL,
-			0
-		);
-		if (r < 0) {
-			printf("ERROR: %s\n", emv_error_get_string(r));
-			goto emv_exit;
+		uint8_t arc[2] = { 0 };
+		uint8_t iad[16]; // See EMV 4.4 Book 3, 6.5.4.3
+		size_t iad_len = 0;
+
+		switch (online_auth_method) {
+			case ONLINE_AUTH_METHOD_DECLINE:
+				// 05 - Do not honour
+				memcpy(arc, (uint8_t[]){ 0x30, 0x35 }, 2);
+				break;
+
+			case ONLINE_AUTH_METHOD_APPROVE:
+				// 00 - Approved or completed successfully
+				memcpy(arc, (uint8_t[]){ 0x30, 0x30 }, 2);
+				break;
+
+			case ONLINE_AUTH_METHOD_UNABLE:
+				// Unable to go online
+				memset(arc, 0, sizeof(arc));
+				break;
+
+			case ONLINE_AUTH_METHOD_PROMPT:
+				r = online_auth_prompt(arc, iad, &iad_len);
+				if (r < 0) {
+					goto emv_exit;
+				}
+				break;
 		}
-		if (r > 0) {
-			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-			goto emv_exit;
+
+		if (arc[0] && arc[1]) {
+			printf("\nOnline processing [%c%c]\n", arc[0], arc[1]);
+			r = emv_online_processing(
+				&emv,
+				arc,
+				iad_len ? iad : NULL,
+				iad_len
+			);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				goto emv_exit;
+			}
+		} else {
+			printf("\nUnable to go online\n");
 		}
 
 		printf("\nCompletion\n");
-		r = emv_completion(&emv, EMV_TTL_GENAC_TYPE_TC);
+		if (memcmp(arc, (uint8_t[]){ 0x30, 0x30 }, 2) == 0) {
+			// Only consider 00 as online approval for now
+			genac2_ref_ctrl = EMV_TTL_GENAC_TYPE_TC;
+		}
+		r = emv_completion(&emv, genac2_ref_ctrl);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
