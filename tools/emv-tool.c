@@ -898,7 +898,10 @@ int main(int argc, char** argv)
 	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
 	bool application_selection_required;
-	const struct emv_tlv_t* cid;
+	int outcome = EMV_ERROR_INTERNAL;
+	uint8_t arc[2] = { 0 };
+	uint8_t iad[16]; // See EMV 4.4 Book 3, 6.5.4.3
+	size_t iad_len = 0;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -1240,87 +1243,57 @@ int main(int argc, char** argv)
 	}
 	if (r > 0) {
 		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-		goto emv_exit;
+		outcome = r;
+		goto emv_outcome;
 	}
 
-	// Process GENAC1 outcome
-	cid = emv_tlv_list_find_const(&emv.icc, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
-	if (!cid) {
-		fprintf(stderr, "CID not found\n");
-		goto emv_exit;
-	}
-	printf("\n");
-	switch (cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
-		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
-			printf("GENAC1: Application Authentication Cryptogram (AAC)\n");
-			printf("OUTCOME: Offline declined\n");
+	// If card action analysis did not provide an outcome, then proceed to
+	// online authorisation
+	switch (online_auth_method) {
+		case ONLINE_AUTH_METHOD_DECLINE:
+			// 05 - Do not honour
+			memcpy(arc, (uint8_t[]){ 0x30, 0x35 }, 2);
 			break;
 
-		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
-			printf("GENAC1: Transaction Certificate (TC)\n");
-			printf("OUTCOME: Offline approved\n");
+		case ONLINE_AUTH_METHOD_APPROVE:
+			// 00 - Approved or completed successfully
+			memcpy(arc, (uint8_t[]){ 0x30, 0x30 }, 2);
 			break;
 
-		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC:
-			printf("GENAC1: Authorisation Request Cryptogram (ARQC)\n");
+		case ONLINE_AUTH_METHOD_UNABLE:
+			// Unable to go online
+			memset(arc, 0, sizeof(arc));
 			break;
 
-		default:
-			fprintf(stderr, "Unexpected CID 0x%02X\n", cid->value[0]);
-			goto emv_exit;
-	}
-
-	if (pos_entry_mode == EMV_POS_ENTRY_MODE_ICC_WITH_CVV &&
-		(cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) == EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC
-	) {
-		uint8_t arc[2] = { 0 };
-		uint8_t iad[16]; // See EMV 4.4 Book 3, 6.5.4.3
-		size_t iad_len = 0;
-
-		switch (online_auth_method) {
-			case ONLINE_AUTH_METHOD_DECLINE:
-				// 05 - Do not honour
-				memcpy(arc, (uint8_t[]){ 0x30, 0x35 }, 2);
-				break;
-
-			case ONLINE_AUTH_METHOD_APPROVE:
-				// 00 - Approved or completed successfully
-				memcpy(arc, (uint8_t[]){ 0x30, 0x30 }, 2);
-				break;
-
-			case ONLINE_AUTH_METHOD_UNABLE:
-				// Unable to go online
-				memset(arc, 0, sizeof(arc));
-				break;
-
-			case ONLINE_AUTH_METHOD_PROMPT:
-				r = online_auth_prompt(arc, iad, &iad_len);
-				if (r < 0) {
-					goto emv_exit;
-				}
-				break;
-		}
-
-		if (arc[0] && arc[1]) {
-			printf("\nOnline processing [%c%c]\n", arc[0], arc[1]);
-			r = emv_online_processing(
-				&emv,
-				arc,
-				iad_len ? iad : NULL,
-				iad_len
-			);
+		case ONLINE_AUTH_METHOD_PROMPT:
+			r = online_auth_prompt(arc, iad, &iad_len);
 			if (r < 0) {
-				printf("ERROR: %s\n", emv_error_get_string(r));
 				goto emv_exit;
 			}
-			if (r > 0) {
-				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-				goto emv_exit;
-			}
-		} else {
-			printf("\nUnable to go online\n");
-		}
+			break;
+	}
 
+	if (arc[0] && arc[1]) {
+		printf("\nOnline processing [%c%c]\n", arc[0], arc[1]);
+		r = emv_online_processing(
+			&emv,
+			arc,
+			iad_len ? iad : NULL,
+			iad_len
+		);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
+	} else {
+		printf("\nUnable to go online\n");
+	}
+
+	if (pos_entry_mode == EMV_POS_ENTRY_MODE_ICC_WITH_CVV) {
 		printf("\nCompletion\n");
 		if (memcmp(arc, (uint8_t[]){ 0x30, 0x30 }, 2) == 0) {
 			// Only consider 00 as online approval for now
@@ -1333,32 +1306,26 @@ int main(int argc, char** argv)
 		}
 		if (r > 0) {
 			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-			goto emv_exit;
+			outcome = r;
+			goto emv_outcome;
 		}
-
-		// Process GENAC2 outcome
-		cid = emv_tlv_list_find_const(&emv.completion, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
-		if (!cid) {
-			fprintf(stderr, "CID not found\n");
-			goto emv_exit;
+	} else {
+		if (memcmp(arc, (uint8_t[]){ 0x30, 0x30 }, 2) == 0) {
+			// Only consider 00 as online approval for now
+			outcome = EMV_OUTCOME_APPROVED;
+		} else {
+			outcome = EMV_OUTCOME_DECLINED;
 		}
-		printf("\n");
-		switch (cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
-			case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
-				printf("GENAC2: Application Authentication Cryptogram (AAC)\n");
-				printf("OUTCOME: Declined\n");
-				break;
-
-			case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
-				printf("GENAC2: Transaction Certificate (TC)\n");
-				printf("OUTCOME: Online approved\n");
-				break;
-
-			default:
-				fprintf(stderr, "Unexpected CID 0x%02X\n", cid->value[0]);
-				goto emv_exit;
-		}
+		goto emv_outcome;
 	}
+
+emv_outcome:
+	r = pcsc_reader_disconnect(reader);
+	if (r) {
+		printf("PC/SC reader deactivation failed\n");
+		goto emv_exit;
+	}
+	printf("\nCard deactivated\n");
 
 	printf("\nICC data:\n");
 	print_emv_tlv_list(&emv.icc);
@@ -1371,12 +1338,7 @@ int main(int argc, char** argv)
 		print_emv_tlv_list(&emv.completion);
 	}
 
-	r = pcsc_reader_disconnect(reader);
-	if (r) {
-		printf("PC/SC reader deactivation failed\n");
-		goto emv_exit;
-	}
-	printf("\nCard deactivated\n");
+	printf("\nOUTCOME: %s\n", emv_outcome_get_string(outcome));
 
 emv_exit:
 	emv_app_list_clear(&app_list);

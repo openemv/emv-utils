@@ -89,7 +89,7 @@ static const struct test_t test[] = {
 			{ 0 }
 		},
 
-		.expected_result = 0,
+		.expected_result = EMV_OUTCOME_DECLINED,
 
 		// Z3: Unable to go online, offline declined
 		.expected_arc = { 0x5A, 0x33 },
@@ -125,7 +125,7 @@ static const struct test_t test[] = {
 			{ 0 }
 		},
 
-		.expected_result = 0,
+		.expected_result = EMV_OUTCOME_APPROVED,
 
 		// Y3: Unable to go online, offline approved
 		.expected_arc = { 0x59, 0x33 },
@@ -161,7 +161,7 @@ static const struct test_t test[] = {
 			{ 0 }
 		},
 
-		.expected_result = 0,
+		.expected_result = EMV_OUTCOME_APPROVED,
 
 		// Authorisation Response Code is retained from online processing
 		.expected_arc = { 0x30, 0x30 },
@@ -197,7 +197,7 @@ static const struct test_t test[] = {
 			{ 0 }
 		},
 
-		.expected_result = 0,
+		.expected_result = EMV_OUTCOME_DECLINED,
 
 		// Authorisation Response Code is retained from online processing
 		.expected_arc = { 0x30, 0x30 },

@@ -179,11 +179,13 @@ enum emv_error_t {
  * greater than zero.
  */
 enum emv_outcome_t {
-	EMV_OUTCOME_CARD_ERROR = 1, ///< Malfunction of the card or non-conformance to Answer To Reset (ATR)
-	EMV_OUTCOME_CARD_BLOCKED = 2, ///< Card blocked
-	EMV_OUTCOME_NOT_ACCEPTED = 3, ///< Card not accepted or no supported applications
-	EMV_OUTCOME_TRY_AGAIN = 4, ///< Try again by selecting a different application
-	EMV_OUTCOME_GPO_NOT_ACCEPTED = 5, ///< Processing conditions not accepted
+	EMV_OUTCOME_APPROVED = 1, ///< Transaction is approved
+	EMV_OUTCOME_DECLINED = 2, ///< Transaction is declined
+	EMV_OUTCOME_CARD_ERROR = 3, ///< Malfunction of the card or non-conformance to Answer To Reset (ATR)
+	EMV_OUTCOME_CARD_BLOCKED = 4, ///< Card blocked
+	EMV_OUTCOME_NOT_ACCEPTED = 5, ///< Card not accepted or no supported applications
+	EMV_OUTCOME_TRY_AGAIN = 6, ///< Try again by selecting a different application
+	EMV_OUTCOME_GPO_NOT_ACCEPTED = 7, ///< Processing conditions not accepted
 };
 
 /**

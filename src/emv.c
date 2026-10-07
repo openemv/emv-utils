@@ -110,6 +110,8 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 {
 	// See EMV 4.4 Book 4, 11.2, table 8
 	switch (outcome) {
+		case EMV_OUTCOME_APPROVED: return "Transaction APPROVED"; // Message 03
+		case EMV_OUTCOME_DECLINED: return "Transaction DECLINED"; // Message 07
 		case EMV_OUTCOME_CARD_ERROR: return "Card error"; // Message 06
 		case EMV_OUTCOME_CARD_BLOCKED: return "Card blocked"; // Not in EMV specification
 		case EMV_OUTCOME_NOT_ACCEPTED: return "Not accepted"; // Message 0C
@@ -1618,14 +1620,16 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 	const struct emv_tlv_t* cdol1;
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* cid;
+	int outcome;
 
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
-	if (!ctx->tvr) {
-		emv_debug_trace_msg("tvr=%p", ctx->tvr);
+	if (!ctx->tvr || !ctx->tsi) {
+		emv_debug_trace_msg("tvr=%p, tsi=%p", ctx->tvr, ctx->tsi);
 		emv_debug_error("Invalid context variable");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
@@ -1738,10 +1742,6 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 		goto exit;
 	}
 
-	// TODO: Implement offline decline if CID indicates AAC
-	// See EMV 4.4 Book 2, 6.6.2
-	// See EMV 4.4 Book 4, 6.3.7
-
 	if (ref_ctrl & EMV_TTL_GENAC_SIG_MASK) {
 		// Validate GENAC1 response which will in turn unpack the SDAD fields
 		// and append them to the GENAC1 fields
@@ -1764,6 +1764,39 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 		}
 	}
 
+	// Search GENAC1 fields before they are appended to ICC data list
+	cid = emv_tlv_list_find_const(&genac_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+	if (!cid || cid->length != 1) {
+		// Presence of CID should have been confirmed by emv_tal_genac()
+		emv_debug_error("Cryptogram Information Data (CID) not found or invalid");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Determine Card Action Analysis outcome
+	// See EMV 4.4 Book 4, 6.3.7
+	switch (cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
+			emv_debug_info("GENAC1: Application Authentication Cryptogram (AAC)");
+			outcome = EMV_OUTCOME_DECLINED;
+			break;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
+			emv_debug_info("GENAC1: Transaction Certificate (TC)");
+			outcome = EMV_OUTCOME_APPROVED;
+			break;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC:
+			emv_debug_info("GENAC1: Authorisation Request Cryptogram (ARQC)");
+			outcome = 0; // Continue to emv_online_processing()
+			break;
+
+		default:
+			emv_debug_error("Unexpected CID 0x%02X\n", cid->value[0]);
+			outcome = EMV_OUTCOME_CARD_ERROR;
+			break;
+	}
+
 	// Append GENAC1 fields to ICC data list
 	r = emv_tlv_list_append(&ctx->icc, &genac_list);
 	if (r) {
@@ -1775,8 +1808,11 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 		goto exit;
 	}
 
+	// See EMV 4.4 Book 3, 10.8
+	ctx->tsi->value[0] |= EMV_TSI_CARD_RISK_MANAGEMENT_PERFORMED;
+
 	// Success
-	r = 0;
+	r = outcome;
 	goto exit;
 
 exit:
@@ -1918,6 +1954,8 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 	const struct emv_tlv_t* cdol2;
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* cid;
+	int outcome;
 
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
@@ -2061,6 +2099,34 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 		}
 	}
 
+	// Search GENAC2 fields before they are appended to completion data list
+	cid = emv_tlv_list_find_const(&genac_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+	if (!cid || cid->length != 1) {
+		// Presence of CID should have been confirmed by emv_tal_genac()
+		emv_debug_error("Cryptogram Information Data (CID) not found or invalid");
+		r = EMV_ERROR_INTERNAL;
+		goto exit;
+	}
+
+	// Determine Completion outcome
+	// See EMV 4.4 Book 4, 6.3.8
+	switch (cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
+			emv_debug_info("GENAC2: Application Authentication Cryptogram (AAC)");
+			outcome = EMV_OUTCOME_DECLINED;
+			break;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
+			emv_debug_info("GENAC2: Transaction Certificate (TC)");
+			outcome = EMV_OUTCOME_APPROVED;
+			break;
+
+		default:
+			emv_debug_error("Unexpected CID 0x%02X\n", cid->value[0]);
+			outcome = EMV_OUTCOME_CARD_ERROR;
+			break;
+	}
+
 	// Append GENAC2 fields to completion data list
 	r = emv_tlv_list_append(&ctx->completion, &genac_list);
 	if (r) {
@@ -2073,7 +2139,7 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	}
 
 	// Success
-	r = 0;
+	r = outcome;
 	goto exit;
 
 exit:
