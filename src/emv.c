@@ -1620,6 +1620,7 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 	const struct emv_tlv_t* cdol1;
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* sdad;
 	const struct emv_tlv_t* cid;
 	int outcome;
 
@@ -1675,11 +1676,22 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	if (ctx->oda.method == EMV_ODA_METHOD_CDA &&
 		!(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
 	) {
-		// Only request CDA signature if CDA was previously selected but has
-		// not yet failed.
-		// See EMV 4.4 Book 2, 6.6
-		// See EMV 4.4 Book 4, 6.3.2.1
-		ref_ctrl |= EMV_TTL_GENAC_SIG_CDA;
+		if ((ref_ctrl & EMV_TTL_GENAC_TYPE_MASK) != EMV_TTL_GENAC_TYPE_AAC) {
+			// Only request CDA signature if:
+			// - CDA was previously selected
+			// - CDA has not yet failed
+			// - ARQC or TC is requested
+			// See EMV 4.4 Book 2, 6.6
+			// See EMV 4.4 Book 4, 6.3.2.1
+			ref_ctrl |= EMV_TTL_GENAC_SIG_CDA;
+		} else {
+			// Ignore ODA entirely if:
+			// - CDA was previously selected
+			// - CDA has not yet failed
+			// - AAC is requested
+			// See EMV 4.4 Book 2, 6.6.3, figure 3
+			ctx->tvr->value[0] |= EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED;
+		}
 	}
 
 	// Prepare ordered data sources
@@ -1742,7 +1754,14 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 		goto exit;
 	}
 
-	if (ref_ctrl & EMV_TTL_GENAC_SIG_MASK) {
+	// Presence of SDAD is confirmed by emv_tal_genac() when card performed ODA
+	// but no further ODA processing should be performed if ODA was not
+	// requested
+	// See EMV 4.4 Book 2, 6.6.2
+	// See EMV 4.4 Book 3, 6.5.5.4
+	// See EMV 4.4 Book 4, 6.3.2.1
+	sdad = emv_tlv_list_find_const(&genac_list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
+	if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) && sdad) {
 		// Validate GENAC1 response which will in turn unpack the SDAD fields
 		// and append them to the GENAC1 fields
 		r = emv_oda_process_genac(ctx, &genac_list);
@@ -1758,8 +1777,8 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 				goto exit;
 			}
 
-			// Otherwise session may continue although offline data authentication
-			// has failed.
+			// Otherwise session may continue although offline data
+			// authentication has failed.
 			emv_debug_error("Offline data authentication failed");
 		}
 	}
@@ -1774,21 +1793,50 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	}
 
 	// Determine Card Action Analysis outcome
+	// See EMV 4.4 Book 4, 6.3.2.1
 	// See EMV 4.4 Book 4, 6.3.7
 	switch (cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
 		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
 			emv_debug_info("GENAC1: Application Authentication Cryptogram (AAC)");
-			outcome = EMV_OUTCOME_DECLINED;
+			// See EMV 4.4 Book 4, 6.3.7
+			if ((cid->value[0] & EMV_CID_ADVICE_CODE_MASK) == EMV_CID_ADVICE_SERVICE_NOT_ALLOWED) {
+				emv_debug_trace_msg("Service not allowed");
+				outcome = EMV_OUTCOME_NOT_ACCEPTED;
+			} else {
+				outcome = EMV_OUTCOME_DECLINED;
+			}
 			break;
 
 		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
 			emv_debug_info("GENAC1: Transaction Certificate (TC)");
-			outcome = EMV_OUTCOME_APPROVED;
+			// If CDA was requested but failed in conjunction with GENAC1,
+			// decline the TC
+			// See EMV 4.4 Book 2, 6.6
+			// See EMV 4.4 Book 4, 6.3.2.1
+			if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) == EMV_TTL_GENAC_SIG_CDA &&
+				(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
+			) {
+				emv_debug_trace_msg("Declined because CDA failed");
+				outcome = EMV_OUTCOME_DECLINED;
+			} else {
+				outcome = EMV_OUTCOME_APPROVED;
+			}
 			break;
 
 		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC:
 			emv_debug_info("GENAC1: Authorisation Request Cryptogram (ARQC)");
-			outcome = 0; // Continue to emv_online_processing()
+			// If CDA was requested but failed in conjunction with GENAC1,
+			// decline the ARQC
+			// See EMV 4.4 Book 2, 6.6
+			// See EMV 4.4 Book 4, 6.3.2.1
+			if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) == EMV_TTL_GENAC_SIG_CDA &&
+				(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
+			) {
+				emv_debug_trace_msg("Declined because CDA failed");
+				outcome = EMV_OUTCOME_DECLINED;
+			} else {
+				outcome = 0; // Continue to emv_online_processing()
+			}
 			break;
 
 		default:
@@ -1954,6 +2002,7 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 	const struct emv_tlv_t* cdol2;
 	struct emv_tlv_list_t genac_list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* sdad;
 	const struct emv_tlv_t* cid;
 	int outcome;
 
@@ -2007,13 +2056,24 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 		}
 	}
 
+	// Adjust TVR for GENAC2
+	// See EMV 4.4 Book 2, 6.6
+	// See EMV 4.4 Book 2, Annex D4
+	if (ctx->oda.method == EMV_ODA_METHOD_CDA) {
+		ctx->tvr->value[0] &= ~EMV_TVR_OFFLINE_DATA_AUTH_NOT_PERFORMED;
+	}
+
 	if (ctx->oda.method == EMV_ODA_METHOD_CDA &&
-		!(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
+		!(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED) &&
+		(ref_ctrl & EMV_TTL_GENAC_TYPE_MASK) != EMV_TTL_GENAC_TYPE_AAC
 	) {
-		// Only request CDA signature if CDA was previously selected but has
-		// not yet failed.
+		// Only request CDA signature if:
+		// - CDA was previously selected
+		// - CDA has not yet failed
+		// - AAC is not requested
 		// See EMV 4.4 Book 2, 6.6
 		// See EMV 4.4 Book 3, 10.11
+		// See EMV 4.4 Book 4, 6.3.2.1
 		ref_ctrl |= EMV_TTL_GENAC_SIG_CDA;
 	}
 
@@ -2077,7 +2137,14 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 		goto exit;
 	}
 
-	if (ref_ctrl & EMV_TTL_GENAC_SIG_MASK) {
+	// Presence of SDAD is confirmed by emv_tal_genac() when card performed ODA
+	// but no further ODA processing should be performed if ODA was not
+	// requested
+	// See EMV 4.4 Book 2, 6.6.2
+	// See EMV 4.4 Book 3, 6.5.5.4
+	// See EMV 4.4 Book 4, 6.3.2.1
+	sdad = emv_tlv_list_find_const(&genac_list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
+	if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) && sdad) {
 		// Validate GENAC2 response which will in turn unpack the SDAD fields
 		// and append them to the GENAC2 fields
 		r = emv_oda_process_genac(ctx, &genac_list);
@@ -2118,7 +2185,18 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 
 		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
 			emv_debug_info("GENAC2: Transaction Certificate (TC)");
-			outcome = EMV_OUTCOME_APPROVED;
+			// If CDA was requested but failed in conjunction with GENAC2,
+			// decline the TC
+			// See EMV 4.4 Book 2, 6.6
+			// See EMV 4.4 Book 4, 6.3.2.1
+			if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) == EMV_TTL_GENAC_SIG_CDA &&
+				(ctx->tvr->value[0] & EMV_TVR_CDA_FAILED)
+			) {
+				emv_debug_trace_msg("Declined because CDA failed");
+				outcome = EMV_OUTCOME_DECLINED;
+			} else {
+				outcome = EMV_OUTCOME_APPROVED;
+			}
 			break;
 
 		default:
