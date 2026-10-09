@@ -204,6 +204,270 @@ int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv)
 	return offset;
 }
 
+static unsigned int iso8825_ber_tag_octet_count(unsigned int tag)
+{
+	unsigned int octet_count = sizeof(tag);
+
+	// Find most significant non-zero octet of BER encoded tag
+	// See ISO 8825-1:2021, 8.1.2
+	while (octet_count > 1 && (tag >> ((octet_count - 1) * 8)) == 0) {
+		--octet_count;
+	}
+
+	return octet_count;
+}
+
+int iso8825_ber_tag_compute_encoded_length(unsigned int tag)
+{
+	unsigned int octet_count;
+	uint8_t first_octet;
+
+	octet_count = iso8825_ber_tag_octet_count(tag);
+	first_octet = (tag >> ((octet_count - 1) * 8)) & 0xFF;
+
+	if (octet_count == 1) {
+		// Low tag number form
+		// See ISO 8825-1:2021, 8.1.2.2
+		if ((first_octet & ISO8825_BER_TAG_NUMBER_MASK) == ISO8825_BER_TAG_HIGH_FORM) {
+			// High tag number form requires subsequent octets
+			return -1;
+		}
+
+		return octet_count;
+	}
+
+	// High tag number form
+	// See ISO 8825-1:2021, 8.1.2.4
+	if ((first_octet & ISO8825_BER_TAG_NUMBER_MASK) != ISO8825_BER_TAG_HIGH_FORM) {
+		// Low tag number form cannot have subsequent octets
+		return -2;
+	}
+
+	for (unsigned int i = 1; i < octet_count; ++i) {
+		uint8_t octet = (tag >> ((octet_count - 1 - i) * 8)) & 0xFF;
+
+		// All but the last octet must indicate that more octets follow
+		// See ISO 8825-1:2021, 8.1.2.4.2
+		if (i < octet_count - 1) {
+			if (!(octet & ISO8825_BER_TAG_HIGH_FORM_MORE)) {
+				return -3;
+			}
+		} else {
+			if (octet & ISO8825_BER_TAG_HIGH_FORM_MORE) {
+				return -4;
+			}
+		}
+	}
+
+	return octet_count;
+}
+
+int iso8825_ber_tag_encode(unsigned int tag, void* ptr, size_t* len)
+{
+	int r;
+	uint8_t* buf = ptr;
+	size_t remaining_len;
+	unsigned int octet_count;
+
+	if (!ptr || !len) {
+		return -1;
+	}
+	remaining_len = *len;
+	*len = 0;
+
+	r = iso8825_ber_tag_compute_encoded_length(tag);
+	if (r <= 0) {
+		// Invalid BER encoded tag
+		return -2;
+	}
+	octet_count = r;
+
+	if (octet_count > remaining_len) {
+		// Not enough space in output buffer
+		return -3;
+	}
+
+	// Encode tag octets from the most significant octet onwards
+	// See ISO 8825-1:2021, 8.1.2
+	for (unsigned int i = octet_count; i; --i) {
+		buf[*len] = (tag >> ((i - 1) * 8)) & 0xFF;
+		++*len;
+	}
+
+	return 0;
+}
+
+int iso8825_ber_len_compute_encoded_length(unsigned int length)
+{
+	// Short length form uses a single octet
+	// See ISO 8825-1:2021, 8.1.3.4
+	if (length < ISO8825_BER_LEN_LONG_FORM) {
+		return 1;
+	}
+
+	// Long length form uses an initial octet followed by the length octets
+	// See ISO 8825-1:2021, 8.1.3.5
+	if (length <= 0xFF) {
+		return 1 + 1;
+	}
+	if (length <= 0xFFFF) {
+		return 1 + 2;
+	}
+	if (length <= 0xFFFFFF) {
+		return 1 + 3;
+	}
+
+	return 1 + 4;
+}
+
+int iso8825_ber_len_encode(unsigned int length, void* ptr, size_t* len)
+{
+	uint8_t* buf = ptr;
+	size_t remaining_len;
+	unsigned int octet_count;
+
+	if (!ptr || !len) {
+		return -1;
+	}
+	remaining_len = *len;
+	*len = 0;
+
+	octet_count = iso8825_ber_len_compute_encoded_length(length);
+	if (octet_count > remaining_len) {
+		// Not enough space in output buffer
+		return -2;
+	}
+
+	if (octet_count == 1) {
+		// Short length form
+		// See ISO 8825-1:2021, 8.1.3.4
+		buf[0] = length;
+		*len = 1;
+
+		return 0;
+	}
+
+	// Long length form
+	// Remaining bits of the initial octet indicate the number of length octets
+	// See ISO 8825-1:2021, 8.1.3.5
+	buf[0] = ISO8825_BER_LEN_LONG_FORM | (octet_count - 1);
+	*len = 1;
+
+	// Each subsequent octet is the next 8 bits of the length value
+	// See ISO 8825-1:2021, 8.1.3.5
+	for (unsigned int i = octet_count - 1; i; --i) {
+		buf[*len] = (length >> ((i - 1) * 8)) & 0xFF;
+		++*len;
+	}
+
+	return 0;
+}
+
+int iso8825_ber_compute_encoded_length(const struct iso8825_tlv_t* tlv)
+{
+	int r;
+	unsigned int total;
+
+	if (!tlv) {
+		return -1;
+	}
+
+	// Tag octets
+	r = iso8825_ber_tag_compute_encoded_length(tlv->tag);
+	if (r <= 0) {
+		// Invalid BER encoded tag
+		return -2;
+	}
+	total = r;
+
+	// Length octets
+	r = iso8825_ber_len_compute_encoded_length(tlv->length);
+	if (r <= 0) {
+		// This should never happen
+		return -3;
+	}
+	total += r;
+
+	// Content octets
+	if (total + tlv->length > 0xFFFF) {
+		// Content should not be excessively large
+		return -4;
+	}
+	total += tlv->length;
+
+	return total;
+}
+
+int iso8825_ber_encode(const struct iso8825_tlv_t* tlv, void* ptr, size_t* len)
+{
+	int r;
+	uint8_t* buf = ptr;
+	size_t remaining_len;
+	size_t octet_count;
+
+	if (!ptr || !tlv || !len) {
+		return -1;
+	}
+	remaining_len = *len;
+	*len = 0;
+
+	if (tlv->length && !tlv->value) {
+		return -2;
+	}
+
+	r = iso8825_ber_compute_encoded_length(tlv);
+	if (r <= 0) {
+		// Invalid TLV structure
+		return -3;
+	}
+	if ((size_t)r > remaining_len) {
+		// Not enough space in output buffer
+		return -4;
+	}
+
+	// Encode tag octets
+	octet_count = remaining_len;
+	r = iso8825_ber_tag_encode(tlv->tag, buf, &octet_count);
+	if (r) {
+		return -5;
+	}
+	*len += octet_count;
+	remaining_len -= octet_count;
+
+	// Encode length octets
+	octet_count = remaining_len;
+	r = iso8825_ber_len_encode(tlv->length, buf + *len, &octet_count);
+	if (r) {
+		return -6;
+	}
+	*len += octet_count;
+	remaining_len -= octet_count;
+
+	// Encode content octets
+	if (tlv->length) {
+		if (tlv->length > remaining_len) {
+			// Not enough space in output buffer
+			return -7;
+		}
+		memcpy(buf + *len, tlv->value, tlv->length);
+		*len += tlv->length;
+	}
+
+	return 0;
+}
+
+static uint8_t iso8825_ber_tag_first_octet(unsigned int tag)
+{
+	return (tag >> ((iso8825_ber_tag_octet_count(tag) - 1) * 8)) & 0xFF;
+}
+
+bool iso8825_ber_tag_is_constructed(unsigned int tag)
+{
+	// Primitive/constructed bit is in the first octet of the BER encoded tag
+	// See ISO 8825-1:2021, 8.1.2.5
+	return (iso8825_ber_tag_first_octet(tag) & ISO8825_BER_CONSTRUCTED) != 0;
+}
+
 bool iso8825_ber_is_string(const struct iso8825_tlv_t* tlv)
 {
 	if (!tlv) {

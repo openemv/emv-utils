@@ -282,6 +282,38 @@ const struct emv_tlv_t* emv_tlv_sources_itr_find_next_const(
 int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list);
 
 /**
+ * Compute length of encoded EMV data required by @ref emv_tlv_list_encode()
+ *
+ * @param list EMV TLV list
+ * @param template_tag Constructed/template EMV tag with which to wrap the
+ *                     encoded EMV TLV list. Zero for no template.
+ * @return Length of encoded EMV data. Less than zero for error.
+ */
+int emv_tlv_list_compute_encoded_length(
+	const struct emv_tlv_list_t* list,
+	unsigned int template_tag
+);
+
+/**
+ * Encode EMV data.
+ * This function will encode each field of an EMV TLV list using ISO 8825-1 BER
+ * and optionally wrap the encoded fields in a constructed/template field.
+ *
+ * @param list EMV TLV list
+ * @param template_tag Constructed/template EMV tag with which to wrap the
+ *                     encoded EMV TLV list. Zero for no template.
+ * @param ptr Encoded EMV data output
+ * @param len Length of encoded EMV data output in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero if output data length too small.
+ */
+int emv_tlv_list_encode(
+	const struct emv_tlv_list_t* list,
+	unsigned int template_tag,
+	void* ptr,
+	size_t* len
+);
+
+/**
  * Determine whether a specific EMV tag should be encoded as format 'n'
  * @note This function is typically needed for Data Object List (DOL) processing
  * @remark See EMV 4.4 Book 3, Annex A1

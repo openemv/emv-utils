@@ -587,6 +587,129 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 	return 0;
 }
 
+int emv_tlv_list_compute_encoded_length(
+	const struct emv_tlv_list_t* list,
+	unsigned int template_tag
+)
+{
+	int r;
+	unsigned int total = 0;
+
+	if (!emv_tlv_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (template_tag && !iso8825_ber_tag_is_constructed(template_tag)) {
+		// Template field must be a constructed field
+		return -2;
+	}
+
+	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		r = iso8825_ber_compute_encoded_length(&tlv->ber);
+		if (r <= 0) {
+			// Invalid EMV TLV field
+			return -3;
+		}
+		total += r;
+
+		// Encoded EMV data should not be excessively large
+		if (total > 0xFFFF) {
+			return -4;
+		}
+	}
+
+	if (template_tag) {
+		// Wrap the encoded EMV TLV list in a constructed/template field by
+		// adding the tag and length octets of the template field
+		struct iso8825_tlv_t template_tlv = { template_tag, total, NULL, 0 };
+
+		r = iso8825_ber_compute_encoded_length(&template_tlv);
+		if (r <= 0) {
+			// Invalid template field
+			return -5;
+		}
+		total = r;
+
+		// Encoded EMV data should not be excessively large
+		if (total > 0xFFFF) {
+			return -6;
+		}
+	}
+
+	return total;
+}
+
+int emv_tlv_list_encode(
+	const struct emv_tlv_list_t* list,
+	unsigned int template_tag,
+	void* ptr,
+	size_t* len
+)
+{
+	int r;
+	uint8_t* buf = ptr;
+	size_t remaining_len;
+	size_t octet_count;
+
+	if (!ptr || !len) {
+		return -1;
+	}
+	remaining_len = *len;
+	*len = 0;
+
+	// Validate the list as well as the template tag, and determine the total
+	// encoded length
+	r = emv_tlv_list_compute_encoded_length(list, template_tag);
+	if (r < 0) {
+		return -2;
+	}
+	if ((size_t)r > remaining_len) {
+		// Output data length too small
+		return 1;
+	}
+
+	if (template_tag) {
+		int content_len;
+
+		// Determine the length of the template field content
+		content_len = emv_tlv_list_compute_encoded_length(list, 0);
+		if (content_len < 0) {
+			return -3;
+		}
+
+		// Encode tag octets of the template field
+		octet_count = remaining_len;
+		r = iso8825_ber_tag_encode(template_tag, buf, &octet_count);
+		if (r) {
+			return -4;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
+
+		// Encode length octets of the template field
+		octet_count = remaining_len;
+		r = iso8825_ber_len_encode(content_len, buf + *len, &octet_count);
+		if (r) {
+			return -5;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
+	}
+
+	// Encode each EMV TLV field
+	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		octet_count = remaining_len;
+		r = iso8825_ber_encode(&tlv->ber, buf + *len, &octet_count);
+		if (r) {
+			return -6;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
+	}
+
+	return 0;
+}
+
 bool emv_tlv_is_format_n(unsigned int tag)
 {
 	// EMV tags with source 'Terminal' and format 'n'
