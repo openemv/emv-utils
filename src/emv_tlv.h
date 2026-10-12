@@ -213,6 +213,7 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
  * - ICC data obtained from the current card should not be overridden by config
  *   or current transaction parameters
  * - Transaction parameters can override config
+ * - Application dependent config can override application independent config
  * @param sources EMV TLV sources
  * @param ctx EMV processing context
  * @return Zero for success. Less than zero for error.
@@ -308,6 +309,44 @@ int emv_tlv_list_compute_encoded_length(
  */
 int emv_tlv_list_encode(
 	const struct emv_tlv_list_t* list,
+	unsigned int template_tag,
+	void* ptr,
+	size_t* len
+);
+
+/**
+ * Compute length of encoded EMV data required by @ref emv_tlv_sources_encode()
+ *
+ * @note Only the highest priority instance of each EMV field is considered.
+ *
+ * @param sources EMV TLV sources
+ * @param template_tag Constructed/template EMV tag with which to wrap the
+ *                     encoded EMV TLV fields. Zero for no template.
+ * @return Length of encoded EMV data. Less than zero for error.
+ */
+int emv_tlv_sources_compute_encoded_length(
+	const struct emv_tlv_sources_t* sources,
+	unsigned int template_tag
+);
+
+/**
+ * Encode EMV data.
+ * This function will encode each field of the EMV TLV sources using ISO 8825-1
+ * BER and optionally wrap the encoded fields in a constructed/template field.
+ *
+ * @note Only the highest priority instance of each EMV field or ASN.1 object
+ *       is encoded, such that the encoded field represents that instance while
+ *       omitting lower priority instances of the same field.
+ *
+ * @param sources EMV TLV sources
+ * @param template_tag Constructed/template EMV tag with which to wrap the
+ *                     encoded EMV TLV fields. Zero for no template.
+ * @param ptr Encoded EMV data output
+ * @param len Length of encoded EMV data output in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero if output data length too small.
+ */
+int emv_tlv_sources_encode(
+	const struct emv_tlv_sources_t* sources,
 	unsigned int template_tag,
 	void* ptr,
 	size_t* len

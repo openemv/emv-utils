@@ -473,6 +473,36 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
  */
 int emv_card_action_analysis(struct emv_ctx_t* ctx);
 
+/**
+ * Compute length of encoded EMV transaction record required by
+ * @ref emv_txn_record_encode()
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Length of encoded EMV transaction record
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_txn_record_compute_encoded_length(const struct emv_ctx_t* ctx);
+
+/**
+ * Encode EMV transaction record
+ *
+ * This function will encode the terminal data, ICC data, transaction
+ * parameters, and configuration data (in the order provided by
+ * @ref emv_tlv_sources_init_from_ctx()) using ISO 8825-1 BER. If more than one
+ * of these data sources provides the same EMV tag, only the value of the
+ * highest priority data source is encoded.
+ *
+ * @param ctx EMV processing context
+ * @param ptr Encoded EMV transaction record
+ * @param len Length of encoded EMV transaction record output in bytes
+ *
+ * @return Zero for success
+ * @return Greater than zero if output data length too small
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_txn_record_encode(const struct emv_ctx_t* ctx, void* ptr, size_t* len);
+
 __END_DECLS
 
 #endif

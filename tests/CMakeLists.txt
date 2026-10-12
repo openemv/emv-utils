@@ -106,6 +106,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_tlv_encode_test PRIVATE print_helpers emv)
 	add_test(emv_tlv_encode_test emv_tlv_encode_test)
 
+	add_executable(emv_txn_record_encode_test emv_txn_record_encode_test.c)
+	target_link_libraries(emv_txn_record_encode_test PRIVATE print_helpers emv)
+	add_test(emv_txn_record_encode_test emv_txn_record_encode_test)
+
 	add_executable(isocodes_test isocodes_test.c)
 	find_package(Intl)
 	if(Intl_FOUND)

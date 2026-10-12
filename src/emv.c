@@ -1751,3 +1751,52 @@ exit:
 	emv_tlv_list_clear(&genac_list);
 	return r;
 }
+
+int emv_txn_record_compute_encoded_length(const struct emv_ctx_t* ctx)
+{
+	int r;
+	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
+
+	if (!ctx) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+		return EMV_ERROR_INTERNAL;
+	}
+
+	r = emv_tlv_sources_compute_encoded_length(&sources, EMV_TAG_70_DATA_TEMPLATE);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_tlv_sources_compute_encoded_length() failed; r=%d", r);
+		return EMV_ERROR_INTERNAL;
+	}
+
+	return r;
+}
+
+int emv_txn_record_encode(const struct emv_ctx_t* ctx, void* ptr, size_t* len)
+{
+	int r;
+	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
+
+	if (!ctx || !ptr || !len) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+		return EMV_ERROR_INTERNAL;
+	}
+
+	r = emv_tlv_sources_encode(&sources, EMV_TAG_70_DATA_TEMPLATE, ptr, len);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_tlv_sources_encode() failed; r=%d", r);
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Zero for success. Greater than zero if output data length too small.
+	return r;
+}
