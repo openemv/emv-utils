@@ -1423,11 +1423,12 @@ int emv_tal_genac(
 				template_tlv.tag == EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA
 			) {
 				unsigned int offset_before_sdad =
-					itr.ptr - (void*)response_tlv.value - r;
+					(void*)itr.ptr - (void*)response_tlv.value - r;
 
-				if (offset_before_sdad <= sizeof(oda->genac_data)) {
-					// Found SDAD (field 9F4B) and buffer has enough space,
-					// therefore cache fields before SDAD
+				if (response_tlv.length - template_tlv.length <= sizeof(oda->genac_data)) {
+					// Found SDAD (field 9F4B) and buffer has enough space for
+					// the fields before and after SDAD, therefore cache fields
+					// before SDAD
 					memcpy(
 						oda->genac_data,
 						response_tlv.value,
