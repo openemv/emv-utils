@@ -34,6 +34,8 @@
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list);
 static inline bool emv_tlv_sources_is_valid(const struct emv_tlv_sources_t* sources);
 static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, const uint8_t* value, uint8_t flags);
+static bool emv_tlv_is_duplicate(const struct emv_tlv_t* tlv, const struct emv_tlv_t* other);
+static bool emv_tlv_sources_is_first(const struct emv_tlv_sources_t* sources, const struct emv_tlv_t* tlv);
 
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list)
 {
@@ -313,36 +315,40 @@ struct emv_tlv_t* emv_tlv_list_find(
 	return NULL;
 }
 
-bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list)
+static bool emv_tlv_is_duplicate(const struct emv_tlv_t* tlv, const struct emv_tlv_t* other)
 {
 	int r;
+	struct iso8825_oid_t oid;
 
+	r = iso8825_ber_asn1_object_decode(&tlv->ber, &oid);
+	if (r > 0) { // Is ASN.1 object
+		struct iso8825_oid_t other_oid;
+
+		r = iso8825_ber_asn1_object_decode(&other->ber, &other_oid);
+		if (r > 0 && // Is ASN.1 object
+			oid.length == other_oid.length && // OID arc length match
+			memcmp(oid.value, other_oid.value, sizeof(other_oid.value[0]) * other_oid.length) == 0 // OID arc match
+		) {
+			// Duplicate ASN.1 object
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	return tlv->tag == other->tag;
+}
+
+bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list)
+{
 	if (!emv_tlv_list_is_valid(list)) {
 		return false;
 	}
 
 	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
-		struct iso8825_oid_t oid;
-		bool tlv_is_asn1_object = false;
-		r = iso8825_ber_asn1_object_decode(&tlv->ber, &oid);
-		if (r > 0) {
-			tlv_is_asn1_object = true;
-		}
-
 		for (const struct emv_tlv_t* tlv2 = tlv->next; tlv2 != NULL; tlv2 = tlv2->next) {
-			if (tlv_is_asn1_object) {
-				struct iso8825_oid_t oid2;
-				r = iso8825_ber_asn1_object_decode(&tlv2->ber, &oid2);
-				if (r > 0 && // Is ASN.1 object
-					oid.length == oid2.length && // OID arc length match
-					memcmp(oid.value, oid2.value, sizeof(oid2.value[0]) * oid2.length) == 0 // OID arc match
-				) {
-					// Duplicate ASN.1 object
-					return true;
-				}
-
-			} else if (tlv->tag == tlv2->tag) {
-				// Duplicate EMV field
+			if (emv_tlv_is_duplicate(tlv, tlv2)) {
+				// Duplicate EMV field or duplicate ASN.1 object
 				return true;
 			}
 		}
@@ -582,6 +588,298 @@ int emv_tlv_parse(const void* ptr, size_t len, struct emv_tlv_list_t* list)
 	if (r < 0) {
 		// BER decoding error
 		return 1;
+	}
+
+	return 0;
+}
+
+int emv_tlv_list_compute_encoded_length(
+	const struct emv_tlv_list_t* list,
+	unsigned int template_tag
+)
+{
+	int r;
+	unsigned int total = 0;
+
+	if (!emv_tlv_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (template_tag && !iso8825_ber_tag_is_constructed(template_tag)) {
+		// Template field must be a constructed field
+		return -2;
+	}
+
+	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		r = iso8825_ber_compute_encoded_length(&tlv->ber);
+		if (r <= 0) {
+			// Invalid EMV TLV field
+			return -3;
+		}
+		total += r;
+
+		// Encoded EMV data should not be excessively large
+		if (total > 0xFFFF) {
+			return -4;
+		}
+	}
+
+	if (template_tag) {
+		// Wrap the encoded EMV TLV list in a constructed/template field by
+		// adding the tag and length octets of the template field
+		struct iso8825_tlv_t template_tlv = { template_tag, total, NULL, 0 };
+
+		r = iso8825_ber_compute_encoded_length(&template_tlv);
+		if (r <= 0) {
+			// Invalid template field
+			return -5;
+		}
+		total = r;
+
+		// Encoded EMV data should not be excessively large
+		if (total > 0xFFFF) {
+			return -6;
+		}
+	}
+
+	return total;
+}
+
+int emv_tlv_list_encode(
+	const struct emv_tlv_list_t* list,
+	unsigned int template_tag,
+	void* ptr,
+	size_t* len
+)
+{
+	int r;
+	uint8_t* buf = ptr;
+	size_t remaining_len;
+	size_t octet_count;
+
+	if (!ptr || !len) {
+		return -1;
+	}
+	remaining_len = *len;
+	*len = 0;
+
+	// Validate the list as well as the template tag, and determine the total
+	// encoded length
+	r = emv_tlv_list_compute_encoded_length(list, template_tag);
+	if (r < 0) {
+		return -2;
+	}
+	if ((size_t)r > remaining_len) {
+		// Output data length too small
+		return 1;
+	}
+
+	if (template_tag) {
+		int content_len;
+
+		// Determine the length of the template field content
+		content_len = emv_tlv_list_compute_encoded_length(list, 0);
+		if (content_len < 0) {
+			return -3;
+		}
+
+		// Encode tag octets of the template field
+		octet_count = remaining_len;
+		r = iso8825_ber_tag_encode(template_tag, buf, &octet_count);
+		if (r) {
+			return -4;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
+
+		// Encode length octets of the template field
+		octet_count = remaining_len;
+		r = iso8825_ber_len_encode(content_len, buf + *len, &octet_count);
+		if (r) {
+			return -5;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
+	}
+
+	// Encode each EMV TLV field
+	for (const struct emv_tlv_t* tlv = list->front; tlv != NULL; tlv = tlv->next) {
+		octet_count = remaining_len;
+		r = iso8825_ber_encode(&tlv->ber, buf + *len, &octet_count);
+		if (r) {
+			return -6;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
+	}
+
+	return 0;
+}
+
+static bool emv_tlv_sources_is_first(const struct emv_tlv_sources_t* sources, const struct emv_tlv_t* tlv)
+{
+	struct emv_tlv_sources_itr_t itr;
+	const struct emv_tlv_t* tlv2;
+
+	if (emv_tlv_sources_itr_init(sources, &itr)) {
+		return false;
+	}
+
+	// Iterate in order of priority
+	while ((tlv2 = emv_tlv_sources_itr_next_const(&itr))) {
+		if (tlv2 == tlv) {
+			return true;
+		}
+
+		if (emv_tlv_is_duplicate(tlv2, tlv)) {
+			return false;
+		}
+	}
+
+	return false;
+}
+
+int emv_tlv_sources_compute_encoded_length(
+	const struct emv_tlv_sources_t* sources,
+	unsigned int template_tag
+)
+{
+	int r;
+	unsigned int total = 0;
+	struct emv_tlv_sources_itr_t itr;
+	const struct emv_tlv_t* tlv;
+
+	if (!emv_tlv_sources_is_valid(sources)) {
+		return -1;
+	}
+
+	if (template_tag && !iso8825_ber_tag_is_constructed(template_tag)) {
+		// Template field must be a constructed field
+		return -2;
+	}
+
+	r = emv_tlv_sources_itr_init(sources, &itr);
+	if (r) {
+		return -3;
+	}
+
+	while ((tlv = emv_tlv_sources_itr_next_const(&itr))) {
+		// Only consider the highest priority instance of each EMV field
+		if (!emv_tlv_sources_is_first(sources, tlv)) {
+			continue;
+		}
+
+		r = iso8825_ber_compute_encoded_length(&tlv->ber);
+		if (r <= 0) {
+			// Invalid EMV TLV field
+			return -4;
+		}
+		total += r;
+
+		// Encoded EMV data should not be excessively large
+		if (total > 0xFFFF) {
+			return -5;
+		}
+	}
+
+	if (template_tag) {
+		// Wrap the encoded EMV TLV fields in a constructed/template field by
+		// adding the tag and length octets of the template field
+		struct iso8825_tlv_t template_tlv = { template_tag, total, NULL, 0 };
+
+		r = iso8825_ber_compute_encoded_length(&template_tlv);
+		if (r <= 0) {
+			// Invalid template field
+			return -6;
+		}
+		total = r;
+
+		// Encoded EMV data should not be excessively large
+		if (total > 0xFFFF) {
+			return -7;
+		}
+	}
+
+	return total;
+}
+
+int emv_tlv_sources_encode(
+	const struct emv_tlv_sources_t* sources,
+	unsigned int template_tag,
+	void* ptr,
+	size_t* len
+)
+{
+	int r;
+	uint8_t* buf = ptr;
+	size_t remaining_len;
+	size_t octet_count;
+	struct emv_tlv_sources_itr_t itr;
+	const struct emv_tlv_t* tlv;
+
+	if (!ptr || !len) {
+		return -1;
+	}
+	remaining_len = *len;
+	*len = 0;
+
+	// Validate the sources as well as the template tag, and determine the
+	// total encoded length
+	r = emv_tlv_sources_compute_encoded_length(sources, template_tag);
+	if (r < 0) {
+		return -2;
+	}
+	if ((size_t)r > remaining_len) {
+		// Output data length too small
+		return 1;
+	}
+
+	if (template_tag) {
+		int content_len;
+
+		// Determine the length of the template field content
+		content_len = emv_tlv_sources_compute_encoded_length(sources, 0);
+		if (content_len < 0) {
+			return -3;
+		}
+
+		// Encode tag octets of the template field
+		octet_count = remaining_len;
+		r = iso8825_ber_tag_encode(template_tag, buf, &octet_count);
+		if (r) {
+			return -4;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
+
+		// Encode length octets of the template field
+		octet_count = remaining_len;
+		r = iso8825_ber_len_encode(content_len, buf + *len, &octet_count);
+		if (r) {
+			return -5;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
+	}
+
+	r = emv_tlv_sources_itr_init(sources, &itr);
+	if (r) {
+		return -6;
+	}
+
+	// Encode the highest priority instance of each EMV field
+	while ((tlv = emv_tlv_sources_itr_next_const(&itr))) {
+		if (!emv_tlv_sources_is_first(sources, tlv)) {
+			continue;
+		}
+
+		octet_count = remaining_len;
+		r = iso8825_ber_encode(&tlv->ber, buf + *len, &octet_count);
+		if (r) {
+			return -7;
+		}
+		*len += octet_count;
+		remaining_len -= octet_count;
 	}
 
 	return 0;

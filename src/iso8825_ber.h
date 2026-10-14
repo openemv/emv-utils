@@ -3,7 +3,7 @@
  * @brief Basic Encoding Rules (BER) implementation
  *        (see ISO/IEC 8825-1:2021 or Rec. ITU-T X.690 02/2021)
  *
- * Copyright 2021, 2024-2025 Leon Lynch
+ * Copyright 2021, 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -220,6 +220,66 @@ int iso8825_ber_tag_decode(const void* ptr, size_t len, unsigned int* tag);
 int iso8825_ber_decode(const void* ptr, size_t len, struct iso8825_tlv_t* tlv);
 
 /**
+ * Compute length of BER encoded tag octets required by
+ * @ref iso8825_ber_tag_encode()
+ * @remark See ISO 8825-1:2021, 8.1.2
+ *
+ * @param tag BER encoded tag, including class, primitive/structured bit, and tag number
+ * @return Number of bytes required. Less than zero for error.
+ */
+int iso8825_ber_tag_compute_encoded_length(unsigned int tag);
+
+/**
+ * Encode BER tag octets
+ * @param tag BER encoded tag, including class, primitive/structured bit, and tag number
+ * @param ptr BER encoded tag octet output
+ * @param len Length of BER encoded tag octet output in bytes
+ * @return Zero for success. Less than zero for error.
+ */
+int iso8825_ber_tag_encode(unsigned int tag, void* ptr, size_t* len);
+
+/**
+ * Compute length of BER encoded length octets required by
+ * @ref iso8825_ber_len_encode()
+ * @remark See ISO 8825-1:2021, 8.1.3
+ *
+ * @param length BER length value in bytes
+ * @return Number of bytes required
+ */
+int iso8825_ber_len_compute_encoded_length(unsigned int length);
+
+/**
+ * Encode BER length octets using the definite form
+ * @note The minimum number of length octets is always used
+ * @remark See ISO 8825-1:2021, 8.1.3
+ *
+ * @param length BER length value in bytes
+ * @param ptr BER encoded length octet output
+ * @param len Length of BER encoded length octet output in bytes
+ * @return Zero for success. Less than zero for error.
+ */
+int iso8825_ber_len_encode(unsigned int length, void* ptr, size_t* len);
+
+/**
+ * Compute length of BER encoded data required by @ref iso8825_ber_encode()
+ * @param tlv TLV structure to encode
+ * @return Number of bytes required. Less than zero for error.
+ */
+int iso8825_ber_compute_encoded_length(const struct iso8825_tlv_t* tlv);
+
+/**
+ * Encode BER data
+ * @note The definite length form is always used. See
+ *       @ref iso8825_ber_len_encode().
+ *
+ * @param tlv TLV structure to encode
+ * @param ptr BER encoded data output
+ * @param len Length of BER encoded data output in bytes
+ * @return Zero for success. Less than zero for error.
+ */
+int iso8825_ber_encode(const struct iso8825_tlv_t* tlv, void* ptr, size_t* len);
+
+/**
  * Retrieve class of BER tag type
  * @param tlv Decoded TLV structure
  * @retval ISO8825_BER_CLASS_UNIVERSAL
@@ -231,10 +291,24 @@ static inline uint8_t iso8825_ber_get_class(const struct iso8825_tlv_t* tlv) { r
 
 /**
  * Determine whether BER tag type is constructed
+ * @note This function relies on @ref iso8825_ber_decode() populating
+ *       @ref iso8825_tlv_t.flags during decoding.
+ *
  * @param tlv Decoded TLV structure
  * @return Boolean indicating whether BER tag type is constructed
  */
 static inline bool iso8825_ber_is_constructed(const struct iso8825_tlv_t* tlv) { return tlv && (tlv->flags & ISO8825_BER_CONSTRUCTED); }
+
+/**
+ * Determine whether BER encoded tag is constructed
+ * @note Unlike @ref iso8825_ber_is_constructed(), this function derives the
+ *       primitive/constructed bit from the first octet of tag itself instead
+ *       of a decoded @ref iso8825_tlv_t.
+ *
+ * @param tag BER encoded tag, including class, primitive/structured bit, and tag number
+ * @return Boolean indicating whether BER encoded tag is constructed
+ */
+bool iso8825_ber_tag_is_constructed(unsigned int tag);
 
 /**
  * Determine whether BER tag type is a string

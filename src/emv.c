@@ -31,6 +31,7 @@
 #include "emv_date.h"
 
 #include "iso7816.h"
+#include "iso8825_ber.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
@@ -692,7 +693,7 @@ int emv_initiate_application_processing(
 	if (pdol) {
 		struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
 		int pdol_data_len;
-		size_t pdol_data_offset;
+		struct iso8825_tlv_t cmd_template;
 
 		emv_debug_info_data("PDOL found", pdol->value, pdol->length);
 
@@ -716,21 +717,6 @@ int emv_initiate_application_processing(
 			return EMV_OUTCOME_CARD_ERROR;
 		}
 
-		// Prepare GPO data buffer with field 83
-		gpo_data = gpo_data_buf;
-		gpo_data[0] = EMV_TAG_83_COMMAND_TEMPLATE;
-		pdol_data_offset = 1;
-		if (pdol_data_len < 0x80) {
-			// Short length form
-			gpo_data[1] = pdol_data_len;
-			pdol_data_offset += 1;
-		} else {
-			// Long length form
-			gpo_data[1] = 0x81;
-			gpo_data[2] = pdol_data_len;
-			pdol_data_offset += 2;
-		}
-
 		// Populate PDOL data in cache buffer
 		ctx->oda.pdol_data_len = sizeof(ctx->oda.pdol_data);
 		r = emv_dol_build_data(
@@ -750,16 +736,23 @@ int emv_initiate_application_processing(
 			return EMV_ERROR_INTERNAL;
 		}
 
-		// Finalise GPO data buffer
-		if (ctx->oda.pdol_data_len > sizeof(gpo_data_buf) - pdol_data_offset) {
+		// Build GPO data buffer with Command Template (field 83)
+		// See EMV 4.4 Book 3, 6.5.8.3
+		cmd_template.tag = EMV_TAG_83_COMMAND_TEMPLATE;
+		cmd_template.length = ctx->oda.pdol_data_len;
+		cmd_template.value = ctx->oda.pdol_data;
+		cmd_template.flags = 0;
+		gpo_data = gpo_data_buf;
+		gpo_data_len = sizeof(gpo_data_buf);
+		r = iso8825_ber_encode(&cmd_template, gpo_data, &gpo_data_len);
+		if (r) {
+			emv_debug_trace_msg("iso8825_ber_encode() failed; r=%d", r);
 			emv_debug_error("Error during PDOL processing; "
-				"pdol_data_len=%zu; sizeof(gpo_data_buf)=%zu; pdol_data_offset=%zu",
-				ctx->oda.pdol_data_len, sizeof(gpo_data_buf), pdol_data_offset
+				"pdol_data_len=%zu; sizeof(gpo_data_buf)=%zu",
+				ctx->oda.pdol_data_len, sizeof(gpo_data_buf)
 			);
 			return EMV_ERROR_INTERNAL;
 		}
-		memcpy(gpo_data + pdol_data_offset, ctx->oda.pdol_data, ctx->oda.pdol_data_len);
-		gpo_data_len = pdol_data_offset + ctx->oda.pdol_data_len;
 
 	} else {
 		// PDOL not available. emv_ttl_get_processing_options() will build
@@ -2234,5 +2227,54 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 
 exit:
 	emv_tlv_list_clear(&genac_list);
+	return r;
+}
+
+int emv_txn_record_compute_encoded_length(const struct emv_ctx_t* ctx)
+{
+	int r;
+	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
+
+	if (!ctx) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+		return EMV_ERROR_INTERNAL;
+	}
+
+	r = emv_tlv_sources_compute_encoded_length(&sources, EMV_TAG_70_DATA_TEMPLATE);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_tlv_sources_compute_encoded_length() failed; r=%d", r);
+		return EMV_ERROR_INTERNAL;
+	}
+
+	return r;
+}
+
+int emv_txn_record_encode(const struct emv_ctx_t* ctx, void* ptr, size_t* len)
+{
+	int r;
+	struct emv_tlv_sources_t sources = EMV_TLV_SOURCES_INIT;
+
+	if (!ctx || !ptr || !len) {
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = emv_tlv_sources_init_from_ctx(&sources, ctx);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_sources_init_from_ctx() failed; r=%d", r);
+		return EMV_ERROR_INTERNAL;
+	}
+
+	r = emv_tlv_sources_encode(&sources, EMV_TAG_70_DATA_TEMPLATE, ptr, len);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_tlv_sources_encode() failed; r=%d", r);
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Zero for success. Greater than zero if output data length too small.
 	return r;
 }
