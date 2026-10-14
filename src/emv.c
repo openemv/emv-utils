@@ -1614,6 +1614,43 @@ exit:
 	return r;
 }
 
+static int emv_set_arc(struct emv_ctx_t* ctx, const uint8_t arc[2])
+{
+	int r;
+	struct emv_tlv_t* tlv;
+
+	// Authorisation Response Code (field 8A) may already have been populated
+	// earlier in the transaction, in which case it must be updated instead of
+	// duplicated
+	tlv = emv_tlv_list_find(&ctx->terminal, EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE);
+	if (tlv) {
+		if (tlv->length != 2) {
+			emv_debug_error("Authorisation Response Code (8A) has invalid length %u",
+				tlv->length
+			);
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// Authorisation Response Code (field 8A) exists; update it
+		memcpy(tlv->value, arc, 2);
+	} else {
+		// Authorisation Response Code (field 8A) doesn't exist; add it
+		r = emv_tlv_list_push(
+			&ctx->terminal,
+			EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+			2,
+			arc,
+			0
+		);
+		if (r) {
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	return 0;
+}
+
 int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 {
 	int r;
@@ -1623,6 +1660,7 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	const struct emv_tlv_t* sdad;
 	const struct emv_tlv_t* cid;
 	int outcome;
+	bool complete_with_aac = false;
 
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
@@ -1648,29 +1686,16 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 			break;
 
 		case EMV_TTL_GENAC_TYPE_TC:
-			r = emv_tlv_list_push(
-				&ctx->terminal,
-				EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
-				2,
-				(uint8_t[]){ 0x59, 0x31 }, // Y1 — Offline approved
-				0
-			);
+			r = emv_set_arc(ctx, (uint8_t[]){ 0x59, 0x31 }); // Y1 — Offline approved
 			break;
 
 		default: // EMV_TTL_GENAC_TYPE_AAC
-			r = emv_tlv_list_push(
-				&ctx->terminal,
-				EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
-				2,
-				(uint8_t[]){ 0x5A, 0x31 }, // Z1 — Offline declined
-				0
-			);
+			r = emv_set_arc(ctx, (uint8_t[]){ 0x5A, 0x31 }); // Z1 — Offline declined
 			break;
 	}
 	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		return EMV_ERROR_INTERNAL;
+		emv_debug_trace_msg("emv_set_arc() failed; r=%d", r);
+		return r;
 	}
 
 	if (ctx->oda.method == EMV_ODA_METHOD_CDA &&
@@ -1826,7 +1851,7 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC:
 			emv_debug_info("GENAC1: Authorisation Request Cryptogram (ARQC)");
 			// If CDA was requested but failed in conjunction with GENAC1,
-			// decline the ARQC
+			// decline the ARQC using an immediate GENAC2 with AAC
 			// See EMV 4.4 Book 2, 6.6
 			// See EMV 4.4 Book 4, 6.3.2.1
 			if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) == EMV_TTL_GENAC_SIG_CDA &&
@@ -1834,6 +1859,7 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 			) {
 				emv_debug_trace_msg("Declined because CDA failed");
 				outcome = EMV_OUTCOME_DECLINED;
+				complete_with_aac = true;
 			} else {
 				outcome = 0; // Continue to emv_online_processing()
 			}
@@ -1859,6 +1885,26 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	// See EMV 4.4 Book 3, 10.8
 	ctx->tsi->value[0] |= EMV_TSI_CARD_RISK_MANAGEMENT_PERFORMED;
 
+	if (complete_with_aac) {
+		// Update Authorisation Response Code (field 8A) for offline decline
+		// See EMV 4.4 Book 4, 6.3.6
+		r = emv_set_arc(ctx, (uint8_t[]){ 0x5A, 0x31 }); // Z1 — Offline declined
+		if (r) {
+			emv_debug_trace_msg("emv_set_arc() failed; r=%d", r);
+			goto exit;
+		}
+
+		// Perform completion for offline decline using AAC
+		// See EMV 4.4 Book 2, 6.6
+		// See EMV 4.4 Book 4, 6.3.2.1
+		r = emv_completion(ctx, EMV_TTL_GENAC_TYPE_AAC);
+		if (r < 0 || r == EMV_OUTCOME_CARD_ERROR) {
+			emv_debug_trace_msg("emv_completion() failed; r=%d", r);
+			emv_debug_error("Error during completion; terminate session");
+			goto exit;
+		}
+	}
+
 	// Success
 	r = outcome;
 	goto exit;
@@ -1876,7 +1922,6 @@ int emv_online_processing(
 )
 {
 	int r;
-	const struct emv_tlv_t* tlv;
 
 	if (!ctx || !arc) {
 		emv_debug_trace_msg("ctx=%p, arc=%p", ctx, arc);
@@ -1912,30 +1957,10 @@ int emv_online_processing(
 
 	// Update terminal data list for issuer response fields
 	// See EMV 4.4 Book 4, 6.3.8
-	tlv = emv_tlv_list_find(&ctx->terminal, EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE);
-	if (tlv) {
-		// Authorisation Response Code (field 8A) was populated by
-		// emv_card_action_analysis() and must be updated
-		if (tlv->length != 2) {
-			emv_debug_error("Authorisation Response Code (8A) has invalid length %u",
-				tlv->length
-			);
-			return EMV_ERROR_INTERNAL;
-		}
-		memcpy(tlv->value, arc, 2);
-	} else {
-		r = emv_tlv_list_push(
-			&ctx->terminal,
-			EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
-			2,
-			arc,
-			0
-		);
-		if (r) {
-			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
-			emv_debug_error("Internal error");
-			return EMV_ERROR_INTERNAL;
-		}
+	r = emv_set_arc(ctx, arc);
+	if (r) {
+		emv_debug_trace_msg("emv_set_arc() failed; r=%d", r);
+		return r;
 	}
 	if (iad && iad_len) {
 		r = emv_tlv_list_push(
@@ -2033,26 +2058,13 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 	arc = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE);
 	if (!arc) {
 		if (ref_ctrl == EMV_TTL_GENAC_TYPE_TC) {
-			r = emv_tlv_list_push(
-				&ctx->terminal,
-				EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
-				2,
-				(uint8_t[]){ 0x59, 0x33 }, // Y3 — Unable to go online, offline approved
-				0
-			);
+			r = emv_set_arc(ctx, (uint8_t[]){ 0x59, 0x33 }); // Y3 — Unable to go online, offline approved
 		} else {
-			r = emv_tlv_list_push(
-				&ctx->terminal,
-				EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
-				2,
-				(uint8_t[]){ 0x5A, 0x33 }, // Z3 — Unable to go online, offline declined
-				0
-			);
+			r = emv_set_arc(ctx, (uint8_t[]){ 0x5A, 0x33 }); // Z3 — Unable to go online, offline declined
 		}
 		if (r) {
-			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
-			emv_debug_error("Internal error");
-			return EMV_ERROR_INTERNAL;
+			emv_debug_trace_msg("emv_set_arc() failed; r=%d", r);
+			return r;
 		}
 	}
 

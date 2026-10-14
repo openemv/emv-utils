@@ -94,6 +94,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_terminal_risk_management_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_terminal_risk_management_test emv_terminal_risk_management_test)
 
+	add_executable(emv_card_action_analysis_test emv_card_action_analysis_test.c)
+	target_link_libraries(emv_card_action_analysis_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_card_action_analysis_test emv_card_action_analysis_test)
+
 	add_executable(emv_online_processing_test emv_online_processing_test.c)
 	target_link_libraries(emv_online_processing_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_online_processing_test emv_online_processing_test)

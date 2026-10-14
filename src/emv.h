@@ -479,6 +479,7 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
  *       provide the Terminal Action Analysis decision.
  *
  * @remark See EMV 4.4 Book 3, 10.8
+ * @remark See EMV 4.4 Book 4, 6.3.2.1
  *
  * @param ctx EMV processing context
  * @param ref_ctrl Reference control parameter for GENAC1; use one of
