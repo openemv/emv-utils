@@ -52,7 +52,7 @@ static void print_pcsc_readers(pcsc_ctx_t pcsc);
 static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
 static int emv_txn_load_config(struct emv_ctx_t* emv);
 static int parse_hex(const char* hex, void* buf, size_t* buf_len);
-static int online_auth_prompt(uint8_t* arc, uint8_t* iad, size_t* iad_len);
+static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len);
 
 // argp option keys
 enum emv_tool_param_t {
@@ -824,9 +824,11 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 	return 0;
 }
 
-static int online_auth_prompt(uint8_t* arc, uint8_t* iad, size_t* iad_len)
+static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len)
 {
 	int r;
+	uint8_t txn_record[4096];
+	size_t txn_record_len = sizeof(txn_record);
 	char input[1024];
 	uint8_t buf[512];
 	size_t buf_len = sizeof(buf);
@@ -838,6 +840,24 @@ static int online_auth_prompt(uint8_t* arc, uint8_t* iad, size_t* iad_len)
 	}
 	memset(arc, 0, 2);
 	*iad_len = 0;
+
+	r = emv_txn_record_compute_encoded_length(emv);
+	if (r < 0) {
+		fprintf(stderr, "emv_txn_record_compute_encoded_length() failed; r=%d\n", r);
+		return -1;
+	}
+	if (r > sizeof(txn_record)) {
+		fprintf(stderr, "Transaction record too large\n");
+		return -1;
+	}
+	r = emv_txn_record_encode(emv, txn_record, &txn_record_len);
+	if (r) {
+		fprintf(stderr, "emv_txn_record_encode() failed; r=%d\n", r);
+		return -1;
+	}
+
+	printf("\n");
+	print_buf("Authorisation request", txn_record, txn_record_len);
 
 	printf("\nEnter authorisation response (BER encoded as ASCII-HEX; empty if unable): ");
 	if (!fgets(input, sizeof(input), stdin)) {
@@ -1266,7 +1286,7 @@ int main(int argc, char** argv)
 			break;
 
 		case ONLINE_AUTH_METHOD_PROMPT:
-			r = online_auth_prompt(arc, iad, &iad_len);
+			r = online_auth_prompt(&emv, arc, iad, &iad_len);
 			if (r < 0) {
 				goto emv_exit;
 			}
