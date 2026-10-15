@@ -1752,6 +1752,19 @@ exit:
 	return r;
 }
 
+// EMV tag list for Offline Data Authentication (ODA) fields to exclude from
+// transaction record
+static const uint8_t emv_txn_record_exclude_tag_list[] = {
+	0x90, // Issuer Public Key Certificate
+	0x92, // Issuer Public Key Remainder
+	0x9F, 0x32, // Issuer Public Key Exponent
+	0x9F, 0x46, // ICC Public Key Certificate
+	0x9F, 0x47, // ICC Public Key Exponent
+	0x9F, 0x48, // ICC Public Key Remainder
+	0x93, // Signed Static Application Data (SSAD)
+	0x9F, 0x4B, // Signed Dynamic Application Data (SDAD)
+};
+
 int emv_txn_record_compute_encoded_length(const struct emv_ctx_t* ctx)
 {
 	int r;
@@ -1767,7 +1780,12 @@ int emv_txn_record_compute_encoded_length(const struct emv_ctx_t* ctx)
 		return EMV_ERROR_INTERNAL;
 	}
 
-	r = emv_tlv_sources_compute_encoded_length(&sources, EMV_TAG_70_DATA_TEMPLATE);
+	r = emv_tlv_sources_compute_encoded_length(
+		&sources,
+		EMV_TAG_70_DATA_TEMPLATE,
+		emv_txn_record_exclude_tag_list,
+		sizeof(emv_txn_record_exclude_tag_list)
+	);
 	if (r < 0) {
 		emv_debug_trace_msg("emv_tlv_sources_compute_encoded_length() failed; r=%d", r);
 		return EMV_ERROR_INTERNAL;
@@ -1791,7 +1809,14 @@ int emv_txn_record_encode(const struct emv_ctx_t* ctx, void* ptr, size_t* len)
 		return EMV_ERROR_INTERNAL;
 	}
 
-	r = emv_tlv_sources_encode(&sources, EMV_TAG_70_DATA_TEMPLATE, ptr, len);
+	r = emv_tlv_sources_encode(
+		&sources,
+		EMV_TAG_70_DATA_TEMPLATE,
+		emv_txn_record_exclude_tag_list,
+		sizeof(emv_txn_record_exclude_tag_list),
+		ptr,
+		len
+	);
 	if (r < 0) {
 		emv_debug_trace_msg("emv_tlv_sources_encode() failed; r=%d", r);
 		return EMV_ERROR_INTERNAL;

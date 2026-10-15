@@ -493,6 +493,17 @@ int emv_txn_record_compute_encoded_length(const struct emv_ctx_t* ctx);
  * of these data sources provides the same EMV tag, only the value of the
  * highest priority data source is encoded.
  *
+ * @note During encoding, these Offline Data Authentication (ODA) fields are
+ *       omitted:
+ *       - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
+ *       - @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER
+ *       - @ref EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT
+ *       - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE
+ *       - @ref EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT
+ *       - @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER
+ *       - @ref EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA
+ *       - @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA
+ *
  * @param ctx EMV processing context
  * @param ptr Encoded EMV transaction record
  * @param len Length of encoded EMV transaction record output in bytes
