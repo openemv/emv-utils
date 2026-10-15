@@ -1752,8 +1752,8 @@ exit:
 	return r;
 }
 
-// EMV tag list for Offline Data Authentication (ODA) fields to exclude from
-// transaction record
+// EMV tag list for Offline Data Authentication (ODA) and PIN encipherment
+// fields to exclude from transaction record
 static const uint8_t emv_txn_record_exclude_tag_list[] = {
 	0x90, // Issuer Public Key Certificate
 	0x92, // Issuer Public Key Remainder
@@ -1763,6 +1763,9 @@ static const uint8_t emv_txn_record_exclude_tag_list[] = {
 	0x9F, 0x48, // ICC Public Key Remainder
 	0x93, // Signed Static Application Data (SSAD)
 	0x9F, 0x4B, // Signed Dynamic Application Data (SDAD)
+	0x9F, 0x2D, // ICC PIN Encipherment Public Key Certificate
+	0x9F, 0x2E, // ICC PIN Encipherment Public Key Exponent
+	0x9F, 0x2F, // ICC PIN Encipherment Public Key Remainder
 };
 
 int emv_txn_record_compute_encoded_length(const struct emv_ctx_t* ctx)

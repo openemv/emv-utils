@@ -968,6 +968,29 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return emv_kernel_id_get_string(tlv->value, tlv->length, value_str, value_str_len);
 
+		case EMV_TAG_9F2D_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_CERTIFICATE:
+			info->tag_name = "Integrated Circuit Card (ICC) PIN Encipherment Public Key Certificate";
+			info->tag_desc =
+				"ICC PIN Encipherment Public Key certified by the issuer";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F2E_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_EXPONENT:
+			info->tag_name = "Integrated Circuit Card (ICC) PIN Encipherment Public Key Exponent";
+			info->tag_desc =
+				"ICC PIN Encipherment Public Key Exponent used for PIN "
+				"encipherment";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
+		case EMV_TAG_9F2F_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_REMAINDER:
+			info->tag_name = "Integrated Circuit Card (ICC) PIN Encipherment Public Key Remainder";
+			info->tag_desc =
+				"Remaining digits of the ICC PIN Encipherment Public Key "
+				"Modulus";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT:
 			info->tag_name = "Issuer Public Key Exponent";
 			info->tag_desc =
