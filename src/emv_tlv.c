@@ -36,6 +36,7 @@ static inline bool emv_tlv_sources_is_valid(const struct emv_tlv_sources_t* sour
 static struct emv_tlv_t* emv_tlv_alloc(unsigned int tag, unsigned int length, const uint8_t* value, uint8_t flags);
 static bool emv_tlv_is_duplicate(const struct emv_tlv_t* tlv, const struct emv_tlv_t* other);
 static bool emv_tlv_sources_is_first(const struct emv_tlv_sources_t* sources, const struct emv_tlv_t* tlv);
+static int emv_tag_list_has_tag(const void* ptr, size_t len, unsigned int tag);
 
 static inline bool emv_tlv_list_is_valid(const struct emv_tlv_list_t* list)
 {
@@ -739,9 +740,35 @@ static bool emv_tlv_sources_is_first(const struct emv_tlv_sources_t* sources, co
 	return false;
 }
 
+static int emv_tag_list_has_tag(const void* ptr, size_t len, unsigned int tag)
+{
+	int r;
+	unsigned int list_tag;
+
+	while (len) {
+		r = iso8825_ber_tag_decode(ptr, len, &list_tag);
+		if (r <= 0) {
+			// Invalid tag list
+			return -1;
+		}
+
+		if (list_tag == tag) {
+			return 1;
+		}
+
+		// Advance
+		ptr += r;
+		len -= r;
+	}
+
+	return 0;
+}
+
 int emv_tlv_sources_compute_encoded_length(
 	const struct emv_tlv_sources_t* sources,
-	unsigned int template_tag
+	unsigned int template_tag,
+	const void* exclude_tag_list,
+	size_t exclude_tag_list_len
 )
 {
 	int r;
@@ -758,12 +785,29 @@ int emv_tlv_sources_compute_encoded_length(
 		return -2;
 	}
 
-	r = emv_tlv_sources_itr_init(sources, &itr);
-	if (r) {
+	if ((!exclude_tag_list && exclude_tag_list_len) ||
+		(exclude_tag_list && !exclude_tag_list_len)
+	) {
+		// Invalid tag list
 		return -3;
 	}
 
+	r = emv_tlv_sources_itr_init(sources, &itr);
+	if (r) {
+		return -4;
+	}
+
 	while ((tlv = emv_tlv_sources_itr_next_const(&itr))) {
+		// Apply exclusion list
+		r = emv_tag_list_has_tag(exclude_tag_list, exclude_tag_list_len, tlv->tag);
+		if (r < 0) {
+			// Invalid exclusion list
+			return -5;
+		}
+		if (r) {
+			continue;
+		}
+
 		// Only consider the highest priority instance of each EMV field
 		if (!emv_tlv_sources_is_first(sources, tlv)) {
 			continue;
@@ -772,13 +816,13 @@ int emv_tlv_sources_compute_encoded_length(
 		r = iso8825_ber_compute_encoded_length(&tlv->ber);
 		if (r <= 0) {
 			// Invalid EMV TLV field
-			return -4;
+			return -6;
 		}
 		total += r;
 
 		// Encoded EMV data should not be excessively large
 		if (total > 0xFFFF) {
-			return -5;
+			return -7;
 		}
 	}
 
@@ -790,13 +834,13 @@ int emv_tlv_sources_compute_encoded_length(
 		r = iso8825_ber_compute_encoded_length(&template_tlv);
 		if (r <= 0) {
 			// Invalid template field
-			return -6;
+			return -8;
 		}
 		total = r;
 
 		// Encoded EMV data should not be excessively large
 		if (total > 0xFFFF) {
-			return -7;
+			return -9;
 		}
 	}
 
@@ -806,6 +850,8 @@ int emv_tlv_sources_compute_encoded_length(
 int emv_tlv_sources_encode(
 	const struct emv_tlv_sources_t* sources,
 	unsigned int template_tag,
+	const void* exclude_tag_list,
+	size_t exclude_tag_list_len,
 	void* ptr,
 	size_t* len
 )
@@ -823,9 +869,8 @@ int emv_tlv_sources_encode(
 	remaining_len = *len;
 	*len = 0;
 
-	// Validate the sources as well as the template tag, and determine the
-	// total encoded length
-	r = emv_tlv_sources_compute_encoded_length(sources, template_tag);
+	// Validate inputs and determine total encoded length
+	r = emv_tlv_sources_compute_encoded_length(sources, template_tag, exclude_tag_list, exclude_tag_list_len);
 	if (r < 0) {
 		return -2;
 	}
@@ -838,7 +883,7 @@ int emv_tlv_sources_encode(
 		int content_len;
 
 		// Determine the length of the template field content
-		content_len = emv_tlv_sources_compute_encoded_length(sources, 0);
+		content_len = emv_tlv_sources_compute_encoded_length(sources, 0, exclude_tag_list, exclude_tag_list_len);
 		if (content_len < 0) {
 			return -3;
 		}
@@ -867,8 +912,18 @@ int emv_tlv_sources_encode(
 		return -6;
 	}
 
-	// Encode the highest priority instance of each EMV field
 	while ((tlv = emv_tlv_sources_itr_next_const(&itr))) {
+		// Apply exclusion list
+		r = emv_tag_list_has_tag(exclude_tag_list, exclude_tag_list_len, tlv->tag);
+		if (r < 0) {
+			// Invalid exclusion list
+			return -7;
+		}
+		if (r) {
+			continue;
+		}
+
+		// Only consider the highest priority instance of each EMV field
 		if (!emv_tlv_sources_is_first(sources, tlv)) {
 			continue;
 		}
@@ -876,7 +931,7 @@ int emv_tlv_sources_encode(
 		octet_count = remaining_len;
 		r = iso8825_ber_encode(&tlv->ber, buf + *len, &octet_count);
 		if (r) {
-			return -7;
+			return -8;
 		}
 		*len += octet_count;
 		remaining_len -= octet_count;

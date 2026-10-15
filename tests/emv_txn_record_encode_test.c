@@ -44,6 +44,20 @@ static const struct emv_tlv_t test_icc_fields[] = {
 	{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x1F }, 0 }}, NULL },
 };
 
+// ICC data that also contains the Offline Data Authentication (ODA) fields
+// that are omitted from the EMV transaction record
+static const struct emv_tlv_t test_icc_oda_fields[] = {
+	{ {{ EMV_TAG_5A_APPLICATION_PAN, 8, (uint8_t[]){ 0x54, 0x13, 0x33, 0x00, 0x89, 0x02, 0x00, 0x1F }, 0 }}, NULL },
+	{ {{ EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE, 4, (uint8_t[]){ 0x01, 0x02, 0x03, 0x04 }, 0 }}, NULL },
+	{ {{ EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER, 2, (uint8_t[]){ 0x05, 0x06 }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT, 1, (uint8_t[]){ 0x03 }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE, 4, (uint8_t[]){ 0x07, 0x08, 0x09, 0x0A }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT, 1, (uint8_t[]){ 0x03 }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER, 2, (uint8_t[]){ 0x0B, 0x0C }, 0 }}, NULL },
+	{ {{ EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA, 4, (uint8_t[]){ 0x0D, 0x0E, 0x0F, 0x10 }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA, 4, (uint8_t[]){ 0x11, 0x12, 0x13, 0x14 }, 0 }}, NULL },
+};
+
 static const struct emv_tlv_t test_params_fields[] = {
 	{ {{ EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]){ 0x26, 0x09, 0x21 }, 0 }}, NULL },
 	{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
@@ -99,6 +113,34 @@ static const uint8_t test_encoded_no_app_config[] = {
 	0x9A, 0x03, 0x26, 0x09, 0x21,
 	0x5F, 0x2A, 0x02, 0x09, 0x78,
 	0x9F, 0x33, 0x03, 0x00, 0x00, 0x00,
+	0x9F, 0x35, 0x01, 0x22,
+};
+
+// EMV tag list containing a one-byte tag and a two-byte tag
+static const uint8_t test_exclude_tag_list[] = {
+	0x5A, // Application PAN
+	0x9F, 0x33, // Terminal Capabilities
+};
+
+// Truncated high tag number form
+static const uint8_t test_invalid_tag_list[] = { 0x9F };
+
+// Expected EMV data of all five sources, excluding the EMV fields of the
+// exclusion list
+static const uint8_t test_encoded_with_exclusions[] = {
+	0x9F, 0x1A, 0x02, 0x05, 0x28,
+	0x9A, 0x03, 0x26, 0x09, 0x21,
+	0x5F, 0x2A, 0x02, 0x09, 0x78,
+	0x9F, 0x35, 0x01, 0x22,
+};
+
+// Expected EMV data of all five sources, excluding the EMV fields of the
+// exclusion list, wrapped by 70
+static const uint8_t test_encoded_with_exclusions_and_template[] = {
+	0x70, 0x13,
+	0x9F, 0x1A, 0x02, 0x05, 0x28,
+	0x9A, 0x03, 0x26, 0x09, 0x21,
+	0x5F, 0x2A, 0x02, 0x09, 0x78,
 	0x9F, 0x35, 0x01, 0x22,
 };
 
@@ -182,14 +224,14 @@ int main(void)
 	size_t buf_len;
 
 	printf("\nTest 1: Compute and encode empty source list without template\n");
-	r = emv_tlv_sources_compute_encoded_length(&empty_sources, 0);
+	r = emv_tlv_sources_compute_encoded_length(&empty_sources, 0, NULL, 0);
 	if (r != 0) {
 		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&empty_sources, 0, buf, &buf_len);
+	r = emv_tlv_sources_encode(&empty_sources, 0, NULL, 0, buf, &buf_len);
 	if (r) {
 		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
 		r = 1;
@@ -204,14 +246,14 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 2: Compute and encode empty source list with template\n");
-	r = emv_tlv_sources_compute_encoded_length(&empty_sources, EMV_TAG_70_DATA_TEMPLATE);
+	r = emv_tlv_sources_compute_encoded_length(&empty_sources, EMV_TAG_70_DATA_TEMPLATE, NULL, 0);
 	if (r != (int)sizeof(test_encoded_empty_template)) {
 		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&empty_sources, EMV_TAG_70_DATA_TEMPLATE, buf, &buf_len);
+	r = emv_tlv_sources_encode(&empty_sources, EMV_TAG_70_DATA_TEMPLATE, NULL, 0, buf, &buf_len);
 	if (r) {
 		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
 		r = 1;
@@ -259,14 +301,14 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	r = emv_tlv_sources_compute_encoded_length(&sources, 0);
+	r = emv_tlv_sources_compute_encoded_length(&sources, 0, NULL, 0);
 	if (r != (int)sizeof(test_encoded)) {
 		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&sources, 0, buf, &buf_len);
+	r = emv_tlv_sources_encode(&sources, 0, NULL, 0, buf, &buf_len);
 	if (r) {
 		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
 		r = 1;
@@ -284,14 +326,14 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 4: Compute and encode sources with template\n");
-	r = emv_tlv_sources_compute_encoded_length(&sources, EMV_TAG_70_DATA_TEMPLATE);
+	r = emv_tlv_sources_compute_encoded_length(&sources, EMV_TAG_70_DATA_TEMPLATE, NULL, 0);
 	if (r != (int)sizeof(test_encoded_with_template)) {
 		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&sources, EMV_TAG_70_DATA_TEMPLATE, buf, &buf_len);
+	r = emv_tlv_sources_encode(&sources, EMV_TAG_70_DATA_TEMPLATE, NULL, 0, buf, &buf_len);
 	if (r) {
 		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
 		r = 1;
@@ -310,7 +352,7 @@ int main(void)
 
 	printf("\nTest 5: Encode sources with an output buffer that is exactly the right size\n");
 	buf_len = sizeof(test_encoded);
-	r = emv_tlv_sources_encode(&sources, 0, buf, &buf_len);
+	r = emv_tlv_sources_encode(&sources, 0, NULL, 0, buf, &buf_len);
 	if (r) {
 		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
 		r = 1;
@@ -329,7 +371,7 @@ int main(void)
 
 	printf("\nTest 6: Encode sources with an output buffer that is too small\n");
 	buf_len = sizeof(test_encoded) - 1; // One byte less than what is needed
-	r = emv_tlv_sources_encode(&sources, 0, buf, &buf_len);
+	r = emv_tlv_sources_encode(&sources, 0, NULL, 0, buf, &buf_len);
 	if (r != 1) {
 		fprintf(stderr, "Unexpected emv_tlv_sources_encode() return value; r=%d\n", r);
 		r = 1;
@@ -338,14 +380,14 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 7: Encode sources with a template tag that is not constructed\n");
-	r = emv_tlv_sources_compute_encoded_length(&sources, EMV_TAG_50_APPLICATION_LABEL);
+	r = emv_tlv_sources_compute_encoded_length(&sources, EMV_TAG_50_APPLICATION_LABEL, NULL, 0);
 	if (r >= 0) {
 		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() unexpectedly did not report error; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&sources, EMV_TAG_50_APPLICATION_LABEL, buf, &buf_len);
+	r = emv_tlv_sources_encode(&sources, EMV_TAG_50_APPLICATION_LABEL, NULL, 0, buf, &buf_len);
 	if (r >= 0) {
 		fprintf(stderr, "emv_tlv_sources_encode() unexpectedly did not report error; r=%d\n", r);
 		r = 1;
@@ -354,14 +396,14 @@ int main(void)
 	printf("Success\n");
 
 	printf("\nTest 8: Encode sources without any source lists\n");
-	r = emv_tlv_sources_compute_encoded_length(&no_sources, 0);
+	r = emv_tlv_sources_compute_encoded_length(&no_sources, 0, NULL, 0);
 	if (r >= 0) {
 		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() unexpectedly did not report error; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&no_sources, 0, buf, &buf_len);
+	r = emv_tlv_sources_encode(&no_sources, 0, NULL, 0, buf, &buf_len);
 	if (r >= 0) {
 		fprintf(stderr, "emv_tlv_sources_encode() unexpectedly did not report error; r=%d\n", r);
 		r = 1;
@@ -377,7 +419,7 @@ int main(void)
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&duplicate_sources, 0, buf, &buf_len);
+	r = emv_tlv_sources_encode(&duplicate_sources, 0, NULL, 0, buf, &buf_len);
 	if (r) {
 		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
 		r = 1;
@@ -424,14 +466,14 @@ int main(void)
 		goto exit;
 	}
 
-	r = emv_tlv_sources_compute_encoded_length(&asn1_distinct_sources, 0);
+	r = emv_tlv_sources_compute_encoded_length(&asn1_distinct_sources, 0, NULL, 0);
 	if (r != (int)sizeof(test_asn1_encoded_objects)) {
 		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&asn1_distinct_sources, 0, buf, &buf_len);
+	r = emv_tlv_sources_encode(&asn1_distinct_sources, 0, NULL, 0, buf, &buf_len);
 	if (r) {
 		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
 		r = 1;
@@ -484,14 +526,14 @@ int main(void)
 		}
 	}
 
-	r = emv_tlv_sources_compute_encoded_length(&asn1_override_sources, 0);
+	r = emv_tlv_sources_compute_encoded_length(&asn1_override_sources, 0, NULL, 0);
 	if (r != (int)sizeof(test_asn1_encoded_object_with_override)) {
 		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() failed; r=%d\n", r);
 		r = 1;
 		goto exit;
 	}
 	buf_len = sizeof(buf);
-	r = emv_tlv_sources_encode(&asn1_override_sources, 0, buf, &buf_len);
+	r = emv_tlv_sources_encode(&asn1_override_sources, 0, NULL, 0, buf, &buf_len);
 	if (r) {
 		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
 		r = 1;
@@ -508,7 +550,83 @@ int main(void)
 	}
 	printf("Success\n");
 
-	printf("\nTest 12: Compute and encode EMV transaction record\n");
+	printf("\nTest 12: Compute and encode sources with an EMV tag list of exclusions\n");
+	r = emv_tlv_sources_compute_encoded_length(&sources, 0, test_exclude_tag_list, sizeof(test_exclude_tag_list));
+	if (r != (int)sizeof(test_encoded_with_exclusions)) {
+		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	buf_len = sizeof(buf);
+	r = emv_tlv_sources_encode(&sources, 0, test_exclude_tag_list, sizeof(test_exclude_tag_list), buf, &buf_len);
+	if (r) {
+		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	if (buf_len != sizeof(test_encoded_with_exclusions) ||
+		memcmp(buf, test_encoded_with_exclusions, buf_len) != 0
+	) {
+		fprintf(stderr, "emv_tlv_sources_encode() failed; incorrect output data\n");
+		print_buf("encoded", buf, buf_len);
+		print_buf("expected", test_encoded_with_exclusions, sizeof(test_encoded_with_exclusions));
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
+	printf("\nTest 13: Compute and encode sources with an EMV tag list of exclusions and a template\n");
+	r = emv_tlv_sources_compute_encoded_length(&sources, EMV_TAG_70_DATA_TEMPLATE, test_exclude_tag_list, sizeof(test_exclude_tag_list));
+	if (r != (int)sizeof(test_encoded_with_exclusions_and_template)) {
+		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	buf_len = sizeof(buf);
+	r = emv_tlv_sources_encode(&sources, EMV_TAG_70_DATA_TEMPLATE, test_exclude_tag_list, sizeof(test_exclude_tag_list), buf, &buf_len);
+	if (r) {
+		fprintf(stderr, "emv_tlv_sources_encode() failed; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	if (buf_len != sizeof(test_encoded_with_exclusions_and_template) ||
+		memcmp(buf, test_encoded_with_exclusions_and_template, buf_len) != 0
+	) {
+		fprintf(stderr, "emv_tlv_sources_encode() failed; incorrect output data\n");
+		print_buf("encoded", buf, buf_len);
+		print_buf("expected", test_encoded_with_exclusions_and_template, sizeof(test_encoded_with_exclusions_and_template));
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
+	printf("\nTest 14: Encode sources with an invalid EMV tag list\n");
+	r = emv_tlv_sources_compute_encoded_length(&sources, 0, test_invalid_tag_list, sizeof(test_invalid_tag_list));
+	if (r >= 0) {
+		fprintf(stderr, "emv_tlv_sources_compute_encoded_length() unexpectedly did not report error; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	buf_len = sizeof(buf);
+	r = emv_tlv_sources_encode(&sources, 0, test_invalid_tag_list, sizeof(test_invalid_tag_list), buf, &buf_len);
+	if (r >= 0) {
+		fprintf(stderr, "emv_tlv_sources_encode() unexpectedly did not report error; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
+	printf("\nTest 15: Encode sources with an EMV tag list but without its length\n");
+	buf_len = sizeof(buf);
+	r = emv_tlv_sources_encode(&sources, 0, test_exclude_tag_list, 0, buf, &buf_len);
+	if (r >= 0) {
+		fprintf(stderr, "emv_tlv_sources_encode() unexpectedly did not report error; r=%d\n", r);
+		r = 1;
+		goto exit;
+	}
+	printf("Success\n");
+
+	printf("\nTest 16: Compute and encode EMV transaction record\n");
 	r = emv_ctx_init(&ctx, NULL);
 	if (r) {
 		fprintf(stderr, "emv_ctx_init() failed; r=%d\n", r);
@@ -565,7 +683,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	r = populate_list(test_icc_fields, sizeof(test_icc_fields) / sizeof(test_icc_fields[0]), &ctx.icc);
+	r = populate_list(test_icc_oda_fields, sizeof(test_icc_oda_fields) / sizeof(test_icc_oda_fields[0]), &ctx.icc);
 	if (r) {
 		fprintf(stderr, "populate_list() failed; r=%d\n", r);
 		r = 1;
@@ -581,7 +699,8 @@ int main(void)
 	}
 	ctx.selected_app->config = config_app;
 
-	// The transaction record is framed by a template
+	// The transaction record is framed by a template and omits the Offline
+	// Data Authentication (ODA) fields provided by the ICC data
 	r = emv_txn_record_compute_encoded_length(&ctx);
 	if (r != (int)sizeof(test_encoded_with_template)) {
 		fprintf(stderr, "emv_txn_record_compute_encoded_length() failed; r=%d\n", r);
@@ -606,7 +725,7 @@ int main(void)
 	}
 	printf("Success\n");
 
-	printf("\nTest 13: Parse encoded EMV transaction record\n");
+	printf("\nTest 17: Parse encoded EMV transaction record\n");
 	r = emv_tlv_parse(buf, buf_len, &parsed_list);
 	if (r) {
 		fprintf(stderr, "emv_tlv_parse() failed; r=%d\n", r);
@@ -643,7 +762,7 @@ int main(void)
 	}
 	printf("Success\n");
 
-	printf("\nTest 14: Compute and encode EMV transaction record without selected application\n");
+	printf("\nTest 18: Compute and encode EMV transaction record without selected application\n");
 	emv_app_free(ctx.selected_app);
 	ctx.selected_app = NULL;
 	r = emv_txn_record_compute_encoded_length(&ctx);

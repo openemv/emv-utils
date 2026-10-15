@@ -322,11 +322,16 @@ int emv_tlv_list_encode(
  * @param sources EMV TLV sources
  * @param template_tag Constructed/template EMV tag with which to wrap the
  *                     encoded EMV TLV fields. Zero for no template.
+ * @param exclude_tag_list EMV tag list of fields to omit from encoded EMV
+ *                         data. NULL to ignore.
+ * @param exclude_tag_list_len Length of EMV tag list in bytes. Zero to ignore.
  * @return Length of encoded EMV data. Less than zero for error.
  */
 int emv_tlv_sources_compute_encoded_length(
 	const struct emv_tlv_sources_t* sources,
-	unsigned int template_tag
+	unsigned int template_tag,
+	const void* exclude_tag_list,
+	size_t exclude_tag_list_len
 );
 
 /**
@@ -341,6 +346,9 @@ int emv_tlv_sources_compute_encoded_length(
  * @param sources EMV TLV sources
  * @param template_tag Constructed/template EMV tag with which to wrap the
  *                     encoded EMV TLV fields. Zero for no template.
+ * @param exclude_tag_list EMV tag list of fields to omit from encoded EMV
+ *                         data. NULL to ignore.
+ * @param exclude_tag_list_len Length of EMV tag list in bytes. Zero to ignore.
  * @param ptr Encoded EMV data output
  * @param len Length of encoded EMV data output in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero if output data length too small.
@@ -348,6 +356,8 @@ int emv_tlv_sources_compute_encoded_length(
 int emv_tlv_sources_encode(
 	const struct emv_tlv_sources_t* sources,
 	unsigned int template_tag,
+	const void* exclude_tag_list,
+	size_t exclude_tag_list_len,
 	void* ptr,
 	size_t* len
 );
