@@ -65,6 +65,8 @@ struct emv_ctx_t {
 	 * using:
 	 * - @ref emv_config_data_set()
 	 * - @ref emv_config_app_create()
+	 *
+	 * Mandatory fields are validated by @ref emv_ctx_prepare_txn().
 	 */
 	struct emv_config_t config;
 
@@ -84,9 +86,11 @@ struct emv_ctx_t {
 	 * - @ref EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC
 	 * - @ref EMV_TAG_81_AMOUNT_AUTHORISED_BINARY
 	 *
-	 * Optional fields are:
+	 * These fields are required for cashback transactions:
 	 * - @ref EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC
 	 * - @ref EMV_TAG_9F04_AMOUNT_OTHER_BINARY
+	 *
+	 * Mandatory fields are validated by @ref emv_ctx_prepare_txn().
 	 */
 	struct emv_tlv_list_t params;
 
@@ -127,13 +131,15 @@ struct emv_ctx_t {
 	 */
 	struct emv_oda_ctx_t oda;
 
+	/// @cond INTERNAL
 	/**
 	 * @brief Various cached fields for internal use
 	 *
-	 * Populated by @ref emv_initiate_application_processing() and used by
-	 * various functions.
+	 * - Transaction amount populated by @ref emv_ctx_prepare_txn().
+	 * - Kernel ID populated by individual contactless kernel interfaces
+	 * - Remaining fields populated by @ref emv_initiate_application_processing()
 	 */
-	/// @cond INTERNAL
+	uint32_t txn_amount;
 	const struct emv_tlv_t* kernel_id;
 	const struct emv_tlv_t* aid;
 	const struct emv_tlv_t* tvr;
@@ -150,7 +156,7 @@ struct emv_txn_log_entry_t {
 	uint8_t pan[10]; ///< Primary Account Number (PAN) in EMV format 'cn'
 	uint8_t pan_seq; ///< Primary Account Number (PAN) Sequence Number
 	uint8_t txn_date[3]; ///< Transaction date in EMV format 'n' as YYMMDD
-	uint32_t transaction_amount; ///< Transaction amount in binary format
+	uint32_t txn_amount; ///< Transaction amount in binary format
 };
 
 /**
@@ -238,6 +244,25 @@ int emv_ctx_reset(struct emv_ctx_t* ctx);
  * @return Less than zero for errors. See @ref emv_error_t
  */
 int emv_ctx_clear(struct emv_ctx_t* ctx);
+
+/**
+ * Prepare EMV processing context for current transaction.
+ *
+ * This function will ensure that mandatory configuration fields and mandatory
+ * transaction parameters are populated and have valid length. It also decodes,
+ * validates and caches the transaction amount for other EMV processing
+ * functions to use.
+ *
+ * @note This function must be called for every transaction after
+ *       @ref emv_ctx_t.config and @ref emv_ctx_t.params have been populated
+ *       and before EMV processing.
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_ctx_prepare_txn(struct emv_ctx_t* ctx);
 
 /**
  * Retrieve string associated with error value

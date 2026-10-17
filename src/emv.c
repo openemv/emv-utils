@@ -85,6 +85,7 @@ int emv_ctx_reset(struct emv_ctx_t* ctx)
 	ctx->selected_app = NULL;
 	emv_oda_clear(&ctx->oda);
 
+	ctx->txn_amount = 0;
 	ctx->kernel_id = NULL;
 	ctx->aid = NULL;
 	ctx->tvr = NULL;
@@ -104,6 +105,289 @@ int emv_ctx_clear(struct emv_ctx_t* ctx)
 	ctx->ttl = NULL;
 	emv_config_clear(&ctx->config);
 	emv_ctx_reset(ctx);
+
+	return 0;
+}
+
+static int emv_prepare_amount(
+	struct emv_tlv_list_t* params,
+	unsigned int tag_n,
+	unsigned int tag_b,
+	uint32_t* value
+)
+{
+	int r;
+	const struct emv_tlv_t* amount_n;
+	const struct emv_tlv_t* amount_b;
+	uint32_t amount_n_value;
+	uint32_t amount_b_value;
+	uint32_t amount_value = 0;
+	uint8_t buf[6];
+
+	// NOTE: The numeric form of an amount field is considered to be the
+	// primary form because it is the only form used by the EMV contactless
+	// kernels and the only form typically requested by a Data Object List
+	// (DOL), while the binary form is a convenient form for comparison with
+	// binary limits. Therefore this implementation accepts either form and
+	// will create the absent form from the other form.
+	// See EMV 4.4 Book 3, Annex A1
+
+	amount_n = emv_tlv_list_find_const(params, tag_n);
+	amount_b = emv_tlv_list_find_const(params, tag_b);
+	if (!amount_n && !amount_b) {
+		emv_debug_error("Amount fields (0x%04X and 0x%04X) not found",
+			tag_n, tag_b);
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	if (amount_n) {
+		if (amount_n->length != sizeof(buf)) {
+			emv_debug_trace_msg("amount_n->length=%u", amount_n->length);
+			emv_debug_error("Amount field (0x%04X) invalid", tag_n);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+		r = emv_format_n_to_uint(
+			amount_n->value,
+			amount_n->length,
+			&amount_n_value
+		);
+		if (r < 0) {
+			emv_debug_trace_msg("emv_format_n_to_uint() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		if (r > 0) {
+			emv_debug_trace_msg("emv_format_n_to_uint() failed; r=%d", r);
+			emv_debug_error("Amount field (0x%04X) invalid", tag_n);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+
+		// Numeric form of amount field uses EMV format "n" and is 12 decimal
+		// digits, but must be processed as 32-bit unsigned integer. Therefore
+		// re-encode and compare to the numeric form confirm that it does not
+		// exceed 32-bits.
+		if (!emv_uint_to_format_n(amount_n_value, buf, sizeof(buf)) ||
+			memcmp(buf, amount_n->value, sizeof(buf)) != 0
+		) {
+			emv_debug_error("Amount field (0x%04X) exceeds maximum", tag_n);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+	}
+
+	if (amount_b) {
+		if (amount_b->length != 4) {
+			emv_debug_trace_msg("amount_b->length=%u", amount_b->length);
+			emv_debug_error("Amount field (0x%04X) invalid", tag_b);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+		r = emv_format_b_to_uint(
+			amount_b->value,
+			amount_b->length,
+			&amount_b_value
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	if (amount_n && amount_b) {
+		if (amount_n_value != amount_b_value) {
+			emv_debug_trace_msg("amount_n_value=%u, amount_b_value=%u",
+				(unsigned int)amount_n_value, (unsigned int)amount_b_value);
+			emv_debug_error("Amount fields (0x%04X and 0x%04X) differ",
+				tag_n, tag_b);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+
+		amount_value = amount_n_value;
+	}
+
+	if (amount_n && !amount_b) {
+		amount_value = amount_n_value;
+
+		r = emv_tlv_list_push(
+			params,
+			tag_b,
+			4,
+			emv_uint_to_format_b(amount_value, buf, 4),
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	if (amount_b && !amount_n) {
+		amount_value = amount_b_value;
+
+		r = emv_tlv_list_push(
+			params,
+			tag_n,
+			6,
+			emv_uint_to_format_n(amount_value, buf, 6),
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	emv_debug_trace_msg("Amount field (0x%04X) value is %u",
+		tag_n, (unsigned int)amount_value);
+	*value = amount_value;
+
+	return 0;
+}
+
+int emv_ctx_prepare_txn(struct emv_ctx_t* ctx)
+{
+	int r;
+	const struct emv_tlv_t* term_country_code;
+	const struct emv_tlv_t* term_caps;
+	const struct emv_tlv_t* term_type;
+	const struct emv_tlv_t* addl_term_caps;
+	const struct emv_tlv_t* txn_seq_cnt;
+	const struct emv_tlv_t* txn_date;
+	const struct emv_tlv_t* txn_time;
+	const struct emv_tlv_t* txn_currency_code;
+	const struct emv_tlv_t* txn_currency_exponent;
+	const struct emv_tlv_t* txn_type;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Ensure mandatory configuration fields are present and have valid length
+	term_country_code = emv_config_data_get(ctx, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE);
+	if (!term_country_code || term_country_code->length != 2) {
+		emv_debug_trace_msg("term_country_code=%p, term_country_code->length=%u",
+			term_country_code, term_country_code ? term_country_code->length : 0);
+		emv_debug_error("Terminal Country Code (9F1A) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	term_caps = emv_config_data_get(ctx, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
+	if (!term_caps || term_caps->length != 3) {
+		emv_debug_trace_msg("term_caps=%p, term_caps->length=%u",
+			term_caps, term_caps ? term_caps->length : 0);
+		emv_debug_error("Terminal Capabilities (9F33) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	term_type = emv_config_data_get(ctx, EMV_TAG_9F35_TERMINAL_TYPE);
+	if (!term_type || term_type->length != 1) {
+		emv_debug_trace_msg("term_type=%p, term_type->length=%u",
+			term_type, term_type ? term_type->length : 0);
+		emv_debug_error("Terminal Type (9F35) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	addl_term_caps = emv_config_data_get(ctx, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES);
+	if (!addl_term_caps || addl_term_caps->length != 5) {
+		emv_debug_trace_msg("addl_term_caps=%p, addl_term_caps->length=%u",
+			addl_term_caps, addl_term_caps ? addl_term_caps->length : 0);
+		emv_debug_error("Additional Terminal Capabilities (9F40) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
+	// Ensure mandatory transaction parameters are present and have valid length
+	txn_seq_cnt = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER);
+	if (!txn_seq_cnt || txn_seq_cnt->length < 2 || txn_seq_cnt->length > 4) {
+		emv_debug_trace_msg("txn_seq_cnt=%p, txn_seq_cnt->length=%u",
+			txn_seq_cnt, txn_seq_cnt ? txn_seq_cnt->length : 0);
+		emv_debug_error("Transaction Sequence Counter (9F41) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_date = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9A_TRANSACTION_DATE);
+	if (!txn_date || txn_date->length != 3) {
+		emv_debug_trace_msg("txn_date=%p, txn_date->length=%u",
+			txn_date, txn_date ? txn_date->length : 0);
+		emv_debug_error("Transaction Date (9A) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_time = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9F21_TRANSACTION_TIME);
+	if (!txn_time || txn_time->length != 3) {
+		emv_debug_trace_msg("txn_time=%p, txn_time->length=%u",
+			txn_time, txn_time ? txn_time->length : 0);
+		emv_debug_error("Transaction Time (9F21) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_currency_code = emv_tlv_list_find_const(&ctx->params, EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE);
+	if (!txn_currency_code || txn_currency_code->length != 2) {
+		emv_debug_trace_msg("txn_currency_code=%p, txn_currency_code->length=%u",
+			txn_currency_code, txn_currency_code ? txn_currency_code->length : 0);
+		emv_debug_error("Transaction Currency Code (5F2A) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_currency_exponent = emv_tlv_list_find_const(&ctx->params, EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT);
+	if (!txn_currency_exponent || txn_currency_exponent->length != 1) {
+		emv_debug_trace_msg("txn_currency_exponent=%p, txn_currency_exponent->length=%u",
+			txn_currency_exponent, txn_currency_exponent ? txn_currency_exponent->length : 0);
+		emv_debug_error("Transaction Currency Exponent (5F36) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_type = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9C_TRANSACTION_TYPE);
+	if (!txn_type || txn_type->length != 1) {
+		emv_debug_trace_msg("txn_type=%p, txn_type->length=%u",
+			txn_type, txn_type ? txn_type->length : 0);
+		emv_debug_error("Transaction Type (9C) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Validate and cache transaction amount
+	r = emv_prepare_amount(
+		&ctx->params,
+		EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC,
+		EMV_TAG_81_AMOUNT_AUTHORISED_BINARY,
+		&ctx->txn_amount
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_prepare_amount() failed; r=%d", r);
+		emv_debug_error("Failed to prepare transaction amount");
+
+		// Return error as-is
+		return r;
+	}
+
+	// Other amount is only required for cashback transactions
+	if (txn_type->value[0] == EMV_TRANSACTION_TYPE_CASHBACK) {
+		uint32_t other_amount;
+
+		r = emv_prepare_amount(
+			&ctx->params,
+			EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC,
+			EMV_TAG_9F04_AMOUNT_OTHER_BINARY,
+			&other_amount
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_prepare_amount() failed; r=%d", r);
+			emv_debug_error("Failed to prepare other amount");
+
+			// Return error as-is
+			return r;
+		}
+
+		// Ensure that transaction amount includes other amount
+		if (other_amount > ctx->txn_amount) {
+			emv_debug_trace_msg("txn_amount=%u, other_amount=%u",
+				(unsigned int)ctx->txn_amount, (unsigned int)other_amount);
+			emv_debug_error("Other amount exceeds transaction amount");
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+	}
 
 	return 0;
 }
@@ -1556,7 +1840,6 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	unsigned int random_selection_percentage = 0; // Disable by default
 	unsigned int random_selection_max_percentage = 0;
 	unsigned int random_selection_threshold = 0;
-	const struct emv_tlv_t* txn_amount;
 	uint32_t floor_limit_value;
 	uint32_t amount_value;
 	const struct emv_tlv_t* lower_offline_limit;
@@ -1615,15 +1898,6 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 		return EMV_ERROR_INVALID_CONFIG;
 	}
 
-	// Ensure mandatory transaction parameters are present and have valid length
-	txn_amount = emv_tlv_list_find_const(&ctx->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY);
-	if (!txn_amount || txn_amount->length != 4) {
-		emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
-			txn_amount, txn_amount ? txn_amount->length : 0);
-		emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
-
 	// Mandatory fields are present for terminal risk management to proceed
 	ctx->tsi->value[0] |= EMV_TSI_TERMINAL_RISK_MANAGEMENT_PERFORMED;
 
@@ -1642,19 +1916,8 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 		return EMV_ERROR_INTERNAL;
 	}
 	emv_debug_trace_msg("Terminal Floor Limit value is %u", (unsigned int)floor_limit_value);
-	r = emv_format_b_to_uint(
-		txn_amount->value,
-		txn_amount->length,
-		&amount_value
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		return EMV_ERROR_INTERNAL;
-	}
-	emv_debug_trace_msg("Amount, Authorised (Binary) value is %u", (unsigned int)amount_value);
+	emv_debug_trace_msg("Transaction amount is %u", (unsigned int)ctx->txn_amount);
+	amount_value = ctx->txn_amount;
 	if (txn_log && txn_log_cnt) {
 		const struct emv_tlv_t* pan;
 		const struct emv_txn_log_entry_t* entry = NULL;
@@ -1680,8 +1943,10 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 		}
 
 		if (entry) {
-			emv_debug_trace_data("Using transaction log entry with amount %u for PAN", entry->pan, sizeof(entry->pan), entry->transaction_amount);
-			amount_value += entry->transaction_amount;
+			emv_debug_trace_data("Using transaction log entry with amount %u for PAN",
+				entry->pan, sizeof(entry->pan), (unsigned int)entry->txn_amount
+			);
+			amount_value += entry->txn_amount;
 		}
 
 		emv_debug_trace_msg("Amount risk value is %u", (unsigned int)amount_value);

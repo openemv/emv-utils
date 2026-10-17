@@ -70,8 +70,8 @@ struct test_t {
 	// Application independent configuration
 	const struct emv_tlv_t* config_data;
 
-	// Transaction parameters
-	const struct emv_tlv_t* params_data;
+	// Transaction amount
+	uint32_t txn_amount;
 
 	// Integrated Circuit Card (ICC) data from the PPSE directory entry
 	const struct emv_tlv_t* icc_data;
@@ -94,11 +94,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 3000
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -114,10 +110,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.result = 0,
 		// Extended Kernel ID is not present and must be zeroed
@@ -134,10 +127,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.icc_data = (const struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9F2A_KERNEL_IDENTIFIER, 1, (uint8_t[]){ 0x02 }, 0 }}, NULL },
@@ -159,10 +149,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.icc_data = (const struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9F2A_KERNEL_IDENTIFIER, 3, (uint8_t[]){ 0x43, 0x05, 0x28 }, 0 }}, NULL },
@@ -184,10 +171,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.icc_data = (const struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9F2A_KERNEL_IDENTIFIER, 3, (uint8_t[]){ 0x83, 0x05, 0x28 }, 0 }}, NULL },
@@ -208,10 +192,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.icc_data = (const struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9F2A_KERNEL_IDENTIFIER, 1, (uint8_t[]){ 0x83 }, 0 }}, NULL },
@@ -233,10 +214,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.result = 0,
 		// Only the first three bytes are used and the Kernel C-8 reader and
@@ -257,11 +235,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 3001
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB9 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3001,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -281,12 +255,9 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Contactless Floor Limit is only exceeded when the amount is
-			// greater than the limit
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		// Contactless Floor Limit is only exceeded when the amount is greater
+		// than the limit
+		.txn_amount = 3000,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -308,11 +279,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 10001
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x11 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 10001,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -330,11 +297,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 10000
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 10000,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -354,12 +317,9 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Contactless CVM Required Limit is exceeded when the amount is
-			// equal to the limit
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		// Contactless CVM Required Limit is exceeded when the amount is equal
+		// to the limit
+		.txn_amount = 5000,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -379,11 +339,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 4999
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x87 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 4999,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -405,11 +361,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 5000
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -431,11 +383,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 1000
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x03, 0xE8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 1000,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -453,10 +401,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 0,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -474,10 +419,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x00, 0x00 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 0,
 
 		.result = 0,
 		.kernel_id = (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -491,10 +433,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.result = EMV_ERROR_INVALID_CONFIG,
 	},
@@ -509,10 +448,7 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.result = EMV_ERROR_INVALID_CONFIG,
 	},
@@ -528,47 +464,9 @@ static const struct test_t test[] = {
 
 		.config_data = test_config_data,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.result = EMV_ERROR_INVALID_CONFIG,
-	},
-
-	{
-		.name = "Amount, Authorised - Binary (81) not found",
-
-		.config_app_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL, 8, (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0 }}, NULL }, // Kernel C-3
-			{ {{ EMV_TAG_9F66_TTQ, 4, (uint8_t[]){ 0x37, 0x00, 0x40, 0x00 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
-
-		.config_data = test_config_data,
-
-		.params_data = NULL,
-
-		.result = EMV_ERROR_INVALID_PARAMETER,
-	},
-
-	{
-		.name = "Invalid Amount, Authorised - Binary (81) length",
-
-		.config_app_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL, 8, (uint8_t[]){ 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0 }}, NULL }, // Kernel C-3
-			{ {{ EMV_TAG_9F66_TTQ, 4, (uint8_t[]){ 0x37, 0x00, 0x40, 0x00 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
-
-		.config_data = test_config_data,
-
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 3, (uint8_t[]){ 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
-
-		.result = EMV_ERROR_INVALID_PARAMETER,
 	},
 
 	{
@@ -586,10 +484,7 @@ static const struct test_t test[] = {
 
 		.config_data = NULL,
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.result = EMV_ERROR_INVALID_CONFIG,
 	},
@@ -608,10 +503,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (const struct emv_tlv_t[]){
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x0B, 0xB8 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 3000,
 
 		.result = EMV_ERROR_INVALID_CONFIG,
 	},
@@ -858,12 +750,9 @@ int main(void)
 			r = 1;
 			goto exit;
 		}
-		r = populate_tlv_list(test[i].params_data, &emv.params);
-		if (r) {
-			fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
-			r = 1;
-			goto exit;
-		}
+
+		// Cache transaction amount without calling emv_ctx_prepare_txn()
+		emv.txn_amount = test[i].txn_amount;
 
 		// Prepare application configuration for current test
 		config_app = test_config_app;

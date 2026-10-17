@@ -427,6 +427,9 @@ int main(void)
 		goto exit;
 	}
 
+	// Cache transaction amount without calling emv_ctx_prepare_txn()
+	emv.txn_amount = 123456789;
+
 	printf("\nTesting invalid parameters...\n");
 	emul_ctx.xpdu_list = NULL;
 	emul_ctx.xpdu_current = NULL;

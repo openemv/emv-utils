@@ -827,6 +827,11 @@ int main(int argc, char** argv)
 		txn_amount, // Transaction Amount
 		txn_amount_other // Transaction Amount, Other
 	);
+	r = emv_ctx_prepare_txn(&emv);
+	if (r) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto config_exit;
+	}
 
 	printf("\nTerminal config:\n");
 	print_emv_tlv_list(&emv.config.data);

@@ -1038,8 +1038,6 @@ int emv_ep_create_common_kernel_data(
 		EMV_TAG_9F66_TTQ
 	);
 	if (ttq_config) {
-		const struct emv_tlv_t* txn_amount;
-		uint32_t amount_value;
 		const struct emv_tlv_t* term_floor_limit;
 		uint32_t term_floor_limit_value;
 		uint8_t ttq[4];
@@ -1048,33 +1046,6 @@ int emv_ep_create_common_kernel_data(
 			emv_debug_error("Terminal Transaction Qualifiers (9F66) invalid");
 			return EMV_ERROR_INVALID_CONFIG;
 		}
-
-		// Ensure mandatory transaction parameters are present and have valid length
-		txn_amount = emv_tlv_list_find_const(
-			&ctx->params,
-			EMV_TAG_81_AMOUNT_AUTHORISED_BINARY
-		);
-		if (!txn_amount || txn_amount->length != 4) {
-			emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
-				txn_amount, txn_amount ? txn_amount->length : 0);
-			emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
-			return EMV_ERROR_INVALID_PARAMETER;
-		}
-		r = emv_format_b_to_uint(
-			txn_amount->value,
-			txn_amount->length,
-			&amount_value
-		);
-		if (r) {
-			emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
-
-			// Internal error; terminate session
-			emv_debug_error("Internal error");
-			return EMV_ERROR_INTERNAL;
-		}
-		emv_debug_trace_msg("Amount, Authorised (Binary) value is %u",
-			(unsigned int)amount_value
-		);
 
 		// Ensure mandatory configuration fields are present and have valid length
 		term_floor_limit = emv_config_data_get(ctx, EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT);
@@ -1103,6 +1074,8 @@ int emv_ep_create_common_kernel_data(
 		ttq[1] &= ~EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
 		ttq[1] &= ~EMV_TTQ_CVM_REQUIRED;
 
+		emv_debug_trace_msg("Transaction amount is %u", (unsigned int)ctx->txn_amount);
+
 		// Apply Contactless Floor Limit
 		if (ctx->selected_app->config->contactless_floor_limit_enabled) {
 			// See EMV Contactless Book B v2.11, 3.1.1.6
@@ -1110,7 +1083,7 @@ int emv_ep_create_common_kernel_data(
 				ctx->selected_app->config->contactless_floor_limit
 			);
 			// See EMV Contactless Book B v2.11, 3.1.1.9
-			if (amount_value > ctx->selected_app->config->contactless_floor_limit) {
+			if (ctx->txn_amount > ctx->selected_app->config->contactless_floor_limit) {
 				emv_debug_info("Contactless Floor Limit exceeded");
 				ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
 			}
@@ -1120,7 +1093,7 @@ int emv_ep_create_common_kernel_data(
 				(unsigned int)term_floor_limit_value
 			);
 			// See EMV Contactless Book B v2.11, 3.1.1.9
-			if (amount_value > term_floor_limit_value) {
+			if (ctx->txn_amount > term_floor_limit_value) {
 				emv_debug_info("Terminal Floor Limit exceeded");
 				ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
 			}
@@ -1133,7 +1106,7 @@ int emv_ep_create_common_kernel_data(
 				ctx->selected_app->config->contactless_cvm_required_limit
 			);
 			// See EMV Contactless Book B v2.11, 3.1.1.12
-			if (amount_value >= ctx->selected_app->config->contactless_cvm_required_limit) {
+			if (ctx->txn_amount >= ctx->selected_app->config->contactless_cvm_required_limit) {
 				emv_debug_info("Contactless CVM Required Limit exceeded");
 				ttq[1] |= EMV_TTQ_CVM_REQUIRED;
 			}
@@ -1141,7 +1114,7 @@ int emv_ep_create_common_kernel_data(
 
 		// Apply Contactless Zero Amount if online-capable
 		// See EMV Contactless Book B v2.11, 3.1.1.11
-		if (amount_value == 0 &&
+		if (ctx->txn_amount == 0 &&
 			!(ttq[0] & EMV_TTQ_OFFLINE_ONLY_READER)
 		) {
 			emv_debug_info("Contactless Zero Amount");

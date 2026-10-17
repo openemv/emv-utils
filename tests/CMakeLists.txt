@@ -86,6 +86,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_date_test PRIVATE emv)
 	add_test(emv_date_test emv_date_test)
 
+	add_executable(emv_ctx_prepare_txn_test emv_ctx_prepare_txn_test.c)
+	target_link_libraries(emv_ctx_prepare_txn_test PRIVATE print_helpers emv)
+	add_test(emv_ctx_prepare_txn_test emv_ctx_prepare_txn_test)
+
 	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c)
 	target_link_libraries(emv_build_candidate_list_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_build_candidate_list_test emv_build_candidate_list_test)

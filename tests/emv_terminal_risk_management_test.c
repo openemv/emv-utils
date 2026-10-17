@@ -38,8 +38,9 @@ struct test_t {
 	const char* name;
 
 	struct emv_tlv_t* config_data;
-	struct emv_tlv_t* params_data;
 	struct emv_tlv_t* icc_data;
+
+	uint32_t txn_amount;
 
 	const struct emv_txn_log_entry_t* txn_log;
 	size_t txn_log_cnt;
@@ -60,11 +61,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// PAN: 5413330089020011
@@ -123,11 +120,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 150.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x3A, 0x98 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 15000, // 150.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// PAN: 5413330089020011
@@ -151,11 +144,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 150.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x3A, 0x98 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 15000, // 150.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// PAN: 5413330089020011
@@ -201,11 +190,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// PAN: 5413330089020011
@@ -251,11 +236,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// Lower Consecutive Offline Limit: 18
@@ -290,11 +271,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// Lower Consecutive Offline Limit: 18
@@ -329,11 +306,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// Lower Consecutive Offline Limit: 18
@@ -368,11 +341,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// Lower Consecutive Offline Limit: 18
@@ -407,11 +376,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// Lower Consecutive Offline Limit: 18
@@ -446,11 +411,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// Lower Consecutive Offline Limit: 18
@@ -485,11 +446,7 @@ static const struct test_t test[] = {
 			{ {{ 0 }} },
 		},
 
-		.params_data = (struct emv_tlv_t[]){
-			// Amount, Authorised (Binary): 50.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x13, 0x88 }, 0 }}, NULL },
-			{ {{ 0 }} },
-		},
+		.txn_amount = 5000, // 50.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			// Lower Consecutive Offline Limit: 18
@@ -578,16 +535,6 @@ int main(void)
 		}
 		print_emv_tlv_list(&emv.config.data);
 		r = populate_tlv_list(
-			test[i].params_data,
-			&emv.params
-		);
-		if (r) {
-			fprintf(stderr, "populate_tlv_list() failed; r=%d\n", r);
-			r = 1;
-			goto exit;
-		}
-		print_emv_tlv_list(&emv.params);
-		r = populate_tlv_list(
 			test[i].icc_data,
 			&emv.icc
 		);
@@ -611,6 +558,9 @@ int main(void)
 		}
 		emv.tvr = emv_tlv_list_find(&emv.terminal, EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS);
 		emv.tsi = emv_tlv_list_find(&emv.terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
+
+		// Cache transaction amount without calling emv_ctx_prepare_txn()
+		emv.txn_amount = test[i].txn_amount;
 
 		// Prepare card emulation for current test
 		emul_ctx.xpdu_list = test[i].xpdu_list;
