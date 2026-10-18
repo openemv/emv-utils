@@ -750,6 +750,7 @@ int main(int argc, char** argv)
 	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
 	struct emv_ep_app_list_t ep_list = EMV_EP_APP_LIST_INIT; // Combination list
+	int contactless_preprocess_outcome = 0;
 	uint8_t kernel_id[3] = { 0 };
 
 	if (argc == 1) {
@@ -841,6 +842,26 @@ int main(int argc, char** argv)
 
 	printf("\nTransaction parameters:\n");
 	print_emv_tlv_list(&emv.params);
+
+	// Entry Point pre-processing is performed before card presentation
+	// See EMV Contactless Book B v2.11, 3.1
+	printf("\nBuild combination list\n");
+	r = emv_ep_preprocess(&emv, &ep_list);
+	if (r < 0) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto config_exit;
+	}
+	if (r > 0) {
+		// Contactless is not possible for this transaction
+		// See EMV Contactless Book B v2.11, 3.1.1.13
+		// See EMV Contactless Book B v2.11, 3.3.2.7
+		if (r == EMV_OUTCOME_TRY_ANOTHER_INTERFACE) {
+			printf("No contactless applications allowed\n");
+		} else {
+			printf("No supported contactless applications\n");
+		}
+		contactless_preprocess_outcome = r;
+	}
 
 	printf("\nActivating card readers\n");
 	r = pcsc_init(&pcsc);
@@ -1058,14 +1079,11 @@ int main(int argc, char** argv)
 		} while (true);
 
 	} else {
-		printf("\nBuild combination list\n");
-		r = emv_ep_preprocess(&emv.config, txn_amount, &ep_list);
-		if (r < 0) {
-			printf("ERROR: %s\n", emv_error_get_string(r));
-			goto emv_exit;
-		}
-		if (r > 0) {
-			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+		if (contactless_preprocess_outcome) {
+			// Contactless is not possible for this transaction
+			// See EMV Contactless Book B v2.11, 3.1.1.13
+			// See EMV Contactless Book B v2.11, 3.3.2.7
+			printf("OUTCOME: %s\n", emv_outcome_get_string(contactless_preprocess_outcome));
 			goto emv_exit;
 		}
 
@@ -1261,11 +1279,11 @@ emv_outcome_data:
 	printf("\nCard deactivated\n");
 
 emv_exit:
-	emv_ep_app_list_clear(&ep_list);
 	emv_app_list_clear(&app_list);
 pcsc_exit:
 	pcsc_release(&pcsc);
 config_exit:
+	emv_ep_app_list_clear(&ep_list);
 	emv_capk_clear();
 	emv_ctx_clear(&emv);
 

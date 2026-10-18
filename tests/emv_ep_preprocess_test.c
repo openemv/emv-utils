@@ -713,13 +713,13 @@ int main(void)
 	printf("Passed!\n\n");
 
 	printf("Testing invalid parameters...\n");
-	r = emv_ep_preprocess(NULL, 3000, &ep_list);
+	r = emv_ep_preprocess(NULL, &ep_list);
 	if (r != EMV_ERROR_INVALID_PARAMETER) {
 		fprintf(stderr, "Unexpected emv_ep_preprocess() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
 		goto exit;
 	}
-	r = emv_ep_preprocess(&emv.config, 3000, NULL);
+	r = emv_ep_preprocess(&emv, NULL);
 	if (r != EMV_ERROR_INVALID_PARAMETER) {
 		fprintf(stderr, "Unexpected emv_ep_preprocess() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -731,7 +731,7 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
-	r = emv_ep_preprocess(&emv.config, 3000, &ep_list);
+	r = emv_ep_preprocess(&emv, &ep_list);
 	if (r != EMV_ERROR_INVALID_PARAMETER) {
 		fprintf(stderr, "Unexpected emv_ep_preprocess() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 		r = 1;
@@ -763,8 +763,11 @@ int main(void)
 			goto exit;
 		}
 
+		// Cache transaction amount without calling emv_ctx_prepare_txn()
+		emv.txn_amount = test[i].amount;
+
 		// Test Entry Point pre-processing...
-		r = emv_ep_preprocess(&emv.config, test[i].amount, &ep_list);
+		r = emv_ep_preprocess(&emv, &ep_list);
 		if (r != test[i].result) {
 			fprintf(stderr, "Unexpected emv_ep_preprocess() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
 			r = 1;

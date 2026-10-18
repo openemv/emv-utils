@@ -497,7 +497,10 @@ int main(void)
 		goto exit;
 	}
 
-	r = emv_ep_preprocess(&emv.config, 3000, &ep_list);
+	// Cache transaction amount without calling emv_ctx_prepare_txn()
+	emv.txn_amount = 3000;
+
+	r = emv_ep_preprocess(&emv, &ep_list);
 	if (r) {
 		fprintf(stderr, "emv_ep_preprocess() failed; r=%d\n", r);
 		r = 1;

@@ -30,7 +30,6 @@ __BEGIN_DECLS
 
 // Forward declarations
 struct emv_config_app_t;
-struct emv_config_t;
 struct emv_ctx_t;
 struct emv_app_list_t;
 struct emv_tlv_list_t;
@@ -108,8 +107,10 @@ void emv_ep_app_list_clear(struct emv_ep_app_list_t* list);
  * valid application combinations
  * @remark See EMV Contactless Book B v2.11, 3.1
  *
- * @param config EMV configuration containing supported applications
- * @param amount Current transaction amount
+ * @note This function depends on the cached transaction amount and can
+ *       therefore only be called after @ref emv_ctx_prepare_txn().
+ *
+ * @param ctx EMV processing context
  * @param list EMV contactless application combination list output
  *
  * @return Zero for success
@@ -117,8 +118,7 @@ void emv_ep_app_list_clear(struct emv_ep_app_list_t* list);
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_ep_preprocess(
-	const struct emv_config_t* config,
-	uint32_t amount,
+	const struct emv_ctx_t* ctx,
 	struct emv_ep_app_list_t* list
 );
 

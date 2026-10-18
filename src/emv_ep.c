@@ -186,8 +186,7 @@ static inline bool emv_card_is_contactless(const struct emv_ctx_t* ctx)
 }
 
 int emv_ep_preprocess(
-	const struct emv_config_t* config,
-	uint32_t amount,
+	const struct emv_ctx_t* ctx,
 	struct emv_ep_app_list_t* list
 )
 {
@@ -196,8 +195,8 @@ int emv_ep_preprocess(
 	const struct emv_config_app_t* config_app;
 	unsigned int contactless_not_allowed = 0;
 
-	if (!config || !list) {
-		emv_debug_trace_msg("config=%p, list=%p", config, list);
+	if (!ctx || !list) {
+		emv_debug_trace_msg("ctx=%p, list=%p", ctx, list);
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
@@ -206,7 +205,10 @@ int emv_ep_preprocess(
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
-	r = emv_config_app_itr_init(config, &itr);
+	emv_debug_info("Contactless pre-processing");
+	emv_debug_trace_msg("Transaction amount is %u", (unsigned int)ctx->txn_amount);
+
+	r = emv_config_app_itr_init(&ctx->config, &itr);
 	if (r) {
 		emv_debug_trace_msg("emv_config_app_itr_init() failed; r=%d", r);
 
@@ -239,7 +241,7 @@ int emv_ep_preprocess(
 				config_app->contactless_transaction_limit
 			);
 			// See EMV Contactless Book B v2.11, 3.1.1.5
-			if (amount >= config_app->contactless_transaction_limit) {
+			if (ctx->txn_amount >= config_app->contactless_transaction_limit) {
 				emv_debug_trace_data("Contactless Transaction Limit exceeded for combination",
 					config_app->aid, config_app->aid_len
 				);
@@ -267,7 +269,7 @@ int emv_ep_preprocess(
 			}
 
 			// See EMV Contactless Book B v2.11, 3.1.1.11
-			if (amount == 0 &&
+			if (ctx->txn_amount == 0 &&
 				(ttq_config->value[0] & EMV_TTQ_OFFLINE_ONLY_READER)
 			) {
 				emv_debug_trace_data("Contactless Zero Amount not allowed for combination",
