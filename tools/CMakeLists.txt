@@ -110,6 +110,11 @@ if(WIN32)
 		"winsock2.h;afunix.h"
 		HAVE_AFUNIX_H
 	)
+	if(NOT HAVE_WINSOCK2_H OR NOT HAVE_WS2TCPIP_H OR NOT HAVE_AFUNIX_H)
+		if(BUILD_EMV_TOOL)
+			message(FATAL_ERROR "Failed to find winsock2.h, ws2tcpip.h or afunix.h. This is required to build emv-tool.")
+		endif()
+	endif()
 endif()
 
 # Print helpers object library
@@ -187,7 +192,7 @@ if(BUILD_EMV_TOOL)
 		# allow the project include directories to take precedence.
 		target_include_directories(emv-tool SYSTEM PRIVATE ${PCSC_FRAMEWORK_INCLUDE_DIR})
 	endif()
-	target_link_libraries(emv-tool PRIVATE print_helpers emv emv_strings)
+	target_link_libraries(emv-tool PRIVATE print_helpers socket_helpers emv emv_strings)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-tool PRIVATE libargp::argp)
 	endif()
