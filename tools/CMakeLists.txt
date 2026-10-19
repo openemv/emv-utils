@@ -94,12 +94,41 @@ if(NOT HAVE_LOCALTIME_R)
 	endif()
 endif()
 
+# Check for headers that provide Winsock sockets on Windows
+if(WIN32)
+	include(CheckIncludeFiles)
+	CHECK_INCLUDE_FILE(
+		winsock2.h
+		HAVE_WINSOCK2_H
+	)
+	CHECK_INCLUDE_FILE(
+		ws2tcpip.h
+		HAVE_WS2TCPIP_H
+	)
+	# afunix.h is not self-contained and requires winsock2.h
+	CHECK_INCLUDE_FILES(
+		"winsock2.h;afunix.h"
+		HAVE_AFUNIX_H
+	)
+endif()
+
 # Print helpers object library
 add_library(print_helpers OBJECT EXCLUDE_FROM_ALL print_helpers.c)
 target_include_directories(print_helpers INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 target_link_libraries(print_helpers PRIVATE iso7816 emv emv_strings)
+
+# Socket helpers object library
+if(NOT WIN32 OR (HAVE_WINSOCK2_H AND HAVE_WS2TCPIP_H AND HAVE_AFUNIX_H))
+	add_library(socket_helpers OBJECT EXCLUDE_FROM_ALL socket_helpers.c)
+	target_include_directories(socket_helpers INTERFACE
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+	)
+	if(WIN32)
+		target_link_libraries(socket_helpers INTERFACE ws2_32)
+	endif()
+endif()
 
 # EMV decode command line tool
 if(BUILD_EMV_DECODE)
