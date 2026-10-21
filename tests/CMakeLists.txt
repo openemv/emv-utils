@@ -146,6 +146,12 @@ if (BUILD_TESTING)
 	target_link_libraries(iso8859_test PRIVATE iso8859)
 	add_test(iso8859_test iso8859_test)
 
+	if(TARGET socket_helpers)
+		add_executable(socket_helpers_test socket_helpers_test.c)
+		target_link_libraries(socket_helpers_test PRIVATE socket_helpers)
+		add_test(socket_helpers_test socket_helpers_test)
+	endif()
+
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
 		# Assume that the PATH already contains the compiler runtime DLLs

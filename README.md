@@ -322,6 +322,14 @@ To override the transaction date and time, use the `--txn-date` and
 emv-tool --config-xml tools/emv-config-example.xml --txn-type 00 --txn-amount 1234 --txn-date 2022-12-12 --txn-time 12:34:56
 ```
 
+The online authorisation method can be specified using the `--online-auth`
+option. When `--online-auth socket` is specified, the destination address must
+be specified using the `--online-auth-socket` option. The latter supports Unix
+socket addresses as well as TCP addresses. For example:
+```shell
+emv-tool --config-xml tools/emv-config-example.xml --txn-type 00 --txn-amount 1234 --genac1 ARQC --online-auth socket --online-auth-socket :5000
+```
+
 The debug level, debug sources and debug verbosity can be specified using the
 `--debug-level`, `--debug-source` and `--debug-verbose` options respectively.
 

@@ -23,6 +23,7 @@
 #include "emv_config_xml.h"
 #include "pcsc.h"
 #include "print_helpers.h"
+#include "socket_helpers.h"
 #include "emv_ttl.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
@@ -52,7 +53,10 @@ static void print_pcsc_readers(pcsc_ctx_t pcsc);
 static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
 static int emv_txn_load_config(struct emv_ctx_t* emv);
 static int parse_hex(const char* hex, void* buf, size_t* buf_len);
+static int online_auth_request_encode(const struct emv_ctx_t* emv, uint8_t* buf, size_t* buf_len);
+static int online_auth_response_parse(const uint8_t* buf, size_t buf_len, uint8_t* arc, uint8_t* iad, size_t* iad_len);
 static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len);
+static int online_auth_socket(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len);
 
 // argp option keys
 enum emv_tool_param_t {
@@ -65,6 +69,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
 	EMV_TOOL_PARAM_GENAC1_TYPE,
 	EMV_TOOL_PARAM_ONLINE_AUTH,
+	EMV_TOOL_PARAM_ONLINE_AUTH_SOCKET,
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
 	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
 	EMV_TOOL_PARAM_DEBUG_LEVEL,
@@ -85,10 +90,13 @@ static struct argp_option argp_options[] = {
 	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
-	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
-	{ "online-auth", EMV_TOOL_PARAM_ONLINE_AUTH, "decline|approve|unable|prompt", 0, "Online authorisation method. Default is decline." },
 
-	{ NULL, 0, NULL, 0, "Debug options", 3 },
+	{ NULL, 0, NULL, 0, "Authorisation options", 3 },
+	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
+	{ "online-auth", EMV_TOOL_PARAM_ONLINE_AUTH, "decline|approve|unable|prompt|socket", 0, "Online authorisation method. Default is decline." },
+	{ "online-auth-socket", EMV_TOOL_PARAM_ONLINE_AUTH_SOCKET, "ADDR", 0, "Socket address for online authorisation. ADDR is a Unix domain socket path if it contains \"/\", or a TCP address of the form \"host:port\", \":port\" or \"port\", or an IPv6 address of the form \"[address]:port\". A TCP address without a host connects to the loopback interface." },
+
+	{ NULL, 0, NULL, 0, "Debug options", 4 },
 	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
 	{ "debug-source", EMV_TOOL_PARAM_DEBUG_SOURCES_MASK, "x,y,z...", 0, "Comma separated list of debug sources. Allowed values are TTL, TAL, ODA, EMV, APP, ALL. Default is ALL." },
 	{ "debug-level", EMV_TOOL_PARAM_DEBUG_LEVEL, "LEVEL", 0, "Maximum debug level. Allowed values are NONE, ERROR, INFO, CARD, TRACE, ALL. Default is INFO." },
@@ -128,8 +136,10 @@ enum online_auth_method_t {
 	ONLINE_AUTH_METHOD_APPROVE,
 	ONLINE_AUTH_METHOD_UNABLE,
 	ONLINE_AUTH_METHOD_PROMPT,
+	ONLINE_AUTH_METHOD_SOCKET,
 };
 static enum online_auth_method_t online_auth_method = ONLINE_AUTH_METHOD_DECLINE;
+static const char* online_auth_socket_addr = NULL;
 
 // Debug parameters
 static bool debug_verbose = false;
@@ -323,10 +333,17 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				online_auth_method = ONLINE_AUTH_METHOD_UNABLE;
 			} else if (strcasecmp(arg, "prompt") == 0) {
 				online_auth_method = ONLINE_AUTH_METHOD_PROMPT;
+			} else if (strcasecmp(arg, "socket") == 0) {
+				online_auth_method = ONLINE_AUTH_METHOD_SOCKET;
 			} else {
-				argp_error(state, "Online authorisation method (--online-auth) argument must be decline, approve, unable or prompt");
+				argp_error(state, "Online authorisation method (--online-auth) argument must be decline, approve, unable, prompt or socket");
 				return EINVAL;
 			}
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_ONLINE_AUTH_SOCKET: {
+			online_auth_socket_addr = arg;
 			return 0;
 		}
 
@@ -824,58 +841,50 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 	return 0;
 }
 
-static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len)
+static int online_auth_request_encode(const struct emv_ctx_t* emv, uint8_t* buf, size_t* buf_len)
 {
 	int r;
-	uint8_t txn_record[4096];
-	size_t txn_record_len = sizeof(txn_record);
-	char input[1024];
-	uint8_t buf[512];
-	size_t buf_len = sizeof(buf);
-	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
-	const struct emv_tlv_t* tlv;
 
-	if (!arc || !iad || !iad_len) {
+	if (!emv || !buf || !buf_len) {
 		return -1;
 	}
-	memset(arc, 0, 2);
-	*iad_len = 0;
 
 	r = emv_txn_record_compute_encoded_length(emv);
 	if (r < 0) {
 		fprintf(stderr, "emv_txn_record_compute_encoded_length() failed; r=%d\n", r);
-		return -1;
+		return -2;
 	}
-	if (r > sizeof(txn_record)) {
+	if (r > *buf_len) {
 		fprintf(stderr, "Transaction record too large\n");
-		return -1;
+		return -3;
 	}
-	r = emv_txn_record_encode(emv, txn_record, &txn_record_len);
+	r = emv_txn_record_encode(emv, buf, buf_len);
 	if (r) {
 		fprintf(stderr, "emv_txn_record_encode() failed; r=%d\n", r);
-		return -1;
+		return -4;
 	}
 
 	printf("\n");
-	print_buf("Authorisation request", txn_record, txn_record_len);
+	print_buf("Authorisation request", buf, *buf_len);
 
-	printf("\nEnter authorisation response (BER encoded as ASCII-HEX; empty if unable): ");
-	if (!fgets(input, sizeof(input), stdin)) {
-		fprintf(stderr, "Failed to read authorisation response\n");
-		return 1;
-	}
+	return 0;
+}
 
-	r = parse_hex(input, buf, &buf_len);
-	if (r) {
-		fprintf(stderr, "Invalid authorisation response\n");
-		return 1;
+static int online_auth_response_parse(const uint8_t* buf, size_t buf_len, uint8_t* arc, uint8_t* iad, size_t* iad_len)
+{
+	int r;
+	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* tlv;
+
+	if (!buf || !arc || !iad || !iad_len) {
+		return -10;
 	}
 
 	r = emv_tlv_parse(buf, buf_len, &list);
 	if (r) {
 		fprintf(stderr, "Failed to parse authorisation response\n");
 		emv_tlv_list_clear(&list);
-		return 1;
+		return 10;
 	}
 	print_emv_tlv_list(&list);
 
@@ -900,6 +909,137 @@ static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t
 
 	emv_tlv_list_clear(&list);
 	return 0;
+}
+
+static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len)
+{
+	int r;
+	uint8_t txn_record[4096];
+	size_t txn_record_len = sizeof(txn_record);
+	char input[1024];
+	uint8_t buf[512];
+	size_t buf_len = sizeof(buf);
+
+	if (!arc || !iad || !iad_len) {
+		return -20;
+	}
+	memset(arc, 0, 2);
+	*iad_len = 0;
+
+	r = online_auth_request_encode(emv, txn_record, &txn_record_len);
+	if (r) {
+		return r;
+	}
+
+	printf("\nEnter authorisation response (BER encoded as ASCII-HEX; empty if unable): ");
+	if (!fgets(input, sizeof(input), stdin)) {
+		fprintf(stderr, "Failed to read authorisation response\n");
+		return 20;
+	}
+
+	r = parse_hex(input, buf, &buf_len);
+	if (r) {
+		fprintf(stderr, "Invalid authorisation response\n");
+		return 21;
+	}
+
+	return online_auth_response_parse(buf, buf_len, arc, iad, iad_len);
+}
+
+static int online_auth_socket(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len)
+{
+	int r;
+	uint8_t txn_record[4096];
+	size_t txn_record_len = sizeof(txn_record);
+	socket_handle_t s = SOCKET_HANDLE_INVALID;
+	char host[256];
+	char port[32];
+	uint8_t buf[512];
+	size_t buf_len = 0;
+	long bytes;
+
+	if (!arc || !iad || !iad_len) {
+		return -30;
+	}
+	memset(arc, 0, 2);
+	*iad_len = 0;
+
+	r = online_auth_request_encode(emv, txn_record, &txn_record_len);
+	if (r) {
+		return r;
+	}
+
+	r = socket_init();
+	if (r) {
+		fprintf(stderr, "Failed to initialise socket support\n");
+		return 30;
+	}
+
+	printf("\nConnecting to %s\n", online_auth_socket_addr);
+	r = socket_connect(online_auth_socket_addr, &s);
+	if (r < 0) {
+		fprintf(stderr, "Invalid online authorisation socket address %s\n", online_auth_socket_addr);
+		r = 31;
+		goto exit;
+	}
+	if (r > 0) {
+		fprintf(stderr, "Failed to connect to %s\n", online_auth_socket_addr);
+		r = 32;
+		goto exit;
+	}
+
+	r = socket_get_peer_name(s, host, sizeof(host), port, sizeof(port));
+	if (r) {
+		// Peer address unavailable; report the address as provided
+		printf("Connected to %s\n", online_auth_socket_addr);
+	} else if (port[0]) {
+		printf("Connected to %s port %s\n", host, port);
+	} else {
+		printf("Connected to %s\n", host);
+	}
+
+	// Send the request and shut down the write side of the socket such that
+	// the peer reads end of input after the request
+	printf("Sending %zu bytes\n", txn_record_len);
+	r = socket_send(s, txn_record, txn_record_len);
+	if (r) {
+		fprintf(stderr, "Failed to send authorisation request to %s\n", online_auth_socket_addr);
+		r = 33;
+		goto exit;
+	}
+	r = socket_shutdown_write(s);
+	if (r) {
+		fprintf(stderr, "Failed to shut down write side of %s\n", online_auth_socket_addr);
+		r = 34;
+		goto exit;
+	}
+
+	// Read the response until the peer closes the connection
+	while ((bytes = socket_recv(s, buf + buf_len, sizeof(buf) - buf_len)) > 0) {
+		buf_len += bytes;
+		if (buf_len == sizeof(buf)) {
+			fprintf(stderr, "Authorisation response too large\n");
+			r = 35;
+			goto exit;
+		}
+	}
+	if (bytes < 0) {
+		fprintf(stderr, "Failed to read authorisation response from %s\n", online_auth_socket_addr);
+		r = 36;
+		goto exit;
+	}
+	printf("Received %zu bytes\n", buf_len);
+
+	printf("\n");
+	print_buf("Authorisation response", buf, buf_len);
+	r = online_auth_response_parse(buf, buf_len, arc, iad, iad_len);
+
+exit:
+	if (s != SOCKET_HANDLE_INVALID) {
+		socket_close(s);
+	}
+	socket_cleanup();
+	return r;
 }
 
 int main(int argc, char** argv)
@@ -953,6 +1093,22 @@ int main(int argc, char** argv)
 		txn_amount_other == 0
 	) {
 		fprintf(stderr, "Secondary transaction amount (--txn-amount-other) must be non-zero for cashback transaction\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
+	}
+
+	if (online_auth_method == ONLINE_AUTH_METHOD_SOCKET &&
+		!online_auth_socket_addr
+	) {
+		fprintf(stderr, "Online authorisation socket (--online-auth-socket) is required for online authorisation method socket\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
+	}
+
+	if (online_auth_method != ONLINE_AUTH_METHOD_SOCKET &&
+		online_auth_socket_addr
+	) {
+		fprintf(stderr, "Online authorisation socket (--online-auth-socket) requires online authorisation method socket\n");
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 		return 1;
 	}
@@ -1287,6 +1443,13 @@ int main(int argc, char** argv)
 
 		case ONLINE_AUTH_METHOD_PROMPT:
 			r = online_auth_prompt(&emv, arc, iad, &iad_len);
+			if (r < 0) {
+				goto emv_exit;
+			}
+			break;
+
+		case ONLINE_AUTH_METHOD_SOCKET:
+			r = online_auth_socket(&emv, arc, iad, &iad_len);
 			if (r < 0) {
 				goto emv_exit;
 			}
