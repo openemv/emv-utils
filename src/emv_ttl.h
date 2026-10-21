@@ -220,6 +220,23 @@ int emv_ttl_get_data(
 );
 
 /**
+ * EXTERNAL AUTHENTICATE (0x82) for current application
+ * @remark EMV 4.4 Book 3, 6.5.4
+ *
+ * @param ctx EMV Terminal Transport Layer context
+ * @param data Issuer Authentication Data (field 91). Must be 8 to 16 bytes.
+ * @param data_len Length of Issuer Authentication Data in bytes
+ * @param sw1sw2 Status bytes (SW1-SW2) output
+ * @return Zero for success. Less than zero for error. Greater than zero for invalid reader response.
+ */
+int emv_ttl_external_authenticate(
+	struct emv_ttl_t* ctx,
+	const void* data,
+	size_t data_len,
+	uint16_t* sw1sw2
+);
+
+/**
  * INTERNAL AUTHENTICATE (0x88) for current application
  * @remark EMV 4.4 Book 3, 6.5.9
  *

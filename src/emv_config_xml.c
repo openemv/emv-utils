@@ -234,63 +234,6 @@ static int parse_oid_arc(const char* arc_str, struct iso8825_oid_t* oid)
 	return 0;
 }
 
-static int encode_utf8string_ber(
-	const uint8_t* str,
-	unsigned int str_len,
-	uint8_t* buf,
-	unsigned int* buf_len
-)
-{
-	unsigned int max_buf_len;
-	unsigned int idx = 0;
-
-	if (!buf_len) {
-		return -1;
-	}
-	max_buf_len = *buf_len;
-	*buf_len = 0;
-
-	// Encode tag
-	if (max_buf_len < 2) {
-		return -2;
-	}
-	buf[idx++] = ASN1_UTF8STRING;
-
-	// Encode length
-	if (str_len < 0x80) {
-		if (idx >= max_buf_len) {
-			return -3;
-		}
-		buf[idx++] = (uint8_t)str_len;
-	} else if (str_len < 0x100) {
-		if (idx + 2 > max_buf_len) {
-			return -4;
-		}
-		buf[idx++] = ISO8825_BER_LEN_LONG_FORM | 1;
-		buf[idx++] = (uint8_t)str_len;
-	} else if (str_len < 0x10000) {
-		if (idx + 3 > max_buf_len) {
-			return -5;
-		}
-		buf[idx++] = ISO8825_BER_LEN_LONG_FORM | 2;
-		buf[idx++] = (uint8_t)(str_len >> 8);
-		buf[idx++] = (uint8_t)str_len;
-	} else {
-		// Not supported
-		return -6;
-	}
-
-	// Encode string
-	if (idx + str_len > max_buf_len) {
-		return -7;
-	}
-	memcpy(buf + idx, str, str_len);
-	idx += str_len;
-
-	*buf_len = idx;
-	return 0;
-}
-
 static int parse_obj_node(xmlNode* obj_node, struct emv_tlv_list_t* list)
 {
 	int r;
@@ -325,19 +268,21 @@ static int parse_obj_node(xmlNode* obj_node, struct emv_tlv_list_t* list)
 		trimmed[0] == '"' &&
 		trimmed[content_len - 1] == '"'
 	) {
-		unsigned int str_len;
+		struct iso8825_tlv_t str_tlv;
+		size_t str_ber_len;
 
 		// Parse content as string and encode as ASN.1 UTF-8 string
-		str_len = content_len - 2;
-		ber_len = sizeof(ber);
-		r = encode_utf8string_ber(
-			(const uint8_t*)trimmed + 1, str_len,
-			ber, &ber_len
-		);
+		str_tlv.tag = ASN1_UTF8STRING;
+		str_tlv.length = content_len - 2;
+		str_tlv.value = (const uint8_t*)trimmed + 1;
+		str_tlv.flags = 0;
+		str_ber_len = sizeof(ber);
+		r = iso8825_ber_encode(&str_tlv, ber, &str_ber_len);
 		xmlFree(content);
 		if (r) {
 			return EMV_CONFIG_XML_INVALID_DATA;
 		}
+		ber_len = str_ber_len;
 	} else {
 		// Parse content as ASCII-HEX and assume that it is BER
 		ber_len = sizeof(ber);

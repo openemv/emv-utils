@@ -1260,7 +1260,8 @@ int emv_tal_genac(
 	uint16_t sw1sw2;
 	struct iso8825_tlv_t response_tlv;
 	struct emv_tlv_list_t response_list = EMV_TLV_LIST_INIT;
-	const struct emv_tlv_t* tlv;
+	const struct emv_tlv_t* cid;
+	const struct emv_tlv_t* atc;
 
 	if (!ttl || !list) {
 		// Invalid parameters; terminate session
@@ -1422,11 +1423,12 @@ int emv_tal_genac(
 				template_tlv.tag == EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA
 			) {
 				unsigned int offset_before_sdad =
-					itr.ptr - (void*)response_tlv.value - r;
+					(void*)itr.ptr - (void*)response_tlv.value - r;
 
-				if (offset_before_sdad <= sizeof(oda->genac_data)) {
-					// Found SDAD (field 9F4B) and buffer has enough space,
-					// therefore cache fields before SDAD
+				if (response_tlv.length - template_tlv.length <= sizeof(oda->genac_data)) {
+					// Found SDAD (field 9F4B) and buffer has enough space for
+					// the fields before and after SDAD, therefore cache fields
+					// before SDAD
 					memcpy(
 						oda->genac_data,
 						response_tlv.value,
@@ -1481,26 +1483,34 @@ int emv_tal_genac(
 	}
 
 	// Ensure that Cryptogram Information Data (field 9F27) is present
-	tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
-	if (!tlv) {
+	cid = emv_tlv_list_find_const(&response_list, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+	if (!cid || cid->length != 1) {
 		// Mandatory field missing; terminate session
 		// See EMV 4.4 Book 3, 6.5.5.4
-		emv_debug_error("CID not found in GENAC response");
+		emv_debug_error("CID not found or invalid in GENAC response");
 		r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
 		goto exit;
 	}
 
 	// Ensure that Application Transaction Counter (field 9F36) is present
-	tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER);
-	if (!tlv) {
+	atc = emv_tlv_list_find_const(&response_list, EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER);
+	if (!atc || atc->length != 2) {
 		// Mandatory field missing; terminate session
 		// See EMV 4.4 Book 3, 6.5.5.4
-		emv_debug_error("ATC not found in GENAC response");
+		emv_debug_error("ATC not found or invalid in GENAC response");
 		r = EMV_TAL_ERROR_GENAC_FIELD_NOT_FOUND;
 		goto exit;
 	}
 
-	if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) == EMV_TTL_GENAC_SIG_NONE) {
+	// Card will only perform ODA when it was requested and the resulting
+	// outcome was not AAC
+	// See EMV 4.4 Book 2, 6.6.2
+	// See EMV 4.4 Book 3, 6.5.5.4
+	if ((ref_ctrl & EMV_TTL_GENAC_SIG_MASK) == EMV_TTL_GENAC_SIG_NONE ||
+		(cid->value[0] & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) == EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC
+	) {
+		const struct emv_tlv_t* tlv;
+
 		// Ensure that Application Cryptogram (field 9F26) is present
 		tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F26_APPLICATION_CRYPTOGRAM);
 		if (!tlv) {
@@ -1511,6 +1521,8 @@ int emv_tal_genac(
 			goto exit;
 		}
 	} else {
+		const struct emv_tlv_t* tlv;
+
 		// Ensure that Signed Dynamic Application Data (field 9F4B) is present
 		tlv = emv_tlv_list_find_const(&response_list, EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA);
 		if (!tlv) {
@@ -1538,4 +1550,51 @@ int emv_tal_genac(
 exit:
 	emv_tlv_list_clear(&response_list);
 	return r;
+}
+
+int emv_tal_external_authenticate(
+	struct emv_ttl_t* ttl,
+	const void* data,
+	size_t data_len
+)
+{
+	int r;
+	uint16_t sw1sw2;
+
+	if (!ttl || !data) {
+		// Invalid parameters; terminate session
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+	// See EMV 4.4 Book 3, 6.5.4.3
+	if (data_len < 8 || data_len > 16) {
+		return EMV_TAL_ERROR_INVALID_PARAMETER;
+	}
+
+	// EXTERNAL AUTHENTICATE
+	// See EMV 4.4 Book 3, 6.5.4
+	emv_debug_info_data("EXTERNAL AUTHENTICATE", data, data_len);
+	r = emv_ttl_external_authenticate(ttl, data, data_len, &sw1sw2);
+	if (r) {
+		emv_debug_trace_msg("emv_ttl_external_authenticate() failed; r=%d", r);
+
+		// TTL failure; terminate session
+		// (bad card or reader)
+		emv_debug_error("TTL failure");
+		return EMV_TAL_ERROR_TTL_FAILURE;
+	}
+
+	// See EMV 4.4 Book 3, 6.5.4.5
+	// See EMV 4.4 Book 3, Annex F, table 55
+	if (sw1sw2 == 0x9000) {
+		// Successful EXTERNAL AUTHENTICATE processing
+		return 0;
+	} else if (sw1sw2 == 0x6985) {
+		// Issuer authentication error; terminate session
+		emv_debug_error("Issuer authentication error");
+		return EMV_TAL_ERROR_EXT_AUTH_FAILED;
+	} else {
+		// Issuer authentication failed; terminal may continue session
+		emv_debug_info("Issuer authentication failed");
+		return EMV_TAL_RESULT_EXT_AUTH_FAILED;
+	}
 }

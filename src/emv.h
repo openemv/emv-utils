@@ -114,8 +114,17 @@ struct emv_ctx_t {
 	 * Populated and used by:
 	 * - @ref emv_initiate_application_processing()
 	 * - @ref emv_offline_data_authentication()
+	 * - @ref emv_online_processing()
+	 * - @ref emv_completion()
 	 */
 	struct emv_tlv_list_t terminal;
+
+	/**
+	 * @brief Completion data for the current transaction.
+	 *
+	 * Populated by @ref emv_completion().
+	 */
+	struct emv_tlv_list_t completion;
 
 	/**
 	 * @brief Offline Data Authentication (ODA) context.
@@ -170,11 +179,13 @@ enum emv_error_t {
  * greater than zero.
  */
 enum emv_outcome_t {
-	EMV_OUTCOME_CARD_ERROR = 1, ///< Malfunction of the card or non-conformance to Answer To Reset (ATR)
-	EMV_OUTCOME_CARD_BLOCKED = 2, ///< Card blocked
-	EMV_OUTCOME_NOT_ACCEPTED = 3, ///< Card not accepted or no supported applications
-	EMV_OUTCOME_TRY_AGAIN = 4, ///< Try again by selecting a different application
-	EMV_OUTCOME_GPO_NOT_ACCEPTED = 5, ///< Processing conditions not accepted
+	EMV_OUTCOME_APPROVED = 1, ///< Transaction is approved
+	EMV_OUTCOME_DECLINED = 2, ///< Transaction is declined
+	EMV_OUTCOME_CARD_ERROR = 3, ///< Malfunction of the card or non-conformance to Answer To Reset (ATR)
+	EMV_OUTCOME_CARD_BLOCKED = 4, ///< Card blocked
+	EMV_OUTCOME_NOT_ACCEPTED = 5, ///< Card not accepted or no supported applications
+	EMV_OUTCOME_TRY_AGAIN = 6, ///< Try again by selecting a different application
+	EMV_OUTCOME_GPO_NOT_ACCEPTED = 7, ///< Processing conditions not accepted
 };
 
 /**
@@ -460,18 +471,136 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
  * function will request the appropriate signature and process the resulting
  * Signed Dynamic Application Data (SDAD) to extract the signed ICC fields.
  *
- * @note This function is not yet fully implemented and only supports offline
- *       declines by requesting an Application Authentication Cryptogram (AAC).
+ * This function will push @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE onto
+ * @ref emv_ctx_t.terminal for offline decisions (@ref EMV_TTL_GENAC_TYPE_AAC
+ * and @ref EMV_TTL_GENAC_TYPE_TC).
+ *
+ * @note This function is not yet fully implemented and relies on the caller to
+ *       provide the Terminal Action Analysis decision.
  *
  * @remark See EMV 4.4 Book 3, 10.8
+ * @remark See EMV 4.4 Book 4, 6.3.2.1
  *
  * @param ctx EMV processing context
+ * @param ref_ctrl Reference control parameter for GENAC1; use one of
+ *                 @ref EMV_TTL_GENAC_TYPE_AAC (offline decline),
+ *                 @ref EMV_TTL_GENAC_TYPE_TC (offline approve), or
+ *                 @ref EMV_TTL_GENAC_TYPE_ARQC (request online authorisation)
  *
  * @return Zero for success
  * @return Less than zero for errors. See @ref emv_error_t
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
-int emv_card_action_analysis(struct emv_ctx_t* ctx);
+int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl);
+
+/**
+ * Perform EMV Online Processing and optional issuer authentication.
+ *
+ * This function will push @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE and
+ * optionally @ref EMV_TAG_91_ISSUER_AUTHENTICATION_DATA onto
+ * @ref emv_ctx_t.terminal for use by @ref emv_completion().
+ *
+ * This function will only perform issuer authentication when
+ * @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE indicates that the card
+ * application supports it and @p iad of the appropriate length is provided.
+ *
+ * While performing issuer authentication, this function will update
+ * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the outcome and
+ * update @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION to indicate that it
+ * has been performed.
+ *
+ * @remark See EMV 4.4 Book 3, 10.9
+ * @remark See EMV 4.4 Book 3, Annex F
+ *
+ * @param ctx EMV processing context
+ * @param arc Authorisation Response Code of 2 bytes
+ * @param iad Issuer Authentication Data (tag 91) from the online response;
+ *            Must be 8 to 16 bytes, or NULL if unavailable
+ * @param iad_len Length of @p iad in bytes
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_online_processing(
+	struct emv_ctx_t* ctx,
+	const uint8_t arc[2],
+	const uint8_t* iad,
+	size_t iad_len
+);
+
+/**
+ * Perform EMV Completion to determine the risk management decision by the ICC
+ * as indicated in the response from GENERATE APPLICATION CRYPTOGRAM (GENAC2).
+ *
+ * If CDA was selected during Offline Data Authentication and has not yet
+ * failed, this function will request a CDA signature on GENAC2 and process
+ * the resulting Signed Dynamic Application Data (SDAD) to extract the
+ * signed ICC fields.
+ *
+ * This function will push @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE onto
+ * @ref emv_ctx_t.terminal for offline decisions (@ref EMV_TTL_GENAC_TYPE_AAC
+ * and @ref EMV_TTL_GENAC_TYPE_TC) if @ref emv_online_processing() was not
+ * called, to indicate that online authorisation was not possible.
+ *
+ * GENAC2 response fields will be appended to @ref emv_ctx_t.completion.
+ *
+ * @remark See EMV 4.4 Book 3, 10.11
+ *
+ * @param ctx EMV processing context
+ * @param ref_ctrl Reference control parameter for GENAC2; use one of
+ *                 @ref EMV_TTL_GENAC_TYPE_AAC (decline),
+ *                 @ref EMV_TTL_GENAC_TYPE_TC (approve)
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl);
+
+/**
+ * Compute length of encoded EMV transaction record required by
+ * @ref emv_txn_record_encode()
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Length of encoded EMV transaction record
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_txn_record_compute_encoded_length(const struct emv_ctx_t* ctx);
+
+/**
+ * Encode EMV transaction record
+ *
+ * This function will encode the terminal data, ICC data, transaction
+ * parameters, and configuration data (in the order provided by
+ * @ref emv_tlv_sources_init_from_ctx()) using ISO 8825-1 BER. If more than one
+ * of these data sources provides the same EMV tag, only the value of the
+ * highest priority data source is encoded.
+ *
+ * @note During encoding, these Offline Data Authentication (ODA) and PIN
+ *       encipherment fields are omitted:
+ *       - @ref EMV_TAG_90_ISSUER_PUBLIC_KEY_CERTIFICATE
+ *       - @ref EMV_TAG_92_ISSUER_PUBLIC_KEY_REMAINDER
+ *       - @ref EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT
+ *       - @ref EMV_TAG_9F46_ICC_PUBLIC_KEY_CERTIFICATE
+ *       - @ref EMV_TAG_9F47_ICC_PUBLIC_KEY_EXPONENT
+ *       - @ref EMV_TAG_9F48_ICC_PUBLIC_KEY_REMAINDER
+ *       - @ref EMV_TAG_93_SIGNED_STATIC_APPLICATION_DATA
+ *       - @ref EMV_TAG_9F4B_SIGNED_DYNAMIC_APPLICATION_DATA
+ *       - @ref EMV_TAG_9F2D_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_CERTIFICATE
+ *       - @ref EMV_TAG_9F2E_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_EXPONENT
+ *       - @ref EMV_TAG_9F2F_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_REMAINDER
+ *
+ * @param ctx EMV processing context
+ * @param ptr Encoded EMV transaction record
+ * @param len Length of encoded EMV transaction record output in bytes
+ *
+ * @return Zero for success
+ * @return Greater than zero if output data length too small
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_txn_record_encode(const struct emv_ctx_t* ctx, void* ptr, size_t* len);
 
 __END_DECLS
 

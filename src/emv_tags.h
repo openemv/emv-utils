@@ -5,7 +5,7 @@
  * @remark See EMV 4.4 Book 3, Annex A
  * @remark See ISO 7816-4:2005, 5.2.4
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -346,6 +346,15 @@ __BEGIN_DECLS
 /// EMV tag 9F2A Kernel Identifier. Template 61.
 /// @remark See EMV Contactless Book B v2.11, Annex A
 #define EMV_TAG_9F2A_KERNEL_IDENTIFIER                          (0x9F2A)
+
+/// EMV tag 9F2D Integrated Circuit Card (ICC) PIN Encipherment Public Key Certificate. Template 70 or 77.
+#define EMV_TAG_9F2D_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_CERTIFICATE (0x9F2D)
+
+/// EMV tag 9F2E Integrated Circuit Card (ICC) PIN Encipherment Public Key Exponent. Template 70 or 77.
+#define EMV_TAG_9F2E_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_EXPONENT   (0x9F2E)
+
+/// EMV tag 9F2F Integrated Circuit Card (ICC) PIN Encipherment Public Key Remainder. Template 70 or 77.
+#define EMV_TAG_9F2F_ICC_PIN_ENCIPHERMENT_PUBLIC_KEY_REMAINDER  (0x9F2F)
 
 /// EMV tag 9F32 Issuer Public Key Exponent. Template 70 or 77.
 #define EMV_TAG_9F32_ISSUER_PUBLIC_KEY_EXPONENT                 (0x9F32)
