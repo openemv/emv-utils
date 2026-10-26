@@ -67,12 +67,15 @@ Dependencies
   (either via Glibc, a system-provided standalone, or downloaded during the
   build from [libargp](https://github.com/leonlynch/libargp); see
   [MacOS / Windows](#macos--windows)). Use the `BUILD_EMV_DECODE` and
-  `BUILD_EMV_TOOL` options to prevent `emv-decode` and  `emv-tool` from being
+  `BUILD_EMV_TOOL` options to prevent `emv-decode` and `emv-tool` from being
   built and avoid the dependency on `argp`.
 * `emv-tool` requires PC/SC, either provided by `WinSCard` on Windows, by
   PCSC.framework on MacOS, or by [PCSCLite](https://pcsclite.apdu.fr/) on
   Linux. Use the `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built
   and avoid the dependency on PC/SC.
+* `emv-dukpt` can _optionally_ be built if the `BUILD_EMV_DUKPT` option is set
+  and [dukpt](https://github.com/openemv/dukpt) is available at build-time.
+  `emv-dukpt` also requires `argp`.
 * `emv-viewer` can _optionally_ be built if [Qt](https://www.qt.io/) (see
   [Qt](#qt) for details) is available at build-time. If it is not available,
   `emv-viewer` will not be built. Use the `BUILD_EMV_VIEWER` option to ensure
@@ -81,7 +84,8 @@ Dependencies
   generate API documentation if it is available; see
   [Documentation](#documentation)
 * [bash-completion](https://github.com/scop/bash-completion) can _optionally_
-  be used to generate bash completion for `emv-decode` and `emv-tool`
+  be used to generate bash completion for `emv-decode`, `emv-tool` and
+  `emv-dukpt`
 * [NSIS](https://nsis.sourceforge.io) can _optionally_ be used to generate a
   Windows installer for this project
 

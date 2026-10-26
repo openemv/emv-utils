@@ -5,9 +5,10 @@
 # See LICENSE file.
 ##############################################################################
 
-# Build command line tools by default
+# Options for command line tools
 option(BUILD_EMV_DECODE "Build emv-decode" ON)
 option(BUILD_EMV_TOOL "Build emv-tool" ON)
+option(BUILD_EMV_DUKPT "Build emv-dukpt")
 if(NOT BUILD_EMV_CONFIG_XML AND BUILD_EMV_TOOL)
 	message(FATAL_ERROR "BUILD_EMV_CONFIG_XML not enabled. This is required to build emv-tool.")
 endif()
@@ -23,7 +24,7 @@ else()
 	find_package(argp)
 endif()
 if(NOT argp_FOUND)
-	if(BUILD_EMV_DECODE OR BUILD_EMV_TOOL)
+	if(BUILD_EMV_DECODE OR BUILD_EMV_TOOL OR BUILD_EMV_DUKPT)
 		message(FATAL_ERROR "Could NOT find argp. Enable FETCH_ARGP to download and build libargp. This is required to build command line tools.")
 	endif()
 endif()
@@ -115,6 +116,13 @@ if(WIN32)
 			message(FATAL_ERROR "Failed to find winsock2.h, ws2tcpip.h or afunix.h. This is required to build emv-tool.")
 		endif()
 	endif()
+endif()
+
+# Check for dukpt libraries
+find_package(dukpt 1.3.0 CONFIG QUIET)
+find_package_handle_standard_args(dukpt CONFIG_MODE)
+if(NOT dukpt_FOUND AND BUILD_EMV_DUKPT)
+	message(FATAL_ERROR "Could NOT find dukpt. This is required to build emv-dukpt.")
 endif()
 
 # Print helpers object library
@@ -221,6 +229,23 @@ if(BUILD_EMV_TOOL)
 		${CMAKE_CURRENT_SOURCE_DIR}/emv-config.xsd
 		DESTINATION "${EMV_UTILS_INSTALL_CONFIG_DIR}"
 		COMPONENT emv_runtime
+	)
+endif()
+
+# EMV encryption command line tool
+if(BUILD_EMV_DUKPT)
+	add_executable(emv-dukpt emv-dukpt.c)
+	target_link_libraries(emv-dukpt PRIVATE emv dukpt::dukpt_tdes dukpt::dukpt_aes)
+	if(TARGET libargp::argp)
+		target_link_libraries(emv-dukpt PRIVATE libargp::argp)
+	endif()
+
+	install(
+		TARGETS
+			emv-dukpt
+		EXPORT emvUtilsTargets # For use by install(EXPORT) command
+		RUNTIME
+			COMPONENT emv_runtime
 	)
 endif()
 
@@ -1333,16 +1358,33 @@ if(TARGET emv-decode AND BUILD_TESTING)
 				PASS_REGULAR_EXPRESSION "validates"
 		)
 	endif()
+endif()
 
-	if(WIN32)
-		# Ensure that tests can find required DLLs (if any)
-		# Assume that the PATH already contains the compiler runtime DLLs
-		set(EMVTOOLS_TEST_PATH "${CMAKE_CURRENT_BINARY_DIR}/../src/;$ENV{PATH}")
-		cmake_path(NATIVE_PATH EMVTOOLS_TEST_PATH NORMALIZE EMVTOOLS_TEST_PATH)
-		get_property(EMVTOOLS_TEST_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY TESTS)
-		set_property(TEST ${EMVTOOLS_TEST_TARGETS}
+if(TARGET emv-dukpt AND BUILD_TESTING)
+	add_test(NAME emv_dukpt_version_test
+		COMMAND emv-dukpt --version
+	)
+	string(CONCAT emv_dukpt_version_test_regex
+		"^emv-utils .+[\r\n]"
+		"dukpt .+[\r\n]$"
+	)
+	set_tests_properties(emv_dukpt_version_test
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_dukpt_version_test_regex}
+			FAIL_REGULAR_EXPRESSION "Unknown"
+	)
+endif()
+
+if(BUILD_TESTING AND WIN32)
+	# Ensure that tests can find required DLLs (if any)
+	# Assume that the PATH already contains the compiler runtime DLLs
+	set(EMVUTILS_TEST_PATH "${CMAKE_CURRENT_BINARY_DIR}/../src/;$ENV{PATH}")
+	cmake_path(NATIVE_PATH EMVUTILS_TEST_PATH NORMALIZE EMVUTILS_TEST_PATH)
+	get_property(EMVUTILS_TEST_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY TESTS)
+	if(EMVUTILS_TEST_TARGETS)
+		set_property(TEST ${EMVUTILS_TEST_TARGETS}
 			PROPERTY
-				ENVIRONMENT "PATH=${EMVTOOLS_TEST_PATH}"
+				ENVIRONMENT "PATH=${EMVUTILS_TEST_PATH}"
 		)
 	endif()
 endif()

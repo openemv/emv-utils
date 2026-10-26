@@ -274,16 +274,27 @@ if(BASH_COMPLETION_FOUND)
 	message(STATUS "Using bash-completion install location \"${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}\"")
 
 	# Install bash completion files
-	install(FILES
-		"${CMAKE_CURRENT_SOURCE_DIR}/bash-completion/emv-decode"
-		DESTINATION "${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}"
-		COMPONENT emv_runtime
-	)
-	install(FILES
-		"${CMAKE_CURRENT_SOURCE_DIR}/bash-completion/emv-tool"
-		DESTINATION "${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}"
-		COMPONENT emv_runtime
-	)
+	if(TARGET emv-decode)
+		install(FILES
+			"${CMAKE_CURRENT_SOURCE_DIR}/bash-completion/emv-decode"
+			DESTINATION "${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}"
+			COMPONENT emv_runtime
+		)
+	endif()
+	if(TARGET emv-tool)
+		install(FILES
+			"${CMAKE_CURRENT_SOURCE_DIR}/bash-completion/emv-tool"
+			DESTINATION "${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}"
+			COMPONENT emv_runtime
+		)
+	endif()
+	if(TARGET emv-dukpt)
+		install(FILES
+			"${CMAKE_CURRENT_SOURCE_DIR}/bash-completion/emv-dukpt"
+			DESTINATION "${EMV_UTILS_INSTALL_BASH_COMPLETION_DIR}"
+			COMPONENT emv_runtime
+		)
+	endif()
 endif()
 
 # Build and install doxygen documentation
@@ -345,7 +356,16 @@ set(CPACK_VERBATIM_VARIABLES ON)
 
 # Configure generic component packaging attributes
 set(CPACK_COMPONENT_EMV_RUNTIME_DISPLAY_NAME "EMV libraries and tools")
-set(CPACK_COMPONENT_EMV_RUNTIME_DESCRIPTION "EMV runtime libraries (iso7816, iso8825, iso8859, emv) and command line tools (emv-decode, emv-tool)")
+foreach(tool IN ITEMS emv-decode emv-tool emv-dukpt)
+	if(TARGET ${tool})
+		list(APPEND EMV_UTILS_RUNTIME_TOOLS ${tool})
+	endif()
+endforeach()
+set(CPACK_COMPONENT_EMV_RUNTIME_DESCRIPTION "EMV runtime libraries (iso7816, iso8825, iso8859, emv)")
+if(EMV_UTILS_RUNTIME_TOOLS)
+	list(JOIN EMV_UTILS_RUNTIME_TOOLS ", " EMV_UTILS_RUNTIME_TOOLS)
+	string(APPEND CPACK_COMPONENT_EMV_RUNTIME_DESCRIPTION " and command line tools (${EMV_UTILS_RUNTIME_TOOLS})")
+endif()
 set(CPACK_COMPONENT_EMV_DEVELOPMENT_DISPLAY_NAME "EMV development files")
 set(CPACK_COMPONENT_EMV_DEVELOPMENT_DESCRIPTION "Development files (headers, pkgconfig files, CMake config files, etc) for EMV libraries")
 set(CPACK_COMPONENT_EMV_DOCS_DISPLAY_NAME "Documentation for EMV libraries")
