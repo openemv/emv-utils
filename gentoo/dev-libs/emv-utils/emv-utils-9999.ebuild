@@ -18,7 +18,7 @@ fi
 LICENSE="LGPL-2.1+ tools? ( GPL-3+ ) gui? ( GPL-3+ )"
 SLOT="0"
 KEYWORDS="~amd64 ~x86"
-IUSE="+mbedtls openssl +pcsc-lite +tools gui doc test +xml"
+IUSE="+mbedtls openssl +pcsc-lite +tools dukpt gui doc test +xml"
 REQUIRED_USE="
 	^^ ( mbedtls openssl )
 	tools? ( pcsc-lite? ( xml ) )
@@ -36,6 +36,7 @@ RDEPEND="
 	mbedtls? ( net-libs/mbedtls )
 	openssl? ( dev-libs/openssl )
 	pcsc-lite? ( sys-apps/pcsc-lite )
+	dukpt? ( >=dev-libs/dukpt-1.3.0 )
 	xml? ( dev-libs/libxml2 )
 	gui? ( dev-qt/qtbase:6[gui,widgets] )
 "
@@ -62,6 +63,8 @@ src_configure() {
 		-DBUILD_EMV_CONFIG_XML=$(usex xml)
 		-DBUILD_EMV_DECODE=$(usex tools)
 		-DBUILD_EMV_TOOL=$(usex tools $(usex pcsc-lite YES NO) NO)
+		-DCMAKE_DISABLE_FIND_PACKAGE_dukpt=$(usex tools $(usex dukpt NO YES) YES)
+		-DBUILD_EMV_DUKPT=$(usex tools $(usex dukpt YES NO) NO)
 		-DCMAKE_DISABLE_FIND_PACKAGE_Qt5=YES
 		$(cmake_use_find_package gui Qt6)
 		-DBUILD_EMV_VIEWER=$(usex gui)
