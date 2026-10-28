@@ -365,6 +365,15 @@ int iso8825_ber_oid_encode(const struct iso8825_oid_t* oid, void* ptr, size_t* l
 int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_oid_t* rel_oid);
 
 /**
+ * Determine whether object identifiers (OIDs) are equal
+ * @param oid Decoded object identifier (OID)
+ * @param other Decoded object identifier (OID) to compare with @p oid
+ * @return Boolean indicating whether object identifiers are equal. NULL is
+ *         never equal.
+ */
+bool iso8825_ber_oid_is_equal(const struct iso8825_oid_t* oid, const struct iso8825_oid_t* other);
+
+/**
  * Decode TLV field as ASN.1 object and provide decoded object identifier (OID).
  *
  * This implementation considers a TLV field to be an ASN.1 object when:
