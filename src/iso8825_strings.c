@@ -331,13 +331,7 @@ static int iso8825_oid_get_name(
 	str[0] = 0;
 
 	for (size_t i = 0; i < sizeof(oid_list) / sizeof(oid_list[0]); ++i) {
-		if (oid->length == oid_list[i].oid.length &&
-			memcmp(
-				oid->value,
-				oid_list[i].oid.value,
-				oid_list[i].oid.length * sizeof(oid_list[i].oid.value[0])
-			) == 0
-		) {
+		if (iso8825_ber_oid_is_equal(oid, &oid_list[i].oid)) {
 			r = snprintf(str, str_len, "%s", oid_list[i].name);
 			if (r < 0) {
 				// Unknown error
