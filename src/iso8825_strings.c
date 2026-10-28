@@ -2,7 +2,7 @@
  * @file iso8825_strings.c
  * @brief ISO/IEC 8825 string helper functions
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -282,6 +282,7 @@ static const struct iso8825_oid_name_t oid_list[] = {
 	ASN1_OID_NAME(emailAddress), // 1.2.840.113549.1.9.1
 
 	// ANSI X9.24
+	ASN1_OID_NAME(dukpt_tdes), // 1.3.133.16.840.9.24.1.0
 	ASN1_OID_NAME(dukpt_aes128), // 1.3.133.16.840.9.24.1.1
 	ASN1_OID_NAME(dukpt_aes192), // 1.3.133.16.840.9.24.1.2
 	ASN1_OID_NAME(dukpt_aes256), // 1.3.133.16.840.9.24.1.3

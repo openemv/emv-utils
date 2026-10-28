@@ -339,6 +339,40 @@ The debug level, debug sources and debug verbosity can be specified using the
 
 Use the `--help` option to display all available options.
 
+### emv-dukpt
+
+The available command line options of the `emv-dukpt` application can be
+displayed using:
+```shell
+emv-dukpt --help
+```
+
+The `emv-dukpt` application encrypts EMV data using ANSI X9.24-1:2009 TDES
+DUKPT or ANSI X9.24-3:2017 AES DUKPT, and outputs an envelope that contains
+the encrypted EMV data. The envelope is an ASN.1 sequence containing the object
+identifier (OID) of the DUKPT transaction key, Key Serial Number (KSN),
+encrypted EMV data, and authenticator.
+
+To encrypt EMV transaction request data, use the `--encrypt-request` option.
+The Base Derivation Key (BDK) or Initial Key (IK) must be specified using the
+`--bdk` or `--ik` option, and the Key Serial Number (KSN) must be specified
+using the `--ksn` option. For example:
+```shell
+emv-dukpt --bdk 0123456789ABCDEFFEDCBA9876543210 --ksn FFFF9876543210E00001 --encrypt-request 701A9F390105571040123456789095D2512201197339300F82025900
+```
+
+The derivation mode defaults to TDES and can be specified using the `--mode`
+option. For AES DUKPT, the working key type defaults to the length of the BDK
+or IK and can be specified using the `--key-type` option. For example:
+```shell
+emv-dukpt --mode AES --key-type AES128 --bdk FEDCBA9876543210F1F1F1F1F1F1F1F1 --ksn 123456789012345600000001 --encrypt-request 701A9F390105571040123456789095D2512201197339300F82025900
+```
+
+The envelope can be decoded using the `--tlv` option of the `emv-decode`
+application.
+
+Use the `--help` option to display all available options.
+
 ### emv-viewer
 
 The `emv-viewer` application can be launched via the desktop environment or it
