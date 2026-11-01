@@ -247,6 +247,21 @@ if(BUILD_EMV_DUKPT)
 		RUNTIME
 			COMPONENT emv_runtime
 	)
+
+	if(WIN32)
+		# Copy dukpt DLLs to build tree for emv-dukpt and tests on Windows
+		# NOTE: This does NOT install the dukpt DLLs
+		get_target_property(dukpt_TYPE dukpt::dukpt_tdes TYPE)
+		if(dukpt_TYPE STREQUAL "SHARED_LIBRARY") # If dukpt libraries are DLLs
+			add_custom_command(TARGET emv-dukpt POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different
+					$<TARGET_FILE:dukpt::dukpt_tdes>
+					$<TARGET_FILE:dukpt::dukpt_aes>
+					$<TARGET_FILE_DIR:emv-dukpt>
+				COMMENT "Copying dukpt DLLs..."
+			)
+		endif()
+	endif()
 endif()
 
 if(TARGET emv-decode AND BUILD_TESTING)
