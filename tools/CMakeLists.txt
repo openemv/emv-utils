@@ -1390,6 +1390,12 @@ if(TARGET emv-dukpt AND BUILD_TESTING)
 	set(EMV_DUKPT_AES192_REQUEST_ENVELOPE 303E060A2B810510864809180102040C12345678901234560000000104109B97669C1FA9B588549EE9C59BBC501E0410DD10ECAE3A81CE8EE27C83A52DA48B0D)
 	set(EMV_DUKPT_AES256_REQUEST_ENVELOPE 303E060A2B810510864809180103040C1234567890123456000000010410005C99D7FB6C01A42AF03C1950C4E6DF0410ED0CD584F53EE3CC4BC48D1DCE678852)
 
+	# Envelopes for EMV transaction response data consisting of 8A023030910AD8D1C9EFA6BC2F333030
+	set(EMV_DUKPT_TDES_RESPONSE_ENVELOPE 303C060A2B810510864809180100040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19)
+	set(EMV_DUKPT_AES128_RESPONSE_ENVELOPE 304E060A2B810510864809180101040C123456789012345600000001042007977A528B7543C72CEB12BFC668633805E1891796EC1132386C728B289C39A0041006C65FF6399084CF5F68DCDE4E8D42AC)
+	set(EMV_DUKPT_AES192_RESPONSE_ENVELOPE 304E060A2B810510864809180102040C1234567890123456000000010420E78A98384FBFCD8830A528C6CCA2C786CEA7B0AD790D56505C0C04B6E0F6607004102C6B3F6B175D2EB3298E754CFDA54827)
+	set(EMV_DUKPT_AES256_RESPONSE_ENVELOPE 304E060A2B810510864809180103040C12345678901234560000000104206627E1DF113880DA3B22E305B228B1144742F20845AD6160989D825E4FF833550410FA6B0FB7E40FF215F92124DD8508EAD5)
+
 	# Test TDES DUKPT request encryption using BDK
 	add_test(NAME emv_dukpt_encrypt_test1
 		COMMAND emv-dukpt --mode TDES
@@ -1531,6 +1537,94 @@ if(TARGET emv-dukpt AND BUILD_TESTING)
 		)
 	endif()
 
+	# Test TDES DUKPT response decryption using BDK
+	add_test(NAME emv_dukpt_decrypt_test1
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test TDES DUKPT response decryption using IK and matching options
+	add_test(NAME emv_dukpt_decrypt_test2
+		COMMAND emv-dukpt --mode TDES
+			--ik ${EMV_DUKPT_TDES_IK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test AES DUKPT response decryption using BDK
+	add_test(NAME emv_dukpt_decrypt_test3
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}
+			--decrypt-response ${EMV_DUKPT_AES128_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test AES DUKPT response decryption using IK and matching options
+	add_test(NAME emv_dukpt_decrypt_test4
+		COMMAND emv-dukpt --mode AES --key-type AES128
+			--ik ${EMV_DUKPT_AES_IK} --ksn ${EMV_DUKPT_AES_KSN}
+			--decrypt-response ${EMV_DUKPT_AES128_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test AES DUKPT response decryption using working key type derived from
+	# BDK length
+	add_test(NAME emv_dukpt_decrypt_test5
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}FEDCBA9876543210
+			--decrypt-response ${EMV_DUKPT_AES192_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test5
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+	add_test(NAME emv_dukpt_decrypt_test6
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK}
+			--decrypt-response ${EMV_DUKPT_AES256_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test6
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test AES DUKPT response decryption using working key type shorter than
+	# BDK
+	add_test(NAME emv_dukpt_decrypt_test7
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK}
+			--decrypt-response 304E060A2B810510864809180101040C1234567890123456000000010420D39D5D6F9E5E59E8B0CADB0B9248EE90049F5A84701CDDB2CE2667EAAC623117041007319BFC160DBB667F901133D5E1E696
+	)
+	set_tests_properties(emv_dukpt_decrypt_test7
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test EMV data without padding
+	add_test(NAME emv_dukpt_decrypt_test8
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}
+			--decrypt-response 303E060A2B810510864809180101040C12345678901234560000000104101334A2865A482C0C21E423779C9C71B40410EECEDEFF9F11950587C6CC28B951E7AE
+	)
+	set_tests_properties(emv_dukpt_decrypt_test8
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^700E8A02303591081A2B3C4D00800000[\r\n]$"
+	)
+
 	# Test invalid Key Serial Number, working key type and EMV data
 	add_test(NAME emv_dukpt_error_test1
 		COMMAND emv-dukpt
@@ -1576,6 +1670,136 @@ if(TARGET emv-dukpt AND BUILD_TESTING)
 	set_tests_properties(emv_dukpt_error_test5
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "EMV data must consist of valid BER encoded data"
+	)
+
+	# Test multiple actions
+	add_test(NAME emv_dukpt_error_test6
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request 9F390105 --decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test6
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Only one action may be specified"
+	)
+
+	# Test options that do not match envelope
+	add_test(NAME emv_dukpt_error_test7
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test7
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Derivation mode \\(--mode\\) does not match envelope"
+	)
+	add_test(NAME emv_dukpt_error_test8
+		COMMAND emv-dukpt --key-type AES192
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK}
+			--decrypt-response ${EMV_DUKPT_AES256_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test8
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Working key type \\(--key-type\\) does not match envelope"
+	)
+	add_test(NAME emv_dukpt_error_test9
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn FFFF9876543210E00002
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test9
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Key Serial Number \\(--ksn\\) does not match envelope"
+	)
+
+	# Test invalid envelopes
+	add_test(NAME emv_dukpt_error_test10
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}9F390105
+	)
+	set_tests_properties(emv_dukpt_error_test10
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope must consist of a single BER encoded field"
+	)
+	add_test(NAME emv_dukpt_error_test11
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 303C060A2B810510864809180109040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19
+	)
+	set_tests_properties(emv_dukpt_error_test11
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope OID is not a supported DUKPT algorithm"
+	)
+	add_test(NAME emv_dukpt_error_test12
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 3032060A2B810510864809180100040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D
+	)
+	set_tests_properties(emv_dukpt_error_test12
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope must contain KSN, encrypted data and authenticator"
+	)
+	add_test(NAME emv_dukpt_error_test13
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 303B060A2B810510864809180100040AFFFF9876543210E000010417AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B8040807B36554C5409D19
+	)
+	set_tests_properties(emv_dukpt_error_test13
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope encrypted data must be a non-zero multiple of 8 bytes"
+	)
+
+	# Test envelope authenticator verification using wrong BDK, modified
+	# encrypted data and request envelope
+	add_test(NAME emv_dukpt_error_test14
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test14
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope authenticator verification failed"
+			FAIL_REGULAR_EXPRESSION "70108A023030"
+	)
+	add_test(NAME emv_dukpt_error_test15
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 303C060A2B810510864809180100040AFFFF9876543210E000010418AEDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19
+	)
+	set_tests_properties(emv_dukpt_error_test15
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope authenticator verification failed"
+	)
+	add_test(NAME emv_dukpt_error_test16
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_REQUEST_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test16
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope authenticator verification failed"
+			FAIL_REGULAR_EXPRESSION "70049F390105"
+	)
+
+	# Test envelopes containing invalid decrypted data
+	add_test(NAME emv_dukpt_error_test17
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 302C060A2B810510864809180100040AFFFF9876543210E0000104087943A1231D8FC4C80408C76CD2008D071567
+	)
+	set_tests_properties(emv_dukpt_error_test17
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Decrypted data must start with EMV Data Template \\(field 70\\)"
+	)
+	add_test(NAME emv_dukpt_error_test18
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 302C060A2B810510864809180100040AFFFF9876543210E00001040816897E742539B6A504089475476FE9F57B32
+	)
+	set_tests_properties(emv_dukpt_error_test18
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Decrypted data contains invalid padding"
 	)
 endif()
 
