@@ -17,10 +17,13 @@ jobs:
         include:
           - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO, build_emv_viewer: NO }
           - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "libxml2/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "libxml2/dukpt/qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
           - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "libxml2/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
           - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
           - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "libxml2/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "libxml2/dukpt/qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
           - { name: "MacOS 26", os: macos-26, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "libxml2/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 26", os: macos-26, osx_arch: "arm64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "libxml2/dukpt/qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} (${{ matrix.osx_arch }}) build (${{ matrix.lib_type}}/${{ matrix.build_type }}/${{ matrix.deps }})
     runs-on: ${{ matrix.os }}
@@ -39,6 +42,14 @@ jobs:
         brew install mbedtls@3
         brew install argp-standalone
         echo "MbedTLS_DIR=$(brew --prefix mbedtls@3)/lib/cmake/MbedTLS" >> $GITHUB_ENV
+
+    - name: Install DUKPT using brew
+      # DUKPT from brew depends on mbedtls@3 so only install it for builds that don't fetch MbedTLS
+      if: ${{ contains(matrix.deps, 'dukpt') && matrix.fetch_deps == 'NO' }}
+      run: |
+        brew tap openemv/tap
+        brew trust openemv/tap
+        brew install openemv/tap/dukpt
 
     - name: Install Qt5 using brew
       # Homebrew doesn't support universal binaries so only install Qt for arch-specific builds
@@ -70,6 +81,7 @@ jobs:
           -DFETCH_ARGP=${{ matrix.fetch_deps }} \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
+          -DBUILD_EMV_DUKPT=${{ contains(matrix.deps, 'dukpt') && 'YES' || 'NO' }} \
           -DCMAKE_DISABLE_FIND_PACKAGE_Qt5=${{ !contains(matrix.deps, 'qt5') && 'YES' || 'NO' }} \
           -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=${{ !contains(matrix.deps, 'qt6') && 'YES' || 'NO' }} \
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
