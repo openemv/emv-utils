@@ -347,11 +347,13 @@ displayed using:
 emv-dukpt --help
 ```
 
-The `emv-dukpt` application encrypts EMV data using ANSI X9.24-1:2009 TDES
-DUKPT or ANSI X9.24-3:2017 AES DUKPT, and outputs an envelope that contains
-the encrypted EMV data. The envelope is an ASN.1 sequence containing the object
-identifier (OID) of the DUKPT transaction key, Key Serial Number (KSN),
-encrypted EMV data, and authenticator.
+The `emv-dukpt` application encrypts EMV transaction request data using ANSI
+X9.24-1:2009 TDES DUKPT or ANSI X9.24-3:2017 AES DUKPT, and outputs an envelope
+that contains the encrypted EMV data. It also decrypts such envelopes
+containing EMV transaction response data and outputs the decrypted EMV data.
+The envelope is an ASN.1 sequence containing the object identifier (OID) of the
+DUKPT transaction key, Key Serial Number (KSN), encrypted EMV data, and
+authenticator.
 
 To encrypt EMV transaction request data, use the `--encrypt-request` option.
 The Base Derivation Key (BDK) or Initial Key (IK) must be specified using the
@@ -370,6 +372,16 @@ emv-dukpt --mode AES --key-type AES128 --bdk FEDCBA9876543210F1F1F1F1F1F1F1F1 --
 
 The envelope can be decoded using the `--tlv` option of the `emv-decode`
 application.
+
+To decrypt EMV transaction response data, use the `--decrypt-response` option.
+The Base Derivation Key (BDK) or Initial Key (IK) must be specified using the
+`--bdk` or `--ik` option. The derivation mode, working key type and Key Serial
+Number (KSN) are provided by the envelope. If the `--mode`, `--key-type` or
+`--ksn` options are specified, they must match the envelope. The authenticator
+is verified before the EMV data is output. For example:
+```shell
+emv-dukpt --bdk 0123456789ABCDEFFEDCBA9876543210 --decrypt-response 303C060A2B810510864809180100040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19
+```
 
 Use the `--help` option to display all available options.
 

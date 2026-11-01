@@ -39,18 +39,28 @@
 #define EMV_DUKPT_MAX_BLOCK_LEN (DUKPT_AES_BLOCK_LEN)
 #define EMV_DUKPT_MAX_BER_DEPTH (16)
 
+// Forward declarations
+struct emv_dukpt_envelope_t;
+
 // Helper functions
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state);
 static int parse_hex(const char* hex, void* buf, size_t* buf_len);
 static error_t parse_hex_arg(struct argp_state* state, const char* name, const char* arg, uint8_t** buf, size_t* buf_len);
 static const struct emv_dukpt_algorithm_t* lookup_algorithm(int mode, int key_type);
+static const struct emv_dukpt_algorithm_t* lookup_algorithm_by_oid(const struct iso8825_oid_t* oid);
 static int validate_ber(const void* buf, size_t buf_len, unsigned int depth);
 static int build_plaintext(const void* buf, size_t buf_len, size_t block_len, uint8_t** plaintext, size_t* plaintext_len);
-static int derive_txn_key(void* txn_key);
+static int derive_txn_key(int mode, const uint8_t* ksn, void* txn_key);
 static int encrypt_tdes(const void* plaintext, size_t plaintext_len, void* ciphertext, void* authenticator);
 static int encrypt_aes(const void* plaintext, size_t plaintext_len, void* ciphertext, void* authenticator);
 static int build_envelope(const void* ciphertext, size_t ciphertext_len, const void* authenticator, uint8_t** envelope, size_t* envelope_len);
 static int encrypt_emv_data(const void* buf, size_t buf_len, uint8_t** envelope, size_t* envelope_len);
+static int parse_envelope(const void* buf, size_t buf_len, struct emv_dukpt_envelope_t* envelope);
+static int validate_envelope(const struct emv_dukpt_envelope_t* envelope, const char* key_name, size_t key_len);
+static int decrypt_tdes(const struct emv_dukpt_envelope_t* envelope, void* plaintext);
+static int decrypt_aes(const struct emv_dukpt_envelope_t* envelope, void* plaintext);
+static int extract_plaintext(const void* plaintext, size_t plaintext_len, size_t* data_len);
+static int decrypt_emv_data(const struct emv_dukpt_envelope_t* envelope, uint8_t** buf, size_t* buf_len);
 static void print_hex(const void* buf, size_t buf_len);
 
 // argp option keys
@@ -61,6 +71,7 @@ enum emv_dukpt_param_t {
 	EMV_DUKPT_PARAM_IK,
 	EMV_DUKPT_PARAM_KSN,
 	EMV_DUKPT_ENCRYPT_REQUEST,
+	EMV_DUKPT_DECRYPT_RESPONSE,
 	EMV_DUKPT_VERSION,
 };
 
@@ -77,6 +88,7 @@ static struct argp_option argp_options[] = {
 
 	{ NULL, 0, NULL, 0, "Actions:", 3 },
 	{ "encrypt-request", EMV_DUKPT_ENCRYPT_REQUEST, "DATA", 0, "Encrypt EMV transaction request data and output as ASN.1 envelope. Requires either BDK or IK, as well as KSN." },
+	{ "decrypt-response", EMV_DUKPT_DECRYPT_RESPONSE, "DATA", 0, "Decrypt ASN.1 envelope and output EMV transaction response data. Requires either BDK or IK. Derivation mode, working key type and KSN are optional and must match the envelope." },
 
 	{ "version", EMV_DUKPT_VERSION, NULL, 0, "Display emv-utils and dukpt versions" },
 
@@ -93,7 +105,7 @@ static struct argp argp_config = {
 	"Use derivation mode TDES for ANSI X9.24-1:2009 TDES DUKPT.\n"
 	"Use derivation mode AES for ANSI X9.24-3:2017 AES DUKPT.\n\n"
 	"KEY and HEX argument values are strings of hex digits representing binary data.\n"
-	"DATA argument values are strings of hex digits representing BER encoded EMV data.\n\n"
+	"DATA argument values are strings of hex digits representing BER encoded data.\n\n"
 	"The envelope is an ASN.1 sequence containing the OID of the DUKPT transaction key, KSN, encrypted EMV data, and authenticator.",
 };
 
@@ -103,6 +115,7 @@ enum emv_dukpt_mode_t {
 	EMV_DUKPT_MODE_AES,
 };
 static enum emv_dukpt_mode_t mode = EMV_DUKPT_MODE_TDES;
+static bool mode_valid = false;
 
 // AES working key
 static enum dukpt_aes_key_type_t key_type = -1;
@@ -117,6 +130,14 @@ static uint8_t* ksn = NULL;
 static size_t ksn_len = 0;
 static uint8_t* input_data = NULL;
 static size_t input_data_len = 0;
+
+// Actions
+enum emv_dukpt_action_t {
+	EMV_DUKPT_ACTION_NONE,
+	EMV_DUKPT_ACTION_ENCRYPT_REQUEST,
+	EMV_DUKPT_ACTION_DECRYPT_RESPONSE,
+};
+static enum emv_dukpt_action_t action = EMV_DUKPT_ACTION_NONE;
 
 // DUKPT algorithms identified by the envelope
 struct emv_dukpt_algorithm_t {
@@ -134,6 +155,17 @@ static const struct emv_dukpt_algorithm_t algorithm_list[] = {
 };
 static const struct emv_dukpt_algorithm_t* algorithm = NULL;
 
+// Decoded envelope fields
+struct emv_dukpt_envelope_t {
+	const struct emv_dukpt_algorithm_t* algorithm;
+	const uint8_t* ksn;
+	size_t ksn_len;
+	const uint8_t* ciphertext;
+	size_t ciphertext_len;
+	const uint8_t* authenticator;
+	size_t authenticator_len;
+};
+
 // argp parser helper function
 static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 {
@@ -147,6 +179,7 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				argp_error(state, "Derivation mode (--mode) argument must be TDES or AES");
 				return EINVAL;
 			}
+			mode_valid = true;
 			return 0;
 		}
 
@@ -175,7 +208,20 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			return parse_hex_arg(state, "Key Serial Number (--ksn)", arg, &ksn, &ksn_len);
 
 		case EMV_DUKPT_ENCRYPT_REQUEST:
+			if (action != EMV_DUKPT_ACTION_NONE) {
+				argp_error(state, "Only one action may be specified");
+				return EINVAL;
+			}
+			action = EMV_DUKPT_ACTION_ENCRYPT_REQUEST;
 			return parse_hex_arg(state, "EMV data (--encrypt-request)", arg, &input_data, &input_data_len);
+
+		case EMV_DUKPT_DECRYPT_RESPONSE:
+			if (action != EMV_DUKPT_ACTION_NONE) {
+				argp_error(state, "Only one action may be specified");
+				return EINVAL;
+			}
+			action = EMV_DUKPT_ACTION_DECRYPT_RESPONSE;
+			return parse_hex_arg(state, "Envelope (--decrypt-response)", arg, &input_data, &input_data_len);
 
 		case EMV_DUKPT_VERSION: {
 			const char* version;
@@ -317,6 +363,18 @@ static const struct emv_dukpt_algorithm_t* lookup_algorithm(int mode, int key_ty
 		}
 
 		return &algorithm_list[i];
+	}
+
+	return NULL;
+}
+
+// DUKPT algorithm lookup helper function for envelope OID
+static const struct emv_dukpt_algorithm_t* lookup_algorithm_by_oid(const struct iso8825_oid_t* oid)
+{
+	for (size_t i = 0; i < sizeof(algorithm_list) / sizeof(algorithm_list[0]); ++i) {
+		if (iso8825_ber_oid_is_equal(&algorithm_list[i].oid, oid)) {
+			return &algorithm_list[i];
+		}
 	}
 
 	return NULL;
@@ -491,7 +549,7 @@ error:
 }
 
 // DUKPT transaction key derivation helper function
-static int derive_txn_key(void* txn_key)
+static int derive_txn_key(int mode, const uint8_t* ksn, void* txn_key)
 {
 	int r;
 	uint8_t derived_ik[EMV_DUKPT_MAX_KEY_LEN];
@@ -549,7 +607,7 @@ static int encrypt_tdes(
 	int r;
 	uint8_t txn_key[DUKPT_TDES_KEY_LEN];
 
-	r = derive_txn_key(txn_key);
+	r = derive_txn_key(mode, ksn, txn_key);
 	if (r) {
 		goto exit;
 	}
@@ -601,7 +659,7 @@ static int encrypt_aes(
 	uint8_t txn_key[EMV_DUKPT_MAX_KEY_LEN];
 	size_t txn_key_len = bdk ? bdk_len : ik_len;
 
-	r = derive_txn_key(txn_key);
+	r = derive_txn_key(mode, ksn, txn_key);
 	if (r) {
 		goto exit;
 	}
@@ -829,6 +887,410 @@ exit:
 	return r;
 }
 
+// Envelope parser helper function
+static int parse_envelope(
+	const void* buf,
+	size_t buf_len,
+	struct emv_dukpt_envelope_t* envelope
+)
+{
+	int r;
+	struct iso8825_tlv_t tlv;
+	struct iso8825_oid_t oid;
+	struct iso8825_ber_itr_t itr;
+	struct iso8825_tlv_t fields[3];
+	const char* mode_str;
+	size_t ksn_len;
+	size_t block_len;
+
+	if (!buf || !buf_len || !envelope) {
+		return -1;
+	}
+	memset(envelope, 0, sizeof(*envelope));
+
+	r = iso8825_ber_decode(buf, buf_len, &tlv);
+	if (r <= 0 || r != buf_len) {
+		fprintf(stderr, "Envelope must consist of a single BER encoded field\n");
+		return 1;
+	}
+
+	r = iso8825_ber_asn1_object_decode(&tlv, &oid);
+	if (r <= 0) {
+		fprintf(stderr, "Envelope must be an ASN.1 object\n");
+		return 2;
+	}
+	envelope->algorithm = lookup_algorithm_by_oid(&oid);
+	if (!envelope->algorithm) {
+		fprintf(stderr, "Envelope OID is not a supported DUKPT algorithm\n");
+		return 3;
+	}
+
+	// Decode KSN, encrypted data and authenticator
+	r = iso8825_ber_itr_init(tlv.value + r, tlv.length - r, &itr);
+	if (r) {
+		fprintf(stderr, "iso8825_ber_itr_init() failed; r=%d\n", r);
+		return -2;
+	}
+	for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); ++i) {
+		r = iso8825_ber_itr_next(&itr, &fields[i]);
+		if (r <= 0 || fields[i].tag != ASN1_OCTET_STRING) {
+			fprintf(stderr, "Envelope must contain KSN, encrypted data and authenticator\n");
+			return 4;
+		}
+	}
+	r = iso8825_ber_itr_next(&itr, &tlv);
+	if (r != 0) {
+		fprintf(stderr, "Envelope must contain KSN, encrypted data and authenticator\n");
+		return 5;
+	}
+
+	switch (envelope->algorithm->mode) {
+		case EMV_DUKPT_MODE_TDES:
+			mode_str = "TDES";
+			ksn_len = DUKPT_TDES_KSN_LEN;
+			break;
+
+		case EMV_DUKPT_MODE_AES:
+			mode_str = "AES";
+			ksn_len = DUKPT_AES_KSN_LEN;
+			break;
+
+		default:
+			fprintf(stderr, "Invalid derivation mode %u\n", envelope->algorithm->mode);
+			return -3;
+	}
+	if (fields[0].length != ksn_len) {
+		fprintf(stderr, "Envelope KSN must be %zu bytes for %s envelope\n", ksn_len, mode_str);
+		return 6;
+	}
+	if ((envelope->algorithm->mode == EMV_DUKPT_MODE_TDES && !dukpt_tdes_ksn_is_valid(fields[0].value)) ||
+		(envelope->algorithm->mode == EMV_DUKPT_MODE_AES && !dukpt_aes_ksn_is_valid(fields[0].value))
+	) {
+		fprintf(stderr, "Envelope KSN transaction counter is invalid\n");
+		return 7;
+	}
+
+	block_len = envelope->algorithm->block_len;
+	if (!fields[1].length || (fields[1].length % block_len) != 0) {
+		fprintf(stderr, "Envelope encrypted data must be a non-zero multiple of %zu bytes for %s envelope\n", block_len, mode_str);
+		return 8;
+	}
+	if (fields[2].length != block_len) {
+		fprintf(stderr, "Envelope authenticator must be %zu bytes for %s envelope\n", block_len, mode_str);
+		return 9;
+	}
+
+	envelope->ksn = fields[0].value;
+	envelope->ksn_len = fields[0].length;
+	envelope->ciphertext = fields[1].value;
+	envelope->ciphertext_len = fields[1].length;
+	envelope->authenticator = fields[2].value;
+	envelope->authenticator_len = fields[2].length;
+
+	return 0;
+}
+
+// Envelope validation helper function
+static int validate_envelope(
+	const struct emv_dukpt_envelope_t* envelope,
+	const char* key_name,
+	size_t key_len
+)
+{
+	if (!envelope || !envelope->algorithm || !key_name) {
+		return -1;
+	}
+
+	// Validate derivation mode, working key type and KSN if specified
+	if (mode_valid && mode != envelope->algorithm->mode) {
+		fprintf(stderr, "Derivation mode (--mode) does not match envelope\n");
+		return 1;
+	}
+	if (key_type_valid &&
+		(envelope->algorithm->mode != EMV_DUKPT_MODE_AES || key_type != envelope->algorithm->key_type)
+	) {
+		fprintf(stderr, "Working key type (--key-type) does not match envelope\n");
+		return 2;
+	}
+	if (ksn &&
+		(ksn_len != envelope->ksn_len || memcmp(ksn, envelope->ksn, ksn_len) != 0)
+	) {
+		fprintf(stderr, "Key Serial Number (--ksn) does not match envelope\n");
+		return 3;
+	}
+
+	// Validate BDK or IK length for envelope
+	if (envelope->algorithm->mode == EMV_DUKPT_MODE_TDES &&
+		key_len != DUKPT_TDES_KEY_LEN
+	) {
+		fprintf(stderr, "%s must be %u bytes for TDES envelope\n", key_name, DUKPT_TDES_KEY_LEN);
+		return 4;
+	}
+	if (envelope->algorithm->mode == EMV_DUKPT_MODE_AES &&
+		key_len != DUKPT_AES_KEY_LEN(AES128) &&
+		key_len != DUKPT_AES_KEY_LEN(AES192) &&
+		key_len != DUKPT_AES_KEY_LEN(AES256)
+	) {
+		fprintf(stderr, "%s must be %u, %u or %u bytes for AES envelope\n",
+			key_name,
+			DUKPT_AES_KEY_LEN(AES128),
+			DUKPT_AES_KEY_LEN(AES192),
+			DUKPT_AES_KEY_LEN(AES256)
+		);
+		return 5;
+	}
+	if (envelope->algorithm->key_len > key_len) {
+		fprintf(stderr, "Envelope working key type must not be longer than %s\n", key_name);
+		return 6;
+	}
+
+	return 0;
+}
+
+// TDES DUKPT response decryption helper function
+static int decrypt_tdes(
+	const struct emv_dukpt_envelope_t* envelope,
+	void* plaintext
+)
+{
+	int r;
+	uint8_t txn_key[DUKPT_TDES_KEY_LEN];
+
+	r = derive_txn_key(envelope->algorithm->mode, envelope->ksn, txn_key);
+	if (r) {
+		goto exit;
+	}
+
+	// Use CMAC authenticator as IV
+	r = dukpt_tdes_decrypt_response(
+		txn_key,
+		envelope->authenticator,
+		envelope->ciphertext,
+		envelope->ciphertext_len,
+		plaintext
+	);
+	if (r) {
+		fprintf(stderr, "dukpt_tdes_decrypt_response() failed; r=%d\n", r);
+		r = -3;
+		goto exit;
+	}
+
+	r = dukpt_tdes_verify_response_cmac(
+		txn_key,
+		plaintext,
+		envelope->ciphertext_len,
+		envelope->authenticator
+	);
+	if (r < 0) {
+		fprintf(stderr, "dukpt_tdes_verify_response_cmac() failed; r=%d\n", r);
+		r = -4;
+		goto exit;
+	}
+	if (r > 0) {
+		fprintf(stderr, "Envelope authenticator verification failed\n");
+		r = 1;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	crypto_cleanse(txn_key, sizeof(txn_key));
+	return r;
+}
+
+// AES DUKPT response decryption helper function
+static int decrypt_aes(
+	const struct emv_dukpt_envelope_t* envelope,
+	void* plaintext
+)
+{
+	int r;
+	uint8_t txn_key[EMV_DUKPT_MAX_KEY_LEN];
+	size_t txn_key_len = bdk ? bdk_len : ik_len;
+
+	r = derive_txn_key(envelope->algorithm->mode, envelope->ksn, txn_key);
+	if (r) {
+		goto exit;
+	}
+
+	// Use CMAC authenticator as IV
+	r = dukpt_aes_decrypt_response(
+		txn_key,
+		txn_key_len,
+		envelope->ksn,
+		envelope->algorithm->key_type,
+		envelope->authenticator,
+		envelope->ciphertext,
+		envelope->ciphertext_len,
+		plaintext
+	);
+	if (r) {
+		fprintf(stderr, "dukpt_aes_decrypt_response() failed; r=%d\n", r);
+		r = -3;
+		goto exit;
+	}
+
+	r = dukpt_aes_verify_response_cmac(
+		txn_key,
+		txn_key_len,
+		envelope->ksn,
+		envelope->algorithm->key_type,
+		plaintext,
+		envelope->ciphertext_len,
+		envelope->authenticator
+	);
+	if (r < 0) {
+		fprintf(stderr, "dukpt_aes_verify_response_cmac() failed; r=%d\n", r);
+		r = -4;
+		goto exit;
+	}
+	if (r > 0) {
+		fprintf(stderr, "Envelope authenticator verification failed\n");
+		r = 1;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	crypto_cleanse(txn_key, sizeof(txn_key));
+	return r;
+}
+
+// Plaintext extraction helper function
+static int extract_plaintext(
+	const void* plaintext,
+	size_t plaintext_len,
+	size_t* data_len
+)
+{
+	int r;
+	struct iso8825_ber_itr_t itr;
+	struct iso8825_tlv_t tlv;
+
+	if (!plaintext || !plaintext_len || !data_len) {
+		return -1;
+	}
+	*data_len = 0;
+
+	r = validate_ber(plaintext, plaintext_len, 0);
+	if (r) {
+		fprintf(stderr, "Decrypted data must consist of valid BER encoded data\n");
+		return 1;
+	}
+
+	r = iso8825_ber_itr_init(plaintext, plaintext_len, &itr);
+	if (r) {
+		fprintf(stderr, "iso8825_ber_itr_init() failed; r=%d\n", r);
+		return -2;
+	}
+
+	// EMV Data Template (field 70) must be first
+	r = iso8825_ber_itr_next(&itr, &tlv);
+	if (r <= 0 || tlv.tag != EMV_TAG_70_DATA_TEMPLATE) {
+		fprintf(stderr, "Decrypted data must start with EMV Data Template (field 70)\n");
+		return 2;
+	}
+	*data_len = r;
+
+	// Padding is optional but must be a single zero filled octet string
+	r = iso8825_ber_itr_next(&itr, &tlv);
+	if (r > 0) {
+		if (tlv.tag != ASN1_OCTET_STRING) {
+			fprintf(stderr, "Decrypted data contains invalid padding\n");
+			return 3;
+		}
+		for (unsigned int i = 0; i < tlv.length; ++i) {
+			if (tlv.value[i]) {
+				fprintf(stderr, "Decrypted data contains invalid padding\n");
+				return 3;
+			}
+		}
+
+		r = iso8825_ber_itr_next(&itr, &tlv);
+	}
+	if (r != 0) {
+		fprintf(stderr, "Decrypted data contains invalid padding\n");
+		return 3;
+	}
+
+	return 0;
+}
+
+// EMV transaction response data decryption helper function
+static int decrypt_emv_data(
+	const struct emv_dukpt_envelope_t* envelope,
+	uint8_t** buf,
+	size_t* buf_len
+)
+{
+	int r;
+	uint8_t* plaintext = NULL;
+	size_t data_len;
+
+	if (!envelope || !buf || !buf_len) {
+		return -1;
+	}
+	*buf = NULL;
+	*buf_len = 0;
+
+	plaintext = malloc(envelope->ciphertext_len);
+	if (!plaintext) {
+		fprintf(stderr, "malloc() failed\n");
+		return -2;
+	}
+
+	if (envelope->algorithm->mode == EMV_DUKPT_MODE_TDES) {
+		r = decrypt_tdes(envelope, plaintext);
+	} else {
+		r = decrypt_aes(envelope, plaintext);
+	}
+	if (r < 0) {
+		r = -3;
+		goto exit;
+	}
+	if (r > 0) {
+		// Authenticator verification failed
+		r = 1;
+		goto exit;
+	}
+
+	r = extract_plaintext(plaintext, envelope->ciphertext_len, &data_len);
+	if (r < 0) {
+		fprintf(stderr, "Failed to extract plaintext\n");
+		r = -4;
+		goto exit;
+	}
+	if (r > 0) {
+		// Invalid decrypted data
+		r = 2;
+		goto exit;
+	}
+
+	*buf = malloc(data_len);
+	if (!*buf) {
+		fprintf(stderr, "malloc() failed\n");
+		r = -5;
+		goto exit;
+	}
+	memcpy(*buf, plaintext, data_len);
+	*buf_len = data_len;
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	crypto_cleanse(plaintext, envelope->ciphertext_len);
+	free(plaintext);
+	return r;
+}
+
 // Hex output helper function
 static void print_hex(const void* buf, size_t buf_len)
 {
@@ -843,10 +1305,11 @@ static void print_hex(const void* buf, size_t buf_len)
 int main(int argc, char** argv)
 {
 	int r;
-	const char* key_name;
-	size_t key_len;
-	uint8_t* envelope = NULL;
-	size_t envelope_len = 0;
+	const char* key_name = NULL;
+	size_t key_len = 0;
+	struct emv_dukpt_envelope_t envelope = { 0 };
+	uint8_t* output = NULL;
+	size_t output_len = 0;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -860,11 +1323,12 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	if (!input_data || !input_data_len) {
-		fprintf(stderr, "EMV data to encrypt (--encrypt-request) is required\n");
+	if (action == EMV_DUKPT_ACTION_NONE || !input_data || !input_data_len) {
+		fprintf(stderr, "Specify either EMV data to encrypt (--encrypt-request) or envelope to decrypt (--decrypt-response)\n");
 		goto usage;
 	}
 
+	// Validate BDK/IK options
 	if ((!bdk && !ik) || (bdk && ik)) {
 		fprintf(stderr, "Specify either Base Derivation Key (--bdk) or Initial Key (--ik)\n");
 		goto usage;
@@ -877,83 +1341,114 @@ int main(int argc, char** argv)
 		key_len = ik_len;
 	}
 
-	if (!ksn) {
-		fprintf(stderr, "Key Serial Number (--ksn) is required\n");
-		goto usage;
-	}
-
-	if (mode == EMV_DUKPT_MODE_TDES) {
-		if (key_type_valid) {
-			fprintf(stderr, "Working key type (--key-type) only applies to AES derivation mode\n");
-			goto usage;
-		}
-		if (key_len != DUKPT_TDES_KEY_LEN) {
-			fprintf(stderr, "%s must be %u bytes for TDES derivation mode\n", key_name, DUKPT_TDES_KEY_LEN);
-			goto usage;
-		}
-		if (ksn_len != DUKPT_TDES_KSN_LEN) {
-			fprintf(stderr, "Key Serial Number (--ksn) must be %u bytes for TDES derivation mode\n", DUKPT_TDES_KSN_LEN);
-			goto usage;
-		}
-		if (!dukpt_tdes_ksn_is_valid(ksn)) {
-			fprintf(stderr, "Key Serial Number (--ksn) transaction counter is invalid\n");
-			goto usage;
-		}
-	} else if (mode == EMV_DUKPT_MODE_AES) {
-		if (key_len != DUKPT_AES_KEY_LEN(AES128) &&
-			key_len != DUKPT_AES_KEY_LEN(AES192) &&
-			key_len != DUKPT_AES_KEY_LEN(AES256)
-		) {
-			fprintf(stderr, "%s must be %u, %u or %u bytes for AES derivation mode\n",
-				key_name,
-				DUKPT_AES_KEY_LEN(AES128),
-				DUKPT_AES_KEY_LEN(AES192),
-				DUKPT_AES_KEY_LEN(AES256)
-			);
-			goto usage;
-		}
-		if (ksn_len != DUKPT_AES_KSN_LEN) {
-			fprintf(stderr, "Key Serial Number (--ksn) must be %u bytes for AES derivation mode\n", DUKPT_AES_KSN_LEN);
-			goto usage;
-		}
-		if (!dukpt_aes_ksn_is_valid(ksn)) {
-			fprintf(stderr, "Key Serial Number (--ksn) transaction counter is invalid\n");
+	// Validate encryption options
+	if (action == EMV_DUKPT_ACTION_ENCRYPT_REQUEST) {
+		if (!ksn) {
+			fprintf(stderr, "Key Serial Number (--ksn) is required\n");
 			goto usage;
 		}
 
-		if (!key_type_valid) {
-			// Working key type defaults to the length of the BDK or IK
-			if (key_len == DUKPT_AES_KEY_LEN(AES128)) {
-				key_type = DUKPT_AES_KEY_TYPE_AES128;
-			} else if (key_len == DUKPT_AES_KEY_LEN(AES192)) {
-				key_type = DUKPT_AES_KEY_TYPE_AES192;
-			} else {
-				key_type = DUKPT_AES_KEY_TYPE_AES256;
+		if (mode == EMV_DUKPT_MODE_TDES) {
+			if (key_type_valid) {
+				fprintf(stderr, "Working key type (--key-type) only applies to AES derivation mode\n");
+				goto usage;
 			}
+			if (key_len != DUKPT_TDES_KEY_LEN) {
+				fprintf(stderr, "%s must be %u bytes for TDES derivation mode\n", key_name, DUKPT_TDES_KEY_LEN);
+				goto usage;
+			}
+			if (ksn_len != DUKPT_TDES_KSN_LEN) {
+				fprintf(stderr, "Key Serial Number (--ksn) must be %u bytes for TDES derivation mode\n", DUKPT_TDES_KSN_LEN);
+				goto usage;
+			}
+			if (!dukpt_tdes_ksn_is_valid(ksn)) {
+				fprintf(stderr, "Key Serial Number (--ksn) transaction counter is invalid\n");
+				goto usage;
+			}
+		} else if (mode == EMV_DUKPT_MODE_AES) {
+			if (key_len != DUKPT_AES_KEY_LEN(AES128) &&
+				key_len != DUKPT_AES_KEY_LEN(AES192) &&
+				key_len != DUKPT_AES_KEY_LEN(AES256)
+			) {
+				fprintf(stderr, "%s must be %u, %u or %u bytes for AES derivation mode\n",
+					key_name,
+					DUKPT_AES_KEY_LEN(AES128),
+					DUKPT_AES_KEY_LEN(AES192),
+					DUKPT_AES_KEY_LEN(AES256)
+				);
+				goto usage;
+			}
+			if (ksn_len != DUKPT_AES_KSN_LEN) {
+				fprintf(stderr, "Key Serial Number (--ksn) must be %u bytes for AES derivation mode\n", DUKPT_AES_KSN_LEN);
+				goto usage;
+			}
+			if (!dukpt_aes_ksn_is_valid(ksn)) {
+				fprintf(stderr, "Key Serial Number (--ksn) transaction counter is invalid\n");
+				goto usage;
+			}
+
+			if (!key_type_valid) {
+				// Working key type defaults to the length of the BDK or IK
+				if (key_len == DUKPT_AES_KEY_LEN(AES128)) {
+					key_type = DUKPT_AES_KEY_TYPE_AES128;
+				} else if (key_len == DUKPT_AES_KEY_LEN(AES192)) {
+					key_type = DUKPT_AES_KEY_TYPE_AES192;
+				} else {
+					key_type = DUKPT_AES_KEY_TYPE_AES256;
+				}
+			}
+		} else {
+			fprintf(stderr, "Unknown derivation mode\n");
+			r = 1;
+			goto exit;
 		}
-	} else {
-		fprintf(stderr, "Unknown derivation mode\n");
-		r = 1;
-		goto exit;
+
+		algorithm = lookup_algorithm(mode, key_type);
+		if (!algorithm) {
+			fprintf(stderr, "Unsupported DUKPT algorithm\n");
+			r = 1;
+			goto exit;
+		}
+		if (algorithm->key_len > key_len) {
+			fprintf(stderr, "Working key type (--key-type) must not be longer than %s\n", key_name);
+			goto usage;
+		}
 	}
 
-	algorithm = lookup_algorithm(mode, key_type);
-	if (!algorithm) {
-		fprintf(stderr, "Unsupported DUKPT algorithm\n");
-		r = 1;
-		goto exit;
-	}
-	if (algorithm->key_len > key_len) {
-		fprintf(stderr, "Working key type (--key-type) must not be longer than %s\n", key_name);
-		goto usage;
-	}
+	switch (action) {
+		case EMV_DUKPT_ACTION_ENCRYPT_REQUEST: {
+			r = encrypt_emv_data(input_data, input_data_len, &output, &output_len);
+			break;
+		}
 
-	r = encrypt_emv_data(input_data, input_data_len, &envelope, &envelope_len);
+		case EMV_DUKPT_ACTION_DECRYPT_RESPONSE: {
+			// Envelope provides derivation mode, working key type and KSN
+			r = parse_envelope(input_data, input_data_len, &envelope);
+			if (r) {
+				r = 1;
+				goto exit;
+			}
+
+			r = validate_envelope(&envelope, key_name, key_len);
+			if (r) {
+				r = 1;
+				goto exit;
+			}
+
+			r = decrypt_emv_data(&envelope, &output, &output_len);
+			break;
+		}
+
+		default:
+			fprintf(stderr, "Unknown action\n");
+			r = 1;
+			goto exit;
+	}
 	if (r) {
 		r = 1;
 		goto exit;
 	}
-	print_hex(envelope, envelope_len);
+	print_hex(output, output_len);
 
 	// Success
 	r = 0;
@@ -965,7 +1460,10 @@ usage:
 	goto exit;
 
 exit:
-	free(envelope);
+	if (output) {
+		crypto_cleanse(output, output_len);
+		free(output);
+	}
 	if (bdk) {
 		crypto_cleanse(bdk, bdk_len);
 		free(bdk);
@@ -975,7 +1473,10 @@ exit:
 		free(ik);
 	}
 	free(ksn);
-	free(input_data);
+	if (input_data) {
+		crypto_cleanse(input_data, input_data_len);
+		free(input_data);
+	}
 
 	return r;
 }
