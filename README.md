@@ -92,6 +92,7 @@ Dependencies
 This project also makes use of sub-projects that must be provided as git
 submodules using `git clone --recurse-submodules`:
 * [OpenEMV common crypto abstraction](https://github.com/openemv/crypto)
+* [OpenEMV PIN block library](https://github.com/openemv/pinblock)
 * [mcc-codes](https://github.com/greggles/mcc-codes)
 
 Build
@@ -431,6 +432,10 @@ files.
 This project includes [crypto](https://github.com/openemv/crypto) as a git
 submodule and it is licensed under the terms of the MIT license. See
 [LICENSE](https://github.com/openemv/crypto/blob/master/LICENSE) file.
+
+This project includes [pinblock](https://github.com/openemv/pinblock) as a git
+submodule and it is licensed under the terms of the LGPL v2.1 license. See
+[LICENSE](https://github.com/openemv/pinblock/blob/master/LICENSE) file.
 
 This project includes [mcc-codes](https://github.com/greggles/mcc-codes) as a
 git submodule and it is licensed under the terms of The Unlicense license. See
