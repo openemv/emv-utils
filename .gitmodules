@@ -4,3 +4,6 @@
 [submodule "crypto"]
 	path = crypto
 	url = https://github.com/openemv/crypto.git
+[submodule "pinblock"]
+	path = pinblock
+	url = https://github.com/openemv/pinblock.git
