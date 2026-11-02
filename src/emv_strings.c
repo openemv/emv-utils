@@ -429,6 +429,14 @@ int emv_tlv_get_info(
 			info->format = EMV_FORMAT_B;
 			return 0;
 
+		case EMV_TAG_99_TRANSACTION_PIN_DATA:
+			info->tag_name = "Transaction Personal Identification Number (PIN) Data";
+			info->tag_desc =
+				"Data entered by the cardholder for the purpose of the PIN "
+				"verification";
+			info->format = EMV_FORMAT_B;
+			return 0;
+
 		case EMV_TAG_9A_TRANSACTION_DATE:
 			info->tag_name = "Transaction Date";
 			info->tag_desc =
