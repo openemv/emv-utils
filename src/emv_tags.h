@@ -157,6 +157,9 @@ __BEGIN_DECLS
 /// EMV tag 98 Transaction Certificate (TC) Hash Value
 #define EMV_TAG_98_TC_HASH                                      (0x98)
 
+/// EMV tag 99 Transaction Personal Identification Number (PIN) Data
+#define EMV_TAG_99_TRANSACTION_PIN_DATA                         (0x99)
+
 /// EMV tag 9A Transaction Date
 #define EMV_TAG_9A_TRANSACTION_DATE                             (0x9A)
 
