@@ -235,7 +235,7 @@ endif()
 # EMV encryption command line tool
 if(BUILD_EMV_DUKPT)
 	add_executable(emv-dukpt emv-dukpt.c)
-	target_link_libraries(emv-dukpt PRIVATE emv crypto_mem dukpt::dukpt_tdes dukpt::dukpt_aes)
+	target_link_libraries(emv-dukpt PRIVATE emv crypto_mem pinblock dukpt::dukpt_tdes dukpt::dukpt_aes)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-dukpt PRIVATE libargp::argp)
 	endif()
@@ -1405,6 +1405,22 @@ if(TARGET emv-dukpt AND BUILD_TESTING)
 	set(EMV_DUKPT_AES192_REQUEST_ENVELOPE 303E060A2B810510864809180102040C12345678901234560000000104109B97669C1FA9B588549EE9C59BBC501E0410DD10ECAE3A81CE8EE27C83A52DA48B0D)
 	set(EMV_DUKPT_AES256_REQUEST_ENVELOPE 303E060A2B810510864809180103040C1234567890123456000000010410005C99D7FB6C01A42AF03C1950C4E6DF0410ED0CD584F53EE3CC4BC48D1DCE678852)
 
+	# EMV transaction request data using ANSI X9.24-1:2009 test PAN and PIN,
+	# with PIN in ISO 9564-1:2017 PIN block format 2
+	set(EMV_DUKPT_PIN_REQUEST "7017 9F390105 5A074012345678909F 9908241234FFFFFFFFFF")
+
+	# Envelopes for EMV transaction request data using EMV_DUKPT_PIN_REQUEST
+	# but with field 99 replaced by ASN.1 NULL
+	set(EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE 3044060A2B810510864809180100040AFFFF9876543210E00001042013EEDC6F03D0A491C32C754BC69A67790229D0843AD8FA61686FB0BE10C5748804087A4605A1FA1C129A)
+	set(EMV_DUKPT_AES128_PIN_REQUEST_DATA_ENVELOPE 304E060A2B810510864809180101040C1234567890123456000000010420519D3EF9591EC2CB96115F3B4ADD9F69E8D2CE9129B29A832AEC5E4E4868C4A20410F291F5EC35A1CDC236C435E0952DAC3D)
+
+	# Envelopes for the above PIN encrypted using ISO 9564-1:2017 PIN block
+	# format 0 for TDES and format 4 for AES. Format 4 uses random padding and
+	# therefore only the AES envelope structure can be verified.
+	set(EMV_DUKPT_TDES_PIN_REQUEST_PIN_ENVELOPE 3022060A2B810510864809180100040AFFFF9876543210E0000104081B9C1845EB993A7A)
+	string(REPEAT "[0-9A-F]" 32 EMV_DUKPT_AES_PIN_BLOCK_REGEX)
+	set(EMV_DUKPT_AES128_PIN_REQUEST_PIN_ENVELOPE_REGEX 302C060A2B810510864809180101040C${EMV_DUKPT_AES_KSN}0410${EMV_DUKPT_AES_PIN_BLOCK_REGEX})
+
 	# Envelopes for EMV transaction response data consisting of 8A023030910AD8D1C9EFA6BC2F333030
 	set(EMV_DUKPT_TDES_RESPONSE_ENVELOPE 303C060A2B810510864809180100040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19)
 	set(EMV_DUKPT_AES128_RESPONSE_ENVELOPE 304E060A2B810510864809180101040C123456789012345600000001042007977A528B7543C72CEB12BFC668633805E1891796EC1132386C728B289C39A0041006C65FF6399084CF5F68DCDE4E8D42AC)
@@ -1534,6 +1550,55 @@ if(TARGET emv-dukpt AND BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION "^304E060A2B810510864809180101040C12345678901234560000000104201246E34690D646BAEBE55E2618515F7E05A40E5817FDA668A2E23AB83A88FE8804108DDF66FAC6097C781DC8F7E4EFCC57CE[\r\n]$"
 	)
 
+	# Test TDES DUKPT request encryption of EMV data containing Transaction
+	# PIN Data (field 99)
+	add_test(NAME emv_dukpt_encrypt_test12
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test12
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE}[\r\n]${EMV_DUKPT_TDES_PIN_REQUEST_PIN_ENVELOPE}[\r\n]$"
+	)
+
+	# Test TDES DUKPT request encryption of EMV data containing ASN.1 NULL to
+	# confirm that it generates the same envelope
+	add_test(NAME emv_dukpt_encrypt_test13
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request "9F390105 5A074012345678909F 05080000000000000000"
+	)
+	set_tests_properties(emv_dukpt_encrypt_test13
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE}[\r\n]$"
+	)
+
+	# Test AES DUKPT request encryption of EMV data containing Transaction
+	# PIN Data (field 99)
+	add_test(NAME emv_dukpt_encrypt_test14
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test14
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_AES128_PIN_REQUEST_DATA_ENVELOPE}[\r\n]${EMV_DUKPT_AES128_PIN_REQUEST_PIN_ENVELOPE_REGEX}[\r\n]$"
+	)
+
+	# Test that invalid Transaction PIN Data (field 99) is replaced by ASN.1
+	# NULL (field 05) without PIN encryption
+	add_test(NAME emv_dukpt_encrypt_test15
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request "9F390105 5A074012345678909F 9908041234FFFFFFFFFF"
+	)
+	set_tests_properties(emv_dukpt_encrypt_test15
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "${EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE}[\r\n]"
+			FAIL_REGULAR_EXPRESSION "3022060A2B810510864809180100040A${EMV_DUKPT_TDES_KSN}0408"
+	)
+
 	if(TARGET emv-decode)
 		# Test decoding of request envelope
 		add_test(NAME emv_dukpt_envelope_test1
@@ -1549,6 +1614,21 @@ if(TARGET emv-dukpt AND BUILD_TESTING)
 		set_tests_properties(emv_dukpt_envelope_test1
 			PROPERTIES
 				PASS_REGULAR_EXPRESSION ${emv_dukpt_envelope_test1_regex}
+		)
+
+		# Test decoding of PIN envelope
+		add_test(NAME emv_dukpt_envelope_test2
+			COMMAND emv-decode --tlv ${EMV_DUKPT_TDES_PIN_REQUEST_PIN_ENVELOPE}
+				--mcc-json ${MCC_JSON_BUILD_PATH}
+		)
+		string(CONCAT emv_dukpt_envelope_test2_regex
+			"^30 \\| ASN\\.1 Object \\(1\\.3\\.133\\.16\\.840\\.9\\.24\\.1\\.0 dukpt_tdes\\) : \\[34\\][\r\n]"
+			"  04 \\| ASN\\.1 Octet string : \\[10\\] FF FF 98 76 54 32 10 E0 00 01[\r\n]"
+			"  04 \\| ASN\\.1 Octet string : \\[8\\] 1B 9C 18 45 EB 99 3A 7A[\r\n]$"
+		)
+		set_tests_properties(emv_dukpt_envelope_test2
+			PROPERTIES
+				PASS_REGULAR_EXPRESSION ${emv_dukpt_envelope_test2_regex}
 		)
 	endif()
 

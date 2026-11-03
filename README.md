@@ -371,6 +371,18 @@ or IK and can be specified using the `--key-type` option. For example:
 emv-dukpt --mode AES --key-type AES128 --bdk FEDCBA9876543210F1F1F1F1F1F1F1F1 --ksn 123456789012345600000001 --encrypt-request 701A9F390105571040123456789095D2512201197339300F82025900
 ```
 
+Transaction PIN Data (field `99`) is always replaced by ASN.1 NULL (field `05`)
+of the same length before the EMV data is encrypted. If field `99` is in ISO
+9564-1:2017 PIN block format 2 and the EMV data also contains a valid
+Application PAN (field `5A`), the PIN is encrypted using ISO 9564-1:2017 PIN
+block format 0 for TDES DUKPT, or format 4 for AES DUKPT, and output as a
+second envelope. This PIN encryption envelope is an ASN.1 sequence containing
+the object identifier (OID) of the DUKPT transaction key, Key Serial Number
+(KSN), and encrypted PIN block. For example:
+```shell
+emv-dukpt --bdk 0123456789ABCDEFFEDCBA9876543210 --ksn FFFF9876543210E00001 --encrypt-request 70179F3901055A074012345678909F9908241234FFFFFFFFFF
+```
+
 The envelope can be decoded using the `--tlv` option of the `emv-decode`
 application.
 

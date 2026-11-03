@@ -22,6 +22,7 @@
 #include "emv_tags.h"
 #include "iso8825_ber.h"
 #include "crypto_mem.h"
+#include "pinblock.h"
 
 #include <dukpt_tdes.h>
 #include <dukpt_aes.h>
@@ -37,9 +38,11 @@
 
 #define EMV_DUKPT_MAX_KEY_LEN (DUKPT_AES_KEY_LEN(AES256))
 #define EMV_DUKPT_MAX_BLOCK_LEN (DUKPT_AES_BLOCK_LEN)
+#define EMV_DUKPT_MAX_PINBLOCK_LEN (DUKPT_AES_PINBLOCK_LEN)
 #define EMV_DUKPT_MAX_BER_DEPTH (16)
 
 // Forward declarations
+struct emv_dukpt_pin_data_t;
 struct emv_dukpt_envelope_t;
 
 // Helper functions
@@ -49,12 +52,17 @@ static error_t parse_hex_arg(struct argp_state* state, const char* name, const c
 static const struct emv_dukpt_algorithm_t* lookup_algorithm(int mode, int key_type);
 static const struct emv_dukpt_algorithm_t* lookup_algorithm_by_oid(const struct iso8825_oid_t* oid);
 static int validate_ber(const void* buf, size_t buf_len, unsigned int depth);
+static int validate_pan(const uint8_t* pan, size_t pan_len);
+static int process_pin_data(uint8_t* buf, size_t buf_len, unsigned int depth, struct emv_dukpt_pin_data_t* pin_data);
 static int build_plaintext(const void* buf, size_t buf_len, size_t block_len, uint8_t** plaintext, size_t* plaintext_len);
 static int derive_txn_key(int mode, const uint8_t* ksn, void* txn_key);
 static int encrypt_tdes(const void* plaintext, size_t plaintext_len, void* ciphertext, void* authenticator);
 static int encrypt_aes(const void* plaintext, size_t plaintext_len, void* ciphertext, void* authenticator);
+static int encrypt_pin_tdes(const uint8_t* pin, size_t pin_len, const uint8_t* pan, size_t pan_len, void* ciphertext);
+static int encrypt_pin_aes(const uint8_t* pin, size_t pin_len, const uint8_t* pan, size_t pan_len, void* ciphertext);
 static int build_envelope(const void* ciphertext, size_t ciphertext_len, const void* authenticator, uint8_t** envelope, size_t* envelope_len);
-static int encrypt_emv_data(const void* buf, size_t buf_len, uint8_t** envelope, size_t* envelope_len);
+static int encrypt_pin_data(const struct emv_dukpt_pin_data_t* pin_data, uint8_t** envelope, size_t* envelope_len);
+static int encrypt_emv_data(uint8_t* buf, size_t buf_len, uint8_t** envelope, size_t* envelope_len, uint8_t** pin_envelope, size_t* pin_envelope_len);
 static int parse_envelope(const void* buf, size_t buf_len, struct emv_dukpt_envelope_t* envelope);
 static int validate_envelope(const struct emv_dukpt_envelope_t* envelope, const char* key_name, size_t key_len);
 static int decrypt_tdes(const struct emv_dukpt_envelope_t* envelope, void* plaintext);
@@ -87,7 +95,7 @@ static struct argp_option argp_options[] = {
 	{ "ksn", EMV_DUKPT_PARAM_KSN, "HEX", 0, "Key Serial Number (KSN)" },
 
 	{ NULL, 0, NULL, 0, "Actions:", 3 },
-	{ "encrypt-request", EMV_DUKPT_ENCRYPT_REQUEST, "DATA", 0, "Encrypt EMV transaction request data and output as ASN.1 envelope. Requires either BDK or IK, as well as KSN." },
+	{ "encrypt-request", EMV_DUKPT_ENCRYPT_REQUEST, "DATA", 0, "Encrypt EMV transaction request data and output as ASN.1 envelope, with optional second envelope for PIN encryption. Requires either BDK or IK, as well as KSN." },
 	{ "decrypt-response", EMV_DUKPT_DECRYPT_RESPONSE, "DATA", 0, "Decrypt ASN.1 envelope and output EMV transaction response data. Requires either BDK or IK. Derivation mode, working key type and KSN are optional and must match the envelope." },
 
 	{ "version", EMV_DUKPT_VERSION, NULL, 0, "Display emv-utils and dukpt versions" },
@@ -106,7 +114,15 @@ static struct argp argp_config = {
 	"Use derivation mode AES for ANSI X9.24-3:2017 AES DUKPT.\n\n"
 	"KEY and HEX argument values are strings of hex digits representing binary data.\n"
 	"DATA argument values are strings of hex digits representing BER encoded data.\n\n"
-	"The envelope is an ASN.1 sequence containing the OID of the DUKPT transaction key, KSN, encrypted EMV data, and authenticator.",
+	"The envelope is an ASN.1 sequence containing the OID of the DUKPT "
+	"transaction key, KSN, encrypted EMV data, and authenticator.\n\n"
+	"Transaction PIN Data (field 99) is always replaced by ASN.1 NULL (field "
+	"05) of the same length before the EMV data is encrypted. If field 99 is "
+	"in ISO 9564-1:2017 PIN block format 2 and the EMV data also contains a "
+	"valid Application PAN (field 5A), the PIN is encrypted using "
+	"ISO 9564-1:2017 PIN block format 0 for TDES or format 4 for AES, and "
+	"output as a second envelope containing the OID of the DUKPT transaction "
+	"key, KSN, and encrypted PIN block.",
 };
 
 // Derivation mode
@@ -154,6 +170,18 @@ static const struct emv_dukpt_algorithm_t algorithm_list[] = {
 	{ ASN1_OID(dukpt_aes256), EMV_DUKPT_MODE_AES, DUKPT_AES_KEY_TYPE_AES256, DUKPT_AES_KEY_LEN(AES256), DUKPT_AES_BLOCK_LEN },
 };
 static const struct emv_dukpt_algorithm_t* algorithm = NULL;
+
+// Transaction PIN Data and Application PAN found in EMV data
+struct emv_dukpt_pin_data_t {
+	unsigned int pinblock_count;
+	uint8_t pinblock[PINBLOCK_SIZE];
+	size_t pinblock_len;
+	uint8_t pin[PINBLOCK_PIN_LENGTH_MAX];
+	size_t pin_len;
+	unsigned int pan_count;
+	const uint8_t* pan;
+	size_t pan_len;
+};
 
 // Decoded envelope fields
 struct emv_dukpt_envelope_t {
@@ -416,6 +444,162 @@ static int validate_ber(const void* buf, size_t buf_len, unsigned int depth)
 	if (r < 0) {
 		// Invalid BER encoded data
 		return 3;
+	}
+
+	return 0;
+}
+
+// Application PAN validation helper function
+static int validate_pan(const uint8_t* pan, size_t pan_len)
+{
+	size_t digit_count = 0;
+	bool padding_found = false;
+
+	if (!pan || !pan_len) {
+		return -1;
+	}
+
+	// EMV format "cn" consists of left justified digits padded with trailing
+	// 'F's
+	for (size_t i = 0; i < pan_len * 2; ++i) {
+		uint8_t digit;
+
+		if ((i & 0x1) == 0) {
+			// Most significant nibble
+			digit = pan[i >> 1] >> 4;
+		} else {
+			// Least significant nibble
+			digit = pan[i >> 1] & 0xF;
+		}
+
+		if (digit == 0xF) {
+			padding_found = true;
+			continue;
+		}
+		if (digit > 9 || padding_found) {
+			// Invalid digit or digit after padding
+			return 1;
+		}
+		++digit_count;
+	}
+
+	// ISO 7812 specifies that PANs are 10 - 19 digits
+	if (digit_count < 10 || digit_count > 19) {
+		return 2;
+	}
+
+	return 0;
+}
+
+// PIN data processing helper function
+static int process_pin_data(
+	uint8_t* buf,
+	size_t buf_len,
+	unsigned int depth,
+	struct emv_dukpt_pin_data_t* pin_data
+)
+{
+	int r;
+	struct iso8825_ber_itr_t itr;
+	struct iso8825_tlv_t tlv;
+
+	if (!buf || !pin_data) {
+		return -1;
+	}
+
+	if (depth > EMV_DUKPT_MAX_BER_DEPTH) {
+		// Too many nested constructed fields
+		return -2;
+	}
+
+	r = iso8825_ber_itr_init(buf, buf_len, &itr);
+	if (r) {
+		return -3;
+	}
+
+	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
+		// Locate the value within the buffer such that it can be modified
+		uint8_t* value = buf + (tlv.value - buf);
+
+		if (iso8825_ber_is_constructed(&tlv)) {
+			r = process_pin_data(value, tlv.length, depth + 1, pin_data);
+			if (r < 0) {
+				return r;
+			}
+			continue;
+		}
+
+		if (tlv.tag == EMV_TAG_5A_APPLICATION_PAN) {
+			++pin_data->pan_count;
+			pin_data->pan = tlv.value;
+			pin_data->pan_len = tlv.length;
+		}
+
+		if (tlv.tag == EMV_TAG_99_TRANSACTION_PIN_DATA) {
+			uint8_t* tag = value - (r - tlv.length);
+
+			++pin_data->pinblock_count;
+			if (tlv.length <= sizeof(pin_data->pinblock)) {
+				memcpy(pin_data->pinblock, value, tlv.length);
+			}
+			pin_data->pinblock_len = tlv.length;
+
+			// The PIN must never be encrypted with a non-PIN key. Therefore
+			// always replace Transaction PIN Data (field 99) in-place with an
+			// ASN.1 NULL of the same length, regardless of its content. Both
+			// tags are single octet tags and the length octets are retained.
+			*tag = ASN1_NULL;
+			crypto_cleanse(value, tlv.length);
+		}
+	}
+	if (r < 0) {
+		// Invalid BER encoded data
+		return -4;
+	}
+
+	if (depth > 0) {
+		// Validate only after all nested fields have been processed
+		return 0;
+	}
+
+	if (!pin_data->pinblock_count) {
+		// Transaction PIN Data not present
+		return 0;
+	}
+	if (pin_data->pinblock_count > 1) {
+		fprintf(stderr, "EMV data contains more than one Transaction PIN Data (field 99)\n");
+		return 1;
+	}
+
+	if (pin_data->pinblock_len != PINBLOCK_SIZE) {
+		fprintf(stderr, "Transaction PIN Data (field 99) is not ISO 9564-1:2017 PIN block format 2\n");
+		return 2;
+	}
+
+	r = pinblock_decode_iso9564_format2(
+		pin_data->pinblock,
+		pin_data->pinblock_len,
+		pin_data->pin,
+		&pin_data->pin_len
+	);
+	if (r) {
+		fprintf(stderr, "Transaction PIN Data (field 99) is not ISO 9564-1:2017 PIN block format 2\n");
+		return 3;
+	}
+	crypto_cleanse(pin_data->pinblock, sizeof(pin_data->pinblock));
+
+	if (!pin_data->pan_count) {
+		fprintf(stderr, "Transaction PIN Data (field 99) requires Application PAN (field 5A)\n");
+		return 4;
+	}
+	if (pin_data->pan_count > 1) {
+		fprintf(stderr, "EMV data contains more than one Application PAN (field 5A)\n");
+		return 5;
+	}
+	r = validate_pan(pin_data->pan, pin_data->pan_len);
+	if (r) {
+		fprintf(stderr, "Application PAN (field 5A) is invalid\n");
+		return 6;
 	}
 
 	return 0;
@@ -705,6 +889,95 @@ exit:
 	return r;
 }
 
+// TDES DUKPT PIN encryption helper function
+static int encrypt_pin_tdes(
+	const uint8_t* pin,
+	size_t pin_len,
+	const uint8_t* pan,
+	size_t pan_len,
+	void* ciphertext
+)
+{
+	int r;
+	uint8_t txn_key[DUKPT_TDES_KEY_LEN];
+
+	r = derive_txn_key(mode, ksn, txn_key);
+	if (r) {
+		goto exit;
+	}
+
+	// Use ISO 9564-1:2017 PIN block format 0 for TDES DUKPT
+	// See ISO 9564-1:2017 9.3.2
+	r = dukpt_tdes_encrypt_pin(
+		txn_key,
+		PINBLOCK_ISO9564_FORMAT_0,
+		pin,
+		pin_len,
+		pan,
+		pan_len,
+		ciphertext
+	);
+	if (r) {
+		fprintf(stderr, "dukpt_tdes_encrypt_pin() failed; r=%d\n", r);
+		r = -3;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	crypto_cleanse(txn_key, sizeof(txn_key));
+	return r;
+}
+
+// AES DUKPT PIN encryption helper function
+static int encrypt_pin_aes(
+	const uint8_t* pin,
+	size_t pin_len,
+	const uint8_t* pan,
+	size_t pan_len,
+	void* ciphertext
+)
+{
+	int r;
+	uint8_t txn_key[EMV_DUKPT_MAX_KEY_LEN];
+	size_t txn_key_len = bdk ? bdk_len : ik_len;
+
+	r = derive_txn_key(mode, ksn, txn_key);
+	if (r) {
+		goto exit;
+	}
+
+	// Use ISO 9564-1:2017 PIN block format 4 for AES DUKPT
+	// See ISO 9564-1:2017 9.4.2
+	r = dukpt_aes_encrypt_pin(
+		txn_key,
+		txn_key_len,
+		ksn,
+		algorithm->key_type,
+		pin,
+		pin_len,
+		pan,
+		pan_len,
+		ciphertext
+	);
+	if (r) {
+		fprintf(stderr, "dukpt_aes_encrypt_pin() failed; r=%d\n", r);
+		r = -3;
+		goto exit;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+exit:
+	crypto_cleanse(txn_key, sizeof(txn_key));
+	return r;
+}
+
 // Envelope builder helper function
 static int build_envelope(
 	const void* ciphertext,
@@ -721,9 +994,10 @@ static int build_envelope(
 	uint8_t* content = NULL;
 	size_t offset = 0;
 	struct iso8825_tlv_t tlv;
+	size_t field_count;
+	size_t encoded_len = 0;
 
 	if (!ciphertext || !ciphertext_len ||
-		!authenticator ||
 		!envelope || !envelope_len
 	) {
 		return -1;
@@ -745,7 +1019,13 @@ static int build_envelope(
 		{ ASN1_OCTET_STRING, algorithm->block_len, authenticator },
 	};
 
-	for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); ++i) {
+	// Authenticator is optional and omitted if not provided
+	field_count = sizeof(fields) / sizeof(fields[0]);
+	if (!authenticator) {
+		--field_count;
+	}
+
+	for (size_t i = 0; i < field_count; ++i) {
 		r = iso8825_ber_compute_encoded_length(&fields[i]);
 		if (r <= 0) {
 			fprintf(stderr, "iso8825_ber_compute_encoded_length() failed; r=%d\n", r);
@@ -762,7 +1042,7 @@ static int build_envelope(
 		goto error;
 	}
 
-	for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); ++i) {
+	for (size_t i = 0; i < field_count; ++i) {
 		size_t len = content_len - offset;
 
 		r = iso8825_ber_encode(&fields[i], content + offset, &len);
@@ -786,15 +1066,16 @@ static int build_envelope(
 		r = -6;
 		goto error;
 	}
-	*envelope_len = r;
+	encoded_len = r;
 
-	*envelope = malloc(*envelope_len);
+	*envelope = malloc(encoded_len);
 	if (!*envelope) {
 		fprintf(stderr, "malloc() failed\n");
 		r = -7;
 		goto error;
 	}
 
+	*envelope_len = encoded_len;
 	r = iso8825_ber_encode(&tlv, *envelope, envelope_len);
 	if (r) {
 		fprintf(stderr, "iso8825_ber_encode() failed; r=%d\n", r);
@@ -808,67 +1089,55 @@ static int build_envelope(
 
 error:
 	if (*envelope) {
+		crypto_cleanse(*envelope, encoded_len);
 		free(*envelope);
 		*envelope = NULL;
 	}
 	*envelope_len = 0;
 
 exit:
-	free(content);
+	if (content) {
+		crypto_cleanse(content, content_len);
+		free(content);
+	}
 	return r;
 }
 
-// EMV transaction request data encryption helper function
-static int encrypt_emv_data(
-	const void* buf,
-	size_t buf_len,
+// Transaction PIN Data encryption helper function
+static int encrypt_pin_data(
+	const struct emv_dukpt_pin_data_t* pin_data,
 	uint8_t** envelope,
 	size_t* envelope_len
 )
 {
 	int r;
-	uint8_t* plaintext = NULL;
-	size_t plaintext_len = 0;
-	uint8_t* ciphertext = NULL;
-	uint8_t authenticator[EMV_DUKPT_MAX_BLOCK_LEN];
+	uint8_t ciphertext[EMV_DUKPT_MAX_PINBLOCK_LEN];
+	size_t ciphertext_len;
 
-	if (!buf || !buf_len || !envelope || !envelope_len) {
+	if (!pin_data || !pin_data->pin_len ||
+		!pin_data->pan || !pin_data->pan_len ||
+		!envelope || !envelope_len
+	) {
 		return -1;
 	}
 
-	r = validate_ber(buf, buf_len, 0);
-	if (r) {
-		fprintf(stderr, "EMV data must consist of valid BER encoded data\n");
-		return 1;
+	if (mode == EMV_DUKPT_MODE_TDES) {
+		r = encrypt_pin_tdes(pin_data->pin, pin_data->pin_len, pin_data->pan, pin_data->pan_len, ciphertext);
+		ciphertext_len = DUKPT_TDES_PINBLOCK_LEN;
+	} else {
+		r = encrypt_pin_aes(pin_data->pin, pin_data->pin_len, pin_data->pan, pin_data->pan_len, ciphertext);
+		ciphertext_len = DUKPT_AES_PINBLOCK_LEN;
 	}
-
-	r = build_plaintext(buf, buf_len, algorithm->block_len, &plaintext, &plaintext_len);
 	if (r) {
-		fprintf(stderr, "Failed to build plaintext\n");
 		r = -2;
 		goto exit;
 	}
 
-	ciphertext = malloc(plaintext_len);
-	if (!ciphertext) {
+	// PIN encryption has no IV or authenticator
+	r = build_envelope(ciphertext, ciphertext_len, NULL, envelope, envelope_len);
+	if (r) {
+		fprintf(stderr, "Failed to build PIN envelope\n");
 		r = -3;
-		goto exit;
-	}
-
-	if (mode == EMV_DUKPT_MODE_TDES) {
-		r = encrypt_tdes(plaintext, plaintext_len, ciphertext, authenticator);
-	} else {
-		r = encrypt_aes(plaintext, plaintext_len, ciphertext, authenticator);
-	}
-	if (r) {
-		r = -4;
-		goto exit;
-	}
-
-	r = build_envelope(ciphertext, plaintext_len, authenticator, envelope, envelope_len);
-	if (r) {
-		fprintf(stderr, "Failed to build envelope\n");
-		r = -5;
 		goto exit;
 	}
 
@@ -877,6 +1146,105 @@ static int encrypt_emv_data(
 	goto exit;
 
 exit:
+	crypto_cleanse(ciphertext, sizeof(ciphertext));
+	return r;
+}
+
+// EMV transaction request data encryption helper function
+static int encrypt_emv_data(
+	uint8_t* buf,
+	size_t buf_len,
+	uint8_t** envelope,
+	size_t* envelope_len,
+	uint8_t** pin_envelope,
+	size_t* pin_envelope_len
+)
+{
+	int r;
+	struct emv_dukpt_pin_data_t pin_data = { 0 };
+	uint8_t* plaintext = NULL;
+	size_t plaintext_len = 0;
+	uint8_t* ciphertext = NULL;
+	uint8_t authenticator[EMV_DUKPT_MAX_BLOCK_LEN];
+
+	if (!buf || !buf_len ||
+		!envelope || !envelope_len ||
+		!pin_envelope || !pin_envelope_len
+	) {
+		return -1;
+	}
+	*pin_envelope = NULL;
+	*pin_envelope_len = 0;
+
+	r = validate_ber(buf, buf_len, 0);
+	if (r) {
+		fprintf(stderr, "EMV data must consist of valid BER encoded data\n");
+		return 1;
+	}
+
+	// Extract Transaction PIN Data (field 99) and Application PAN (field 5A),
+	// and overwrite Transaction PIN Data (field 99) with ASN.1 NULL (field 05)
+	r = process_pin_data(buf, buf_len, 0, &pin_data);
+	if (r < 0) {
+		fprintf(stderr, "Failed to process PIN data fields\n");
+		r = -2;
+		goto error;
+	}
+	if (r > 0) {
+		// Invalid Transaction PIN Data or Application PAN
+		fprintf(stderr, "PIN envelope omitted\n");
+	} else if (pin_data.pin_len) {
+		r = encrypt_pin_data(&pin_data, pin_envelope, pin_envelope_len);
+		if (r) {
+			r = -3;
+			goto error;
+		}
+	}
+
+	r = build_plaintext(buf, buf_len, algorithm->block_len, &plaintext, &plaintext_len);
+	if (r) {
+		fprintf(stderr, "Failed to build plaintext\n");
+		r = -4;
+		goto error;
+	}
+
+	ciphertext = malloc(plaintext_len);
+	if (!ciphertext) {
+		r = -5;
+		goto error;
+	}
+
+	if (mode == EMV_DUKPT_MODE_TDES) {
+		r = encrypt_tdes(plaintext, plaintext_len, ciphertext, authenticator);
+	} else {
+		r = encrypt_aes(plaintext, plaintext_len, ciphertext, authenticator);
+	}
+	if (r) {
+		r = -6;
+		goto error;
+	}
+
+	r = build_envelope(ciphertext, plaintext_len, authenticator, envelope, envelope_len);
+	if (r) {
+		fprintf(stderr, "Failed to build envelope\n");
+		r = -7;
+		goto error;
+	}
+
+	// Success
+	r = 0;
+	goto exit;
+
+error:
+	if (*pin_envelope) {
+		crypto_cleanse(*pin_envelope, *pin_envelope_len);
+		free(*pin_envelope);
+		*pin_envelope = NULL;
+		*pin_envelope_len = 0;
+	}
+
+exit:
+	crypto_cleanse(&pin_data, sizeof(pin_data));
 	if (plaintext) {
 		crypto_cleanse(plaintext, plaintext_len);
 		free(plaintext);
@@ -1310,6 +1678,8 @@ int main(int argc, char** argv)
 	struct emv_dukpt_envelope_t envelope = { 0 };
 	uint8_t* output = NULL;
 	size_t output_len = 0;
+	uint8_t* pin_output = NULL;
+	size_t pin_output_len = 0;
 
 	if (argc == 1) {
 		// No command line arguments
@@ -1417,7 +1787,7 @@ int main(int argc, char** argv)
 
 	switch (action) {
 		case EMV_DUKPT_ACTION_ENCRYPT_REQUEST: {
-			r = encrypt_emv_data(input_data, input_data_len, &output, &output_len);
+			r = encrypt_emv_data(input_data, input_data_len, &output, &output_len, &pin_output, &pin_output_len);
 			break;
 		}
 
@@ -1449,6 +1819,9 @@ int main(int argc, char** argv)
 		goto exit;
 	}
 	print_hex(output, output_len);
+	if (pin_output) {
+		print_hex(pin_output, pin_output_len);
+	}
 
 	// Success
 	r = 0;
@@ -1463,6 +1836,10 @@ exit:
 	if (output) {
 		crypto_cleanse(output, output_len);
 		free(output);
+	}
+	if (pin_output) {
+		crypto_cleanse(pin_output, pin_output_len);
+		free(pin_output);
 	}
 	if (bdk) {
 		crypto_cleanse(bdk, bdk_len);
