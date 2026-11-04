@@ -1599,6 +1599,42 @@ if(TARGET emv-dukpt AND BUILD_TESTING)
 			FAIL_REGULAR_EXPRESSION "3022060A2B810510864809180100040A${EMV_DUKPT_TDES_KSN}0408"
 	)
 
+	# Test TDES DUKPT PIN encryption using separate BDK
+	add_test(NAME emv_dukpt_encrypt_test16
+		COMMAND emv-dukpt
+			--bdk FEDCBA98765432100123456789ABCDEF --ksn ${EMV_DUKPT_TDES_KSN}
+			--pin-bdk ${EMV_DUKPT_TDES_BDK}
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test16
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^3044060A2B810510864809180100040AFFFF9876543210E000010420F9E4898D4725528968EA31AF30254FB7BB7B25C895AA2D967C83FAD1AC6ED3740408B3E5FC5229095A94[\r\n]${EMV_DUKPT_TDES_PIN_REQUEST_PIN_ENVELOPE}[\r\n]$"
+	)
+
+	# Test TDES DUKPT PIN encryption using separate KSN
+	add_test(NAME emv_dukpt_encrypt_test17
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--pin-ksn FFFF9876543210E00002
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test17
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE}[\r\n]3022060A2B810510864809180100040AFFFF9876543210E00002040810A01C8D02C69107[\r\n]$"
+	)
+
+	# Test AES DUKPT PIN encryption using working key type shorter than BDK
+	add_test(NAME emv_dukpt_encrypt_test18
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--pin-key-type AES128
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test18
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^304E060A2B810510864809180103040C1234567890123456000000010420AD638476F6006FA658C0493928677B5913570265CE19F40970B814ADDD10FAB10410D43A3E5CB9FA02D6E6131EF045D29066[\r\n]${EMV_DUKPT_AES128_PIN_REQUEST_PIN_ENVELOPE_REGEX}[\r\n]$"
+	)
+
 	if(TARGET emv-decode)
 		# Test decoding of request envelope
 		add_test(NAME emv_dukpt_envelope_test1
@@ -1895,6 +1931,17 @@ if(TARGET emv-dukpt AND BUILD_TESTING)
 	set_tests_properties(emv_dukpt_error_test18
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION "Decrypted data contains invalid padding"
+	)
+
+	# Test PIN encryption options with response decryption
+	add_test(NAME emv_dukpt_error_test19
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --pin-ksn ${EMV_DUKPT_TDES_KSN}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test19
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "PIN encryption options only apply to EMV transaction request encryption \\(--encrypt-request\\)"
 	)
 endif()
 
