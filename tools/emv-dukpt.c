@@ -64,7 +64,7 @@ static int encrypt_pin_tdes(const struct emv_dukpt_ctx_t* ctx, const uint8_t* pi
 static int encrypt_pin_aes(const struct emv_dukpt_ctx_t* ctx, const uint8_t* pin, size_t pin_len, const uint8_t* pan, size_t pan_len, void* ciphertext);
 static int build_envelope(const struct emv_dukpt_ctx_t* ctx, const void* ciphertext, size_t ciphertext_len, const void* authenticator, uint8_t** envelope, size_t* envelope_len);
 static int encrypt_pin_data(const struct emv_dukpt_ctx_t* ctx, const struct emv_dukpt_pin_data_t* pin_data, uint8_t** envelope, size_t* envelope_len);
-static int encrypt_emv_data(const struct emv_dukpt_ctx_t* ctx, uint8_t* buf, size_t buf_len, uint8_t** envelope, size_t* envelope_len, uint8_t** pin_envelope, size_t* pin_envelope_len);
+static int encrypt_emv_data(const struct emv_dukpt_ctx_t* ctx, const struct emv_dukpt_ctx_t* pin_ctx, uint8_t* buf, size_t buf_len, uint8_t** envelope, size_t* envelope_len, uint8_t** pin_envelope, size_t* pin_envelope_len);
 static int parse_envelope(const void* buf, size_t buf_len, struct emv_dukpt_envelope_t* envelope);
 static int validate_envelope(const struct emv_dukpt_envelope_t* envelope, const char* key_name, size_t key_len);
 static int decrypt_tdes(const struct emv_dukpt_ctx_t* ctx, const struct emv_dukpt_envelope_t* envelope, void* plaintext);
@@ -80,6 +80,10 @@ enum emv_dukpt_param_t {
 	EMV_DUKPT_PARAM_BDK,
 	EMV_DUKPT_PARAM_IK,
 	EMV_DUKPT_PARAM_KSN,
+	EMV_DUKPT_PARAM_PIN_BDK,
+	EMV_DUKPT_PARAM_PIN_IK,
+	EMV_DUKPT_PARAM_PIN_KSN,
+	EMV_DUKPT_PARAM_PIN_KEY_TYPE,
 	EMV_DUKPT_ENCRYPT_REQUEST,
 	EMV_DUKPT_DECRYPT_RESPONSE,
 	EMV_DUKPT_VERSION,
@@ -96,7 +100,13 @@ static struct argp_option argp_options[] = {
 	{ "ik", EMV_DUKPT_PARAM_IK, "KEY", 0, "Initial Key (IK)" },
 	{ "ksn", EMV_DUKPT_PARAM_KSN, "HEX", 0, "Key Serial Number (KSN)" },
 
-	{ NULL, 0, NULL, 0, "Actions:", 3 },
+	{ NULL, 0, NULL, 0, "Key options for PIN encryption:", 3 },
+	{ "pin-bdk", EMV_DUKPT_PARAM_PIN_BDK, "KEY", 0, "Override Base Derivation Key (BDK) for PIN encryption." },
+	{ "pin-ik", EMV_DUKPT_PARAM_PIN_IK, "KEY", 0, "Override Initial Key (IK) for PIN encryption." },
+	{ "pin-ksn", EMV_DUKPT_PARAM_PIN_KSN, "HEX", 0, "Override Key Serial Number (KSN) for PIN encryption." },
+	{ "pin-key-type", EMV_DUKPT_PARAM_PIN_KEY_TYPE, "AES128|AES192|AES256", 0, "Override Working key type for PIN encryption. Only applies to AES derivation mode." },
+
+	{ NULL, 0, NULL, 0, "Actions:", 4 },
 	{ "encrypt-request", EMV_DUKPT_ENCRYPT_REQUEST, "DATA", 0, "Encrypt EMV transaction request data and output as ASN.1 envelope, with optional second envelope for PIN encryption. Requires either BDK or IK, as well as KSN." },
 	{ "decrypt-response", EMV_DUKPT_DECRYPT_RESPONSE, "DATA", 0, "Decrypt ASN.1 envelope and output EMV transaction response data. Requires either BDK or IK. Derivation mode, working key type and KSN are optional and must match the envelope." },
 
@@ -124,7 +134,9 @@ static struct argp argp_config = {
 	"valid Application PAN (field 5A), the PIN is encrypted using "
 	"ISO 9564-1:2017 PIN block format 0 for TDES or format 4 for AES, and "
 	"output as a second envelope containing the OID of the DUKPT transaction "
-	"key, KSN, and encrypted PIN block.",
+	"key, KSN, and encrypted PIN block. PIN encryption uses the same BDK or "
+	"IK, KSN and working key type as the EMV data, unless the PIN encryption "
+	"options are specified.",
 };
 
 // Derivation mode
@@ -148,6 +160,16 @@ static uint8_t* ksn = NULL;
 static size_t ksn_len = 0;
 static uint8_t* input_data = NULL;
 static size_t input_data_len = 0;
+
+// PIN encryption
+static uint8_t* pin_bdk = NULL;
+static size_t pin_bdk_len = 0;
+static uint8_t* pin_ik = NULL;
+static size_t pin_ik_len = 0;
+static uint8_t* pin_ksn = NULL;
+static size_t pin_ksn_len = 0;
+static enum dukpt_aes_key_type_t pin_key_type = -1;
+static bool pin_key_type_valid = false;
 
 // Actions
 enum emv_dukpt_action_t {
@@ -246,6 +268,30 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 
 		case EMV_DUKPT_PARAM_KSN:
 			return parse_hex_arg(state, "Key Serial Number (--ksn)", arg, &ksn, &ksn_len);
+
+		case EMV_DUKPT_PARAM_PIN_BDK:
+			return parse_hex_arg(state, "PIN Base Derivation Key (--pin-bdk)", arg, &pin_bdk, &pin_bdk_len);
+
+		case EMV_DUKPT_PARAM_PIN_IK:
+			return parse_hex_arg(state, "PIN Initial Key (--pin-ik)", arg, &pin_ik, &pin_ik_len);
+
+		case EMV_DUKPT_PARAM_PIN_KSN:
+			return parse_hex_arg(state, "PIN Key Serial Number (--pin-ksn)", arg, &pin_ksn, &pin_ksn_len);
+
+		case EMV_DUKPT_PARAM_PIN_KEY_TYPE: {
+			if (strcasecmp(arg, "AES128") == 0) {
+				pin_key_type = DUKPT_AES_KEY_TYPE_AES128;
+			} else if (strcasecmp(arg, "AES192") == 0) {
+				pin_key_type = DUKPT_AES_KEY_TYPE_AES192;
+			} else if (strcasecmp(arg, "AES256") == 0) {
+				pin_key_type = DUKPT_AES_KEY_TYPE_AES256;
+			} else {
+				argp_error(state, "PIN working key type (--pin-key-type) argument must be AES128, AES192 or AES256");
+				return EINVAL;
+			}
+			pin_key_type_valid = true;
+			return 0;
+		}
 
 		case EMV_DUKPT_ENCRYPT_REQUEST:
 			if (action != EMV_DUKPT_ACTION_NONE) {
@@ -1265,6 +1311,7 @@ exit:
 // EMV transaction request data encryption helper function
 static int encrypt_emv_data(
 	const struct emv_dukpt_ctx_t* ctx,
+	const struct emv_dukpt_ctx_t* pin_ctx,
 	uint8_t* buf,
 	size_t buf_len,
 	uint8_t** envelope,
@@ -1280,7 +1327,7 @@ static int encrypt_emv_data(
 	uint8_t* ciphertext = NULL;
 	uint8_t authenticator[EMV_DUKPT_MAX_BLOCK_LEN];
 
-	if (!ctx ||
+	if (!ctx || !pin_ctx ||
 		!buf || !buf_len ||
 		!envelope || !envelope_len ||
 		!pin_envelope || !pin_envelope_len
@@ -1308,7 +1355,7 @@ static int encrypt_emv_data(
 		// Invalid Transaction PIN Data or Application PAN
 		fprintf(stderr, "PIN envelope omitted\n");
 	} else if (pin_data.pin_len) {
-		r = encrypt_pin_data(ctx, &pin_data, pin_envelope, pin_envelope_len);
+		r = encrypt_pin_data(pin_ctx, &pin_data, pin_envelope, pin_envelope_len);
 		if (r) {
 			r = -3;
 			goto error;
@@ -1793,6 +1840,7 @@ int main(int argc, char** argv)
 	const char* key_name = NULL;
 	size_t key_len = 0;
 	struct emv_dukpt_ctx_t ctx = { 0 };
+	struct emv_dukpt_ctx_t pin_ctx = { 0 };
 	struct emv_dukpt_envelope_t envelope = { 0 };
 	uint8_t* output = NULL;
 	size_t output_len = 0;
@@ -1835,6 +1883,12 @@ int main(int argc, char** argv)
 
 	// Validate encryption options
 	if (action == EMV_DUKPT_ACTION_ENCRYPT_REQUEST) {
+		const char* pin_key_name = key_name;
+		const char* pin_ksn_name = "Key Serial Number (--ksn)";
+		const char* pin_key_type_name = "Working key type (--key-type)";
+		bool pin_ctx_key_type_valid = key_type_valid;
+		enum dukpt_aes_key_type_t pin_ctx_key_type = key_type;
+
 		ctx.ksn = ksn;
 		ctx.ksn_len = ksn_len;
 		r = prepare_dukpt_ctx(
@@ -1852,15 +1906,76 @@ int main(int argc, char** argv)
 		if (r > 0) {
 			goto usage;
 		}
+
+		// Apply PIN encryption options if available, otherwise default to data
+		// encryption options
+		if (pin_bdk && pin_ik) {
+			fprintf(stderr, "Specify either PIN Base Derivation Key (--pin-bdk) or PIN Initial Key (--pin-ik)\n");
+			goto usage;
+		}
+		if (pin_bdk || pin_ik) {
+			// Overwrite PIN keys
+			pin_ctx.bdk = pin_bdk;
+			pin_ctx.bdk_len = pin_bdk_len;
+			pin_ctx.ik = pin_ik;
+			pin_ctx.ik_len = pin_ik_len;
+			if (pin_bdk) {
+				pin_key_name = "PIN Base Derivation Key (--pin-bdk)";
+			} else {
+				pin_key_name = "PIN Initial Key (--pin-ik)";
+			}
+			pin_ctx_key_type_valid = false;
+		} else {
+			pin_ctx.bdk = bdk;
+			pin_ctx.bdk_len = bdk_len;
+			pin_ctx.ik = ik;
+			pin_ctx.ik_len = ik_len;
+		}
+		if (pin_ksn) {
+			// Overwrite PIN KSN
+			pin_ctx.ksn = pin_ksn;
+			pin_ctx.ksn_len = pin_ksn_len;
+			pin_ksn_name = "PIN Key Serial Number (--pin-ksn)";
+		} else {
+			pin_ctx.ksn = ksn;
+			pin_ctx.ksn_len = ksn_len;
+		}
+		if (pin_key_type_valid) {
+			// Overwrite PIN working key type
+			pin_key_type_name = "PIN working key type (--pin-key-type)";
+			pin_ctx_key_type_valid = true;
+			pin_ctx_key_type = pin_key_type;
+		}
+
+		r = prepare_dukpt_ctx(
+			pin_key_name,
+			pin_ksn_name,
+			pin_key_type_name,
+			pin_ctx_key_type_valid,
+			pin_ctx_key_type,
+			&pin_ctx
+		);
+		if (r < 0) {
+			r = 1;
+			goto exit;
+		}
+		if (r > 0) {
+			goto usage;
+		}
 	}
 
 	switch (action) {
 		case EMV_DUKPT_ACTION_ENCRYPT_REQUEST: {
-			r = encrypt_emv_data(&ctx, input_data, input_data_len, &output, &output_len, &pin_output, &pin_output_len);
+			r = encrypt_emv_data(&ctx, &pin_ctx, input_data, input_data_len, &output, &output_len, &pin_output, &pin_output_len);
 			break;
 		}
 
 		case EMV_DUKPT_ACTION_DECRYPT_RESPONSE: {
+			if (pin_bdk || pin_ik || pin_ksn || pin_key_type_valid) {
+				fprintf(stderr, "PIN encryption options only apply to EMV transaction request encryption (--encrypt-request)\n");
+				goto usage;
+			}
+
 			// Envelope provides derivation mode, working key type and KSN
 			r = parse_envelope(input_data, input_data_len, &envelope);
 			if (r) {
@@ -1922,6 +2037,15 @@ exit:
 		free(ik);
 	}
 	free(ksn);
+	if (pin_bdk) {
+		crypto_cleanse(pin_bdk, pin_bdk_len);
+		free(pin_bdk);
+	}
+	if (pin_ik) {
+		crypto_cleanse(pin_ik, pin_ik_len);
+		free(pin_ik);
+	}
+	free(pin_ksn);
 	if (input_data) {
 		crypto_cleanse(input_data, input_data_len);
 		free(input_data);

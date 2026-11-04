@@ -383,6 +383,15 @@ the object identifier (OID) of the DUKPT transaction key, Key Serial Number
 emv-dukpt --bdk 0123456789ABCDEFFEDCBA9876543210 --ksn FFFF9876543210E00001 --encrypt-request 70179F3901055A074012345678909F9908241234FFFFFFFFFF
 ```
 
+PIN encryption uses the same BDK or IK, KSN and working key type as the EMV
+data, unless they are specified separately using the `--pin-bdk`, `--pin-ik`,
+`--pin-ksn` and `--pin-key-type` options. If `--pin-bdk` or `--pin-ik` is
+specified, the PIN working key type defaults to the length of that key. For
+example:
+```shell
+emv-dukpt --bdk FEDCBA98765432100123456789ABCDEF --ksn FFFF9876543210E00001 --pin-bdk 0123456789ABCDEFFEDCBA9876543210 --encrypt-request 70179F3901055A074012345678909F9908241234FFFFFFFFFF
+```
+
 The envelope can be decoded using the `--tlv` option of the `emv-decode`
 application.
 
