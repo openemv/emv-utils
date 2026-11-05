@@ -235,7 +235,7 @@ endif()
 # EMV encryption command line tool
 if(BUILD_EMV_DUKPT)
 	add_executable(emv-dukpt emv-dukpt.c)
-	target_link_libraries(emv-dukpt PRIVATE emv crypto_mem pinblock dukpt::dukpt_tdes dukpt::dukpt_aes)
+	target_link_libraries(emv-dukpt PRIVATE emv crypto_mem crypto_rand pinblock dukpt::dukpt_tdes dukpt::dukpt_aes)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-dukpt PRIVATE libargp::argp)
 	endif()
