@@ -120,6 +120,7 @@ if(EMV_UTILS_IS_TOP_LEVEL OR BUILD_SHARED_LIBS)
 	list(APPEND CRYPTO_TESTS crypto_sha crypto_rsa)
 	add_subdirectory(crypto)
 	add_subdirectory(crypto/test)
+	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/crypto/cmake/Modules/")
 elseif (NOT TARGET crypto_mem OR
 	NOT TARGET crypto_rand OR
 	NOT TARGET crypto_sha OR
