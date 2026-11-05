@@ -50,6 +50,7 @@ jobs:
         brew tap openemv/tap
         brew trust openemv/tap
         brew install openemv/tap/dukpt
+        echo "dukpt_DIR=$(brew --prefix dukpt)/lib/cmake/dukpt" >> $GITHUB_ENV
 
     - name: Install Qt5 using brew
       # Homebrew doesn't support universal binaries so only install Qt for arch-specific builds
