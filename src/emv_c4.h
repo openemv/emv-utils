@@ -48,8 +48,8 @@ struct emv_ctx_t;
  *       @ref emv_ctx_t.terminal will be populated with various fields,
  *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE, @ref EMV_TAG_9F06_AID,
  *       @ref EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL,
- *       @ref AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES and
- *       @ref AMEX_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES.
+ *       @ref EMV_C4_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES and
+ *       @ref EMV_C4_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES.
  *
  * @remark See EMV Contactless Book B v2.11, 3.1.1
  * @remark See EMV Contactless Book C-4 v2.11, 4.3

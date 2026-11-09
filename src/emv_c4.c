@@ -110,12 +110,12 @@ int emv_c4_initiate_kernel_processing(
 	// Retrieve the configured reader capabilities required by pre-PDOL
 	// processing
 	// See EMV Contactless Book C-4 v2.11, Annex B.1
-	cl_reader_caps_config = emv_config_data_get(ctx, AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES);
+	cl_reader_caps_config = emv_config_data_get(ctx, EMV_C4_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES);
 	if (!cl_reader_caps_config || cl_reader_caps_config->length != 1) {
 		emv_debug_error("Contactless Reader Capabilities (9F6D) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
 	}
-	enh_cl_reader_caps_config = emv_config_data_get(ctx, AMEX_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES);
+	enh_cl_reader_caps_config = emv_config_data_get(ctx, EMV_C4_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES);
 	if (!enh_cl_reader_caps_config || enh_cl_reader_caps_config->length != 4) {
 		emv_debug_error("Enhanced Contactless Reader Capabilities (9F6E) not found or invalid");
 		return EMV_ERROR_INVALID_CONFIG;
@@ -131,7 +131,7 @@ int emv_c4_initiate_kernel_processing(
 
 	// Apply pre-PDOL processing
 	// See EMV Contactless Book C-4 v2.11, 4.3.1.1
-	cl_reader_caps &= ~AMEX_CL_READER_CAPS_CVM_REQUIRED;
+	cl_reader_caps &= ~EMV_C4_CL_READER_CAPS_CVM_REQUIRED;
 	enh_cl_reader_caps[2] = 0x00;
 
 	// Apply offline-only pre-PDOL processing
@@ -143,14 +143,14 @@ int emv_c4_initiate_kernel_processing(
 		term_env == EMV_TERM_TYPE_ENV_UNATTENDED_OFFLINE_ONLY
 	) {
 		emv_debug_info("Reader is offline only");
-		enh_cl_reader_caps[2] |= AMEX_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER;
+		enh_cl_reader_caps[2] |= EMV_C4_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER;
 	}
 
 	// Create Contactless Reader Capabilities (field 9F6D)
 	// See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
 	r = emv_tlv_list_push(
 		&ctx->terminal,
-		AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES,
+		EMV_C4_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES,
 		sizeof(cl_reader_caps),
 		&cl_reader_caps,
 		0
@@ -167,7 +167,7 @@ int emv_c4_initiate_kernel_processing(
 	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
 	r = emv_tlv_list_push(
 		&ctx->terminal,
-		AMEX_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES,
+		EMV_C4_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES,
 		sizeof(enh_cl_reader_caps),
 		enh_cl_reader_caps,
 		0
@@ -204,7 +204,7 @@ int emv_c4_initiate_kernel_processing(
 		r = emv_dol_find_tag(
 			pdol->value,
 			pdol->length,
-			AMEX_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES,
+			EMV_C4_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES,
 			NULL
 		);
 		if (r < 0) {
@@ -223,7 +223,7 @@ int emv_c4_initiate_kernel_processing(
 			// See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-3
 			modified_value =
 				(term_type & (EMV_TERM_TYPE_OPERATIONAL_CONTROL_MASK | EMV_TERM_TYPE_ENV_MASK)) |
-				(cl_reader_caps & AMEX_CL_READER_CAPS_MASK);
+				(cl_reader_caps & EMV_C4_CL_READER_CAPS_MASK);
 			emv_debug_info("Using Terminal Type - Modified (9F35) 0x%02X", modified_value);
 			r = emv_tlv_list_push(
 				&ctx->terminal,
@@ -350,7 +350,7 @@ int emv_c4_initiate_kernel_processing(
 	if (!(ctx->aip->value[1] & EMV_AIP_EMV_MODE_SUPPORTED)) {
 		emv_debug_info("Contactless EMV mode not supported by card");
 
-		if ((enh_cl_reader_caps[0] & AMEX_ENH_CL_READER_CAPS_CONTACT_SUPPORTED) &&
+		if ((enh_cl_reader_caps[0] & EMV_C4_ENH_CL_READER_CAPS_CONTACT_SUPPORTED) &&
 			!(ctx->aip->value[1] & EMV_AIP_MOBILE_PHONE) &&
 			!(ctx->aip->value[1] & EMV_AIP_HCE_SUPPORTED)
 		) {

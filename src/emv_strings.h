@@ -2,7 +2,7 @@
  * @file emv_strings.h
  * @brief EMV string helper functions
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -758,7 +758,7 @@ int emv_terminal_risk_management_data_get_string_list(
 );
 
 /**
- * Stringify Mastercard Application Capabilities Information (field 9F5D)
+ * Stringify EMV kernel C-2 Application Capabilities Information (field 9F5D)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param aci Application Capabilities Information field. Must be 3 bytes.
  * @param aci_len Length of Application Capabilities Information field. Must be 3 bytes.
@@ -766,7 +766,7 @@ int emv_terminal_risk_management_data_get_string_list(
  * @param str_len Length of string buffer in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
  */
-int emv_mastercard_app_caps_info_get_string_list(
+int emv_c2_app_caps_info_get_string_list(
 	const uint8_t* aci,
 	size_t aci_len,
 	char* str,
@@ -790,7 +790,7 @@ int emv_ttq_get_string_list(
 );
 
 /**
- * Stringify Visa Card Authentication Related Data (field 9F69)
+ * Stringify EMV kernel C-3 Card Authentication Related Data (field 9F69)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param card_auth_data Card Authentication Related Data field. Must be 5 to 16 bytes.
  * @param card_auth_data_len Length of Card Authentication Related Data field. Must be 5 to 16 bytes.
@@ -798,7 +798,7 @@ int emv_ttq_get_string_list(
  * @param str_len Length of string buffer in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
  */
-int emv_visa_card_auth_data_get_string_list(
+int emv_c3_card_auth_data_get_string_list(
 	const uint8_t* card_auth_data,
 	size_t card_auth_data_len,
 	char* str,
@@ -822,13 +822,13 @@ int emv_ctq_get_string_list(
 );
 
 /**
- * Stringify Amex Contactless Reader Capabilities (field 9F6D)
+ * Stringify EMV kernel C-4 Contactless Reader Capabilities (field 9F6D)
  * @param cl_reader_caps Contactless Reader Capabilities field
  * @param str String buffer output
  * @param str_len Length of string buffer in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
  */
-int emv_amex_cl_reader_caps_get_string(
+int emv_c4_cl_reader_caps_get_string(
 	uint8_t cl_reader_caps,
 	char* str,
 	size_t str_len
@@ -867,7 +867,7 @@ int emv_visa_form_factor_indicator_get_string_list(
 );
 
 /**
- * Stringify Amex Enhanced Contactless Reader Capabilities (field 9F6E)
+ * Stringify EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E)
  * @note Strings in output buffer are delimited using "\n", including the last string
  * @param enh_cl_reader_caps Enhanced Contactless Reader Capabilities field. Must be 4 bytes.
  * @param enh_cl_reader_caps_len Length of Enhanced Contactless Reader Capabilities field. Must be 4 bytes.
@@ -875,7 +875,7 @@ int emv_visa_form_factor_indicator_get_string_list(
  * @param str_len Length of string buffer in bytes
  * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
  */
-int emv_amex_enh_cl_reader_caps_get_string_list(
+int emv_c4_enh_cl_reader_caps_get_string_list(
 	const uint8_t* enh_cl_reader_caps,
 	size_t enh_cl_reader_caps_len,
 	char* str,

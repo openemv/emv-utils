@@ -202,8 +202,8 @@ static const struct xpdu_t test_select_kernel_id3[] = {
 	{ 0 }
 };
 
-// Proximity Payment System Environment (PPSE) test data for the Visa PDOL
-// validation tests that follow
+// Proximity Payment System Environment (PPSE) test data for the kernel C-3
+// PDOL validation tests for Visa AID that follow
 static const struct xpdu_t test_ppse_visa[] = {
 	{
 		20, (uint8_t[]){ 0x00, 0xA4, 0x04, 0x00, 0x0E, 0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31, 0x00 }, // SELECT 2PAY.SYS.DDF01
@@ -947,7 +947,7 @@ int main(void)
 		goto exit;
 	}
 
-	printf("\nTesting Visa kernel 3 without PDOL...\n");
+	printf("\nTesting kernel C-3 for Visa AID without PDOL...\n");
 	emul_ctx.xpdu_list = test_select_visa1;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_ep_select_application(&emv, &app_list, kernel_id);
@@ -971,7 +971,7 @@ int main(void)
 	}
 	printf("Success\n");
 
-	printf("\nTesting Visa kernel 3 with PDOL that has no TTQ...\n");
+	printf("\nTesting kernel C-3 for Visa AID with PDOL that has no TTQ...\n");
 	emul_ctx.xpdu_list = test_select_visa2;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_ep_select_application(&emv, &app_list, kernel_id);
@@ -995,7 +995,7 @@ int main(void)
 	}
 	printf("Success\n");
 
-	printf("\nTesting Visa kernel 3 with invalid PDOL...\n");
+	printf("\nTesting kernel C-3 for Visa AID with invalid PDOL...\n");
 	emul_ctx.xpdu_list = test_select_visa3;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_ep_select_application(&emv, &app_list, kernel_id);
@@ -1019,7 +1019,7 @@ int main(void)
 	}
 	printf("Success\n");
 
-	printf("\nTesting Visa kernel 3 with PDOL that has TTQ...\n");
+	printf("\nTesting kernel C-3 for Visa AID with PDOL that has TTQ...\n");
 	emul_ctx.xpdu_list = test_select_visa4;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_ep_select_application(&emv, &app_list, kernel_id);
@@ -1056,7 +1056,7 @@ int main(void)
 	}
 	printf("Success\n");
 
-	printf("\nTesting Visa kernel 3 without PDOL for last candidate...\n");
+	printf("\nTesting kernel C-3 for Visa AID without PDOL for last candidate...\n");
 	emul_ctx.xpdu_list = test_select_visa5;
 	emul_ctx.xpdu_current = NULL;
 	r = emv_ep_select_application(&emv, &app_list, kernel_id);

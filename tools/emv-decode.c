@@ -74,10 +74,10 @@ enum emv_decode_mode_t {
 	EMV_DECODE_IAD,
 	EMV_DECODE_TTQ,
 	EMV_DECODE_CTQ,
-	EMV_DECODE_AMEX_CL_READER_CAPS,
+	EMV_DECODE_C4_CL_READER_CAPS,
 	EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA,
 	EMV_DECODE_FFI,
-	EMV_DECODE_AMEX_ENH_CL_READER_CAPS,
+	EMV_DECODE_C4_ENH_CL_READER_CAPS,
 	EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA,
 	EMV_DECODE_ISO3166_1,
 	EMV_DECODE_ISO4217,
@@ -149,11 +149,13 @@ static struct argp_option argp_options[] = {
 	{ "9F66", EMV_DECODE_TTQ, NULL, OPTION_ALIAS },
 	{ "ctq", EMV_DECODE_CTQ, NULL, 0, "Decode Card Transaction Qualifiers (field 9F6C)" },
 	{ "9F6C", EMV_DECODE_CTQ, NULL, OPTION_ALIAS },
-	{ "amex-cl-reader-caps", EMV_DECODE_AMEX_CL_READER_CAPS, NULL, 0, "Decode Amex Contactless Reader Capabilities (field 9F6D)" },
-	{ "9F6D", EMV_DECODE_AMEX_CL_READER_CAPS, NULL, OPTION_ALIAS },
+	{ "c4-cl-reader-caps", EMV_DECODE_C4_CL_READER_CAPS, NULL, 0, "Decode EMV kernel C-4 Contactless Reader Capabilities (field 9F6D)" },
+	{ "amex-cl-reader-caps", EMV_DECODE_C4_CL_READER_CAPS, NULL, OPTION_ALIAS },
+	{ "9F6D", EMV_DECODE_C4_CL_READER_CAPS, NULL, OPTION_ALIAS },
 	{ "mastercard-third-party-data", EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA, NULL, 0, "Decode Mastercard Third Party Data (field 9F6E)" },
 	{ "visa-ffi", EMV_DECODE_FFI, NULL, 0, "Decode Visa Form Factor Indicator (field 9F6E)" },
-	{ "amex-enh-cl-reader-caps", EMV_DECODE_AMEX_ENH_CL_READER_CAPS, NULL, 0, "Decode Amex Enhanced Contactless Reader Capabilities (field 9F6E)" },
+	{ "c4-enh-cl-reader-caps", EMV_DECODE_C4_ENH_CL_READER_CAPS, NULL, 0, "Decode EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E)" },
+	{ "amex-enh-cl-reader-caps", EMV_DECODE_C4_ENH_CL_READER_CAPS, NULL, OPTION_ALIAS },
 	{ "terminal-risk-management-data", EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA, NULL, 0, "Decode Terminal Risk Management Data (field 9F1D)" },
 	{ "9F1D", EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA, NULL, OPTION_ALIAS },
 
@@ -282,10 +284,10 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 		case EMV_DECODE_IAD:
 		case EMV_DECODE_TTQ:
 		case EMV_DECODE_CTQ:
-		case EMV_DECODE_AMEX_CL_READER_CAPS:
+		case EMV_DECODE_C4_CL_READER_CAPS:
 		case EMV_DECODE_MASTERCARD_THIRD_PARTY_DATA:
 		case EMV_DECODE_FFI:
-		case EMV_DECODE_AMEX_ENH_CL_READER_CAPS:
+		case EMV_DECODE_C4_ENH_CL_READER_CAPS:
 		case EMV_DECODE_TERMINAL_RISK_MANAGEMENT_DATA:
 		case EMV_DECODE_ISO3166_1:
 		case EMV_DECODE_ISO4217:
@@ -819,18 +821,18 @@ int main(int argc, char** argv)
 			break;
 		}
 
-		case EMV_DECODE_AMEX_CL_READER_CAPS: {
+		case EMV_DECODE_C4_CL_READER_CAPS: {
 			char str[1024];
 
 			if (data_len != 1) {
-				fprintf(stderr, "Amex Contactless Reader Capabilities (field 9F6D) must be exactly 1 byte\n");
+				fprintf(stderr, "EMV kernel C-4 Contactless Reader Capabilities (field 9F6D) must be exactly 1 byte\n");
 				ret = EXIT_FAILURE;
 				break;
 			}
 
-			r = emv_amex_cl_reader_caps_get_string(data[0], str, sizeof(str));
+			r = emv_c4_cl_reader_caps_get_string(data[0], str, sizeof(str));
 			if (r) {
-				fprintf(stderr, "Failed to parse Amex Contactless Reader Capabilities (field 9F6D)\n");
+				fprintf(stderr, "Failed to parse EMV kernel C-4 Contactless Reader Capabilities (field 9F6D)\n");
 				ret = EXIT_FAILURE;
 				break;
 			}
@@ -879,18 +881,18 @@ int main(int argc, char** argv)
 			break;
 		}
 
-		case EMV_DECODE_AMEX_ENH_CL_READER_CAPS: {
+		case EMV_DECODE_C4_ENH_CL_READER_CAPS: {
 			char str[2048];
 
 			if (data_len != 4) {
-				fprintf(stderr, "Amex Enhanced Contactless Reader Capabilities (field 9F6E) must be exactly 4 bytes\n");
+				fprintf(stderr, "EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) must be exactly 4 bytes\n");
 				ret = EXIT_FAILURE;
 				break;
 			}
 
-			r = emv_amex_enh_cl_reader_caps_get_string_list(data, data_len, str, sizeof(str));
+			r = emv_c4_enh_cl_reader_caps_get_string_list(data, data_len, str, sizeof(str));
 			if (r) {
-				fprintf(stderr, "Failed to parse Amex Enhanced Contactless Reader Capabilities (field 9F6E)\n");
+				fprintf(stderr, "Failed to parse EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E)\n");
 				ret = EXIT_FAILURE;
 				break;
 			}

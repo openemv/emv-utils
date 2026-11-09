@@ -687,33 +687,33 @@ enum emv_iad_format_t {
 #define EMV_TRMD_BYTE4_SCA_EXEMPT                               (0x40) ///< Terminal Risk Management Data: SCA exempt
 #define EMV_TRMD_BYTE4_RFU                                      (0x3F) ///< Terminal Risk Management Data: RFU
 
-// Mastercard Application Capabilities Information (field 9F5D) byte 1
+// EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 1
 // See EMV Contactless Book C-2 v2.11, Annex A.1.9
-#define MASTERCARD_ACI_VERSION_MASK                             (0xF0) ///< Application Capabilities Information mask for Version number
-#define MASTERCARD_ACI_VERSION_SHIFT                            (4) ///< Application Capabilities Information shift for Version number
-#define MASTERCARD_ACI_VERSION_0                                (0x00) ///< Application Capabilities Information: Version 0
-#define MASTERCARD_ACI_DATA_STORAGE_VERSION_MASK                (0x0F) ///< Application Capabilities Information mask for Data Storage Version Number
-#define MASTERCARD_ACI_DATA_STORAGE_NOT_SUPPORTED               (0x00) ///< Application Capabilities Information: Data Storage not supported
-#define MASTERCARD_ACI_DATA_STORAGE_VERSION_1                   (0x01) ///< Application Capabilities Information: Data Storage Version 1
-#define MASTERCARD_ACI_DATA_STORAGE_VERSION_2                   (0x02) ///< Application Capabilities Information: Data Storage Version 2
+#define EMV_C2_ACI_VERSION_MASK                                 (0xF0) ///< Application Capabilities Information mask for Version number
+#define EMV_C2_ACI_VERSION_SHIFT                                (4) ///< Application Capabilities Information shift for Version number
+#define EMV_C2_ACI_VERSION_0                                    (0x00) ///< Application Capabilities Information: Version 0
+#define EMV_C2_ACI_DATA_STORAGE_VERSION_MASK                    (0x0F) ///< Application Capabilities Information mask for Data Storage Version Number
+#define EMV_C2_ACI_DATA_STORAGE_NOT_SUPPORTED                   (0x00) ///< Application Capabilities Information: Data Storage not supported
+#define EMV_C2_ACI_DATA_STORAGE_VERSION_1                       (0x01) ///< Application Capabilities Information: Data Storage Version 1
+#define EMV_C2_ACI_DATA_STORAGE_VERSION_2                       (0x02) ///< Application Capabilities Information: Data Storage Version 2
 
-// Mastercard Application Capabilities Information (field 9F5D) byte 2
+// EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 2
 // See EMV Contactless Book C-2 v2.11, Annex A.1.9
-#define MASTERCARD_ACI_BYTE2_RFU                                (0xFA) ///< Application Capabilities Information: RFU
-#define MASTERCARD_ACI_FIELD_OFF_DETECTION_SUPPORTED            (0x04) ///< Application Capabilities Information: Support for field off detection
-#define MASTERCARD_ACI_CDA_TC_ARQC_AAC                          (0x01) ///< Application Capabilities Information: CDA supported over TC, ARQC and AAC
+#define EMV_C2_ACI_BYTE2_RFU                                    (0xFA) ///< Application Capabilities Information: RFU
+#define EMV_C2_ACI_FIELD_OFF_DETECTION_SUPPORTED                (0x04) ///< Application Capabilities Information: Support for field off detection
+#define EMV_C2_ACI_CDA_TC_ARQC_AAC                              (0x01) ///< Application Capabilities Information: CDA supported over TC, ARQC and AAC
 
-// Mastercard Application Capabilities Information (field 9F5D) byte 3
+// EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 3
 // See EMV Contactless Book C-2 v2.11, Annex A.1.9
-#define MASTERCARD_ACI_SDS_UNDEFINED                            (0x00) ///< Standalone Data Storage (SDS) Scheme: Undefined SDS configuration
-#define MASTERCARD_ACI_SDS_10_32                                (0x01) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 32 bytes
-#define MASTERCARD_ACI_SDS_10_48                                (0x02) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 48 bytes
-#define MASTERCARD_ACI_SDS_10_64                                (0x03) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 64 bytes
-#define MASTERCARD_ACI_SDS_10_96                                (0x04) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 96 bytes
-#define MASTERCARD_ACI_SDS_10_128                               (0x05) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 128 bytes
-#define MASTERCARD_ACI_SDS_10_160                               (0x06) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 160 bytes
-#define MASTERCARD_ACI_SDS_10_192                               (0x07) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 192 bytes
-#define MASTERCARD_ACI_SDS_32                                   (0x08) ///< Standalone Data Storage (SDS) Scheme: All All SDS tags 32 bytes except '9F78' which is 64 bytes
+#define EMV_C2_ACI_SDS_UNDEFINED                                (0x00) ///< Standalone Data Storage (SDS) Scheme: Undefined SDS configuration
+#define EMV_C2_ACI_SDS_10_32                                    (0x01) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 32 bytes
+#define EMV_C2_ACI_SDS_10_48                                    (0x02) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 48 bytes
+#define EMV_C2_ACI_SDS_10_64                                    (0x03) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 64 bytes
+#define EMV_C2_ACI_SDS_10_96                                    (0x04) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 96 bytes
+#define EMV_C2_ACI_SDS_10_128                                   (0x05) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 128 bytes
+#define EMV_C2_ACI_SDS_10_160                                   (0x06) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 160 bytes
+#define EMV_C2_ACI_SDS_10_192                                   (0x07) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 192 bytes
+#define EMV_C2_ACI_SDS_32                                       (0x08) ///< Standalone Data Storage (SDS) Scheme: All SDS tags 32 bytes except '9F78' which is 64 bytes
 
 // Terminal Transaction Qualifiers (field 9F66) byte 1
 // See EMV Contactless Book A v2.11, 5.7, Table 5-4
@@ -774,16 +774,16 @@ enum emv_iad_format_t {
 #define EMV_CTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED              (0x40) ///< Card Transaction Qualifiers: Card supports Issuer Update Processing at the POS
 #define EMV_CTQ_BYTE2_RFU                                       (0x3F) ///< Card Transaction Qualifiers: RFU
 
-// Amex Contactless Reader Capabilities (field 9F6D)
+// EMV kernel C-4 Contactless Reader Capabilities (field 9F6D)
 // See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
-#define AMEX_CL_READER_CAPS_MASK                                (0xC8) ///< Contactless Reader Capabilities mask to distinguish from Terminal Type bits
-#define AMEX_CL_READER_CAPS_DEPRECATED                          (0x00) ///< Contactless Reader Capabilities: Deprecated
-#define AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED          (0x40) ///< Contactless Reader Capabilities: Contactless Mag-stripe CVM Not Required
-#define AMEX_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED              (0x48) ///< Contactless Reader Capabilities: Contactless Mag-stripe CVM Required
-#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED            (0x80) ///< Contactless Reader Capabilities: Deprecated - Contactless EMV and Mag-stripe
-#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED          (0xC0) ///< Contactless Reader Capabilities: Contactless EMV and Mag-stripe CVM Not Required
-#define AMEX_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED              (0xC8) ///< Contactless Reader Capabilities: Contactless EMV and Mag-stripe CVM Required
-#define AMEX_CL_READER_CAPS_CVM_REQUIRED                        (0x08) ///< Contactless Reader Capabilities: CVM Required
+#define EMV_C4_CL_READER_CAPS_MASK                              (0xC8) ///< Contactless Reader Capabilities mask to distinguish from Terminal Type bits
+#define EMV_C4_CL_READER_CAPS_DEPRECATED                        (0x00) ///< Contactless Reader Capabilities: Deprecated
+#define EMV_C4_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED        (0x40) ///< Contactless Reader Capabilities: Contactless Mag-stripe CVM Not Required
+#define EMV_C4_CL_READER_CAPS_MAGSTRIPE_CVM_REQUIRED            (0x48) ///< Contactless Reader Capabilities: Contactless Mag-stripe CVM Required
+#define EMV_C4_CL_READER_CAPS_EMV_MAGSTRIPE_DEPRECATED          (0x80) ///< Contactless Reader Capabilities: Deprecated - Contactless EMV and Mag-stripe
+#define EMV_C4_CL_READER_CAPS_EMV_MAGSTRIPE_NOT_REQUIRED        (0xC0) ///< Contactless Reader Capabilities: Contactless EMV and Mag-stripe CVM Not Required
+#define EMV_C4_CL_READER_CAPS_EMV_MAGSTRIPE_REQUIRED            (0xC8) ///< Contactless Reader Capabilities: Contactless EMV and Mag-stripe CVM Required
+#define EMV_C4_CL_READER_CAPS_CVM_REQUIRED                      (0x08) ///< Contactless Reader Capabilities: CVM Required
 
 // Visa Form Factor Indicator (field 9F6E) byte 1
 // See EMV Contactless Book C-3 v2.11, Annex A.2
@@ -823,40 +823,40 @@ enum emv_iad_format_t {
 #define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_NOT_VCPS                (0x01) ///< Payment Transaction Technology: Not used in VCPS
 #define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_RFU                     (0xF0) ///< Payment Transaction Technology: RFU
 
-// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
+// EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
 // See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
-#define AMEX_ENH_CL_READER_CAPS_CONTACT_SUPPORTED               (0x80) ///< Enhanced Contactless Reader Capabilities: Contact mode supported
-#define AMEX_ENH_CL_READER_CAPS_MAGSTRIPE_MODE_SUPPORTED        (0x40) ///< Enhanced Contactless Reader Capabilities: Contactless Mag-Stripe Mode supported
-#define AMEX_ENH_CL_READER_CAPS_FULL_ONLINE_MODE_SUPPORTED      (0x20) ///< Enhanced Contactless Reader Capabilities: Contactless EMV full online mode supported (legacy feature and no longer supported)
-#define AMEX_ENH_CL_READER_CAPS_PARTIAL_ONLINE_MODE_SUPPORTED   (0x10) ///< Enhanced Contactless Reader Capabilities: Contactless EMV partial online mode supported
-#define AMEX_ENH_CL_READER_CAPS_MOBILE_SUPPORTED                (0x08) ///< Enhanced Contactless Reader Capabilities: Contactless Mobile Supported
-#define AMEX_ENH_CL_READER_CAPS_TRY_ANOTHER_INTERFACE           (0x04) ///< Enhanced Contactless Reader Capabilities: Try Another Interface after a decline
-#define AMEX_ENH_CL_READER_CAPS_BYTE1_RFU                       (0x03) ///< Enhanced Contactless Reader Capabilities: RFU
+#define EMV_C4_ENH_CL_READER_CAPS_CONTACT_SUPPORTED             (0x80) ///< Enhanced Contactless Reader Capabilities: Contact mode supported
+#define EMV_C4_ENH_CL_READER_CAPS_MAGSTRIPE_MODE_SUPPORTED      (0x40) ///< Enhanced Contactless Reader Capabilities: Contactless Mag-Stripe Mode supported
+#define EMV_C4_ENH_CL_READER_CAPS_FULL_ONLINE_MODE_SUPPORTED    (0x20) ///< Enhanced Contactless Reader Capabilities: Contactless EMV full online mode supported (legacy feature and no longer supported)
+#define EMV_C4_ENH_CL_READER_CAPS_PARTIAL_ONLINE_MODE_SUPPORTED (0x10) ///< Enhanced Contactless Reader Capabilities: Contactless EMV partial online mode supported
+#define EMV_C4_ENH_CL_READER_CAPS_MOBILE_SUPPORTED              (0x08) ///< Enhanced Contactless Reader Capabilities: Contactless Mobile Supported
+#define EMV_C4_ENH_CL_READER_CAPS_TRY_ANOTHER_INTERFACE         (0x04) ///< Enhanced Contactless Reader Capabilities: Try Another Interface after a decline
+#define EMV_C4_ENH_CL_READER_CAPS_BYTE1_RFU                     (0x03) ///< Enhanced Contactless Reader Capabilities: RFU
 
-// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
+// EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
 // See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
-#define AMEX_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED            (0x80) ///< Enhanced Contactless Reader Capabilities: Mobile CVM supported
-#define AMEX_ENH_CL_READER_CAPS_ONLINE_PIN_SUPPORTED            (0x40) ///< Enhanced Contactless Reader Capabilities: Online PIN supported
-#define AMEX_ENH_CL_READER_CAPS_SIGNATURE_SUPPORTED             (0x20) ///< Enhanced Contactless Reader Capabilities: Signature supported
-#define AMEX_ENH_CL_READER_CAPS_OFFLINE_PIN_SUPPORTED           (0x10) ///< Enhanced Contactless Reader Capabilities: Plaintext Offline PIN supported
-#define AMEX_ENH_CL_READER_CAPS_BYTE2_RFU                       (0x0F) ///< Enhanced Contactless Reader Capabilities: RFU
+#define EMV_C4_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED          (0x80) ///< Enhanced Contactless Reader Capabilities: Mobile CVM supported
+#define EMV_C4_ENH_CL_READER_CAPS_ONLINE_PIN_SUPPORTED          (0x40) ///< Enhanced Contactless Reader Capabilities: Online PIN supported
+#define EMV_C4_ENH_CL_READER_CAPS_SIGNATURE_SUPPORTED           (0x20) ///< Enhanced Contactless Reader Capabilities: Signature supported
+#define EMV_C4_ENH_CL_READER_CAPS_OFFLINE_PIN_SUPPORTED         (0x10) ///< Enhanced Contactless Reader Capabilities: Plaintext Offline PIN supported
+#define EMV_C4_ENH_CL_READER_CAPS_BYTE2_RFU                     (0x0F) ///< Enhanced Contactless Reader Capabilities: RFU
 
-// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
+// EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
 // See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
-#define AMEX_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER             (0x80) ///< Enhanced Contactless Reader Capabilities: Reader is offline only
-#define AMEX_ENH_CL_READER_CAPS_CVM_REQUIRED                    (0x40) ///< Enhanced Contactless Reader Capabilities: CVM Required
-#define AMEX_ENH_CL_READER_CAPS_BYTE3_RFU                       (0x3F) ///< Enhanced Contactless Reader Capabilities: RFU
+#define EMV_C4_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER           (0x80) ///< Enhanced Contactless Reader Capabilities: Reader is offline only
+#define EMV_C4_ENH_CL_READER_CAPS_CVM_REQUIRED                  (0x40) ///< Enhanced Contactless Reader Capabilities: CVM Required
+#define EMV_C4_ENH_CL_READER_CAPS_BYTE3_RFU                     (0x3F) ///< Enhanced Contactless Reader Capabilities: RFU
 
-// Amex Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
+// EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
 // See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
-#define AMEX_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM              (0x80) ///< Enhanced Contactless Reader Capabilities: Terminal exempt from No CVM checks
-#define AMEX_ENH_CL_READER_CAPS_DELAYED_AUTHORISATION           (0x40) ///< Enhanced Contactless Reader Capabilities: Delayed Authorisation Terminal
-#define AMEX_ENH_CL_READER_CAPS_TRANSIT                         (0x20) ///< Enhanced Contactless Reader Capabilities: Transit Terminal
-#define AMEX_ENH_CL_READER_CAPS_BYTE4_RFU                       (0x18) ///< Enhanced Contactless Reader Capabilities: RFU
-#define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_MASK             (0x07) ///< Enhanced Contactless Reader Capabilities mask for C-4 kernel version
-#define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_22_23            (0x01) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.2 - 2.3
-#define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26            (0x02) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.4 - 2.6
-#define AMEX_ENH_CL_READER_CAPS_KERNEL_VERSION_27               (0x03) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.7 or later
+#define EMV_C4_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM            (0x80) ///< Enhanced Contactless Reader Capabilities: Terminal exempt from No CVM checks
+#define EMV_C4_ENH_CL_READER_CAPS_DELAYED_AUTHORISATION         (0x40) ///< Enhanced Contactless Reader Capabilities: Delayed Authorisation Terminal
+#define EMV_C4_ENH_CL_READER_CAPS_TRANSIT                       (0x20) ///< Enhanced Contactless Reader Capabilities: Transit Terminal
+#define EMV_C4_ENH_CL_READER_CAPS_BYTE4_RFU                     (0x18) ///< Enhanced Contactless Reader Capabilities: RFU
+#define EMV_C4_ENH_CL_READER_CAPS_KERNEL_VERSION_MASK           (0x07) ///< Enhanced Contactless Reader Capabilities mask for C-4 kernel version
+#define EMV_C4_ENH_CL_READER_CAPS_KERNEL_VERSION_22_23          (0x01) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.2 - 2.3
+#define EMV_C4_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26          (0x02) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.4 - 2.6
+#define EMV_C4_ENH_CL_READER_CAPS_KERNEL_VERSION_27             (0x03) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.7 or later
 
 // Card Status Update (CSU) byte 1
 // See EMV 4.4 Book 3, Annex C10

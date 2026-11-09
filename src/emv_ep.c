@@ -798,7 +798,7 @@ int emv_ep_select_application(
 		goto error;
 	}
 
-	// When Visa kernel 3 is selected, ensure that PDOL contains
+	// When kernel C-3 is selected for a Visa AID, ensure that PDOL contains
 	// TTQ (field 9F66)
 	// See EMV Contactless Book B v2.11, 3.3.3.6
 	r = emv_aid_get_info(
@@ -819,7 +819,7 @@ int emv_ep_select_application(
 
 		pdol = emv_tlv_list_find_const(&ctx->selected_app->tlv_list, EMV_TAG_9F38_PDOL);
 		if (!pdol) {
-			emv_debug_error("Visa Kernel 3 has no PDOL");
+			emv_debug_error("Kernel C-3 for Visa AID has no PDOL");
 			goto select_next;
 		}
 
@@ -835,7 +835,7 @@ int emv_ep_select_application(
 			goto select_next;
 		}
 		if (r > 0) {
-			emv_debug_error("Visa Kernel 3 PDOL does not contain TTQ (9F66)");
+			emv_debug_error("Kernel C-3 PDOL for Visa AID does not contain TTQ (9F66)");
 			goto select_next;
 		}
 	}

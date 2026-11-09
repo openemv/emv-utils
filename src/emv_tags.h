@@ -439,29 +439,29 @@ __BEGIN_DECLS
 /// EMV tag 9F4F Log Format
 #define EMV_TAG_9F4F_LOG_FORMAT                                 (0x9F4F)
 
-/// Mastercard tag 9F5D Application Capabilities Information. Template BF0C.
+/// EMV kernel C-2 tag 9F5D Application Capabilities Information. Template BF0C.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.9
-#define MASTERCARD_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION (0x9F5D)
+#define EMV_C2_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION    (0x9F5D)
 
-/// Visa tag 9F5D Available Offline Spending Amount (AOSA)
+/// EMV kernel C-3 tag 9F5D Available Offline Spending Amount (AOSA)
 /// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
-#define VISA_TAG_9F5D_AOSA                                      (0x9F5D)
+#define EMV_C3_TAG_9F5D_AOSA                                    (0x9F5D)
 
-/// Mastercard tag 9F60 CVC3 (Track1). Template 77.
+/// EMV kernel C-2 tag 9F60 CVC3 (Track1). Template 77.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.31
-#define MASTERCARD_TAG_9F60_CVC3_TRACK1                         (0x9F60)
+#define EMV_C2_TAG_9F60_CVC3_TRACK1                             (0x9F60)
 
-/// Mastercard tag 9F61 CVC3 (Track2). Template 77.
+/// EMV kernel C-2 tag 9F61 CVC3 (Track2). Template 77.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.32
-#define MASTERCARD_TAG_9F61_CVC3_TRACK2                         (0x9F61)
+#define EMV_C2_TAG_9F61_CVC3_TRACK2                             (0x9F61)
 
-/// Mastercard tag 9F62 PCVC3(Track1). Template 70.
+/// EMV kernel C-2 tag 9F62 PCVC3(Track1). Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.112
-#define MASTERCARD_TAG_9F62_PCVC3_TRACK1                        (0x9F62)
+#define EMV_C2_TAG_9F62_PCVC3_TRACK1                            (0x9F62)
 
-/// Mastercard tag 9F63 PUNATC(Track1). Template 70.
+/// EMV kernel C-2 tag 9F63 PUNATC(Track1). Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.127
-#define MASTERCARD_TAG_9F63_PUNATC_TRACK1                       (0x9F63)
+#define EMV_C2_TAG_9F63_PUNATC_TRACK1                           (0x9F63)
 
 /// Visa tag 9F63 Offline Counter Initial Value
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
@@ -471,47 +471,47 @@ __BEGIN_DECLS
 /// @remark See EMV Contactless Book C-7 v2.11, Annex C
 #define UNIONPAY_TAG_9F63_PRODUCT_IDENTIFICATION_INFORMATION    (0x9F63)
 
-/// Mastercard tag 9F64 NATC(Track1). Template 70.
+/// EMV kernel C-2 tag 9F64 NATC(Track1). Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.105
-#define MASTERCARD_TAG_9F64_NATC_TRACK1                         (0x9F64)
+#define EMV_C2_TAG_9F64_NATC_TRACK1                             (0x9F64)
 
-/// Mastercard tag 9F65 PCVC3(Track2). Template 70.
+/// EMV kernel C-2 tag 9F65 PCVC3(Track2). Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.113
-#define MASTERCARD_TAG_9F65_PCVC3_TRACK2                        (0x9F65)
+#define EMV_C2_TAG_9F65_PCVC3_TRACK2                            (0x9F65)
 
 /// EMV tag 9F66 Terminal Transaction Qualifiers (TTQ)
 /// @remark See EMV Contactless Book A v2.11, 5.7, Table 5-4
 #define EMV_TAG_9F66_TTQ                                        (0x9F66)
 
-/// Mastercard tag 9F66 PUNATC(Track2). Template 70.
+/// EMV kernel C-2 tag 9F66 PUNATC(Track2). Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.128
-#define MASTERCARD_TAG_9F66_PUNATC_TRACK2                       (0x9F66)
+#define EMV_C2_TAG_9F66_PUNATC_TRACK2                           (0x9F66)
 
-/// Mastercard tag 9F67 NATC(Track2). Template 70.
+/// EMV kernel C-2 tag 9F67 NATC(Track2). Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.106
-#define MASTERCARD_TAG_9F67_NATC_TRACK2                         (0x9F67)
+#define EMV_C2_TAG_9F67_NATC_TRACK2                             (0x9F67)
 
 /// Amex tag 9F67 Form Factor. Template 70.
 /// @remark See EMV Contactless Book C-4 v2.11, Annex A.1
 #define AMEX_TAG_9F67_FORM_FACTOR                               (0x9F67)
 
-/// Mastercard tag 9F6A Unpredictable Number (Numeric)
+/// EMV kernel C-2 tag 9F6A Unpredictable Number (Numeric)
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.180
-#define MASTERCARD_TAG_9F6A_UNPREDICTABLE_NUMBER_NUMERIC        (0x9F6A)
+#define EMV_C2_TAG_9F6A_UNPREDICTABLE_NUMBER_NUMERIC            (0x9F6A)
 
-/// Mastercard tag 9F69 UDOL. Template 70.
+/// EMV kernel C-2 tag 9F69 UDOL. Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.178
 /// @remark See M/Chip Requirements for Contact and Contactless, 28 November 2023, Appendix A
-#define MASTERCARD_TAG_9F69_UDOL                                (0x9F69)
+#define EMV_C2_TAG_9F69_UDOL                                    (0x9F69)
 
-/// Visa tag 9F69 Card Authentication Related Data. Template 70.
+/// EMV kernel C-3 tag 9F69 Card Authentication Related Data. Template 70.
 /// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
-#define VISA_TAG_9F69_CARD_AUTHENTICATION_RELATED_DATA          (0x9F69)
+#define EMV_C3_TAG_9F69_CARD_AUTHENTICATION_RELATED_DATA        (0x9F69)
 
-/// Mastercard tag 9F6B Track 2 Data. Template 70.
+/// EMV kernel C-2 tag 9F6B Track 2 Data. Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.169
-#define MASTERCARD_TAG_9F6B_TRACK2_DATA                         (0x9F6B)
+#define EMV_C2_TAG_9F6B_TRACK2_DATA                             (0x9F6B)
 
 /// Visa tag 9F6B Card CVM Limit
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
@@ -523,13 +523,13 @@ __BEGIN_DECLS
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define EMV_TAG_9F6C_CTQ                                        (0x9F6C)
 
-/// Mastercard tag 9F6D Mag-stripe Application Version Number (Reader)
+/// EMV kernel C-2 tag 9F6D Mag-stripe Application Version Number (Reader)
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.91
-#define MASTERCARD_TAG_9F6D_MAG_APPLICATION_VERSION_NUMBER      (0x9F6D)
+#define EMV_C2_TAG_9F6D_MAG_APPLICATION_VERSION_NUMBER          (0x9F6D)
 
-/// Amex tag 9F6D Contactless Reader Capabilities
+/// EMV kernel C-4 tag 9F6D Contactless Reader Capabilities
 /// @remark See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
-#define AMEX_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES           (0x9F6D)
+#define EMV_C4_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES         (0x9F6D)
 
 /// Mastercard tag 9F6E Third Party Data. Template BF0C or 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.165
@@ -541,16 +541,17 @@ __BEGIN_DECLS
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define VISA_TAG_9F6E_FORM_FACTOR_INDICATOR                     (0x9F6E)
 
-/// Amex tag 9F6E Enhanced Contactless Reader Capabilities
+/// EMV kernel C-4 tag 9F6E Enhanced Contactless Reader Capabilities
 /// @remark See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
-#define AMEX_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES  (0x9F6E)
+#define EMV_C4_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES (0x9F6E)
 
-/// Mastercard tag 9F7C Merchant Custom Data
+/// EMV kernel C-2 tag 9F7C Merchant Custom Data
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.98
-#define MASTERCARD_TAG_9F7C_MERCHANT_CUSTOM_DATA                (0x9F7C)
+#define EMV_C2_TAG_9F7C_MERCHANT_CUSTOM_DATA                    (0x9F7C)
 
 /// Visa tag 9F7C Customer Exclusive Data (CED)
 /// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+/// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define VISA_TAG_9F7C_CUSTOMER_EXCLUSIVE_DATA                   (0x9F7C)
 
 /// EMV tag BF0C File Control Information (FCI) Issuer Discretionary Data. Template A5.
