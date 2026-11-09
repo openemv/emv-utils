@@ -186,7 +186,7 @@ enum emv_outcome_t {
 	EMV_OUTCOME_GPO_NOT_ACCEPTED = 5, ///< Processing conditions not accepted
 
 	// Contactless outcomes
-	// See EMV Contactless Book A v2.11, Appendix B
+	// See EMV Contactless Book A v2.12, Annex B
 	EMV_OUTCOME_TRY_ANOTHER_INTERFACE = 20, ///< Contactless not possible; insert or swipe card
 	EMV_OUTCOME_TRY_AGAIN_SEE_PHONE, ///< Contactless field off request; see phone for instructions
 	EMV_OUTCOME_SELECT_NEXT, ///< Select next contactless application
@@ -274,7 +274,7 @@ const char* emv_error_get_string(enum emv_error_t error);
 /**
  * Retrieve string associated with outcome value
  * @remark See EMV 4.4 Book 4, 11.2
- * @remark See EMV Contactless Book A v2.11, 9.4
+ * @remark See EMV Contactless Book A v2.12, 9.4
  *
  * @param outcome Outcome value. Must be greater than zero.
  * @return Pointer to null-terminated string. Do not free.
@@ -298,7 +298,7 @@ int emv_atr_parse(const void* atr, size_t atr_len);
 /**
  * Parse the ISO 14443 Answer To Select (ATS) message and determine whether the
  * contactless type A card is suitable for EMV processing
- * @remark See EMV Level 1 Contactless Interface Specification v3.2, 5.7.2
+ * @remark See EMV Level 1 Contactless Interface Specification v4.0, 5.7.2
  *
  * @param ats ATS data (starting with mandatory TL byte)
  * @param ats_len Length of ATS data in bytes
@@ -312,7 +312,7 @@ int emv_ats_parse(const void* ats, size_t ats_len);
 /**
  * Parse the ISO 14443 Answer To Request Type B (ATQB) message and determine
  * whether the contactless type B card is suitable for EMV processing
- * @remark See EMV Level 1 Contactless Interface Specification v3.2, 6.3.2
+ * @remark See EMV Level 1 Contactless Interface Specification v4.0, 6.3.2
  *
  * @param atqb ATQB data (starting with mandatory 0x50 marker byte)
  * @param atqb_len Length of ATQB data in bytes (12 for basic, 13 for extended)

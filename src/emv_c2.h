@@ -49,9 +49,9 @@ struct emv_ctx_t;
  *       including @ref EMV_TAG_9F39_POS_ENTRY_MODE, @ref EMV_TAG_9F06_AID, and
  *       @ref EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL.
  *
- * @remark See EMV Contactless Book B v2.11, 3.1.1
- * @remark See EMV Contactless Book C-2 v2.11, 6.3.3
- * @remark See EMV Contactless Book C-2 v2.11, 6.5.3
+ * @remark See EMV Contactless Book B v2.12, 3.1.1
+ * @remark See EMV Contactless Book C-2 v2.12, 6.3.3
+ * @remark See EMV Contactless Book C-2 v2.12, 6.5.3
  *
  * @param ctx EMV processing context
  * @param pos_entry_mode Point-of-Service (POS) Entry Mode (field 9F39) value.
@@ -80,8 +80,8 @@ int emv_c2_initiate_kernel_processing(
  * @note Upon success, this function will append the application data to
  *       @ref emv_ctx_t.icc
  *
- * @remark See EMV Contactless Book C-2 v2.11, 6.7.3
- * @remark See EMV Contactless Book C-2 v2.11, 6.8.3
+ * @remark See EMV Contactless Book C-2 v2.12, 6.7.3
+ * @remark See EMV Contactless Book C-2 v2.12, 6.8.3
  *
  * @param ctx EMV processing context
  *

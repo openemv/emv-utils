@@ -122,7 +122,7 @@ int emv_tal_read_pse(
 
 /**
  * Read Proximity Payment System Environment (PPSE) and parse directory entries
- * @remark See EMV Contactless Book B v2.11, 3.3.1
+ * @remark See EMV Contactless Book B v2.12, 3.3.1
  *
  * @param ttl EMV Terminal Transport Layer context
  * @param app_list PPSE application list output

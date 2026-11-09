@@ -235,16 +235,16 @@ struct test_t {
 };
 
 static const struct test_t test_gpo_failure[] = {
-	// See EMV Contactless Book C-3 v2.11, 4.1.1.2
+	// See EMV Contactless Book C-3 v2.12, 4.1.1.2
 	{ "GPO transport failure", test_gpo_ttl_failure, EMV_OUTCOME_CARD_ERROR },
 
-	// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+	// See EMV Contactless Book C-3 v2.12, 5.2.2.2
 	{ "GPO status 6984", test_gpo_6984, EMV_OUTCOME_TRY_ANOTHER_INTERFACE },
 	{ "GPO status 6985", test_gpo_6985, EMV_OUTCOME_SELECT_NEXT },
 	{ "GPO status 6986", test_gpo_6986, EMV_OUTCOME_TRY_AGAIN_SEE_PHONE },
 	{ "GPO status 6A81", test_gpo_6a81, EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD },
 
-	// See EMV Contactless Book C-3 v2.11, 4.2.1.1
+	// See EMV Contactless Book C-3 v2.12, 4.2.1.1
 	{ "GPO response format invalid", test_gpo_invalid_format, EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD },
 };
 
@@ -309,7 +309,7 @@ static int verify_terminal_data(const struct emv_ctx_t* ctx)
 	}
 
 	// This is ugly but that's why it's in a helper function
-	// See EMV Contactless Book C-3 v2.11, 2.1
+	// See EMV Contactless Book C-3 v2.12, 2.1
 	if (emv_tlv_list_is_empty(&ctx->terminal) ||
 		ctx->terminal.front->tag != EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL ||
 		!ctx->terminal.front->next ||
@@ -607,7 +607,7 @@ int main(void)
 	}
 	// Application Interchange Profile (field 82) is optional in the GPO
 	// response for kernel C-3
-	// See EMV Contactless Book C-3 v2.11, Annex D.1
+	// See EMV Contactless Book C-3 v2.12, Annex D.1
 	r = verify_gpo_field("AIP", emv.aip, NULL, 0);
 	if (r) {
 		r = 1;
@@ -650,7 +650,7 @@ int main(void)
 	}
 	// Application File Locator (field 94) is optional in the GPO response for
 	// kernel C-3
-	// See EMV Contactless Book C-3 v2.11, Annex D.1
+	// See EMV Contactless Book C-3 v2.12, Annex D.1
 	r = verify_gpo_field("AFL", emv.afl, NULL, 0);
 	if (r) {
 		r = 1;
@@ -683,7 +683,7 @@ int main(void)
 	}
 	// Application Interchange Profile (field 82) and Application File Locator
 	// (field 94) are optional in the GPO response for kernel C-3
-	// See EMV Contactless Book C-3 v2.11, Annex D.1
+	// See EMV Contactless Book C-3 v2.12, Annex D.1
 	r = verify_gpo_field("AIP", emv.aip, NULL, 0);
 	if (r) {
 		r = 1;

@@ -88,7 +88,7 @@ int emv_c3_initiate_kernel_processing(
 	// processing and GET PROCESSING OPTIONS. This includes contactless fields
 	// like Kernel Identifier - Terminal (field 96).
 
-	// See EMV Contactless Book C-3 v2.11, 2.1
+	// See EMV Contactless Book C-3 v2.12, 2.1
 	r = emv_ep_create_common_kernel_data(ctx, pos_entry_mode);
 	if (r) {
 		emv_debug_trace_msg("emv_ep_create_common_kernel_data() failed; r=%d", r);
@@ -118,7 +118,7 @@ int emv_c3_initiate_kernel_processing(
 		return EMV_ERROR_INTERNAL;
 	}
 
-	// See EMV Contactless Book C-3 v2.11, 5.2.2
+	// See EMV Contactless Book C-3 v2.12, 5.2.2
 	r = emv_ep_initiate_kernel_processing(ctx, &gpo_list, &gpo_tal_result);
 	if (r) {
 		emv_debug_trace_msg("emv_ep_initiate_kernel_processing() failed; r=%d", r);
@@ -130,34 +130,34 @@ int emv_c3_initiate_kernel_processing(
 		emv_debug_trace_msg("gpo_tal_result=%d", gpo_tal_result);
 
 		switch (gpo_tal_result) {
-			// See EMV Contactless Book C-3 v2.11, 4.1.1.2
+			// See EMV Contactless Book C-3 v2.12, 4.1.1.2
 			case EMV_TAL_ERROR_TTL_FAILURE:
 				r = EMV_OUTCOME_CARD_ERROR;
 				break;
 
-			// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+			// See EMV Contactless Book C-3 v2.12, 5.2.2.2
 			case EMV_TAL_RESULT_GPO_DATA_NOT_USABLE:
 				r = EMV_OUTCOME_TRY_ANOTHER_INTERFACE;
 				break;
 
-			// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+			// See EMV Contactless Book C-3 v2.12, 5.2.2.2
 			case EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED:
 				r = EMV_OUTCOME_SELECT_NEXT;
 				break;
 
-			// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+			// See EMV Contactless Book C-3 v2.12, 5.2.2.2
 			case EMV_TAL_RESULT_GPO_NOT_ALLOWED:
 				r = EMV_OUTCOME_TRY_AGAIN_SEE_PHONE;
 				break;
 
-			// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+			// See EMV Contactless Book C-3 v2.12, 5.2.2.2
 			case EMV_TAL_ERROR_GPO_FAILED:
 				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 				break;
 
-			// See EMV Contactless Book C-3 v2.11, 4.1.1.4
+			// See EMV Contactless Book C-3 v2.12, 4.1.1.4
 			default:
-				// See EMV Contactless Book C-3 v2.11, 4.2.1.1
+				// See EMV Contactless Book C-3 v2.12, 4.2.1.1
 				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 				break;
 		}
@@ -166,21 +166,21 @@ int emv_c3_initiate_kernel_processing(
 	}
 
 	// Populate AIP pointer (if available)
-	// See EMV Contactless Book C-3 v2.11, Annex D.1
+	// See EMV Contactless Book C-3 v2.12, Annex D.1
 	ctx->aip = emv_tlv_list_find_const(&gpo_list, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 	if (ctx->aip && ctx->aip->length != 2) {
 		emv_debug_error("AIP in GPO response is invalid");
-		// See EMV Contactless Book C-3 v2.11, 4.2.1.1
+		// See EMV Contactless Book C-3 v2.12, 4.2.1.1
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;
 	}
 
 	// Populate AFL pointer (if available)
-	// See EMV Contactless Book C-3 v2.11, Annex D.1
+	// See EMV Contactless Book C-3 v2.12, Annex D.1
 	ctx->afl = emv_tlv_list_find_const(&gpo_list, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (ctx->afl && (!ctx->afl->length || (ctx->afl->length & 0x3) != 0)) {
 		emv_debug_error("AFL in GPO response is invalid");
-		// See EMV Contactless Book C-3 v2.11, 4.2.1.1
+		// See EMV Contactless Book C-3 v2.12, 4.2.1.1
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;
 	}
@@ -227,14 +227,14 @@ int emv_c3_read_application_data(struct emv_ctx_t* ctx)
 	// Application File Locator (AFL) is optional for kernel C-3
 	if (!ctx->afl) {
 		// AFL not found; skip read application data
-		// See EMV Contactless Book C-3 v2.11, 5.3.2.1
+		// See EMV Contactless Book C-3 v2.12, 5.3.2.1
 		emv_debug_info("No AFL; skip read application data");
 		return 0;
 	}
 
 	emv_debug_info("Read application data");
 
-	// See EMV Contactless Book C-3 v2.11, 5.3.2
+	// See EMV Contactless Book C-3 v2.12, 5.3.2
 	// See EMV 4.4 Book 3, 10.2
 	r = emv_ep_read_application_data(ctx, &record_data, &rr_tal_result);
 	if (r) {
@@ -247,23 +247,23 @@ int emv_c3_read_application_data(struct emv_ctx_t* ctx)
 		emv_debug_trace_msg("rr_tal_result=%d", rr_tal_result);
 
 		switch (rr_tal_result) {
-			// See EMV Contactless Book C-3 v2.11, 4.1.1.2
+			// See EMV Contactless Book C-3 v2.12, 4.1.1.2
 			case EMV_TAL_ERROR_TTL_FAILURE:
 				r = EMV_OUTCOME_CARD_ERROR;
 				break;
 
-			// See EMV Contactless Book C-3 v2.11, 4.1.1.4
+			// See EMV Contactless Book C-3 v2.12, 4.1.1.4
 			case EMV_TAL_ERROR_AFL_INVALID:
 			case EMV_TAL_ERROR_READ_RECORD_FAILED:
 			case EMV_TAL_ERROR_READ_RECORD_INVALID:
 			case EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED:
-				// See EMV Contactless Book C-3 v2.11, 4.2.1.1
+				// See EMV Contactless Book C-3 v2.12, 4.2.1.1
 				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 				break;
 
-			// See EMV Contactless Book C-3 v2.11, 4.1.1.4
+			// See EMV Contactless Book C-3 v2.12, 4.1.1.4
 			default:
-				// See EMV Contactless Book C-3 v2.11, 4.2.1.1
+				// See EMV Contactless Book C-3 v2.12, 4.2.1.1
 				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 				break;
 		}

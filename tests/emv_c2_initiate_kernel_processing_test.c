@@ -240,25 +240,25 @@ struct test_t {
 };
 
 static const struct test_t test_gpo_failure[] = {
-	// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.4
+	// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.4
 	{ "GPO transport failure", test_gpo_ttl_failure, EMV_OUTCOME_CARD_ERROR },
 
-	// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.8
+	// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.8
 	{ "GPO status 6984", test_gpo_6984, EMV_OUTCOME_SELECT_NEXT },
 	{ "GPO status 6985", test_gpo_6985, EMV_OUTCOME_SELECT_NEXT },
 	{ "GPO status 6986", test_gpo_6986, EMV_OUTCOME_SELECT_NEXT },
 	{ "GPO status 6A81", test_gpo_6a81, EMV_OUTCOME_SELECT_NEXT },
 
-	// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.11
+	// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.11
 	{ "GPO response format invalid", test_gpo_invalid_format, EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD },
 
-	// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.13
+	// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.13
 	{ "GPO response without AIP", test_gpo_no_aip, EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD },
 	{ "GPO response with invalid AIP", test_gpo_invalid_aip, EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD },
 	{ "GPO response without AFL", test_gpo_no_afl, EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD },
 	{ "GPO response with invalid AFL", test_gpo_invalid_afl, EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD },
 
-	// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.16
+	// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.16
 	{ "GPO response without EMV mode support", test_gpo_no_emv_mode, EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD },
 };
 
@@ -336,7 +336,7 @@ static int verify_terminal_data(const struct emv_ctx_t* ctx)
 	}
 
 	// This is ugly but that's why it's in a helper function
-	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.9
+	// See EMV Contactless Book C-2 v2.12, 6.3.3, S1.9
 	if (emv_tlv_list_is_empty(&ctx->terminal) ||
 		ctx->terminal.front->tag != EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL ||
 		!ctx->terminal.front->next ||

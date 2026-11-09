@@ -204,7 +204,7 @@ __BEGIN_DECLS
 #define EMV_ASRPD_UGSI                                          (0x0005) ///< Universal Global Scientific Industrial
 
 // Kernel Identifier (field 9F2A) byte 1
-// See EMV Contactless Book B v2.11, Table 3-4
+// See EMV Contactless Book B v2.12, Table 3-4
 #define EMV_KERNEL_ID_TYPE_MASK                                 (0xC0) ///< Kernel Identifier mask for kernel type
 #define EMV_KERNEL_ID_TYPE_INTERNATIONAL                        (0x00) ///< Kernel type: International kernel
 #define EMV_KERNEL_ID_TYPE_RFU                                  (0x40) ///< Kernel type: RFU
@@ -213,22 +213,22 @@ __BEGIN_DECLS
 #define EMV_KERNEL_ID_SHORT_MASK                                (0x3F) ///< Kernel Identifier mask for Short Kernel ID
 
 // Kernel Identifier - Terminal (field 96) byte 4
-// See EMV Contactless Book B v2.11, Table 3-7
+// See EMV Contactless Book B v2.12, Table 3-7
 #define EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT                (0x80) ///< Kernel 8 supported by reader
 #define EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT           (0x40) ///< Kernel 8 supported for the transaction
 
 // POI Information (field 8B)
-// See EMV Contactless Book B v2.11, Annex A.1, Table A-2
+// See EMV Contactless Book B v2.12, Annex A.1, Table A-2
 #define EMV_POI_INFO_TERMINAL_CATEGORY                          (0x0001) ///< POI Information: Terminal Category
 
 // Terminal Category values (fields 8B and 9F3E)
-// See EMV Contactless Book B v2.11, Annex A.1, Table A-2
+// See EMV Contactless Book B v2.12, Annex A.1, Table A-2
 #define EMV_TERMINAL_CATEGORY_TRANSIT_GATE                      (0x0001) ///< Transit gate terminal
 #define EMV_TERMINAL_CATEGORY_LOYALTY                           (0x0002) ///< Loyalty terminal
 
 // Application Interchange Profile (field 82) byte 1
 // See EMV 4.4 Book 3, Annex C1, Table 41
-// See EMV Contactless Book C-2 v2.11, Annex A.1.16
+// See EMV Contactless Book C-2 v2.12, Annex A.1.16
 #define EMV_AIP_XDA_SUPPORTED                                   (0x80) ///< Application Interchange Profile: Extended Data Authentication (XDA) is supported
 #define EMV_AIP_SDA_SUPPORTED                                   (0x40) ///< Application Interchange Profile: Static Data Authentication (SDA) is supported
 #define EMV_AIP_DDA_SUPPORTED                                   (0x20) ///< Application Interchange Profile: Dynamic Data Authentication (DDA) is supported
@@ -239,9 +239,9 @@ __BEGIN_DECLS
 #define EMV_AIP_CDA_SUPPORTED                                   (0x01) ///< Application Interchange Profile: Combined DDA/Application Cryptogram Generation (CDA) is supported
 
 // Application Interchange Profile (field 82) byte 2
-// See EMV Contactless Book C-2 v2.11, Annex A.1.16
-// See EMV Contactless Book C-3 v2.11, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
-// See EMV Contactless Book C-4 v2.11, 5.3, Table 5-2
+// See EMV Contactless Book C-2 v2.12, Annex A.1.16
+// See EMV Contactless Book C-3 v2.12, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
+// See EMV Contactless Book C-4 v2.12, 5.3, Table 5-2
 #define EMV_AIP_EMV_MODE_SUPPORTED                              (0x80) ///< Application Interchange Profile: Contactless EMV mode is supported
 #define EMV_AIP_MOBILE_PHONE                                    (0x40) ///< Application Interchange Profile: Mobile phone
 #define EMV_AIP_CONTACTLESS_TXN                                 (0x20) ///< Application Interchange Profile: Contactless transaction (for kernel C-3)
@@ -483,7 +483,8 @@ enum emv_iad_format_t {
 #define EMV_IAD_CCD_CVR_BYTE4_UNABLE_TO_GO_ONLINE               (0x01) ///< Card Verification Results (CVR): Unable to go Online
 
 // Issuer Application Data (field 9F10) for Mastercard M/Chip applications
-// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Appendix B, Issuer Application Data, 9F10
+// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Appendix B, Issuer Application Data, 9F10 (NOTE: for M/Chip 4)
+// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Appendix B, Issuer Application Data, '9F10' (NOTE: for M/Chip Advance)
 #define EMV_IAD_MCHIP4_LEN                                      (18) ///< Length of M/Chip 4 Issuer Application Data
 #define EMV_IAD_MCHIPADV_LEN_18                                 (18) ///< Length of M/Chip Advance Issuer Application Data
 #define EMV_IAD_MCHIPADV_LEN_20                                 (20) ///< Length of M/Chip Advance Issuer Application Data
@@ -648,8 +649,8 @@ enum emv_iad_format_t {
 #define EMV_IAD_VSDC_CVR_BYTE5_EMV_SESSION_KEY                  (0x01) ///< Card Verification Results (CVR): Secure Messaging uses EMV Session key-based derivation
 
 // Terminal Risk Management Data (field 9F1D) byte 1
-// See EMV Contactless Book C-2 v2.11, Annex A.1.161
-// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+// See EMV Contactless Book C-2 v2.12, Annex A.1.143
+// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 #define EMV_TRMD_BYTE1_RESTART_SUPPORTED                        (0x80) ///< Terminal Risk Management Data: Restart supported
 #define EMV_TRMD_BYTE1_ENCIPHERED_PIN_ONLINE_CONTACTLESS        (0x40) ///< Terminal Risk Management Data: Enciphered PIN verified online (Contactless)
 #define EMV_TRMD_BYTE1_SIGNATURE_CONTACTLESS                    (0x20) ///< Terminal Risk Management Data: Signature (paper) (Contactless)
@@ -660,9 +661,9 @@ enum emv_iad_format_t {
 #define EMV_TRMD_BYTE1_PRESENT_AND_HOLD_SUPPORTED               (0x01) ///< Terminal Risk Management Data: Present and Hold supported
 
 // Terminal Risk Management Data (field 9F1D) byte 2
-// See EMV Contactless Book C-2 v2.11, Annex A.1.161
-// See EMV Contactless Book C-8 v1.1, Annex A.1.129
-// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+// See EMV Contactless Book C-2 v2.12, Annex A.1.143
+// See EMV Contactless Book C-8 v1.2, Annex A.1.129
+// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 #define EMV_TRMD_BYTE2_CVM_LIMIT_EXCEEDED                       (0x80) ///< Terminal Risk Management Data: CVM Limit exceeded
 #define EMV_TRMD_BYTE2_ENCIPHERED_PIN_ONLINE_CONTACT            (0x40) ///< Terminal Risk Management Data: Enciphered PIN verified online (Contact)
 #define EMV_TRMD_BYTE2_SIGNATURE_CONTACT                        (0x20) ///< Terminal Risk Management Data: Signature (paper) (Contact)
@@ -673,22 +674,22 @@ enum emv_iad_format_t {
 #define EMV_TRMD_BYTE2_RFU                                      (0x01) ///< Terminal Risk Management Data: RFU
 
 // Terminal Risk Management Data (field 9F1D) byte 3
-// See EMV Contactless Book C-2 v2.11, Annex A.1.161
-// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+// See EMV Contactless Book C-2 v2.12, Annex A.1.143
+// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 #define EMV_TRMD_BYTE3_MAGSTRIPE_MODE_CONTACTLESS_NOT_SUPPORTED (0x80) ///< Terminal Risk Management Data: Mag-stripe mode contactless transactions not supported
 #define EMV_TRMD_BYTE3_EMV_MODE_CONTACTLESS_NOT_SUPPORTED       (0x40) ///< Terminal Risk Management Data: EMV mode contactless transactions not supported
 #define EMV_TRMD_BYTE3_CDCVM_WITHOUT_CDA_SUPPORTED              (0x20) ///< Terminal Risk Management Data: CDCVM without CDA supported
 #define EMV_TRMD_BYTE3_RFU                                      (0x1F) ///< Terminal Risk Management Data: RFU
 
 // Terminal Risk Management Data (field 9F1D) byte 4
-// See EMV Contactless Book C-2 v2.11, Annex A.1.161
-// See EMV Contactless Book C-8 v1.1, Annex A.1.129
+// See EMV Contactless Book C-2 v2.12, Annex A.1.143
+// See EMV Contactless Book C-8 v1.2, Annex A.1.129
 #define EMV_TRMD_BYTE4_CDCVM_BYPASS_REQUESTED                   (0x80) ///< Terminal Risk Management Data: CDCVM bypass requested
 #define EMV_TRMD_BYTE4_SCA_EXEMPT                               (0x40) ///< Terminal Risk Management Data: SCA exempt
 #define EMV_TRMD_BYTE4_RFU                                      (0x3F) ///< Terminal Risk Management Data: RFU
 
 // EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 1
-// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+// See EMV Contactless Book C-2 v2.12, Annex A.1.9
 #define EMV_C2_ACI_VERSION_MASK                                 (0xF0) ///< Application Capabilities Information mask for Version number
 #define EMV_C2_ACI_VERSION_SHIFT                                (4) ///< Application Capabilities Information shift for Version number
 #define EMV_C2_ACI_VERSION_0                                    (0x00) ///< Application Capabilities Information: Version 0
@@ -698,13 +699,13 @@ enum emv_iad_format_t {
 #define EMV_C2_ACI_DATA_STORAGE_VERSION_2                       (0x02) ///< Application Capabilities Information: Data Storage Version 2
 
 // EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 2
-// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+// See EMV Contactless Book C-2 v2.12, Annex A.1.9
 #define EMV_C2_ACI_BYTE2_RFU                                    (0xFA) ///< Application Capabilities Information: RFU
 #define EMV_C2_ACI_FIELD_OFF_DETECTION_SUPPORTED                (0x04) ///< Application Capabilities Information: Support for field off detection
 #define EMV_C2_ACI_CDA_TC_ARQC_AAC                              (0x01) ///< Application Capabilities Information: CDA supported over TC, ARQC and AAC
 
 // EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 3
-// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+// See EMV Contactless Book C-2 v2.12, Annex A.1.9
 #define EMV_C2_ACI_SDS_UNDEFINED                                (0x00) ///< Standalone Data Storage (SDS) Scheme: Undefined SDS configuration
 #define EMV_C2_ACI_SDS_10_32                                    (0x01) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 32 bytes
 #define EMV_C2_ACI_SDS_10_48                                    (0x02) ///< Standalone Data Storage (SDS) Scheme: All 10 tags 48 bytes
@@ -716,9 +717,9 @@ enum emv_iad_format_t {
 #define EMV_C2_ACI_SDS_32                                       (0x08) ///< Standalone Data Storage (SDS) Scheme: All SDS tags 32 bytes except '9F78' which is 64 bytes
 
 // Terminal Transaction Qualifiers (field 9F66) byte 1
-// See EMV Contactless Book A v2.11, 5.7, Table 5-4
-// See EMV Contactless Book C-3 v2.11, Annex A.2
-// See EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1 (NOTE: byte 1 bit 7 is defined for proprietary use and ignored below)
+// See EMV Contactless Book A v2.12, 5.7, Table 5-4
+// See EMV Contactless Book C-3 v2.12, Annex A.2
+// See EMV Contactless Book C-7 v2.12, 3.2.2, Table 3-1 (NOTE: byte 1 bit 7 is defined for proprietary use and ignored below)
 #define EMV_TTQ_MAGSTRIPE_MODE_SUPPORTED                        (0x80) ///< Terminal Transaction Qualifiers: Mag-stripe mode supported
 #define EMV_TTQ_BYTE1_RFU                                       (0x40) ///< Terminal Transaction Qualifiers: RFU
 #define EMV_TTQ_EMV_MODE_SUPPORTED                              (0x20) ///< Terminal Transaction Qualifiers: EMV mode supported
@@ -729,8 +730,8 @@ enum emv_iad_format_t {
 #define EMV_TTQ_ODA_FOR_ONLINE_AUTH_SUPPORTED                   (0x01) ///< Terminal Transaction Qualifiers: Offline Data Authentication for Online Authorizations supported
 
 // Terminal Transaction Qualifiers (field 9F66) byte 2
-// See EMV Contactless Book A v2.11, 5.7, Table 5-4
-// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+// See EMV Contactless Book A v2.12, 5.7, Table 5-4
+// See EMV Contactless Book C-6 v2.12, Annex D.37, Table 4-25
 #define EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED                      (0x80) ///< Terminal Transaction Qualifiers: Online cryptogram required
 #define EMV_TTQ_CVM_REQUIRED                                    (0x40) ///< Terminal Transaction Qualifiers: CVM required
 #define EMV_TTQ_OFFLINE_PIN_SUPPORTED                           (0x20) ///< Terminal Transaction Qualifiers: (Contact Chip) Offline PIN supported
@@ -739,8 +740,8 @@ enum emv_iad_format_t {
 #define EMV_TTQ_BYTE2_RFU                                       (0x13) ///< Terminal Transaction Qualifiers: RFU
 
 // Terminal Transaction Qualifiers (field 9F66) byte 3
-// See EMV Contactless Book A v2.11, 5.7, Table 5-4
-// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+// See EMV Contactless Book A v2.12, 5.7, Table 5-4
+// See EMV Contactless Book C-6 v2.12, Annex D.37, Table 4-25
 // See EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16 (NOTE: for byte 3 bit 4)
 #define EMV_TTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED              (0x80) ///< Terminal Transaction Qualifiers: Issuer Update Processing supported
 #define EMV_TTQ_CDCVM_SUPPORTED                                 (0x40) ///< Terminal Transaction Qualifiers: Consumer Device CVM supported
@@ -749,14 +750,14 @@ enum emv_iad_format_t {
 #define EMV_TTQ_BYTE3_RFU                                       (0x37) ///< Terminal Transaction Qualifiers: RFU
 
 // Terminal Transaction Qualifiers (field 9F66) byte 4
-// See EMV Contactless Book A v2.11, 5.7, Table 5-4
-// See EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1
+// See EMV Contactless Book A v2.12, 5.7, Table 5-4
+// See EMV Contactless Book C-7 v2.12, 3.2.2, Table 3-1
 #define EMV_TTQ_FDDA_V1_SUPPORTED                               (0x80) ///< Terminal Transaction Qualifiers: fDDA v1.0 Supported
 #define EMV_TTQ_BYTE4_RFU                                       (0x7F) ///< Terminal Transaction Qualifiers: RFU
 
 // Card Transaction Qualifiers (field 9F6C) byte 1
-// See EMV Contactless Book C-3 v2.11, Annex A.2
-// See EMV Contactless Book C-7 v2.11, Annex A
+// See EMV Contactless Book C-3 v2.12, Annex A.2
+// See EMV Contactless Book C-7 v2.12, Annex A
 // See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define EMV_CTQ_ONLINE_PIN_REQUIRED                             (0x80) ///< Card Transaction Qualifiers: Online PIN Required
 #define EMV_CTQ_SIGNATURE_REQUIRED                              (0x40) ///< Card Transaction Qualifiers: Signature Required
@@ -768,14 +769,14 @@ enum emv_iad_format_t {
 #define EMV_CTQ_ATM_NOT_VALID                                   (0x01) ///< Card Transaction Qualifiers: Not valid for contactless ATM transactions
 
 // Card Transaction Qualifiers (field 9F6C) byte 2
-// See EMV Contactless Book C-3 v2.11, Annex A.2
-// See EMV Contactless Book C-7 v2.11, Annex A
+// See EMV Contactless Book C-3 v2.12, Annex A.2
+// See EMV Contactless Book C-7 v2.12, Annex A
 #define EMV_CTQ_CDCVM_PERFORMED                                 (0x80) ///< Card Transaction Qualifiers: Consumer Device CVM Performed
 #define EMV_CTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED              (0x40) ///< Card Transaction Qualifiers: Card supports Issuer Update Processing at the POS
 #define EMV_CTQ_BYTE2_RFU                                       (0x3F) ///< Card Transaction Qualifiers: RFU
 
 // EMV kernel C-4 Contactless Reader Capabilities (field 9F6D)
-// See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
+// See EMV Contactless Book C-4 v2.12, 4.3.3, Table 4-2
 #define EMV_C4_CL_READER_CAPS_MASK                              (0xC8) ///< Contactless Reader Capabilities mask to distinguish from Terminal Type bits
 #define EMV_C4_CL_READER_CAPS_DEPRECATED                        (0x00) ///< Contactless Reader Capabilities: Deprecated
 #define EMV_C4_CL_READER_CAPS_MAGSTRIPE_CVM_NOT_REQUIRED        (0x40) ///< Contactless Reader Capabilities: Contactless Mag-stripe CVM Not Required
@@ -786,7 +787,7 @@ enum emv_iad_format_t {
 #define EMV_C4_CL_READER_CAPS_CVM_REQUIRED                      (0x08) ///< Contactless Reader Capabilities: CVM Required
 
 // Visa Form Factor Indicator (field 9F6E) byte 1
-// See EMV Contactless Book C-3 v2.11, Annex A.2
+// See EMV Contactless Book C-3 v2.12, Annex A.2
 // See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define VISA_FFI_VERSION_MASK                                   (0xE0) ///< Form Factor Indicator (FFI) mask for Version Number
 #define VISA_FFI_VERSION_SHIFT                                  (5) ///< Form Factor Indicator (FFI) shift for Version Number
@@ -799,7 +800,7 @@ enum emv_iad_format_t {
 #define VISA_FFI_FORM_FACTOR_WRIST_WORN_DEVICE                  (0x04) ///< Consumer Payment Device Form Factor: Wrist-worn device
 
 // Visa Form Factor Indicator (field 9F6E) byte 2
-// See EMV Contactless Book C-3 v2.11, Annex A.2
+// See EMV Contactless Book C-3 v2.12, Annex A.2
 // See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define VISA_FFI_FEATURE_PASSCODE                               (0x80) ///< Consumer Payment Device Features: Passcode Capable
 #define VISA_FFI_FEATURE_SIGNATURE                              (0x40) ///< Consumer Payment Device Features: Signature Panel
@@ -811,12 +812,12 @@ enum emv_iad_format_t {
 #define VISA_FFI_FEATURE_RFU                                    (0x01) ///< Consumer Payment Device Features: RFU
 
 // Visa Form Factor Indicator (field 9F6E) byte 3
-// See EMV Contactless Book C-3 v2.11, Annex A.2
+// See EMV Contactless Book C-3 v2.12, Annex A.2
 // See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define VISA_FFI_BYTE3_RFU                                      (0xFF) ///< Form Factor Indicator (FFI) byte 3: RFU
 
 // Visa Form Factor Indicator (field 9F6E) byte 4
-// See EMV Contactless Book C-3 v2.11, Annex A.2
+// See EMV Contactless Book C-3 v2.12, Annex A.2
 // See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_MASK                    (0x0F) ///< Form Factor Indicator (FFI) mask for Payment Transaction Technology
 #define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_CONTACTLESS             (0x00) ///< Payment Transaction Technology: Proximity Contactless interface using ISO 14443 (including NFC)
@@ -824,7 +825,7 @@ enum emv_iad_format_t {
 #define VISA_FFI_PAYMENT_TXN_TECHNOLOGY_RFU                     (0xF0) ///< Payment Transaction Technology: RFU
 
 // EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
-// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+// See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 #define EMV_C4_ENH_CL_READER_CAPS_CONTACT_SUPPORTED             (0x80) ///< Enhanced Contactless Reader Capabilities: Contact mode supported
 #define EMV_C4_ENH_CL_READER_CAPS_MAGSTRIPE_MODE_SUPPORTED      (0x40) ///< Enhanced Contactless Reader Capabilities: Contactless Mag-Stripe Mode supported
 #define EMV_C4_ENH_CL_READER_CAPS_FULL_ONLINE_MODE_SUPPORTED    (0x20) ///< Enhanced Contactless Reader Capabilities: Contactless EMV full online mode supported (legacy feature and no longer supported)
@@ -834,7 +835,7 @@ enum emv_iad_format_t {
 #define EMV_C4_ENH_CL_READER_CAPS_BYTE1_RFU                     (0x03) ///< Enhanced Contactless Reader Capabilities: RFU
 
 // EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
-// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+// See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 #define EMV_C4_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED          (0x80) ///< Enhanced Contactless Reader Capabilities: Mobile CVM supported
 #define EMV_C4_ENH_CL_READER_CAPS_ONLINE_PIN_SUPPORTED          (0x40) ///< Enhanced Contactless Reader Capabilities: Online PIN supported
 #define EMV_C4_ENH_CL_READER_CAPS_SIGNATURE_SUPPORTED           (0x20) ///< Enhanced Contactless Reader Capabilities: Signature supported
@@ -842,13 +843,13 @@ enum emv_iad_format_t {
 #define EMV_C4_ENH_CL_READER_CAPS_BYTE2_RFU                     (0x0F) ///< Enhanced Contactless Reader Capabilities: RFU
 
 // EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
-// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+// See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 #define EMV_C4_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER           (0x80) ///< Enhanced Contactless Reader Capabilities: Reader is offline only
 #define EMV_C4_ENH_CL_READER_CAPS_CVM_REQUIRED                  (0x40) ///< Enhanced Contactless Reader Capabilities: CVM Required
 #define EMV_C4_ENH_CL_READER_CAPS_BYTE3_RFU                     (0x3F) ///< Enhanced Contactless Reader Capabilities: RFU
 
 // EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
-// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+// See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 #define EMV_C4_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM            (0x80) ///< Enhanced Contactless Reader Capabilities: Terminal exempt from No CVM checks
 #define EMV_C4_ENH_CL_READER_CAPS_DELAYED_AUTHORISATION         (0x40) ///< Enhanced Contactless Reader Capabilities: Delayed Authorisation Terminal
 #define EMV_C4_ENH_CL_READER_CAPS_TRANSIT                       (0x20) ///< Enhanced Contactless Reader Capabilities: Transit Terminal

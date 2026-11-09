@@ -524,7 +524,8 @@ enum emv_iad_format_t emv_iad_get_format(const uint8_t* iad, size_t iad_len)
 	}
 
 	// Issuer Application Data (field 9F10) for Mastercard M/Chip applications
-	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Appendix B, Issuer Application Data, 9F10
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Appendix B, Issuer Application Data, 9F10 (NOTE: for M/Chip 4)
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Appendix B, Issuer Application Data, '9F10' (NOTE: for M/Chip Advance)
 	if (iad_len >= EMV_IAD_MCHIP4_LEN &&
 		(iad[1] & EMV_IAD_MCHIP_CVN_MASK) == EMV_IAD_MCHIP_CVN_VERSION_MAGIC &&
 		!(iad[1] & EMV_IAD_MCHIP_CVN_RFU) &&

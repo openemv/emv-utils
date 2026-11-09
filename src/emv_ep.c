@@ -240,7 +240,7 @@ int emv_ep_preprocess(
 			emv_debug_trace_msg("Contactless Transaction Limit value is %u",
 				config_app->contactless_transaction_limit
 			);
-			// See EMV Contactless Book B v2.11, 3.1.1.5
+			// See EMV Contactless Book B v2.12, 3.1.1.5
 			if (ctx->txn_amount >= config_app->contactless_transaction_limit) {
 				emv_debug_trace_data("Contactless Transaction Limit exceeded for combination",
 					config_app->aid, config_app->aid_len
@@ -253,7 +253,7 @@ int emv_ep_preprocess(
 		}
 
 		// Pre-process TTQ for applications that configure it
-		// See EMV Contactless Book B v2.11, 3.1.1.2
+		// See EMV Contactless Book B v2.12, 3.1.1.2
 		ttq_config = emv_tlv_list_find_const(
 			&config_app->data,
 			EMV_TAG_9F66_TTQ
@@ -268,7 +268,7 @@ int emv_ep_preprocess(
 				continue;
 			}
 
-			// See EMV Contactless Book B v2.11, 3.1.1.11
+			// See EMV Contactless Book B v2.12, 3.1.1.11
 			if (ctx->txn_amount == 0 &&
 				(ttq_config->value[0] & EMV_TTQ_OFFLINE_ONLY_READER)
 			) {
@@ -307,13 +307,13 @@ int emv_ep_preprocess(
 		if (contactless_not_allowed > 0) {
 			// If due to Contactless Application Not Allowed indicator, outcome
 			// is Try Another Interface
-			// See EMV Contactless Book B v2.11, 3.1.1.13
+			// See EMV Contactless Book B v2.12, 3.1.1.13
 			emv_debug_info("Contactless application not allowed; try another interface");
 			return EMV_OUTCOME_TRY_ANOTHER_INTERFACE;
 		} else {
 			// If no supported combinations for other reasons, outcome is
 			// End Application
-			// See EMV Contactless Book B v2.11, 3.3.2.7
+			// See EMV Contactless Book B v2.12, 3.3.2.7
 			emv_debug_info("Combination list empty; try another card");
 			return EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		}
@@ -341,7 +341,7 @@ static int emv_ep_extract_requested_kernel_id(
 	);
 
 	// Extract Requested Kernel ID
-	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2C
+	// See EMV Contactless Book B v2.12, 3.3.2.5, step 2C
 	memset(requested_kernel_id, 0, 3);
 	kernel_id_icc = emv_tlv_list_find_const(
 		&app->tlv_list,
@@ -391,7 +391,7 @@ static int emv_ep_extract_requested_kernel_id(
 			return EMV_ERROR_INTERNAL;
 		}
 
-		// See EMV Contactless Book B v2.11, 3.3.2.5, table 3-6
+		// See EMV Contactless Book B v2.12, 3.3.2.5, table 3-6
 		switch (aid_info.scheme) {
 			case EMV_CARD_SCHEME_MASTERCARD: requested_kernel_id[0] = 2; break;
 			case EMV_CARD_SCHEME_VISA: requested_kernel_id[0] = 3; break;
@@ -429,7 +429,7 @@ static bool emv_ep_combination_is_supported(
 	}
 	config_app = combination->config;
 
-	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2B
+	// See EMV Contactless Book B v2.12, 3.3.2.5, step 2B
 	// See EMV 4.4 Book 1, 12.3.1
 	if (config_app->asi == EMV_ASI_EXACT_MATCH) {
 		if (config_app->aid_len != aid->length ||
@@ -453,7 +453,7 @@ static bool emv_ep_combination_is_supported(
 		return false;
 	}
 
-	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
+	// See EMV Contactless Book B v2.12, 3.3.2.5, step 2D
 	if (requested_kernel_id[0] == 0 ||
 		memcmp(requested_kernel_id, combination->kernel_id, 3) == 0
 	) {
@@ -498,7 +498,7 @@ int emv_ep_build_candidate_list(
 			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
 				r = EMV_ERROR_INTERNAL;
 			} else {
-				// See EMV Contactless Book B v2.11, 3.3.3.7
+				// See EMV Contactless Book B v2.12, 3.3.3.7
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
 			goto exit;
@@ -507,18 +507,18 @@ int emv_ep_build_candidate_list(
 			emv_debug_info("Failed to process PPSE; try another card");
 
 			// If PPSE failed, outcome is End Application
-			// See EMV Contactless Book B v2.11, 3.3.2.3
+			// See EMV Contactless Book B v2.12, 3.3.2.3
 			r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 			goto exit;
 		}
 	}
 
-	// See EMV Contactless Book B v2.11, 3.3.2.5
+	// See EMV Contactless Book B v2.12, 3.3.2.5
 	while ((app = emv_app_list_pop(&ppse_list))) {
 		uint8_t requested_kernel_id[3];
 		const struct emv_ep_app_t* combination;
 
-		// See EMV Contactless Book B v2.11, 3.3.2.5, step 2C
+		// See EMV Contactless Book B v2.12, 3.3.2.5, step 2C
 		r = emv_ep_extract_requested_kernel_id(app, requested_kernel_id);
 		if (r < 0) {
 			// Internal error; terminate session
@@ -542,7 +542,7 @@ int emv_ep_build_candidate_list(
 		) {
 			bool supported;
 
-			// See EMV Contactless Book B v2.11, 3.3.2.5, step 2D
+			// See EMV Contactless Book B v2.12, 3.3.2.5, step 2D
 			supported = emv_ep_combination_is_supported(
 				combination,
 				app->aid,
@@ -556,7 +556,7 @@ int emv_ep_build_candidate_list(
 				continue;
 			}
 
-			// See EMV Contactless Book B v2.11, 3.3.2.5, step 2E
+			// See EMV Contactless Book B v2.12, 3.3.2.5, step 2E
 			emv_debug_info_data("Combination is supported for kernel 0x%02X",
 				combination->config->aid,
 				combination->config->aid_len,
@@ -587,7 +587,7 @@ int emv_ep_build_candidate_list(
 
 	// If there are no mutually supported applications, outcome is
 	// End Application
-	// See EMV Contactless Book B v2.11, 3.3.2.7
+	// See EMV Contactless Book B v2.12, 3.3.2.7
 	if (emv_app_list_is_empty(app_list)) {
 		emv_debug_info("Candidate list empty; try another card");
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
@@ -595,7 +595,7 @@ int emv_ep_build_candidate_list(
 	}
 
 	// Sort application list according to priority
-	// See EMV Contactless Book B v2.11, 3.3.3.2
+	// See EMV Contactless Book B v2.12, 3.3.3.2
 	r = emv_app_list_sort_priority(app_list);
 	if (r) {
 		emv_debug_trace_msg("emv_app_list_sort_priority() failed; r=%d", r);
@@ -654,7 +654,7 @@ static int emv_ep_extract_selected_kernel_id(
 		return EMV_ERROR_INVALID_CONFIG;
 	}
 
-	// See EMV Contactless Book B v2.11, 3.4.1.4
+	// See EMV Contactless Book B v2.12, 3.4.1.4
 	memcpy(kernel_id, kernel_id_config->value, 3);
 	if (!kernel_id_icc ||
 		kernel_id_icc->length < 3 ||
@@ -706,7 +706,7 @@ int emv_ep_select_application(
 		ctx->selected_app = NULL;
 	}
 
-	// See EMV Contactless Book B v2.11, 3.3.3.2
+	// See EMV Contactless Book B v2.12, 3.3.3.2
 	current_app = emv_app_list_pop(app_list);
 	if (!current_app) {
 		emv_debug_trace_msg("emv_app_list_pop() failed");
@@ -718,7 +718,7 @@ int emv_ep_select_application(
 		goto select_next;
 	}
 
-	// See EMV Contactless Book B v2.11, 3.3.3.4
+	// See EMV Contactless Book B v2.12, 3.3.3.4
 	r = emv_tal_select_app(
 		ctx->ttl,
 		current_app->aid->value,
@@ -733,7 +733,7 @@ int emv_ep_select_application(
 			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
 				r = EMV_ERROR_INTERNAL;
 			} else {
-				// See EMV Contactless Book B v2.11, 3.3.3.7
+				// See EMV Contactless Book B v2.12, 3.3.3.7
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
 			goto error;
@@ -741,7 +741,7 @@ int emv_ep_select_application(
 		if (r > 0) {
 			emv_debug_info("Failed to select application");
 
-			// See EMV Contactless Book B v2.11, 3.3.3.5
+			// See EMV Contactless Book B v2.12, 3.3.3.5
 			goto select_next;
 		}
 	}
@@ -800,7 +800,7 @@ int emv_ep_select_application(
 
 	// When kernel C-3 is selected for a Visa AID, ensure that PDOL contains
 	// TTQ (field 9F66)
-	// See EMV Contactless Book B v2.11, 3.3.3.6
+	// See EMV Contactless Book B v2.12, 3.3.3.6
 	r = emv_aid_get_info(
 		ctx->selected_app->aid->value,
 		ctx->selected_app->aid->length,
@@ -847,12 +847,12 @@ int emv_ep_select_application(
 select_next:
 	if (emv_app_list_is_empty(app_list)) {
 		// If no applications remain, outcome is End Application
-		// See EMV Contactless Book B v2.11, 3.3.2.7
+		// See EMV Contactless Book B v2.12, 3.3.2.7
 		emv_debug_info("Candidate list empty; try another card");
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 	} else {
 		// Otherwise, outcome is Select Next
-		// See EMV Contactless Book B v2.11, 3.3.2.6
+		// See EMV Contactless Book B v2.12, 3.3.2.6
 		r = EMV_OUTCOME_SELECT_NEXT;
 	}
 
@@ -910,7 +910,7 @@ int emv_ep_create_common_kernel_data(
 	// Create Kernel Identifier - Terminal (field 96)
 	// NOTE: emv_ep_select_application() copies Kernel Identifier (field 9F2A)
 	// when available
-	// See EMV Contactless Book B v2.11, 3.4.1.4
+	// See EMV Contactless Book B v2.12, 3.4.1.4
 	memset(kernel_id_term, 0, sizeof(kernel_id_term));
 	r = emv_ep_extract_selected_kernel_id(
 		ctx->selected_app,
@@ -995,8 +995,8 @@ int emv_ep_create_common_kernel_data(
 
 	// Create Terminal Verification Results (TVR, field 95)
 	// See EMV 4.4 Book 3, 10.1
-	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.9
-	// See EMV Contactless Book C-3 v2.11, A.2
+	// See EMV Contactless Book C-2 v2.12, 6.3.3, S1.9
+	// See EMV Contactless Book C-3 v2.12, A.2
 	r = emv_tlv_list_push(
 		&ctx->terminal,
 		EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS,
@@ -1013,9 +1013,9 @@ int emv_ep_create_common_kernel_data(
 	}
 
 	// Create Unpredictable Number (field 9F37)
-	// See EMV Contactless Book A, v2.11, 8.1.1.7
-	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.9
-	// See EMV Contactless Book C-3 v2.11, 2.1
+	// See EMV Contactless Book A v2.12, 8.1.1.7
+	// See EMV Contactless Book C-2 v2.12, 6.3.3, S1.9
+	// See EMV Contactless Book C-3 v2.12, 2.1
 	crypto_rand(un, sizeof(un));
 	r = emv_tlv_list_push(
 		&ctx->terminal,
@@ -1034,7 +1034,7 @@ int emv_ep_create_common_kernel_data(
 	}
 
 	// Only prepare TTQ for applications that configure it
-	// See EMV Contactless Book B v2.11, 3.1.1.2
+	// See EMV Contactless Book B v2.12, 3.1.1.2
 	ttq_config = emv_tlv_list_find_const(
 		&ctx->selected_app->config->data,
 		EMV_TAG_9F66_TTQ
@@ -1071,7 +1071,7 @@ int emv_ep_create_common_kernel_data(
 		}
 
 		// Pre-processing for Terminal Transaction Qualifiers (field 9F66)
-		// See EMV Contactless Book B v2.11, 3.1.1
+		// See EMV Contactless Book B v2.12, 3.1.1
 		memcpy(ttq, ttq_config->value, sizeof(ttq));
 		ttq[1] &= ~EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
 		ttq[1] &= ~EMV_TTQ_CVM_REQUIRED;
@@ -1080,21 +1080,21 @@ int emv_ep_create_common_kernel_data(
 
 		// Apply Contactless Floor Limit
 		if (ctx->selected_app->config->contactless_floor_limit_enabled) {
-			// See EMV Contactless Book B v2.11, 3.1.1.6
+			// See EMV Contactless Book B v2.12, 3.1.1.6
 			emv_debug_trace_msg("Contactless Floor Limit value is %u",
 				ctx->selected_app->config->contactless_floor_limit
 			);
-			// See EMV Contactless Book B v2.11, 3.1.1.9
+			// See EMV Contactless Book B v2.12, 3.1.1.9
 			if (ctx->txn_amount > ctx->selected_app->config->contactless_floor_limit) {
 				emv_debug_info("Contactless Floor Limit exceeded");
 				ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
 			}
 		} else {
-			// See EMV Contactless Book B v2.11, 3.1.1.7
+			// See EMV Contactless Book B v2.12, 3.1.1.7
 			emv_debug_trace_msg("Terminal Floor Limit value is %u",
 				(unsigned int)term_floor_limit_value
 			);
-			// See EMV Contactless Book B v2.11, 3.1.1.9
+			// See EMV Contactless Book B v2.12, 3.1.1.9
 			if (ctx->txn_amount > term_floor_limit_value) {
 				emv_debug_info("Terminal Floor Limit exceeded");
 				ttq[1] |= EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED;
@@ -1103,11 +1103,11 @@ int emv_ep_create_common_kernel_data(
 
 		// Apply Contactless CVM Required Limit
 		if (ctx->selected_app->config->contactless_cvm_required_limit_enabled) {
-			// See EMV Contactless Book B v2.11, 3.1.1.8
+			// See EMV Contactless Book B v2.12, 3.1.1.8
 			emv_debug_trace_msg("Contactless CVM Required Limit value is %u",
 				ctx->selected_app->config->contactless_cvm_required_limit
 			);
-			// See EMV Contactless Book B v2.11, 3.1.1.12
+			// See EMV Contactless Book B v2.12, 3.1.1.12
 			if (ctx->txn_amount >= ctx->selected_app->config->contactless_cvm_required_limit) {
 				emv_debug_info("Contactless CVM Required Limit exceeded");
 				ttq[1] |= EMV_TTQ_CVM_REQUIRED;
@@ -1115,7 +1115,7 @@ int emv_ep_create_common_kernel_data(
 		}
 
 		// Apply Contactless Zero Amount if online-capable
-		// See EMV Contactless Book B v2.11, 3.1.1.11
+		// See EMV Contactless Book B v2.12, 3.1.1.11
 		if (ctx->txn_amount == 0 &&
 			!(ttq[0] & EMV_TTQ_OFFLINE_ONLY_READER)
 		) {

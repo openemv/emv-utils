@@ -246,7 +246,7 @@ static int iso14443_ats_parse_T0(uint8_t T0, struct iso14443_ats_info_t* ats_inf
 	// Convert FSCI to FSC (frame size in bytes)
 	// See ISO 14443-4:2008, 5.2.3
 	// See ISO 14443-4:2008, 5.1, table 1
-	// EMV Level 1 Contactless Interface Specification v3.2, 5.7.2, table 5.17
+	// EMV Level 1 Contactless Interface Specification v4.0, 5.7.2, table 5.17
 	switch (FSCI) {
 		case 0x0: ats_info->FSC = 16; break;
 		case 0x1: ats_info->FSC = 24; break;
@@ -623,7 +623,7 @@ static int iso14443_atqb_parse_PI2(uint8_t PI2, struct iso14443_atqb_info_t* atq
 	// Convert FSCI to FSC (frame size in bytes)
 	// See ISO 14443-3:2011, 7.9.4.5
 	// See ISO 14443-4:2008, 5.1, table 1
-	// EMV Level 1 Contactless Interface Specification v3.2, 6.3.2.6-6.3.2.7, table 6.7
+	// EMV Level 1 Contactless Interface Specification v4.0, 6.3.2.6-6.3.2.7, table 6.7
 	switch (FSCI) {
 		case 0x0: atqb_info->FSC = 16; break;
 		case 0x1: atqb_info->FSC = 24; break;

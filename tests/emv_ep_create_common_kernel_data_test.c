@@ -551,7 +551,7 @@ static int verify_terminal_data(
 	}
 
 	// This is ugly but that's why it's in a helper function
-	// See EMV Contactless Book B v2.11, 3.4
+	// See EMV Contactless Book B v2.12, 3.4
 	if (emv_tlv_list_is_empty(&ctx->terminal) ||
 		ctx->terminal.front->tag != EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL ||
 		!ctx->terminal.front->next ||

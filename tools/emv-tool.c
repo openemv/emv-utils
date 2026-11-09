@@ -844,7 +844,7 @@ int main(int argc, char** argv)
 	print_emv_tlv_list(&emv.params);
 
 	// Entry Point pre-processing is performed before card presentation
-	// See EMV Contactless Book B v2.11, 3.1
+	// See EMV Contactless Book B v2.12, 3.1
 	printf("\nBuild combination list\n");
 	r = emv_ep_preprocess(&emv, &ep_list);
 	if (r < 0) {
@@ -853,8 +853,8 @@ int main(int argc, char** argv)
 	}
 	if (r > 0) {
 		// Contactless is not possible for this transaction
-		// See EMV Contactless Book B v2.11, 3.1.1.13
-		// See EMV Contactless Book B v2.11, 3.3.2.7
+		// See EMV Contactless Book B v2.12, 3.1.1.13
+		// See EMV Contactless Book B v2.12, 3.3.2.7
 		if (r == EMV_OUTCOME_TRY_ANOTHER_INTERFACE) {
 			printf("No contactless applications allowed\n");
 		} else {
@@ -1081,8 +1081,8 @@ int main(int argc, char** argv)
 	} else {
 		if (contactless_preprocess_outcome) {
 			// Contactless is not possible for this transaction
-			// See EMV Contactless Book B v2.11, 3.1.1.13
-			// See EMV Contactless Book B v2.11, 3.3.2.7
+			// See EMV Contactless Book B v2.12, 3.1.1.13
+			// See EMV Contactless Book B v2.12, 3.3.2.7
 			printf("OUTCOME: %s\n", emv_outcome_get_string(contactless_preprocess_outcome));
 			goto emv_exit;
 		}
@@ -1105,7 +1105,7 @@ int main(int argc, char** argv)
 
 		do {
 			// Start C
-			// See EMV Contactless Book B v2.11, 3.3.2.6
+			// See EMV Contactless Book B v2.12, 3.3.2.6
 			printf("\nSelect application\n");
 			r = emv_ep_select_application(&emv, &app_list, kernel_id);
 			if (r < 0) {
@@ -1116,7 +1116,7 @@ int main(int argc, char** argv)
 				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 				if (r == EMV_OUTCOME_SELECT_NEXT) {
 					// Return to Start C
-					// See EMV Contactless Book B v2.11, 3.3.3.5
+					// See EMV Contactless Book B v2.12, 3.3.3.5
 					continue;
 				}
 				goto emv_exit;
@@ -1155,16 +1155,16 @@ int main(int argc, char** argv)
 				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 				if (r == EMV_OUTCOME_SELECT_NEXT) {
 					// Outcome is Select Next
-					// See EMV Contactless Book B v2.11, 3.5.1.4
-					// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.9.2
-					// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+					// See EMV Contactless Book B v2.12, 3.5.1.4
+					// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.9.2
+					// See EMV Contactless Book C-3 v2.12, 5.2.2.2
 					if (!emv_app_list_is_empty(&app_list)) {
 						// Return to Start C
-						// See EMV Contactless Book B v2.11, 3.3.2.6
+						// See EMV Contactless Book B v2.12, 3.3.2.6
 						continue;
 					} else {
 						// Otherwise outcome is End Application
-						// See EMV Contactless Book B v2.11, 3.3.2.7
+						// See EMV Contactless Book B v2.12, 3.3.2.7
 						r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 					}
 					printf("OUTCOME: %s\n", emv_outcome_get_string(r));

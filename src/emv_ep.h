@@ -48,7 +48,7 @@ struct emv_ep_app_t {
 	/**
 	 * @brief Kernel Identifier - Terminal (field 96)
 	 * Must be 8 bytes.
-	 * @remark See EMV Contactless Book B v2.11, Table 3-7
+	 * @remark See EMV Contactless Book B v2.12, Table 3-7
 	 *
 	 * Populated by @ref emv_ep_preprocess via @ref emv_ep_app_list_push().
 	 */
@@ -105,7 +105,7 @@ void emv_ep_app_list_clear(struct emv_ep_app_list_t* list);
 /**
  * Perform EMV contactless Entry Point pre-processing and create the list of
  * valid application combinations
- * @remark See EMV Contactless Book B v2.11, 3.1
+ * @remark See EMV Contactless Book B v2.12, 3.1
  *
  * @note This function depends on the cached transaction amount and can
  *       therefore only be called after @ref emv_ctx_prepare_txn().
@@ -128,7 +128,7 @@ int emv_ep_preprocess(
  * pre-processing list, and then sort according to Application
  * Priority Indicator. This function is intended for contactless cards, not
  * contact cards. Use @ref emv_build_candidate_list() for contact cards.
- * @remark See EMV Contactless Book B v2.11, 3.3
+ * @remark See EMV Contactless Book B v2.12, 3.3
  *
  * @param ctx EMV processing context
  * @param ep_list EMV contactless application combination list
@@ -153,7 +153,7 @@ int emv_ep_build_candidate_list(
  * candidate application list is empty or not.
  * @remark See EMV 4.4 Book 1, 12.4
  * @remark See EMV 4.4 Book 4, 11.3
- * @remark See EMV Contactless Book B v2.11, 3.3.3
+ * @remark See EMV Contactless Book B v2.12, 3.3.3
  *
  * @param ctx EMV processing context
  * @param app_list Candidate application list
@@ -172,7 +172,7 @@ int emv_ep_select_application(
 /**
  * Create EMV fields commonly used by contactless kernels and expected by
  * various EMV processing functions.
- * @remark See EMV Contactless Book B v2.11, 3.4
+ * @remark See EMV Contactless Book B v2.12, 3.4
  *
  * @note This function is intended to be used by individual contactless kernel
  *       implementations and should only be used directly for use cases beyond

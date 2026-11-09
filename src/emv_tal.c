@@ -477,8 +477,8 @@ int emv_tal_read_ppse(
 	}
 
 	// SELECT Proximity Payment System Environment (PPSE) Directory Definition File (DDF)
-	// See EMV Contactless Book B v2.11, 3.3.1
-	// See EMV Contactless Book B v2.11, 3.3.2.2
+	// See EMV Contactless Book B v2.12, 3.3.1
+	// See EMV Contactless Book B v2.12, 3.3.2.2
 	emv_debug_info("SELECT %s", EMV_PPSE);
 	r = emv_ttl_select_by_df_name(ttl, EMV_PPSE, strlen(EMV_PPSE), fci, &fci_len, &sw1sw2);
 	if (r) {
@@ -492,29 +492,29 @@ int emv_tal_read_ppse(
 
 	if (sw1sw2 == 0x6A81) {
 		// Card blocked or SELECT not supported; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2.3
+		// See EMV Contactless Book B v2.12, 3.3.2.3
 		emv_debug_error("Card blocked or SELECT not supported");
 		return EMV_TAL_RESULT_PPSE_NOT_SUPPORTED;
 	}
 
 	if (sw1sw2 == 0x6A82) {
 		// PPSE not found; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2.3
+		// See EMV Contactless Book B v2.12, 3.3.2.3
 		emv_debug_info("PPSE not found");
 		return EMV_TAL_RESULT_PPSE_NOT_FOUND;
 	}
 
 	if (sw1sw2 == 0x6283) {
 		// PPSE is blocked; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2.3
+		// See EMV Contactless Book B v2.12, 3.3.2.3
 		emv_debug_error("PPSE is blocked");
 		return EMV_TAL_RESULT_PPSE_BLOCKED;
 	}
 
 	if (sw1sw2 != 0x9000) {
 		// Failed to SELECT PPSE; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2.3
-		// See EMV Contactless Book B v2.11, 3.3.2.7
+		// See EMV Contactless Book B v2.12, 3.3.2.3
+		// See EMV Contactless Book B v2.12, 3.3.2.7
 		emv_debug_error("Failed to SELECT PPSE");
 		return EMV_TAL_RESULT_PPSE_SELECT_FAILED;
 	}
@@ -522,19 +522,19 @@ int emv_tal_read_ppse(
 	emv_debug_info_ber("FCI", fci, fci_len);
 
 	// Decode FCI Template (field 6F)
-	// See EMV Contactless Book B v2.11, 3.3.1, table 3-2
+	// See EMV Contactless Book B v2.12, 3.3.1, table 3-2
 	r = iso8825_ber_decode(fci, fci_len, &fci_template_tlv);
 	if (r <= 0) {
 		emv_debug_trace_msg("iso8825_ber_decode() failed; r=%d", r);
 
 		// Failed to parse PPSE; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2
+		// See EMV Contactless Book B v2.12, 3.3.2
 		emv_debug_error("Failed to parse FCI for PPSE");
 		return EMV_TAL_RESULT_PPSE_FCI_PARSE_FAILED;
 	}
 
 	// FCI Template (field 6F) may contain multiple fields
-	// See EMV Contactless Book B v2.11, 3.3.1, table 3-2
+	// See EMV Contactless Book B v2.12, 3.3.1, table 3-2
 	r = iso8825_ber_itr_init(
 		fci_template_tlv.value,
 		fci_template_tlv.length,
@@ -559,7 +559,7 @@ int emv_tal_read_ppse(
 	}
 	if (fci_prop_template_tlv.tag != EMV_TAG_A5_FCI_PROPRIETARY_TEMPLATE) {
 		// Failed to parse PPSE; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2
+		// See EMV Contactless Book B v2.12, 3.3.2
 		emv_debug_error("Failed to find A5 template in PPSE");
 		return EMV_TAL_RESULT_PPSE_FCI_PARSE_FAILED;
 	}
@@ -572,20 +572,20 @@ int emv_tal_read_ppse(
 	);
 	if (r <= 0) {
 		// Failed to parse PPSE; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2
+		// See EMV Contactless Book B v2.12, 3.3.2
 		emv_debug_error("Invalid A5 template in PPSE");
 		return EMV_TAL_RESULT_PPSE_FCI_PARSE_FAILED;
 	}
 	if (fci_issuer_disc_data_tlv.tag != EMV_TAG_BF0C_FCI_ISSUER_DISCRETIONARY_DATA) {
 		// Failed to parse PPSE; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2
+		// See EMV Contactless Book B v2.12, 3.3.2
 		emv_debug_error("Failed to find BF0C element in PPSE");
 		return EMV_TAL_RESULT_PPSE_FCI_PARSE_FAILED;
 	}
 
 	// FCI Issuer Discretionary Data (field BF0C) may contain multiple
 	// Directory Entries (field 61)
-	// See EMV Contactless Book B v2.11, 3.3.1, table 3-2
+	// See EMV Contactless Book B v2.12, 3.3.1, table 3-2
 	r = iso8825_ber_itr_init(
 		fci_issuer_disc_data_tlv.value,
 		fci_issuer_disc_data_tlv.length,
@@ -611,7 +611,7 @@ int emv_tal_read_ppse(
 		app = emv_app_create_from_ppse_dir_entry(dir_entry_tlv.value, dir_entry_tlv.length);
 		if (!app) {
 			// Ignore invalid Directory Entry (field 61) content
-			// See EMV Contactless Book B v2.11, 3.3.2.5, step 2A
+			// See EMV Contactless Book B v2.12, 3.3.2.5, step 2A
 			emv_debug_error("Invalid PPSE directory entry");
 			continue;
 		}
@@ -620,7 +620,7 @@ int emv_tal_read_ppse(
 	}
 	if (r < 0) {
 		// Failed to parse PPSE; terminate session
-		// See EMV Contactless Book B v2.11, 3.3.2
+		// See EMV Contactless Book B v2.12, 3.3.2
 		emv_debug_trace_msg("iso8825_ber_itr_next() failed; r=%d", r);
 		emv_debug_error("Failed to parse directory entry in PPSE");
 		r = EMV_TAL_RESULT_PPSE_DIR_ENTRY_PARSE_FAILED;
@@ -777,8 +777,8 @@ int emv_tal_get_processing_options(
 			case 0x6985:
 				// Conditions of use not satisfied; ignore app and continue
 				// See EMV 4.4 Book 3, 10.1
-				// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.8
-				// See EMV Contactless Book C-3 v2.11, 5.2.2.2
+				// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.8
+				// See EMV Contactless Book C-3 v2.12, 5.2.2.2
 				emv_debug_info("Conditions of use not satisfied");
 				return EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED;
 

@@ -170,7 +170,7 @@ struct emv_app_t* emv_app_create_from_ppse_dir_entry(
 	}
 
 	// Use ADF Name field for AID
-	// See EMV Contactless Book B v2.11, 3.3.2.5, step 2A
+	// See EMV Contactless Book B v2.12, 3.3.2.5, step 2A
 	// See EMV 4.4 Book 1, 12.2.1
 	app->aid = emv_tlv_list_find_const(&app->tlv_list, EMV_TAG_4F_APPLICATION_DF_NAME);
 	if (!app->aid || app->aid->length < 5 || app->aid->length > 16) {
@@ -314,7 +314,7 @@ static int emv_app_extract_priority_indicator(struct emv_app_t* app, bool contac
 	app->priority = tlv->value[0] & EMV_APP_PRIORITY_INDICATOR_MASK;
 	app->confirmation_required = tlv->value[0] & EMV_APP_PRIORITY_INDICATOR_CONF_REQUIRED;
 
-	// See EMV Contactless Book B v2.11, 3.3.3.2
+	// See EMV Contactless Book B v2.12, 3.3.3.2
 	if (contactless) {
 		// Contactless considers 0, F and no priority as equal lowest priority
 		if (app->priority == 0xF) {
@@ -591,7 +591,7 @@ int emv_app_list_sort_priority(struct emv_app_list_t* list)
 		// implementation chooses to favour applications with a priority
 		// indicator over those without.
 
-		// See EMV Contactless Book B v2.11, 3.3.3.2
+		// See EMV Contactless Book B v2.12, 3.3.3.2
 		// - emv_app_extract_priority_indicator() ensures that no priority
 		//   indicator, or values of 0 or 0xF, are considered to be equal
 		// - emv_tal_read_ppse() ensures that the existing list is already in

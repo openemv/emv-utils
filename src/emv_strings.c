@@ -3320,7 +3320,7 @@ int emv_asrpd_get_string_list(
 					// No data
 					break;
 				}
-				// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Application Selection Registered Proprietary Data
+				// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Application Selection Registered Proprietary Data
 				switch (asrpd[3]) {
 					case 0x01: emv_str_list_add(&itr, "Debit"); break;
 					case 0x02: emv_str_list_add(&itr, "Credit"); break;
@@ -3376,18 +3376,18 @@ static int emv_kernel_id_decode(
 	memset(info, 0, sizeof(*info));
 
 	// Kernel Identifier must be 1 or 3-8 bytes
-	// See EMV Contactless Book B v2.11, Table 3-4 and Table 3-5
+	// See EMV Contactless Book B v2.12, Table 3-4 and Table 3-5
 	if (buf_len == 2 || buf_len > 8) {
 		return 1;
 	}
 
 	// Kernel Identifier byte 1 (kernel type and short kernel ID)
-	// See EMV Contactless Book B v2.11, Table 3-4
+	// See EMV Contactless Book B v2.12, Table 3-4
 	info->kernel_type = buf[0] & EMV_KERNEL_ID_TYPE_MASK;
 	info->short_kernel_id = buf[0] & EMV_KERNEL_ID_SHORT_MASK;
 
 	// Only decode currency for domestic EMVCo kernels with extended ID
-	// See EMV Contactless Book B v2.11, Table 3-5
+	// See EMV Contactless Book B v2.12, Table 3-5
 	if (info->kernel_type != EMV_KERNEL_ID_TYPE_DOMESTIC_EMVCO) {
 		return 0;
 	}
@@ -3397,7 +3397,7 @@ static int emv_kernel_id_decode(
 	}
 
 	// Kernel Identifier byte 2-3 (currency code)
-	// See EMV Contactless Book B v2.11, Table 3-5
+	// See EMV Contactless Book B v2.12, Table 3-5
 	r = emv_currency_numeric_code_get_string(buf + 1, 2, info->currency, sizeof(info->currency));
 	if (r < 0) {
 		// Internal error
@@ -3433,7 +3433,7 @@ int emv_kernel_id_get_string(
 	}
 
 	// Stringify short kernel ID
-	// See EMV Contactless Book B v2.11, Table 3-4
+	// See EMV Contactless Book B v2.12, Table 3-4
 	if (info.short_kernel_id) {
 		r = snprintf(str, str_len, "Kernel C-%u", info.short_kernel_id);
 	} else {
@@ -3445,7 +3445,7 @@ int emv_kernel_id_get_string(
 	len = r;
 
 	// Stringify kernel type and extended kernel ID
-	// See EMV Contactless Book B v2.11, Table 3-4 and Table 3-5
+	// See EMV Contactless Book B v2.12, Table 3-4 and Table 3-5
 	switch (info.kernel_type) {
 		case EMV_KERNEL_ID_TYPE_INTERNATIONAL:
 			snprintf(str + len, str_len - len, ", International");
@@ -3502,7 +3502,7 @@ int emv_kernel_id_terminal_get_string(
 	}
 
 	// Stringify short kernel ID
-	// See EMV Contactless Book B v2.11, Table 3-4
+	// See EMV Contactless Book B v2.12, Table 3-4
 	if (info.short_kernel_id) {
 		r = snprintf(str, str_len, "Kernel C-%u", info.short_kernel_id);
 	} else {
@@ -3514,7 +3514,7 @@ int emv_kernel_id_terminal_get_string(
 	len = r;
 
 	// Stringify kernel type and extended kernel ID
-	// See EMV Contactless Book B v2.11, Table 3-4 and Table 3-5
+	// See EMV Contactless Book B v2.12, Table 3-4 and Table 3-5
 	switch (info.kernel_type) {
 		case EMV_KERNEL_ID_TYPE_INTERNATIONAL:
 			r = snprintf(str + len, str_len - len, ", International");
@@ -3542,7 +3542,7 @@ int emv_kernel_id_terminal_get_string(
 	len += r;
 
 	// Stringify kernel 8 support if byte 4 is present
-	// See EMV Contactless Book B v2.11, Table 3-7
+	// See EMV Contactless Book B v2.12, Table 3-7
 	if (buf_len >= 4) {
 		bool k8_reader = buf[3] & EMV_KERNEL_ID_TERMINAL_K8_READER_SUPPORT;
 		bool k8_transaction = buf[3] & EMV_KERNEL_ID_TERMINAL_K8_TRANSACTION_SUPPORT;
@@ -3562,7 +3562,7 @@ int emv_kernel_id_terminal_get_string(
 static const char* emv_terminal_category_get_string(uint16_t category)
 {
 	// Terminal Categories
-	// See EMV Contactless Book B v2.11, Annex A.1, Table A-2
+	// See EMV Contactless Book B v2.12, Annex A.1, Table A-2
 	switch (category) {
 		case EMV_TERMINAL_CATEGORY_TRANSIT_GATE:
 			return "Transit gate";
@@ -3600,7 +3600,7 @@ int emv_terminal_categories_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Terminal Categories Supported List (field 9F3E)
-	// See EMV Contactless Book B v2.11, Annex A
+	// See EMV Contactless Book B v2.12, Annex A
 	for (size_t i = 0; i < term_cats_len; i += 2) {
 		uint16_t category = (term_cats[i] << 8) + term_cats[i + 1];
 		const char* category_str = emv_terminal_category_get_string(category);
@@ -3642,7 +3642,7 @@ int emv_poi_info_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// POI Information (field 8B)
-	// See EMV Contactless Book B v2.11, Annex A
+	// See EMV Contactless Book B v2.12, Annex A
 	while (poi_info_len) {
 		uint16_t poi_id;
 		size_t poi_entry_len;
@@ -3663,7 +3663,7 @@ int emv_poi_info_get_string_list(
 		}
 
 		// Decode POI Information entry
-		// See EMV Contactless Book B v2.11, Annex A.1, Table A-1
+		// See EMV Contactless Book B v2.12, Annex A.1, Table A-1
 		switch (poi_id) {
 			case EMV_POI_INFO_TERMINAL_CATEGORY: {
 				uint16_t category;
@@ -3720,7 +3720,7 @@ int emv_aip_get_string_list(
 
 	// Application Interchange Profile (field 82) byte 1
 	// See EMV 4.4 Book 3, Annex C1, Table 41
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.16
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.16
 	if (aip[0] & EMV_AIP_XDA_SUPPORTED) {
 		emv_str_list_add(&itr, "Extended Data Authentication (XDA) is supported");
 	}
@@ -3747,8 +3747,8 @@ int emv_aip_get_string_list(
 	}
 
 	// Application Interchange Profile (field 82) byte 2
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.16
-	// See EMV Contactless Book C-3 v2.11, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.16
+	// See EMV Contactless Book C-3 v2.12, Annex A.2 (NOTE: byte 2 bit 8 is documented but no longer used by this specification)
 	if (aip[1] & EMV_AIP_EMV_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Contactless EMV mode is supported");
 	}
@@ -5761,7 +5761,8 @@ static int emv_iad_mchip_append_string_list(
 	const uint8_t* cvr;
 
 	// Issuer Application Data for M/Chip 4 and M/Chip Advance
-	// See M/Chip Requirements for Contact and Contactless, 15 March 2022, Appendix B, Issuer Application Data, 9F10
+	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Appendix B, Issuer Application Data, 9F10 (NOTE: for M/Chip 4)
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Appendix B, Issuer Application Data, '9F10' (NOTE: for M/Chip Advance)
 	if (!iad ||
 		(
 			iad_len != EMV_IAD_MCHIP4_LEN &&
@@ -6476,10 +6477,10 @@ int emv_terminal_risk_management_data_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Terminal Risk Management Data (field 9F1D) byte 1
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.161
-	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.143
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 	if (trmd[0] & EMV_TRMD_BYTE1_RESTART_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// NOTE: EMV Contactless Book C-8 v1.2, Annex A.1.129 does not define
 		// this bit and it avoids confusion if no string is provided when this
 		// bit is unset
 		emv_str_list_add(&itr, "Restart supported");
@@ -6503,16 +6504,16 @@ int emv_terminal_risk_management_data_get_string_list(
 		emv_str_list_add(&itr, "Plaintext PIN verification performed by ICC (Contactless)");
 	}
 	if (trmd[0] & EMV_TRMD_BYTE1_PRESENT_AND_HOLD_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// NOTE: EMV Contactless Book C-8 v1.2, Annex A.1.129 does not define
 		// this bit and it avoids confusion if no string is provided when this
 		// bit is unset
 		emv_str_list_add(&itr, "Present and Hold supported");
 	}
 
 	// Terminal Risk Management Data (field 9F1D) byte 2
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.161
-	// See EMV Contactless Book C-8 v1.1, Annex A.1.129
-	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.143
+	// See EMV Contactless Book C-8 v1.2, Annex A.1.129
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 	if (trmd[1] & EMV_TRMD_BYTE2_CVM_LIMIT_EXCEEDED) {
 		emv_str_list_add(&itr, "CVM Limit exceeded");
 	}
@@ -6536,30 +6537,30 @@ int emv_terminal_risk_management_data_get_string_list(
 	}
 
 	// Terminal Risk Management Data (field 9F1D) byte 3
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.161
-	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.143
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 	if (trmd[2] & EMV_TRMD_BYTE3_MAGSTRIPE_MODE_CONTACTLESS_NOT_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// NOTE: EMV Contactless Book C-8 v1.2, Annex A.1.129 does not define
 		// this bit and it avoids confusion if no string is provided when this
 		// bit is unset
 		emv_str_list_add(&itr, "Mag-stripe mode contactless transactions not supported");
 	}
 	if (trmd[2] & EMV_TRMD_BYTE3_EMV_MODE_CONTACTLESS_NOT_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// NOTE: EMV Contactless Book C-8 v1.2, Annex A.1.129 does not define
 		// this bit and it avoids confusion if no string is provided when this
 		// bit is unset
 		emv_str_list_add(&itr, "EMV mode contactless transactions not supported");
 	}
 	if (trmd[2] & EMV_TRMD_BYTE3_CDCVM_WITHOUT_CDA_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-8 v1.1, Annex A.1.129 does not define
+		// NOTE: EMV Contactless Book C-8 v1.2, Annex A.1.129 does not define
 		// this bit and it avoids confusion if no string is provided when this
 		// bit is unset
 		emv_str_list_add(&itr, "CDCVM without CDA supported");
 	}
 
 	// Terminal Risk Management Data (field 9F1D) byte 4
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.161
-	// See EMV Contactless Book C-8 v1.1, Annex A.1.129
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.143
+	// See EMV Contactless Book C-8 v1.2, Annex A.1.129
 	if (trmd[3] & EMV_TRMD_BYTE4_CDCVM_BYPASS_REQUESTED) {
 		emv_str_list_add(&itr, "CDCVM bypass requested");
 	}
@@ -6605,7 +6606,7 @@ int emv_c2_app_caps_info_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 1
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.9
 	switch (aci[0] & EMV_C2_ACI_VERSION_MASK) {
 		case EMV_C2_ACI_VERSION_0:
 			emv_str_list_add(&itr, "Application Capabilities Information: Version 0");
@@ -6638,7 +6639,7 @@ int emv_c2_app_caps_info_get_string_list(
 	}
 
 	// EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 2
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.9
 	if (aci[1] & EMV_C2_ACI_BYTE2_RFU) {
 		emv_str_list_add(&itr, "Application Capabilities Information: RFU");
 	}
@@ -6654,7 +6655,7 @@ int emv_c2_app_caps_info_get_string_list(
 	}
 
 	// EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 3
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.9
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.9
 	switch (aci[2]) {
 		case EMV_C2_ACI_SDS_UNDEFINED:
 			emv_str_list_add(&itr, "Standalone Data Storage (SDS) Scheme: Undefined SDS configuration");
@@ -6726,7 +6727,7 @@ int emv_ttq_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 1
-	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
+	// See EMV Contactless Book A v2.12, 5.7, Table 5-4
 	if (ttq[0] & EMV_TTQ_MAGSTRIPE_MODE_SUPPORTED) {
 		emv_str_list_add(&itr, "Mag-stripe mode supported");
 	} else {
@@ -6767,8 +6768,8 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 2
-	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
-	// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+	// See EMV Contactless Book A v2.12, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.12, Annex D.37, Table 4-25
 	if (ttq[1] & EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED) {
 		emv_str_list_add(&itr, "Online cryptogram required");
 	} else {
@@ -6785,13 +6786,13 @@ int emv_ttq_get_string_list(
 		emv_str_list_add(&itr, "(Contact Chip) Offline PIN not supported");
 	}
 	if (ttq[1] & EMV_TTQ_FAST_MODE_SUPPORTED) {
-		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// NOTE: Only EMV Contactless Book C-6 v2.12, Annex D.37, Table 4-25
 		// defines this bit and it avoids confusion for other kernels if no
 		// string is provided when this bit is unset
 		emv_str_list_add(&itr, "Fast Mode supported");
 	}
 	if (ttq[1] & EMV_TTQ_TRANSIT_TERMINAL) {
-		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// NOTE: Only EMV Contactless Book C-6 v2.12, Annex D.37, Table 4-25
 		// defines this bit and it avoids confusion for other kernels if no
 		// string is provided when this bit is unset
 		emv_str_list_add(&itr, "Transit terminal");
@@ -6801,8 +6802,8 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 3
-	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
-	// See EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+	// See EMV Contactless Book A v2.12, 5.7, Table 5-4
+	// See EMV Contactless Book C-6 v2.12, Annex D.37, Table 4-25
 	// See EMV Contactless Book C-6 v2.6, Annex D.11, Table 4-16 (NOTE: for byte 3 bit 4)
 	if (ttq[2] & EMV_TTQ_ISSUER_UPDATE_PROCESSING_SUPPORTED) {
 		emv_str_list_add(&itr, "Issuer Update Processing supported");
@@ -6815,7 +6816,7 @@ int emv_ttq_get_string_list(
 		emv_str_list_add(&itr, "Consumer Device CVM not supported");
 	}
 	if (ttq[2] & EMV_TTQ_CDCVM_FOR_TRANSIT_MCC_SUPPORTED) {
-		// NOTE: Only EMV Contactless Book C-6 v2.11, Annex D.37, Table 4-25
+		// NOTE: Only EMV Contactless Book C-6 v2.12, Annex D.37, Table 4-25
 		// defines this bit and it avoids confusion for other kernels if no
 		// string is provided when this bit is unset
 		emv_str_list_add(&itr, "Consumer Device CVM for transit MCC supported");
@@ -6831,10 +6832,10 @@ int emv_ttq_get_string_list(
 	}
 
 	// Terminal Transaction Qualifiers (field 9F66) byte 4
-	// See EMV Contactless Book A v2.11, 5.7, Table 5-4
-	// See EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1
+	// See EMV Contactless Book A v2.12, 5.7, Table 5-4
+	// See EMV Contactless Book C-7 v2.12, 3.2.2, Table 3-1
 	if (ttq[3] & EMV_TTQ_FDDA_V1_SUPPORTED) {
-		// NOTE: EMV Contactless Book C-7 v2.11, 3.2.2, Table 3-1 does not
+		// NOTE: EMV Contactless Book C-7 v2.12, 3.2.2, Table 3-1 does not
 		// specify a string when this bit is not set and it avoids confusion
 		// for other kernels if no string is provided when this bit is unset
 		emv_str_list_add(&itr, "fDDA v1.0 Supported");
@@ -6872,8 +6873,8 @@ int emv_ctq_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Card Transaction Qualifiers (field 9F6C) byte 1
-	// See EMV Contactless Book C-3 v2.11, Annex A.2
-	// See EMV Contactless Book C-7 v2.11, Annex A
+	// See EMV Contactless Book C-3 v2.12, Annex A.2
+	// See EMV Contactless Book C-7 v2.12, Annex A
 	if (ctq[0] & EMV_CTQ_ONLINE_PIN_REQUIRED) {
 		emv_str_list_add(&itr, "Online PIN Required");
 	}
@@ -6901,8 +6902,8 @@ int emv_ctq_get_string_list(
 	}
 
 	// Card Transaction Qualifiers (field 9F6C) byte 2
-	// See EMV Contactless Book C-3 v2.11, Annex A.2
-	// See EMV Contactless Book C-7 v2.11, Annex A
+	// See EMV Contactless Book C-3 v2.12, Annex A.2
+	// See EMV Contactless Book C-7 v2.12, Annex A
 	if (ctq[1] & EMV_CTQ_CDCVM_PERFORMED) {
 		emv_str_list_add(&itr, "Consumer Device CVM Performed");
 	}
@@ -6928,7 +6929,7 @@ int emv_c4_cl_reader_caps_get_string(
 	}
 
 	// EMV kernel C-4 Contactless Reader Capabilities (field 9F6D)
-	// See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
+	// See EMV Contactless Book C-4 v2.12, 4.3.3, Table 4-2
 	switch (cl_reader_caps & EMV_C4_CL_READER_CAPS_MASK) {
 		case EMV_C4_CL_READER_CAPS_DEPRECATED:
 			strncpy(str, "Deprecated", str_len - 1);
@@ -6974,8 +6975,10 @@ static const struct {
 	// See M/Chip Requirements for Contact and Contactless, 28 September 2017, Chapter 5, Third Party Data, Device Type
 	// The 2017 version of this document contains Device Types "00" to "19".
 	// Newer versions of this document indicate that the Device Type list can
-	// be found in the Mastercard Customer Interface Specification manual but
-	// that document does not appear to be publically available.
+	// be found in the Mastercard Customer Interface Specification manual
+	// (28 November 2023) or in the Mastercard Network Processing - Dual
+	// Message Authorization System Guide (11 November 2025), but those
+	// documents do not appear to be publicly available.
 	// Device Types "20" to "33" were obtained from unverified internet sources
 	{ "00", "Card" },
 	{ "01", "Mobile Phone or Smartphone with Mobile Network Operator (MNO) controlled removable secure element (SIM or UICC) personalized for use with a mobile phone or smartphone" },
@@ -7057,8 +7060,8 @@ int emv_mastercard_third_party_data_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// Mastercard Third Party Data (field 9F6E)
-	// See EMV Contactless Book C-2 v2.11, Annex A.1.165
-	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 14
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.147
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Third Party Data, Table 20
 	tpd_ptr = tpd;
 
 	// First two byte are the ISO 3166-1 numeric country code
@@ -7135,13 +7138,13 @@ int emv_mastercard_third_party_data_get_string_list(
 	}
 
 	// Decode Mastercard Product Extension
-	// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 15
+	// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Third Party Data, Table 21
 	if (is_product_extension) {
 		// Extract Product Identifier
 		uint16_t product_identifier = (tpd_ptr[0] << 8) + tpd_ptr[1];
 		if (product_identifier == 0x0001) {
 			// Product Extension for Fleet Cards
-			// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 16
+			// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Third Party Data, Table 22
 			emv_str_list_add(&itr, "Product Identifier: Fleet Card");
 
 			// Product Extension for Fleet Cards has length 8
@@ -7190,7 +7193,7 @@ int emv_mastercard_third_party_data_get_string_list(
 
 		if (product_identifier == 0x0002) {
 			// Product Extension for Transit
-			// See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 17
+			// See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Third Party Data, Table 23
 			emv_str_list_add(&itr, "Product Identifier: Transit");
 
 			// Product Extension for Transit has length 5
@@ -7266,13 +7269,13 @@ int emv_c3_card_auth_data_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// EMV kernel C-3 Card Authentication Related Data (field 9F69) bytes 1-5
-	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-3 v2.12, Annex A.2
 	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 	emv_str_list_add(&itr, "fDDA Version Number: %u", card_auth_data[0]);
 	emv_str_list_add_data(&itr, "Card Unpredictable Number: ", &card_auth_data[1], 4);
 
 	// EMV kernel C-3 Card Authentication Related Data (field 9F69) bytes 6-7 (if present)
-	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-3 v2.12, Annex A.2
 	// See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 	if (card_auth_data_len >= 7) {
 		r = emv_ctq_get_string_list(
@@ -7292,7 +7295,7 @@ int emv_c3_card_auth_data_get_string_list(
 	}
 
 	// EMV kernel C-3 Card Authentication Related Data (field 9F69) bytes 8+ (if present)
-	// See EMV Contactless Book C-3 v2.11, Annex A.2
+	// See EMV Contactless Book C-3 v2.12, Annex A.2
 	if (card_auth_data_len > 7) {
 		emv_str_list_add_data(&itr, "Additional Data: ", &card_auth_data[7], card_auth_data_len - 7);
 	}
@@ -7415,7 +7418,7 @@ int emv_c4_enh_cl_reader_caps_get_string_list(
 	emv_str_list_init(&itr, str, str_len);
 
 	// EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 1
-	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[0] & EMV_C4_ENH_CL_READER_CAPS_CONTACT_SUPPORTED) {
 		emv_str_list_add(&itr, "Contact mode supported");
 	}
@@ -7439,7 +7442,7 @@ int emv_c4_enh_cl_reader_caps_get_string_list(
 	}
 
 	// EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 2
-	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[1] & EMV_C4_ENH_CL_READER_CAPS_MOBILE_CVM_SUPPORTED) {
 		emv_str_list_add(&itr, "Mobile CVM supported");
 	}
@@ -7457,7 +7460,7 @@ int emv_c4_enh_cl_reader_caps_get_string_list(
 	}
 
 	// EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 3
-	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[2] & EMV_C4_ENH_CL_READER_CAPS_OFFLINE_ONLY_READER) {
 		emv_str_list_add(&itr, "Reader is offline only");
 	}
@@ -7469,7 +7472,7 @@ int emv_c4_enh_cl_reader_caps_get_string_list(
 	}
 
 	// EMV kernel C-4 Enhanced Contactless Reader Capabilities (field 9F6E) byte 4
-	// See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+	// See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 	if (enh_cl_reader_caps[3] & EMV_C4_ENH_CL_READER_CAPS_EXEMPT_FROM_NO_CVM) {
 		emv_str_list_add(&itr, "Terminal exempt from No CVM checks");
 	}

@@ -104,9 +104,9 @@ __BEGIN_DECLS
 #define EMV_TAG_88_SFI                                          (0x88)
 
 /// EMV tag 89 Authorisation Code
-/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+/// @remark See EMV Contactless Book C-3 v2.12, Annex A.2
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
-/// @remark See M/Chip Requirements for Contact and Contactless, 28 November 2023, Appendix A
+/// @remark See M/Chip Requirements for Contact and Contactless, 11 November 2025, Appendix A
 #define EMV_TAG_89_AUTHORISATION_CODE                           (0x89)
 
 /// EMV tag 8A Authorisation Response Code
@@ -114,7 +114,7 @@ __BEGIN_DECLS
 #define EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE                  (0x8A)
 
 /// EMV tag 8B POI Information
-/// @remark See EMV Contactless Book B v2.11, Annex A
+/// @remark See EMV Contactless Book B v2.12, Annex A
 #define EMV_TAG_8B_POI_INFORMATION                              (0x8B)
 
 /// EMV tag 8C Card Risk Management Data Object List 1 (CDOL1). Template 70 or 77.
@@ -148,7 +148,7 @@ __BEGIN_DECLS
 #define EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS                (0x95)
 
 /// EMV tag 96 Kernel Identifier - Terminal
-/// @remark See EMV Contactless Book B v2.11, Annex A
+/// @remark See EMV Contactless Book B v2.12, Annex A
 #define EMV_TAG_96_KERNEL_IDENTIFIER_TERMINAL                   (0x96)
 
 /// EMV tag 97 Transaction Certificate Data Object List (TDOL). Template 70 or 77.
@@ -304,9 +304,9 @@ __BEGIN_DECLS
 #define EMV_TAG_9F1C_TERMINAL_IDENTIFICATION                    (0x9F1C)
 
 /// EMV tag 9F1D Terminal Risk Management Data
-/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.161
-/// @remark See EMV Contactless Book C-8 v1.1, Annex A.1.129
-/// @remark See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Terminal Risk Management Data
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.143
+/// @remark See EMV Contactless Book C-8 v1.2, Annex A.1.129
+/// @remark See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 #define EMV_TAG_9F1D_TERMINAL_RISK_MANAGEMENT_DATA              (0x9F1D)
 
 /// EMV tag 9F1E Interface Device (IFD) Serial Number
@@ -340,11 +340,11 @@ __BEGIN_DECLS
 #define EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA                (0x9F27)
 
 /// EMV tag 9F29 Extended Selection. Template 61.
-/// @remark See EMV Contactless Book B v2.11, Annex A
+/// @remark See EMV Contactless Book B v2.12, Annex A
 #define EMV_TAG_9F29_EXTENDED_SELECTION                         (0x9F29)
 
 /// EMV tag 9F2A Kernel Identifier. Template 61.
-/// @remark See EMV Contactless Book B v2.11, Annex A
+/// @remark See EMV Contactless Book B v2.12, Annex A
 #define EMV_TAG_9F2A_KERNEL_IDENTIFIER                          (0x9F2A)
 
 /// EMV tag 9F32 Issuer Public Key Exponent. Template 70 or 77.
@@ -384,11 +384,11 @@ __BEGIN_DECLS
 #define EMV_TAG_9F3D_TRANSACTION_REFERENCE_CURRENCY_EXPONENT    (0x9F3D)
 
 /// EMV tag 9F3E Terminal Categories Supported List. Template BF0C.
-/// @remark See EMV Contactless Book B v2.11, Annex A
+/// @remark See EMV Contactless Book B v2.12, Annex A
 #define EMV_TAG_9F3E_TERMINAL_CATEGORIES_SUPPORTED_LIST         (0x9F3E)
 
 /// EMV tag 9F3F Selection Data Object List (SDOL). Template BF0C.
-/// @remark See EMV Contactless Book B v2.11, Annex A
+/// @remark See EMV Contactless Book B v2.12, Annex A
 #define EMV_TAG_9F3F_SDOL                                       (0x9F3F)
 
 /// EMV tag 9F40 Additional Terminal Capabilities
@@ -440,11 +440,11 @@ __BEGIN_DECLS
 #define EMV_TAG_9F4F_LOG_FORMAT                                 (0x9F4F)
 
 /// EMV kernel C-2 tag 9F5D Application Capabilities Information. Template BF0C.
-/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.9
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.9
 #define EMV_C2_TAG_9F5D_APPLICATION_CAPABILITIES_INFORMATION    (0x9F5D)
 
 /// EMV kernel C-3 tag 9F5D Available Offline Spending Amount (AOSA)
-/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+/// @remark See EMV Contactless Book C-3 v2.12, Annex A.2
 #define EMV_C3_TAG_9F5D_AOSA                                    (0x9F5D)
 
 /// EMV kernel C-2 tag 9F60 CVC3 (Track1). Template 77.
@@ -468,7 +468,7 @@ __BEGIN_DECLS
 #define VISA_TAG_9F63_OFFLINE_COUNTER_INITIAL_VALUE             (0x9F63)
 
 /// UnionPay tag 9F63 Product Identification Information
-/// @remark See EMV Contactless Book C-7 v2.11, Annex C
+/// @remark See EMV Contactless Book C-7 v2.12, Annex C
 #define UNIONPAY_TAG_9F63_PRODUCT_IDENTIFICATION_INFORMATION    (0x9F63)
 
 /// EMV kernel C-2 tag 9F64 NATC(Track1). Template 70.
@@ -480,7 +480,7 @@ __BEGIN_DECLS
 #define EMV_C2_TAG_9F65_PCVC3_TRACK2                            (0x9F65)
 
 /// EMV tag 9F66 Terminal Transaction Qualifiers (TTQ)
-/// @remark See EMV Contactless Book A v2.11, 5.7, Table 5-4
+/// @remark See EMV Contactless Book A v2.12, 5.7, Table 5-4
 #define EMV_TAG_9F66_TTQ                                        (0x9F66)
 
 /// EMV kernel C-2 tag 9F66 PUNATC(Track2). Template 70.
@@ -492,7 +492,7 @@ __BEGIN_DECLS
 #define EMV_C2_TAG_9F67_NATC_TRACK2                             (0x9F67)
 
 /// Amex tag 9F67 Form Factor. Template 70.
-/// @remark See EMV Contactless Book C-4 v2.11, Annex A.1
+/// @remark See EMV Contactless Book C-4 v2.12, Annex A.1
 #define AMEX_TAG_9F67_FORM_FACTOR                               (0x9F67)
 
 /// EMV kernel C-2 tag 9F6A Unpredictable Number (Numeric)
@@ -501,11 +501,11 @@ __BEGIN_DECLS
 
 /// EMV kernel C-2 tag 9F69 UDOL. Template 70.
 /// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.178
-/// @remark See M/Chip Requirements for Contact and Contactless, 28 November 2023, Appendix A
+/// @remark See M/Chip Requirements for Contact and Contactless, 11 November 2025, Appendix A
 #define EMV_C2_TAG_9F69_UDOL                                    (0x9F69)
 
 /// EMV kernel C-3 tag 9F69 Card Authentication Related Data. Template 70.
-/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+/// @remark See EMV Contactless Book C-3 v2.12, Annex A.2
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define EMV_C3_TAG_9F69_CARD_AUTHENTICATION_RELATED_DATA        (0x9F69)
 
@@ -518,8 +518,8 @@ __BEGIN_DECLS
 #define VISA_TAG_9F6B_CARD_CVM_LIMIT                            (0x9F6B)
 
 /// EMV tag 9F6C Card Transaction Qualifiers (CTQ)
-/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
-/// @remark See EMV Contactless Book C-7 v2.11, Annex A
+/// @remark See EMV Contactless Book C-3 v2.12, Annex A.2
+/// @remark See EMV Contactless Book C-7 v2.12, Annex A
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define EMV_TAG_9F6C_CTQ                                        (0x9F6C)
 
@@ -528,29 +528,29 @@ __BEGIN_DECLS
 #define EMV_C2_TAG_9F6D_MAG_APPLICATION_VERSION_NUMBER          (0x9F6D)
 
 /// EMV kernel C-4 tag 9F6D Contactless Reader Capabilities
-/// @remark See EMV Contactless Book C-4 v2.11, 4.3.3, Table 4-2
+/// @remark See EMV Contactless Book C-4 v2.12, 4.3.3, Table 4-2
 #define EMV_C4_TAG_9F6D_CONTACTLESS_READER_CAPABILITIES         (0x9F6D)
 
 /// Mastercard tag 9F6E Third Party Data. Template BF0C or 70.
-/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.165
-/// @remark See M/Chip Requirements for Contact and Contactless, 28 November 2023, Chapter 5, Third Party Data, Table 14
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.147
+/// @remark See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Third Party Data, Table 20
 #define MASTERCARD_TAG_9F6E_THIRD_PARTY_DATA                    (0x9F6E)
 
 /// Visa tag 9F6E Form Factor Indicator (FFI)
-/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+/// @remark See EMV Contactless Book C-3 v2.12, Annex A.2
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define VISA_TAG_9F6E_FORM_FACTOR_INDICATOR                     (0x9F6E)
 
 /// EMV kernel C-4 tag 9F6E Enhanced Contactless Reader Capabilities
-/// @remark See EMV Contactless Book C-4 v2.11, 4.3.4, Table 4-4
+/// @remark See EMV Contactless Book C-4 v2.12, 4.3.4, Table 4-4
 #define EMV_C4_TAG_9F6E_ENHANCED_CONTACTLESS_READER_CAPABILITIES (0x9F6E)
 
 /// EMV kernel C-2 tag 9F7C Merchant Custom Data
-/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.98
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.89
 #define EMV_C2_TAG_9F7C_MERCHANT_CUSTOM_DATA                    (0x9F7C)
 
 /// Visa tag 9F7C Customer Exclusive Data (CED)
-/// @remark See EMV Contactless Book C-3 v2.11, Annex A.2
+/// @remark See EMV Contactless Book C-3 v2.12, Annex A.2
 /// @remark See Visa Contactless Payment Specification (VCPS) Supplemental Requirements, version 2.2, January 2016, Annex D
 #define VISA_TAG_9F7C_CUSTOMER_EXCLUSIVE_DATA                   (0x9F7C)
 
@@ -564,19 +564,19 @@ __BEGIN_DECLS
 #define EMV_TAG_BF4D_PREFERRED_ATTEMPTS_TEMPLATE                (0xBF4D)
 
 /// EMV kernel C-2 tag DF8117 Card Data Input Capability
-/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.27
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.27
 #define EMV_C2_TAG_DF8117_CARD_DATA_INPUT_CAPABILITY            (0xDF8117)
 
 /// EMV kernel C-2 tag DF8118 CVM Capability - CVM Required
-/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.33
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.31
 #define EMV_C2_TAG_DF8118_CVM_CAPABILITY_CVM_REQUIRED           (0xDF8118)
 
 /// EMV kernel C-2 tag DF8119 CVM Capability - No CVM Required
-/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.34
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.32
 #define EMV_C2_TAG_DF8119_CVM_CAPABILITY_NO_CVM_REQUIRED        (0xDF8119)
 
 /// EMV kernel C-2 tag DF811F Security Capability
-/// @remark See EMV Contactless Book C-2 v2.11, Annex A.1.141
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.124
 #define EMV_C2_TAG_DF811F_SECURITY_CAPABILITY                   (0xDF811F)
 
 __END_DECLS

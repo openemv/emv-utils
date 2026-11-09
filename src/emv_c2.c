@@ -91,7 +91,7 @@ int emv_c2_initiate_kernel_processing(
 	// processing and GET PROCESSING OPTIONS. This includes contactless fields
 	// like Kernel Identifier - Terminal (field 96).
 
-	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.9
+	// See EMV Contactless Book C-2 v2.12, 6.3.3, S1.9
 	r = emv_ep_create_common_kernel_data(ctx, pos_entry_mode);
 	if (r) {
 		emv_debug_trace_msg("emv_ep_create_common_kernel_data() failed; r=%d", r);
@@ -102,7 +102,7 @@ int emv_c2_initiate_kernel_processing(
 	// Create Terminal Capabilities (field 9F33) from:
 	// - Card Data Input Capability (field DF8117)
 	// - Security Capability (field DF811F)
-	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.9
+	// See EMV Contactless Book C-2 v2.12, 6.3.3, S1.9
 	memset(term_caps, 0, sizeof(term_caps));
 	card_data_input_caps = emv_config_data_get(ctx, EMV_C2_TAG_DF8117_CARD_DATA_INPUT_CAPABILITY);
 	if (!card_data_input_caps || card_data_input_caps->length != 1) {
@@ -153,7 +153,7 @@ int emv_c2_initiate_kernel_processing(
 		return EMV_ERROR_INTERNAL;
 	}
 
-	// See EMV Contactless Book C-2 v2.11, 6.3.3, S1.13.6
+	// See EMV Contactless Book C-2 v2.12, 6.3.3, S1.13.6
 	r = emv_ep_initiate_kernel_processing(ctx, &gpo_list, &gpo_tal_result);
 	if (r) {
 		emv_debug_trace_msg("emv_ep_initiate_kernel_processing() failed; r=%d", r);
@@ -165,24 +165,24 @@ int emv_c2_initiate_kernel_processing(
 		emv_debug_trace_msg("gpo_tal_result=%d", gpo_tal_result);
 
 		switch (gpo_tal_result) {
-			// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.4
+			// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.4
 			case EMV_TAL_ERROR_TTL_FAILURE:
-				// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.5
+				// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.5
 				r = EMV_OUTCOME_CARD_ERROR;
 				break;
 
-			// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.8
+			// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.8
 			case EMV_TAL_RESULT_GPO_DATA_NOT_USABLE:
 			case EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED:
 			case EMV_TAL_RESULT_GPO_NOT_ALLOWED:
 			case EMV_TAL_ERROR_GPO_FAILED:
-				// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.9.2
+				// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.9.2
 				r = EMV_OUTCOME_SELECT_NEXT;
 				break;
 
-			// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.11
+			// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.11
 			case EMV_TAL_ERROR_GPO_PARSE_FAILED:
-				// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.90.2
+				// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.90.2
 				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 				break;
 
@@ -195,29 +195,29 @@ int emv_c2_initiate_kernel_processing(
 	}
 
 	// Populate AIP pointer
-	// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.13
+	// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.13
 	ctx->aip = emv_tlv_list_find_const(&gpo_list, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 	if (!ctx->aip || ctx->aip->length != 2) {
 		emv_debug_error("AIP in GPO response not found or invalid");
-		// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.90.2
+		// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.90.2
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;
 	}
 
 	// Populate AFL pointer
-	// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.13
+	// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.13
 	ctx->afl = emv_tlv_list_find_const(&gpo_list, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
 	if (!ctx->afl || !ctx->afl->length || (ctx->afl->length & 0x3) != 0) {
 		emv_debug_error("AFL in GPO response not found or invalid");
-		// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.90.2
+		// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.90.2
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;
 	}
 
-	// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.16
+	// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.16
 	if (!(ctx->aip->value[1] & EMV_AIP_EMV_MODE_SUPPORTED)) {
 		emv_debug_error("EMV mode not supported in AIP");
-		// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.90.2
+		// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.90.2
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;
 	}
@@ -266,7 +266,7 @@ int emv_c2_read_application_data(struct emv_ctx_t* ctx)
 
 	emv_debug_info("Read application data");
 
-	// See EMV Contactless Book C-2 v2.11, 6.7.3, S3R1.7
+	// See EMV Contactless Book C-2 v2.12, 6.7.3, S3R1.7
 	r = emv_ep_read_application_data(ctx, &record_data, &rr_tal_result);
 	if (r) {
 		emv_debug_trace_msg("emv_ep_read_application_data() failed; r=%d", r);
@@ -278,28 +278,28 @@ int emv_c2_read_application_data(struct emv_ctx_t* ctx)
 		emv_debug_trace_msg("rr_tal_result=%d", rr_tal_result);
 
 		switch (rr_tal_result) {
-			// See EMV Contactless Book C-2 v2.11, 6.5.3, S3.11
+			// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.11
 			case EMV_TAL_ERROR_AFL_INVALID:
-				// See EMV Contactless Book C-2 v2.11, S3.90.2
+				// See EMV Contactless Book C-2 v2.12, S3.90.2
 				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 				break;
 
-			// See EMV Contactless Book C-2 v2.11, 6.8.3, S4.4
+			// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.4
 			case EMV_TAL_ERROR_TTL_FAILURE:
-				// See EMV Contactless Book C-2 v2.11, 6.8.3, S4.6
+				// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.6
 				r = EMV_OUTCOME_END_APPLICATION_RESTART;
 				break;
 
-			// See EMV Contactless Book C-2 v2.11, 6.8.3, S4.9
+			// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.9
 			case EMV_TAL_ERROR_READ_RECORD_FAILED:
-				// See EMV Contactless Book C-2 v2.11, 6.8.3, S4.10.2
+				// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.10.2
 				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 				break;
 
-			// See EMV Contactless Book C-2 v2.11, 6.8.3, S4.25
+			// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.25
 			case EMV_TAL_ERROR_READ_RECORD_INVALID:
 			case EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED:
-				// See EMV Contactless Book C-2 v2.11, 6.8.3, S4.27.2
+				// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.27.2
 				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 				break;
 
@@ -313,7 +313,7 @@ int emv_c2_read_application_data(struct emv_ctx_t* ctx)
 
 	if (emv_tlv_list_has_duplicate(&record_data)) {
 		// Redundant primitive data objects are not permitted
-		// See EMV Contactless Book C-2 v2.11, 4.1.3
+		// See EMV Contactless Book C-2 v2.12, 4.1.3
 		emv_debug_error("Application data contains redundant fields");
 		r = EMV_OUTCOME_CARD_ERROR;
 		goto error;
@@ -321,7 +321,7 @@ int emv_c2_read_application_data(struct emv_ctx_t* ctx)
 
 	for (const struct emv_tlv_t* tlv = record_data.front; tlv != NULL; tlv = tlv->next) {
 		// Mandatory data objects when CDA is supported
-		// See EMV Contactless Book C-2 v2.11, 6.11.3, S456.16
+		// See EMV Contactless Book C-2 v2.12, 6.11.3, S456.16
 		if (tlv->tag == EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE) {
 			found_5F24 = true;
 		}
@@ -340,7 +340,7 @@ int emv_c2_read_application_data(struct emv_ctx_t* ctx)
 		);
 
 		// Mandatory field not found; terminate session
-		// See EMV Contactless Book C-2 v2.11, 6.11.3, S456.17.2
+		// See EMV Contactless Book C-2 v2.12, 6.11.3, S456.17.2
 		emv_debug_error("Mandatory field not found");
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;
