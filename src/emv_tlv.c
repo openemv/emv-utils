@@ -25,6 +25,8 @@
 #include "emv_tags.h"
 #include "emv_app.h"
 
+#include "crypto_mem.h"
+
 #include <stdbool.h>
 #include <stdlib.h> // For malloc() and free()
 #include <string.h>
@@ -108,6 +110,7 @@ int emv_tlv_free(struct emv_tlv_t* tlv)
 	}
 
 	if (tlv->value) {
+		crypto_cleanse(tlv->value, tlv->length);
 		free(tlv->value);
 		tlv->value = NULL;
 	}
