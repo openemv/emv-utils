@@ -311,15 +311,30 @@ int emv_c2_read_application_data(struct emv_ctx_t* ctx)
 		goto error;
 	}
 
-	if (emv_tlv_list_has_duplicate(&record_data)) {
-		// Redundant primitive data objects are not permitted
-		// See EMV Contactless Book C-2 v2.12, 4.1.3
-		emv_debug_error("Application data contains redundant fields");
-		r = EMV_OUTCOME_CARD_ERROR;
+	// Append application records to FCI and GPO data before checking for
+	// redundant or mandatory fields
+	r = emv_tlv_list_append(&ctx->icc, &record_data);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		r = EMV_ERROR_INTERNAL;
 		goto error;
 	}
 
-	for (const struct emv_tlv_t* tlv = record_data.front; tlv != NULL; tlv = tlv->next) {
+	if (emv_tlv_list_has_duplicate(&ctx->icc)) {
+		// Redundant primitive data objects are not permitted
+		// See EMV Contactless Book C-2 v2.12, 4.1.3, ParseAndStoreCardResponse
+		// See EMV Contactless Book C-2 v2.12, 6.3.3, S1.7
+		// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.24
+		emv_debug_error("Application data contains redundant fields");
+		// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.27.2
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+		goto error;
+	}
+
+	for (const struct emv_tlv_t* tlv = ctx->icc.front; tlv != NULL; tlv = tlv->next) {
 		// Mandatory data objects when CDA is supported
 		// See EMV Contactless Book C-2 v2.12, 6.11.3, S456.16
 		if (tlv->tag == EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE) {
@@ -343,16 +358,6 @@ int emv_c2_read_application_data(struct emv_ctx_t* ctx)
 		// See EMV Contactless Book C-2 v2.12, 6.11.3, S456.17.2
 		emv_debug_error("Mandatory field not found");
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
-		goto error;
-	}
-
-	r = emv_tlv_list_append(&ctx->icc, &record_data);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		r = EMV_ERROR_INTERNAL;
 		goto error;
 	}
 

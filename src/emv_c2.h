@@ -69,9 +69,11 @@ int emv_c2_initiate_kernel_processing(
 /**
  * Read EMV application data for kernel C-2 by performing READ RECORD for all
  * records specified by the Application File Locator (AFL), checking that there
- * are no redundant TLV fields provided by the application records, and
- * checking for the mandatory fields. This implementation assumes that the
- * "Read all records even when no CDA" flag is enabled.
+ * are no redundant TLV fields provided by the card, and checking for the
+ * mandatory fields.
+ *
+ * This implementation assumes that the "Read all records even when no CDA"
+ * flag is enabled.
  *
  * While reading the application records, this function will also concatenate
  * the data required for Offline Data Authentication (ODA) and update
