@@ -220,6 +220,7 @@ __BEGIN_DECLS
 // POI Information (field 8B)
 // See EMV Contactless Book B v2.12, Annex A.1, Table A-2
 #define EMV_POI_INFO_TERMINAL_CATEGORY                          (0x0001) ///< POI Information: Terminal Category
+#define EMV_POI_INFO_TRANSIT_OPERATOR_ID                        (0x0002) ///< POI Information: Transit Operator ID
 
 // Terminal Category values (fields 8B and 9F3E)
 // See EMV Contactless Book B v2.12, Annex A.1, Table A-2

@@ -3686,6 +3686,16 @@ int emv_poi_info_get_string_list(
 				break;
 			}
 
+			case EMV_POI_INFO_TRANSIT_OPERATOR_ID:
+				if (poi_info[2] != 3) {
+					// Invalid Transit Operator ID length
+					str[0] = 0;
+					return 5;
+				}
+
+				emv_str_list_add(&itr, "Transit Operator ID: %02X%02X%02X", poi_info[3], poi_info[4], poi_info[5]);
+				break;
+
 			default:
 				emv_str_list_add(&itr, "Unknown POI Information ID 0x%04X", poi_id);
 		}

@@ -1300,7 +1300,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 
 	# Test decoding of POI terminal category fields
 	add_test(NAME emv_decode_poi_terminal_category_test
-		COMMAND emv-decode --tlv 8B008B0A000102000100010200028B0500010200998B0B0001020001BEEF031212129F3E0200019F3E04000100029F3E020003
+		COMMAND emv-decode --tlv 8B008B0A000102000100010200028B0500010200998B0B00010200010002031234568B0B0001020001BEEF031212129F3E0200019F3E04000100029F3E020003
 			--mcc-json ${MCC_JSON_BUILD_PATH}
 	)
 	string(CONCAT emv_decode_poi_terminal_category_test_regex
@@ -1310,6 +1310,9 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"  - Terminal Category: Loyalty[\r\n]"
 		"8B \\| POI Information : \\[5\\] 00 01 02 00 99[\r\n]"
 		"  - Terminal Category: 0x0099 \\(RFU\\)[\r\n]"
+		"8B \\| POI Information : \\[11\\] 00 01 02 00 01 00 02 03 12 34 56[\r\n]"
+		"  - Terminal Category: Transit gate[\r\n]"
+		"  - Transit Operator ID: 123456[\r\n]"
 		"8B \\| POI Information : \\[11\\] 00 01 02 00 01 BE EF 03 12 12 12[\r\n]"
 		"  - Terminal Category: Transit gate[\r\n]"
 		"  - Unknown POI Information ID 0xBEEF[\r\n]"
