@@ -752,11 +752,11 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	)
 	string(CONCAT emv_decode_9F1D_test1_regex
 		"^Enciphered PIN verified online \\(Contactless\\)[\r\n]"
-		"Signature \\(paper\\) \\(Contactless\\)[\r\n]"
+		"Signature \\(Contactless\\)[\r\n]"
 		"No CVM required \\(Contactless\\)[\r\n]"
 		"CDCVM \\(Contactless\\)[\r\n]"
 		"Enciphered PIN verified online \\(Contact\\)[\r\n]"
-		"Signature \\(paper\\) \\(Contact\\)[\r\n]"
+		"Signature \\(Contact\\)[\r\n]"
 		"Enciphered PIN verification performed by ICC \\(Contact\\)[\r\n]"
 		"No CVM required \\(Contact\\)[\r\n]"
 		"Plaintext PIN verification performed by ICC \\(Contact\\)[\r\n]"
@@ -776,7 +776,7 @@ if(TARGET emv-decode AND BUILD_TESTING)
 		"No CVM required \\(Contactless\\)[\r\n]"
 		"CDCVM \\(Contactless\\)[\r\n]"
 		"Enciphered PIN verified online \\(Contact\\)[\r\n]"
-		"Signature \\(paper\\) \\(Contact\\)[\r\n]"
+		"Signature \\(Contact\\)[\r\n]"
 		"Enciphered PIN verification performed by ICC \\(Contact\\)[\r\n]"
 		"No CVM required \\(Contact\\)[\r\n]"
 		"Plaintext PIN verification performed by ICC \\(Contact\\)[\r\n]"
@@ -785,6 +785,22 @@ if(TARGET emv-decode AND BUILD_TESTING)
 	set_tests_properties(emv_decode_9F1D_test2
 		PROPERTIES
 			PASS_REGULAR_EXPRESSION ${emv_decode_9F1D_test2_regex}
+	)
+
+	add_test(NAME emv_decode_9F1D_test3
+		COMMAND emv-decode --9F1D 000000F800000000
+			--mcc-json ${MCC_JSON_BUILD_PATH}
+	)
+	string(CONCAT emv_decode_9F1D_test3_regex
+		"^CDCVM bypass requested[\r\n]"
+		"SCA exempt[\r\n]"
+		"Deferred Authorisation[\r\n]"
+		"Transit Gate[\r\n]"
+		"RFU[\r\n]"
+	)
+	set_tests_properties(emv_decode_9F1D_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_decode_9F1D_test3_regex}
 	)
 
 	# From actual Visa transaction

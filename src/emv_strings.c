@@ -6489,7 +6489,7 @@ int emv_terminal_risk_management_data_get_string_list(
 		emv_str_list_add(&itr, "Enciphered PIN verified online (Contactless)");
 	}
 	if (trmd[0] & EMV_TRMD_BYTE1_SIGNATURE_CONTACTLESS) {
-		emv_str_list_add(&itr, "Signature (paper) (Contactless)");
+		emv_str_list_add(&itr, "Signature (Contactless)");
 	}
 	if (trmd[0] & EMV_TRMD_BYTE1_ENCIPHERED_PIN_OFFLINE_CONTACTLESS) {
 		emv_str_list_add(&itr, "Enciphered PIN verification performed by ICC (Contactless)");
@@ -6521,7 +6521,7 @@ int emv_terminal_risk_management_data_get_string_list(
 		emv_str_list_add(&itr, "Enciphered PIN verified online (Contact)");
 	}
 	if (trmd[1] & EMV_TRMD_BYTE2_SIGNATURE_CONTACT) {
-		emv_str_list_add(&itr, "Signature (paper) (Contact)");
+		emv_str_list_add(&itr, "Signature (Contact)");
 	}
 	if (trmd[1] & EMV_TRMD_BYTE2_ENCIPHERED_PIN_OFFLINE_CONTACT) {
 		emv_str_list_add(&itr, "Enciphered PIN verification performed by ICC (Contact)");
@@ -6566,6 +6566,12 @@ int emv_terminal_risk_management_data_get_string_list(
 	}
 	if (trmd[3] & EMV_TRMD_BYTE4_SCA_EXEMPT) {
 		emv_str_list_add(&itr, "SCA exempt");
+	}
+	if (trmd[3] & EMV_TRMD_BYTE4_DEFERRED_AUTHORISATION) {
+		emv_str_list_add(&itr, "Deferred Authorisation");
+	}
+	if (trmd[3] & EMV_TRMD_BYTE4_TRANSIT_GATE) {
+		emv_str_list_add(&itr, "Transit Gate");
 	}
 
 	// Terminal Risk Management Data (field 9F1D) RFU bits

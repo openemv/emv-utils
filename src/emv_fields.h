@@ -653,7 +653,7 @@ enum emv_iad_format_t {
 // See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 #define EMV_TRMD_BYTE1_RESTART_SUPPORTED                        (0x80) ///< Terminal Risk Management Data: Restart supported
 #define EMV_TRMD_BYTE1_ENCIPHERED_PIN_ONLINE_CONTACTLESS        (0x40) ///< Terminal Risk Management Data: Enciphered PIN verified online (Contactless)
-#define EMV_TRMD_BYTE1_SIGNATURE_CONTACTLESS                    (0x20) ///< Terminal Risk Management Data: Signature (paper) (Contactless)
+#define EMV_TRMD_BYTE1_SIGNATURE_CONTACTLESS                    (0x20) ///< Terminal Risk Management Data: Signature (Contactless)
 #define EMV_TRMD_BYTE1_ENCIPHERED_PIN_OFFLINE_CONTACTLESS       (0x10) ///< Terminal Risk Management Data: Enciphered PIN verification performed by ICC (Contactless)
 #define EMV_TRMD_BYTE1_NO_CVM_CONTACTLESS                       (0x08) ///< Terminal Risk Management Data: No CVM required (Contactless)
 #define EMV_TRMD_BYTE1_CDCVM_CONTACTLESS                        (0x04) ///< Terminal Risk Management Data: CDCVM (Contactless)
@@ -666,7 +666,7 @@ enum emv_iad_format_t {
 // See M/Chip Requirements for Contact and Contactless, 11 November 2025, Chapter 5, Terminal Risk Management Data
 #define EMV_TRMD_BYTE2_CVM_LIMIT_EXCEEDED                       (0x80) ///< Terminal Risk Management Data: CVM Limit exceeded
 #define EMV_TRMD_BYTE2_ENCIPHERED_PIN_ONLINE_CONTACT            (0x40) ///< Terminal Risk Management Data: Enciphered PIN verified online (Contact)
-#define EMV_TRMD_BYTE2_SIGNATURE_CONTACT                        (0x20) ///< Terminal Risk Management Data: Signature (paper) (Contact)
+#define EMV_TRMD_BYTE2_SIGNATURE_CONTACT                        (0x20) ///< Terminal Risk Management Data: Signature (Contact)
 #define EMV_TRMD_BYTE2_ENCIPHERED_PIN_OFFLINE_CONTACT           (0x10) ///< Terminal Risk Management Data: Enciphered PIN verification performed by ICC (Contact)
 #define EMV_TRMD_BYTE2_NO_CVM_CONTACT                           (0x08) ///< Terminal Risk Management Data: No CVM required (Contact)
 #define EMV_TRMD_BYTE2_CDCVM_CONTACT                            (0x04) ///< Terminal Risk Management Data: CDCVM (Contact)
@@ -686,7 +686,9 @@ enum emv_iad_format_t {
 // See EMV Contactless Book C-8 v1.2, Annex A.1.129
 #define EMV_TRMD_BYTE4_CDCVM_BYPASS_REQUESTED                   (0x80) ///< Terminal Risk Management Data: CDCVM bypass requested
 #define EMV_TRMD_BYTE4_SCA_EXEMPT                               (0x40) ///< Terminal Risk Management Data: SCA exempt
-#define EMV_TRMD_BYTE4_RFU                                      (0x3F) ///< Terminal Risk Management Data: RFU
+#define EMV_TRMD_BYTE4_DEFERRED_AUTHORISATION                   (0x20) ///< Terminal Risk Management Data: Deferred Authorisation
+#define EMV_TRMD_BYTE4_TRANSIT_GATE                             (0x10) ///< Terminal Risk Management Data: Transit Gate
+#define EMV_TRMD_BYTE4_RFU                                      (0x0F) ///< Terminal Risk Management Data: RFU
 
 // EMV kernel C-2 Application Capabilities Information (field 9F5D) byte 1
 // See EMV Contactless Book C-2 v2.12, Annex A.1.9
