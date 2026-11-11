@@ -71,9 +71,11 @@ int emv_c4_initiate_kernel_processing(
 
 	emv_debug_info("Initiate application processing");
 
-	// Clear existing ICC data and terminal data lists to avoid ambiguity
+	// Clear existing ICC data, terminal data and completion data lists to
+	// avoid ambiguity
 	emv_tlv_list_clear(&ctx->icc);
 	emv_tlv_list_clear(&ctx->terminal);
+	emv_tlv_list_clear(&ctx->completion);
 
 	// Clear existing cached terminal fields to avoid stale pointers
 	ctx->kernel_id = NULL;

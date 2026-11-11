@@ -114,6 +114,18 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_terminal_risk_management_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_terminal_risk_management_test emv_terminal_risk_management_test)
 
+	add_executable(emv_card_action_analysis_test emv_card_action_analysis_test.c)
+	target_link_libraries(emv_card_action_analysis_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_card_action_analysis_test emv_card_action_analysis_test)
+
+	add_executable(emv_online_processing_test emv_online_processing_test.c)
+	target_link_libraries(emv_online_processing_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_online_processing_test emv_online_processing_test)
+
+	add_executable(emv_completion_test emv_completion_test.c)
+	target_link_libraries(emv_completion_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_completion_test emv_completion_test)
+
 	add_executable(emv_ep_preprocess_test emv_ep_preprocess_test.c)
 	target_link_libraries(emv_ep_preprocess_test PRIVATE print_helpers emv)
 	add_test(emv_ep_preprocess_test emv_ep_preprocess_test)
@@ -142,6 +154,18 @@ if (BUILD_TESTING)
 	target_link_libraries(iso8825_oid_encode_test PRIVATE iso8825 print_helpers)
 	add_test(iso8825_oid_encode_test iso8825_oid_encode_test)
 
+	add_executable(iso8825_ber_encode_test iso8825_ber_encode_test.c)
+	target_link_libraries(iso8825_ber_encode_test PRIVATE iso8825 print_helpers)
+	add_test(iso8825_ber_encode_test iso8825_ber_encode_test)
+
+	add_executable(emv_tlv_encode_test emv_tlv_encode_test.c)
+	target_link_libraries(emv_tlv_encode_test PRIVATE print_helpers emv)
+	add_test(emv_tlv_encode_test emv_tlv_encode_test)
+
+	add_executable(emv_txn_record_encode_test emv_txn_record_encode_test.c)
+	target_link_libraries(emv_txn_record_encode_test PRIVATE print_helpers emv)
+	add_test(emv_txn_record_encode_test emv_txn_record_encode_test)
+
 	add_executable(isocodes_test isocodes_test.c)
 	find_package(Intl)
 	if(Intl_FOUND)
@@ -165,6 +189,12 @@ if (BUILD_TESTING)
 	endif()
 	target_link_libraries(iso8859_test PRIVATE iso8859)
 	add_test(iso8859_test iso8859_test)
+
+	if(TARGET socket_helpers)
+		add_executable(socket_helpers_test socket_helpers_test.c)
+		target_link_libraries(socket_helpers_test PRIVATE socket_helpers)
+		add_test(socket_helpers_test socket_helpers_test)
+	endif()
 
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)

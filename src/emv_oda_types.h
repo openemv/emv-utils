@@ -3,7 +3,7 @@
  * @brief EMV Offline Data Authentication (ODA) types used by high level EMV
  *        library interface
  *
- * Copyright 2025 Leon Lynch
+ * Copyright 2025-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -87,6 +87,14 @@ struct emv_oda_ctx_t {
 	 */
 	uint8_t cdol1_data[255];
 	size_t cdol1_data_len; ///< Length of cached CDOL1 data in bytes
+
+	/**
+	 * Cached Card Risk Management Data Object List 2 (CDOL2) data for
+	 * validating Transaction Data Hash Code. CDOL2 data has a maximum length
+	 * of @ref EMV_CAPDU_DATA_MAX.
+	 */
+	uint8_t cdol2_data[255];
+	size_t cdol2_data_len; ///< Length of cached CDOL2 data in bytes
 
 	/**
 	 * Cached GENAC response excluding Signed Dynamic Application Data (SDAD)
