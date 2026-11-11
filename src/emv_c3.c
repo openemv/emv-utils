@@ -34,6 +34,7 @@
 #include "crypto_mem.h"
 #include "crypto_rand.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -217,6 +218,12 @@ int emv_c3_read_application_data(struct emv_ctx_t* ctx)
 	int r;
 	struct emv_tlv_list_t record_data = EMV_TLV_LIST_INIT;
 	int rr_tal_result;
+	bool found_82 = false;
+	bool found_9F36 = false;
+	bool found_9F26 = false;
+	bool found_9F10 = false;
+	bool found_57 = false;
+	bool found_9F38 = false;
 
 	if (!ctx) {
 		emv_debug_trace_msg("ctx=%p", ctx);
@@ -224,60 +231,128 @@ int emv_c3_read_application_data(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
 
+	emv_debug_info("Read application data");
+
 	// Application File Locator (AFL) is optional for kernel C-3
-	if (!ctx->afl) {
+	if (ctx->afl) {
+		// AFL found; read application data
+		// See EMV Contactless Book C-3 v2.12, 5.3.2.1
+		// See EMV 4.4 Book 3, 10.2
+		r = emv_ep_read_application_data(ctx, &record_data, &rr_tal_result);
+		if (r) {
+			emv_debug_trace_msg("emv_ep_read_application_data() failed; r=%d", r);
+
+			// Return error as-is
+			goto error;
+		}
+		if (rr_tal_result && rr_tal_result != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
+			emv_debug_trace_msg("rr_tal_result=%d", rr_tal_result);
+
+			switch (rr_tal_result) {
+				// See EMV Contactless Book C-3 v2.12, 4.1.1.2
+				case EMV_TAL_ERROR_TTL_FAILURE:
+					r = EMV_OUTCOME_CARD_ERROR;
+					break;
+
+				// See EMV Contactless Book C-3 v2.12, 4.1.1.4
+				case EMV_TAL_ERROR_AFL_INVALID:
+				case EMV_TAL_ERROR_READ_RECORD_FAILED:
+				case EMV_TAL_ERROR_READ_RECORD_INVALID:
+				case EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED:
+					// See EMV Contactless Book C-3 v2.12, 4.2.1.1
+					r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+					break;
+
+				// See EMV Contactless Book C-3 v2.12, 4.1.1.4
+				default:
+					// See EMV Contactless Book C-3 v2.12, 4.2.1.1
+					r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+					break;
+			}
+
+			goto error;
+		}
+
+		r = emv_tlv_list_append(&ctx->icc, &record_data);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			r = EMV_ERROR_INTERNAL;
+			goto error;
+		}
+	} else {
 		// AFL not found; skip read application data
 		// See EMV Contactless Book C-3 v2.12, 5.3.2.1
 		emv_debug_info("No AFL; skip read application data");
-		return 0;
 	}
 
-	emv_debug_info("Read application data");
+	// Card Read Complete
+	// See EMV Contactless Book C-3 v2.12, 5.4.1.1
+	emv_debug_info("Card Read OK");
 
-	// See EMV Contactless Book C-3 v2.12, 5.3.2
-	// See EMV 4.4 Book 3, 10.2
-	r = emv_ep_read_application_data(ctx, &record_data, &rr_tal_result);
-	if (r) {
-		emv_debug_trace_msg("emv_ep_read_application_data() failed; r=%d", r);
+	for (const struct emv_tlv_t* tlv = ctx->icc.front; tlv != NULL; tlv = tlv->next) {
+		// Mandatory data objects
+		// See EMV Contactless Book C-3 v2.12, 5.4.2.1
+		// See EMV Contactless Book C-3 v2.12, Annex A.2, Table A-1
 
-		// Return error as-is
-		goto error;
-	}
-	if (rr_tal_result && rr_tal_result != EMV_TAL_RESULT_ODA_RECORD_INVALID) {
-		emv_debug_trace_msg("rr_tal_result=%d", rr_tal_result);
+		// NOTE: Some mandatory data objects are not checked here:
+		// - Application Identifier (field 4F) is provided by the PPSE but
+		//   those fields are not added to the ICC list
+		// - Template/constructed fields are not added to the ICC list
 
-		switch (rr_tal_result) {
-			// See EMV Contactless Book C-3 v2.12, 4.1.1.2
-			case EMV_TAL_ERROR_TTL_FAILURE:
-				r = EMV_OUTCOME_CARD_ERROR;
-				break;
-
-			// See EMV Contactless Book C-3 v2.12, 4.1.1.4
-			case EMV_TAL_ERROR_AFL_INVALID:
-			case EMV_TAL_ERROR_READ_RECORD_FAILED:
-			case EMV_TAL_ERROR_READ_RECORD_INVALID:
-			case EMV_TAL_ERROR_READ_RECORD_PARSE_FAILED:
-				// See EMV Contactless Book C-3 v2.12, 4.2.1.1
-				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
-				break;
-
-			// See EMV Contactless Book C-3 v2.12, 4.1.1.4
-			default:
-				// See EMV Contactless Book C-3 v2.12, 4.2.1.1
-				r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
-				break;
+		if (tlv->tag == EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE) {
+			found_82 = true;
 		}
+		if (tlv->tag == EMV_TAG_9F36_APPLICATION_TRANSACTION_COUNTER) {
+			found_9F36 = true;
+		}
+		if (tlv->tag == EMV_TAG_9F26_APPLICATION_CRYPTOGRAM) {
+			found_9F26 = true;
+		}
+		if (tlv->tag == EMV_TAG_9F10_ISSUER_APPLICATION_DATA) {
+			found_9F10 = true;
+		}
+		if (tlv->tag == EMV_TAG_57_TRACK2_EQUIVALENT_DATA) {
+			found_57 = true;
+		}
+		if (tlv->tag == EMV_TAG_9F38_PDOL) {
+			found_9F38 = true;
+		}
+	}
+	if (!found_82 || !found_9F36 || !found_9F26 ||
+		!found_9F10 || !found_57 || !found_9F38
+	) {
+		emv_debug_trace_msg("82=%s, 9F36=%s, 9F26=%s, 9F10=%s, 57=%s, 9F38=%s",
+			found_82 ? "found" : "missing",
+			found_9F36 ? "found" : "missing",
+			found_9F26 ? "found" : "missing",
+			found_9F10 ? "found" : "missing",
+			found_57 ? "found" : "missing",
+			found_9F38 ? "found" : "missing"
+		);
 
+		// Mandatory field not found; terminate session
+		// See EMV Contactless Book C-3 v2.12, 5.4.2.1
+		emv_debug_error("Mandatory field not found");
+		// See EMV Contactless Book C-3 v2.12, 4.2.1.1
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;
 	}
 
-	r = emv_tlv_list_append(&ctx->icc, &record_data);
-	if (r) {
-		emv_debug_trace_msg("emv_tlv_list_append() failed; r=%d", r);
+	if (emv_tlv_list_has_duplicate(&ctx->icc)) {
+		// Redundant primitive data objects are not permitted
+		// See EMV Contactless Book C-3 v2.12, 5.4.2.2
 
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		r = EMV_ERROR_INTERNAL;
+		// NOTE: This implementation adds the application selection response
+		// fields to the ICC list and therefore deviates from the specification
+		// requiring that the redundancy check is for fields read during
+		// Initiate Application Processing and Read Application Data.
+
+		emv_debug_error("Application data contains redundant fields");
+		// See EMV Contactless Book C-3 v2.12, 4.2.1.1
+		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;
 	}
 
