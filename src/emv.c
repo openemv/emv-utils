@@ -2538,14 +2538,24 @@ int emv_online_processing(
 		}
 	}
 
+	// Issuer authentication is only possible when Issuer Authentication Data
+	// is provided
+	// See EMV 4.4 Book 3, 10.9
+	if (!iad || !iad_len) {
+		return 0;
+	}
+
+	// Skip issuer authentication for contactless cards
+	if (ctx->ttl && ctx->ttl->contactless) {
+		emv_debug_info("EXTERNAL AUTHENTICATE not supported for contactless");
+		return 0;
+	}
+
 	// Issuer authentication is only possible when the AIP indicates that it is
-	// supported and the Issuer Authentication Data is available
+	// supported
 	// See EMV 4.4 Book 3, 10.9
 	if (!(ctx->aip->value[0] & EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED)) {
 		emv_debug_info("EXTERNAL AUTHENTICATE not supported");
-		return 0;
-	}
-	if (!iad || !iad_len) {
 		return 0;
 	}
 

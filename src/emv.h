@@ -574,7 +574,8 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl);
  *
  * This function will only perform issuer authentication when
  * @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE indicates that the card
- * application supports it and @p iad of the appropriate length is provided.
+ * application supports it (excluding contactless cards) and @p iad of the
+ * appropriate length is provided.
  *
  * While performing issuer authentication, this function will update
  * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the outcome and
