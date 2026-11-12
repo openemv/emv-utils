@@ -91,6 +91,35 @@ int emv_c3_initiate_kernel_processing(
  */
 int emv_c3_read_application_data(struct emv_ctx_t* ctx);
 
+/**
+ * Perform Card Action Analysis for kernel C-3 by determining the card
+ * transaction disposition from the cryptogram type returned by the card
+ * during GET PROCESSING OPTIONS and the Terminal Transaction Qualifiers (TTQ).
+ *
+ * If the card did not provide @ref EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA,
+ * this function will determine the cryptogram type from
+ * @ref EMV_TAG_9F10_ISSUER_APPLICATION_DATA instead.
+ *
+ * This function will push @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE onto
+ * @ref emv_ctx_t.terminal for offline approval (@ref EMV_OUTCOME_APPROVED)
+ * and offline decline (@ref EMV_OUTCOME_DECLINED).
+ *
+ * @note Unlike @ref emv_card_action_analysis(), this function does not
+ *       perform GENERATE APPLICATION CRYPTOGRAM and only considers the
+ *       cryptogram type and the TTQ.
+ *
+ * @remark See EMV Contactless Book C-3 v2.12, 5.4.3
+ * @remark See EMV Contactless Book C-3 v2.12, 5.8.1.1
+ * @remark See EMV Contactless Book C-3 v2.12, 5.9.1
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for online authorisation. See @ref emv_online_processing()
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_c3_card_action_analysis(struct emv_ctx_t* ctx);
+
 __END_DECLS
 
 #endif

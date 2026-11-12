@@ -368,3 +368,139 @@ exit:
 	emv_tlv_list_clear(&record_data);
 	return r;
 }
+
+int emv_c3_card_action_analysis(struct emv_ctx_t* ctx)
+{
+	int r;
+	const struct emv_tlv_t* ttq;
+	const struct emv_tlv_t* cid;
+	uint8_t cid_value;
+	int outcome;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Card action analysis");
+
+	ttq = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F66_TTQ);
+	if (!ttq || ttq->length != 4) {
+		emv_debug_trace_msg("ttq=%p, ttq->length=%u",
+			ttq, ttq ? ttq->length : 0);
+		emv_debug_error("Terminal Transaction Qualifiers (9F66) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
+	cid = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F27_CRYPTOGRAM_INFORMATION_DATA);
+	if (cid) {
+		if (cid->length != 1) {
+			// Cryptogram type cannot be determined
+			// See EMV Contactless Book C-3 v2.12, 5.4.3.2
+			emv_debug_error("Cryptogram Information Data (CID) invalid");
+			goto decline;
+		}
+		cid_value = cid->value[0];
+
+	} else {
+		const struct emv_tlv_t* iad;
+
+		// Construct CID from Issuer Application Data (field 9F10) if card did
+		// not provide CID
+		// See EMV Contactless Book C-3 v2.12, 5.4.3.1
+		// See EMV Contactless Book C-3 v2.12, Annex A.2
+		iad = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F10_ISSUER_APPLICATION_DATA);
+		if (!iad || iad->length < 5) {
+			// Cryptogram type cannot be determined
+			// See EMV Contactless Book C-3 v2.12, 5.4.3.2
+			emv_debug_error("Issuer Application Data (IAD) not found or invalid");
+			goto decline;
+		}
+		cid_value = (iad->value[4] & 0x30) << 2;
+	}
+
+	// Determine Card Action Analysis outcome
+	// See EMV Contactless Book C-3 v2.12, 5.4.3.2
+	switch (cid_value & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
+			emv_debug_info("GPO: Application Authentication Cryptogram (AAC)");
+			goto decline;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
+			emv_debug_info("GPO: Transaction Certificate (TC)");
+			outcome = EMV_OUTCOME_APPROVED;
+			break;
+
+		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC:
+			emv_debug_info("GPO: Authorisation Request Cryptogram (ARQC)");
+			outcome = 0; // Continue to emv_online_processing()
+			break;
+
+		default:
+			// Cryptogram type cannot be determined
+			emv_debug_error("Unexpected CID 0x%02X", cid_value);
+			goto decline;
+	}
+
+	// See EMV Contactless Book C-3 v2.12, 5.4.3.2
+	if (ttq->value[1] & EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED) {
+		emv_debug_info("Online cryptogram required by reader");
+		outcome = 0; // Continue to emv_online_processing()
+	}
+
+	if (outcome == 0) {
+		if (ttq->value[0] & EMV_TTQ_OFFLINE_ONLY_READER) {
+			// Decline if online processing is not supported
+			// See EMV Contactless Book C-3 v2.12, 5.9.1.2
+			emv_debug_info("Online processing not supported by reader");
+			goto decline;
+		}
+
+		// Continue to emv_online_processing()
+		// See EMV Contactless Book C-3 v2.12, 5.8.1.1
+		return 0;
+
+	} else {
+		// Populate Authorisation Response Code (field 8A) for offline approval
+		// See EMV Contactless Book C-3 v2.12, Annex A.2
+		// See EMV Contactless Book C-3 v2.12, 5.9.1.1
+		r = emv_tlv_list_push(
+			&ctx->terminal,
+			EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+			2,
+			(uint8_t[]){ 0x59, 0x31 }, // Y1 - Offline approved
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		return outcome;
+	}
+
+decline:
+	// Populate Authorisation Response Code (field 8A) for offline decline
+	// See EMV Contactless Book C-3 v2.12, Annex A.2
+	// See EMV Contactless Book C-3 v2.12, 5.9.1.2
+	r = emv_tlv_list_push(
+		&ctx->terminal,
+		EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
+		2,
+		(uint8_t[]){ 0x5A, 0x31 }, // Z1 - Offline declined
+		0
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	return EMV_OUTCOME_DECLINED;
+}

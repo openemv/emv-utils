@@ -1581,13 +1581,12 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
-	// Contactless processing ends here for kernel C-3
-	if (emv.ttl->contactless && kernel_id[0] == 0x03) {
-		goto emv_outcome;
-	}
-
 	printf("\nCard action analysis\n");
-	r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
+	if (emv.ttl->contactless && kernel_id[0] == 0x03) {
+		r = emv_c3_card_action_analysis(&emv);
+	} else {
+		r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
+	}
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
