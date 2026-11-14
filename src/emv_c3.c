@@ -292,7 +292,7 @@ int emv_c3_read_application_data(struct emv_ctx_t* ctx)
 
 	// Card Read Complete
 	// See EMV Contactless Book C-3 v2.12, 5.4.1.1
-	emv_debug_info("Card Read OK");
+	emv_debug_trace_msg("Card Read OK");
 
 	for (const struct emv_tlv_t* tlv = ctx->icc.front; tlv != NULL; tlv = tlv->next) {
 		// Mandatory data objects

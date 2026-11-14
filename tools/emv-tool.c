@@ -1548,6 +1548,17 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
+	if (emv.ttl->contactless && kernel_id[0] == 0x03) {
+		// Kernel C-3 has no further card interaction
+		r = pcsc_reader_disconnect(reader);
+		if (r) {
+			printf("PC/SC reader deactivation failed\n");
+			goto emv_exit;
+		}
+		// See EMV Contactless Book C-3 v2.12, 5.4.1.1
+		printf("\nCard read OK\n");
+	}
+
 	printf("\nOffline data authentication\n");
 	r = emv_offline_data_authentication(&emv);
 	if (r < 0) {
@@ -1582,8 +1593,23 @@ int main(int argc, char** argv)
 	}
 
 	printf("\nCard action analysis\n");
-	if (emv.ttl->contactless && kernel_id[0] == 0x03) {
-		r = emv_c3_card_action_analysis(&emv);
+	if (emv.ttl->contactless) {
+		if (kernel_id[0] == 0x03) {
+			r = emv_c3_card_action_analysis(&emv);
+		} else {
+			r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
+
+			// Kernels other than C-3 have no further card interaction
+			int pcsc_r;
+			pcsc_r = pcsc_reader_disconnect(reader);
+			if (pcsc_r) {
+				printf("PC/SC reader deactivation failed\n");
+				goto emv_exit;
+			}
+			// See EMV Contactless Book A v2.12, 9.4
+			printf("\nCard read OK. Remove Card.\n");
+		}
+
 	} else {
 		r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
 	}
@@ -1678,12 +1704,14 @@ int main(int argc, char** argv)
 	}
 
 emv_outcome:
-	r = pcsc_reader_disconnect(reader);
-	if (r) {
-		printf("PC/SC reader deactivation failed\n");
-		goto emv_exit;
+	if (!emv.ttl->contactless) {
+		r = pcsc_reader_disconnect(reader);
+		if (r) {
+			printf("PC/SC reader deactivation failed\n");
+			goto emv_exit;
+		}
+		printf("\nCard deactivated\n");
 	}
-	printf("\nCard deactivated\n");
 
 	printf("\nICC data:\n");
 	print_emv_tlv_list(&emv.icc);
