@@ -327,8 +327,7 @@ static bool emv_tlv_is_duplicate(const struct emv_tlv_t* tlv, const struct emv_t
 
 		r = iso8825_ber_asn1_object_decode(&other->ber, &other_oid);
 		if (r > 0 && // Is ASN.1 object
-			oid.length == other_oid.length && // OID arc length match
-			memcmp(oid.value, other_oid.value, sizeof(other_oid.value[0]) * other_oid.length) == 0 // OID arc match
+			iso8825_ber_oid_is_equal(&oid, &other_oid)
 		) {
 			// Duplicate ASN.1 object
 			return true;

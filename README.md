@@ -67,12 +67,15 @@ Dependencies
   (either via Glibc, a system-provided standalone, or downloaded during the
   build from [libargp](https://github.com/leonlynch/libargp); see
   [MacOS / Windows](#macos--windows)). Use the `BUILD_EMV_DECODE` and
-  `BUILD_EMV_TOOL` options to prevent `emv-decode` and  `emv-tool` from being
+  `BUILD_EMV_TOOL` options to prevent `emv-decode` and `emv-tool` from being
   built and avoid the dependency on `argp`.
 * `emv-tool` requires PC/SC, either provided by `WinSCard` on Windows, by
   PCSC.framework on MacOS, or by [PCSCLite](https://pcsclite.apdu.fr/) on
   Linux. Use the `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built
   and avoid the dependency on PC/SC.
+* `emv-dukpt` can _optionally_ be built if the `BUILD_EMV_DUKPT` option is set
+  and [dukpt](https://github.com/openemv/dukpt) is available at build-time.
+  `emv-dukpt` also requires `argp`.
 * `emv-viewer` can _optionally_ be built if [Qt](https://www.qt.io/) (see
   [Qt](#qt) for details) is available at build-time. If it is not available,
   `emv-viewer` will not be built. Use the `BUILD_EMV_VIEWER` option to ensure
@@ -81,13 +84,15 @@ Dependencies
   generate API documentation if it is available; see
   [Documentation](#documentation)
 * [bash-completion](https://github.com/scop/bash-completion) can _optionally_
-  be used to generate bash completion for `emv-decode` and `emv-tool`
+  be used to generate bash completion for `emv-decode`, `emv-tool` and
+  `emv-dukpt`
 * [NSIS](https://nsis.sourceforge.io) can _optionally_ be used to generate a
   Windows installer for this project
 
 This project also makes use of sub-projects that must be provided as git
 submodules using `git clone --recurse-submodules`:
 * [OpenEMV common crypto abstraction](https://github.com/openemv/crypto)
+* [OpenEMV PIN block library](https://github.com/openemv/pinblock)
 * [mcc-codes](https://github.com/greggles/mcc-codes)
 
 Build
@@ -335,6 +340,73 @@ The debug level, debug sources and debug verbosity can be specified using the
 
 Use the `--help` option to display all available options.
 
+### emv-dukpt
+
+The available command line options of the `emv-dukpt` application can be
+displayed using:
+```shell
+emv-dukpt --help
+```
+
+The `emv-dukpt` application encrypts EMV transaction request data using ANSI
+X9.24-1:2009 TDES DUKPT or ANSI X9.24-3:2017 AES DUKPT, and outputs an envelope
+that contains the encrypted EMV data. It also decrypts such envelopes
+containing EMV transaction response data and outputs the decrypted EMV data.
+The envelope is an ASN.1 sequence containing the object identifier (OID) of the
+DUKPT transaction key, Key Serial Number (KSN), encrypted EMV data, and
+authenticator.
+
+To encrypt EMV transaction request data, use the `--encrypt-request` option.
+The Base Derivation Key (BDK) or Initial Key (IK) must be specified using the
+`--bdk` or `--ik` option, and the Key Serial Number (KSN) must be specified
+using the `--ksn` option. For example:
+```shell
+emv-dukpt --bdk 0123456789ABCDEFFEDCBA9876543210 --ksn FFFF9876543210E00001 --encrypt-request 701A9F390105571040123456789095D2512201197339300F82025900
+```
+
+The derivation mode defaults to TDES and can be specified using the `--mode`
+option. For AES DUKPT, the working key type defaults to the length of the BDK
+or IK and can be specified using the `--key-type` option. For example:
+```shell
+emv-dukpt --mode AES --key-type AES128 --bdk FEDCBA9876543210F1F1F1F1F1F1F1F1 --ksn 123456789012345600000001 --encrypt-request 701A9F390105571040123456789095D2512201197339300F82025900
+```
+
+Transaction PIN Data (field `99`) is always replaced by ASN.1 NULL (field `05`)
+of the same length before the EMV data is encrypted. If field `99` is in ISO
+9564-1:2017 PIN block format 2 and the EMV data also contains a valid
+Application PAN (field `5A`), the PIN is encrypted using ISO 9564-1:2017 PIN
+block format 0 for TDES DUKPT, or format 4 for AES DUKPT, and output as a
+second envelope. This PIN encryption envelope is an ASN.1 sequence containing
+the object identifier (OID) of the DUKPT transaction key, Key Serial Number
+(KSN), and encrypted PIN block. For example:
+```shell
+emv-dukpt --bdk 0123456789ABCDEFFEDCBA9876543210 --ksn FFFF9876543210E00001 --encrypt-request 70179F3901055A074012345678909F9908241234FFFFFFFFFF
+```
+
+PIN encryption uses the same BDK or IK, KSN and working key type as the EMV
+data, unless they are specified separately using the `--pin-bdk`, `--pin-ik`,
+`--pin-ksn` and `--pin-key-type` options. If `--pin-bdk` or `--pin-ik` is
+specified, the PIN working key type defaults to the length of that key. For
+example:
+```shell
+emv-dukpt --bdk FEDCBA98765432100123456789ABCDEF --ksn FFFF9876543210E00001 --pin-bdk 0123456789ABCDEFFEDCBA9876543210 --encrypt-request 70179F3901055A074012345678909F9908241234FFFFFFFFFF
+```
+
+The envelope can be decoded using the `--tlv` option of the `emv-decode`
+application.
+
+To decrypt EMV transaction response data, use the `--decrypt-response` option.
+The Base Derivation Key (BDK) or Initial Key (IK) must be specified using the
+`--bdk` or `--ik` option. The derivation mode, working key type and Key Serial
+Number (KSN) are provided by the envelope. If the `--mode`, `--key-type` or
+`--ksn` options are specified, they must match the envelope. The authenticator
+is verified before the EMV data is output. For example:
+```shell
+emv-dukpt --bdk 0123456789ABCDEFFEDCBA9876543210 --decrypt-response 303C060A2B810510864809180100040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19
+```
+
+Use the `--help` option to display all available options.
+
 ### emv-viewer
 
 The `emv-viewer` application can be launched via the desktop environment or it
@@ -381,6 +453,10 @@ files.
 This project includes [crypto](https://github.com/openemv/crypto) as a git
 submodule and it is licensed under the terms of the MIT license. See
 [LICENSE](https://github.com/openemv/crypto/blob/master/LICENSE) file.
+
+This project includes [pinblock](https://github.com/openemv/pinblock) as a git
+submodule and it is licensed under the terms of the LGPL v2.1 license. See
+[LICENSE](https://github.com/openemv/pinblock/blob/master/LICENSE) file.
 
 This project includes [mcc-codes](https://github.com/greggles/mcc-codes) as a
 git submodule and it is licensed under the terms of The Unlicense license. See

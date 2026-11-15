@@ -5,9 +5,10 @@
 # See LICENSE file.
 ##############################################################################
 
-# Build command line tools by default
+# Options for command line tools
 option(BUILD_EMV_DECODE "Build emv-decode" ON)
 option(BUILD_EMV_TOOL "Build emv-tool" ON)
+option(BUILD_EMV_DUKPT "Build emv-dukpt")
 if(NOT BUILD_EMV_CONFIG_XML AND BUILD_EMV_TOOL)
 	message(FATAL_ERROR "BUILD_EMV_CONFIG_XML not enabled. This is required to build emv-tool.")
 endif()
@@ -23,7 +24,7 @@ else()
 	find_package(argp)
 endif()
 if(NOT argp_FOUND)
-	if(BUILD_EMV_DECODE OR BUILD_EMV_TOOL)
+	if(BUILD_EMV_DECODE OR BUILD_EMV_TOOL OR BUILD_EMV_DUKPT)
 		message(FATAL_ERROR "Could NOT find argp. Enable FETCH_ARGP to download and build libargp. This is required to build command line tools.")
 	endif()
 endif()
@@ -115,6 +116,13 @@ if(WIN32)
 			message(FATAL_ERROR "Failed to find winsock2.h, ws2tcpip.h or afunix.h. This is required to build emv-tool.")
 		endif()
 	endif()
+endif()
+
+# Check for dukpt libraries
+find_package(dukpt 1.3.0 CONFIG QUIET)
+find_package_handle_standard_args(dukpt CONFIG_MODE)
+if(NOT dukpt_FOUND AND BUILD_EMV_DUKPT)
+	message(FATAL_ERROR "Could NOT find dukpt. This is required to build emv-dukpt.")
 endif()
 
 # Print helpers object library
@@ -222,6 +230,38 @@ if(BUILD_EMV_TOOL)
 		DESTINATION "${EMV_UTILS_INSTALL_CONFIG_DIR}"
 		COMPONENT emv_runtime
 	)
+endif()
+
+# EMV encryption command line tool
+if(BUILD_EMV_DUKPT)
+	add_executable(emv-dukpt emv-dukpt.c)
+	target_link_libraries(emv-dukpt PRIVATE emv crypto_mem crypto_rand pinblock dukpt::dukpt_tdes dukpt::dukpt_aes)
+	if(TARGET libargp::argp)
+		target_link_libraries(emv-dukpt PRIVATE libargp::argp)
+	endif()
+
+	install(
+		TARGETS
+			emv-dukpt
+		EXPORT emvUtilsTargets # For use by install(EXPORT) command
+		RUNTIME
+			COMPONENT emv_runtime
+	)
+
+	if(WIN32)
+		# Copy dukpt DLLs to build tree for emv-dukpt and tests on Windows
+		# NOTE: This does NOT install the dukpt DLLs
+		get_target_property(dukpt_TYPE dukpt::dukpt_tdes TYPE)
+		if(dukpt_TYPE STREQUAL "SHARED_LIBRARY") # If dukpt libraries are DLLs
+			add_custom_command(TARGET emv-dukpt POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different
+					$<TARGET_FILE:dukpt::dukpt_tdes>
+					$<TARGET_FILE:dukpt::dukpt_aes>
+					$<TARGET_FILE_DIR:emv-dukpt>
+				COMMENT "Copying dukpt DLLs..."
+			)
+		endif()
+	endif()
 endif()
 
 if(TARGET emv-decode AND BUILD_TESTING)
@@ -1411,16 +1451,588 @@ if(TARGET emv-decode AND BUILD_TESTING)
 				PASS_REGULAR_EXPRESSION "validates"
 		)
 	endif()
+endif()
 
-	if(WIN32)
-		# Ensure that tests can find required DLLs (if any)
-		# Assume that the PATH already contains the compiler runtime DLLs
-		set(EMVTOOLS_TEST_PATH "${CMAKE_CURRENT_BINARY_DIR}/../src/;$ENV{PATH}")
-		cmake_path(NATIVE_PATH EMVTOOLS_TEST_PATH NORMALIZE EMVTOOLS_TEST_PATH)
-		get_property(EMVTOOLS_TEST_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY TESTS)
-		set_property(TEST ${EMVTOOLS_TEST_TARGETS}
+if(TARGET emv-dukpt AND BUILD_TESTING)
+	add_test(NAME emv_dukpt_version_test
+		COMMAND emv-dukpt --version
+	)
+	string(CONCAT emv_dukpt_version_test_regex
+		"^emv-utils .+[\r\n]"
+		"dukpt .+[\r\n]$"
+	)
+	set_tests_properties(emv_dukpt_version_test
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION ${emv_dukpt_version_test_regex}
+			FAIL_REGULAR_EXPRESSION "Unknown"
+	)
+
+	# ANSI X9.24-1:2009 TDES DUKPT test data
+	set(EMV_DUKPT_TDES_BDK 0123456789ABCDEFFEDCBA9876543210)
+	set(EMV_DUKPT_TDES_IK 6AC292FAA1315B4D858AB3A3D7D5933A)
+	set(EMV_DUKPT_TDES_KSN FFFF9876543210E00001)
+
+	# ANSI X9.24-3:2017 AES DUKPT test data
+	set(EMV_DUKPT_AES_BDK FEDCBA9876543210F1F1F1F1F1F1F1F1)
+	set(EMV_DUKPT_AES_IK 1273671EA26AC29AFA4D1084127652A1)
+	set(EMV_DUKPT_AES_KSN 123456789012345600000001)
+
+	# Envelopes for EMV transaction request data consisting of 9F390105
+	set(EMV_DUKPT_TDES_REQUEST_ENVELOPE 302C060A2B810510864809180100040AFFFF9876543210E00001040871EF4324B6FA6A8B040848ACAF3DB877CE22)
+	set(EMV_DUKPT_AES128_REQUEST_ENVELOPE 303E060A2B810510864809180101040C1234567890123456000000010410AF57D9BB166D9E4DBE86FA53319CA68604108575B1FA30B6FBF873C30D3831DE0263)
+	set(EMV_DUKPT_AES192_REQUEST_ENVELOPE 303E060A2B810510864809180102040C12345678901234560000000104109B97669C1FA9B588549EE9C59BBC501E0410DD10ECAE3A81CE8EE27C83A52DA48B0D)
+	set(EMV_DUKPT_AES256_REQUEST_ENVELOPE 303E060A2B810510864809180103040C1234567890123456000000010410005C99D7FB6C01A42AF03C1950C4E6DF0410ED0CD584F53EE3CC4BC48D1DCE678852)
+
+	# EMV transaction request data using ANSI X9.24-1:2009 test PAN and PIN,
+	# with PIN in ISO 9564-1:2017 PIN block format 2
+	set(EMV_DUKPT_PIN_REQUEST "7017 9F390105 5A074012345678909F 9908241234FFFFFFFFFF")
+
+	# Envelopes for EMV transaction request data using EMV_DUKPT_PIN_REQUEST
+	# but with field 99 replaced by ASN.1 NULL
+	set(EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE 3044060A2B810510864809180100040AFFFF9876543210E00001042013EEDC6F03D0A491C32C754BC69A67790229D0843AD8FA61686FB0BE10C5748804087A4605A1FA1C129A)
+	set(EMV_DUKPT_AES128_PIN_REQUEST_DATA_ENVELOPE 304E060A2B810510864809180101040C1234567890123456000000010420519D3EF9591EC2CB96115F3B4ADD9F69E8D2CE9129B29A832AEC5E4E4868C4A20410F291F5EC35A1CDC236C435E0952DAC3D)
+
+	# Envelopes for the above PIN encrypted using ISO 9564-1:2017 PIN block
+	# format 0 for TDES and format 4 for AES. Format 4 uses random padding and
+	# therefore only the AES envelope structure can be verified.
+	set(EMV_DUKPT_TDES_PIN_REQUEST_PIN_ENVELOPE 3022060A2B810510864809180100040AFFFF9876543210E0000104081B9C1845EB993A7A)
+	string(REPEAT "[0-9A-F]" 32 EMV_DUKPT_AES_PIN_BLOCK_REGEX)
+	set(EMV_DUKPT_AES128_PIN_REQUEST_PIN_ENVELOPE_REGEX 302C060A2B810510864809180101040C${EMV_DUKPT_AES_KSN}0410${EMV_DUKPT_AES_PIN_BLOCK_REGEX})
+
+	# Envelopes for EMV transaction response data consisting of 8A023030910AD8D1C9EFA6BC2F333030
+	set(EMV_DUKPT_TDES_RESPONSE_ENVELOPE 303C060A2B810510864809180100040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19)
+	set(EMV_DUKPT_AES128_RESPONSE_ENVELOPE 304E060A2B810510864809180101040C123456789012345600000001042007977A528B7543C72CEB12BFC668633805E1891796EC1132386C728B289C39A0041006C65FF6399084CF5F68DCDE4E8D42AC)
+	set(EMV_DUKPT_AES192_RESPONSE_ENVELOPE 304E060A2B810510864809180102040C1234567890123456000000010420E78A98384FBFCD8830A528C6CCA2C786CEA7B0AD790D56505C0C04B6E0F6607004102C6B3F6B175D2EB3298E754CFDA54827)
+	set(EMV_DUKPT_AES256_RESPONSE_ENVELOPE 304E060A2B810510864809180103040C12345678901234560000000104206627E1DF113880DA3B22E305B228B1144742F20845AD6160989D825E4FF833550410FA6B0FB7E40FF215F92124DD8508EAD5)
+
+	# Test TDES DUKPT request encryption using BDK
+	add_test(NAME emv_dukpt_encrypt_test1
+		COMMAND emv-dukpt --mode TDES
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_TDES_REQUEST_ENVELOPE}[\r\n]$"
+	)
+
+	# Test TDES DUKPT request encryption using IK
+	add_test(NAME emv_dukpt_encrypt_test2
+		COMMAND emv-dukpt
+			--ik ${EMV_DUKPT_TDES_IK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_TDES_REQUEST_ENVELOPE}[\r\n]$"
+	)
+
+	# Test AES DUKPT request encryption using BDK
+	add_test(NAME emv_dukpt_encrypt_test3
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_AES128_REQUEST_ENVELOPE}[\r\n]$"
+	)
+
+	# Test AES DUKPT request encryption using IK
+	add_test(NAME emv_dukpt_encrypt_test4
+		COMMAND emv-dukpt --mode AES
+			--ik ${EMV_DUKPT_AES_IK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_AES128_REQUEST_ENVELOPE}[\r\n]$"
+	)
+
+	# Test AES DUKPT request encryption using working key type derived from BDK
+	# length
+	add_test(NAME emv_dukpt_encrypt_test5
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK}FEDCBA9876543210 --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test5
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_AES192_REQUEST_ENVELOPE}[\r\n]$"
+	)
+	add_test(NAME emv_dukpt_encrypt_test6
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test6
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_AES256_REQUEST_ENVELOPE}[\r\n]$"
+	)
+
+	# Test AES DUKPT request encryption using working key type shorter than
+	# BDK
+	add_test(NAME emv_dukpt_encrypt_test7
+		COMMAND emv-dukpt --mode AES --key-type AES128
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test7
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^303E060A2B810510864809180101040C1234567890123456000000010410C589D8FA0D4867191F2B72E9176F342004104C74880B3DA57FF126555ED09CD3417F[\r\n]$"
+	)
+
+	# Test EMV data wrapped by single EMV Data Template (field 70)
+	add_test(NAME emv_dukpt_encrypt_test8
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request 70049F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test8
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_AES128_REQUEST_ENVELOPE}[\r\n]$"
+	)
+
+	# Test EMV data starting with EMV Data Template (field 70) that does not
+	# span all of the EMV data
+	add_test(NAME emv_dukpt_encrypt_test9
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request 70049F3901059F390105
+	)
+	set_tests_properties(emv_dukpt_encrypt_test9
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^303E060A2B810510864809180101040C1234567890123456000000010410537C868FA9FF7D62C4ADF340C85669A40410B8A3A246CE7A5CCB941C3B9F5B0434FB[\r\n]$"
+	)
+
+	# Test unwrapped EMV data that becomes a multiple of the cipher block
+	# length when wrapped
+	add_test(NAME emv_dukpt_encrypt_test10
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request "9F390105 57084012345678901234"
+	)
+	set_tests_properties(emv_dukpt_encrypt_test10
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^303E060A2B810510864809180101040C12345678901234560000000104107E44E0B86292B80DACC39EB85841264D0410541E40831D431CCA2D997B991D253CFD[\r\n]$"
+	)
+
+	# Test EMV data that requires a single byte of padding after wrapping
+	add_test(NAME emv_dukpt_encrypt_test11
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request "9F390105 5707401234567890AB"
+	)
+	set_tests_properties(emv_dukpt_encrypt_test11
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^304E060A2B810510864809180101040C12345678901234560000000104201246E34690D646BAEBE55E2618515F7E05A40E5817FDA668A2E23AB83A88FE8804108DDF66FAC6097C781DC8F7E4EFCC57CE[\r\n]$"
+	)
+
+	# Test TDES DUKPT request encryption of EMV data containing Transaction
+	# PIN Data (field 99)
+	add_test(NAME emv_dukpt_encrypt_test12
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test12
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE}[\r\n]${EMV_DUKPT_TDES_PIN_REQUEST_PIN_ENVELOPE}[\r\n]$"
+	)
+
+	# Test TDES DUKPT request encryption of EMV data containing ASN.1 NULL to
+	# confirm that it generates the same envelope
+	add_test(NAME emv_dukpt_encrypt_test13
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request "9F390105 5A074012345678909F 05080000000000000000"
+	)
+	set_tests_properties(emv_dukpt_encrypt_test13
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE}[\r\n]$"
+	)
+
+	# Test AES DUKPT request encryption of EMV data containing Transaction
+	# PIN Data (field 99)
+	add_test(NAME emv_dukpt_encrypt_test14
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test14
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_AES128_PIN_REQUEST_DATA_ENVELOPE}[\r\n]${EMV_DUKPT_AES128_PIN_REQUEST_PIN_ENVELOPE_REGEX}[\r\n]$"
+	)
+
+	# Test that invalid Transaction PIN Data (field 99) is replaced by ASN.1
+	# NULL (field 05) without PIN encryption
+	add_test(NAME emv_dukpt_encrypt_test15
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request "9F390105 5A074012345678909F 9908041234FFFFFFFFFF"
+	)
+	set_tests_properties(emv_dukpt_encrypt_test15
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "${EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE}[\r\n]"
+			FAIL_REGULAR_EXPRESSION "3022060A2B810510864809180100040A${EMV_DUKPT_TDES_KSN}0408"
+	)
+
+	# Test TDES DUKPT PIN encryption using separate BDK
+	add_test(NAME emv_dukpt_encrypt_test16
+		COMMAND emv-dukpt
+			--bdk FEDCBA98765432100123456789ABCDEF --ksn ${EMV_DUKPT_TDES_KSN}
+			--pin-bdk ${EMV_DUKPT_TDES_BDK}
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test16
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^3044060A2B810510864809180100040AFFFF9876543210E000010420F9E4898D4725528968EA31AF30254FB7BB7B25C895AA2D967C83FAD1AC6ED3740408B3E5FC5229095A94[\r\n]${EMV_DUKPT_TDES_PIN_REQUEST_PIN_ENVELOPE}[\r\n]$"
+	)
+
+	# Test TDES DUKPT PIN encryption using separate KSN
+	add_test(NAME emv_dukpt_encrypt_test17
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--pin-ksn FFFF9876543210E00002
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test17
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^${EMV_DUKPT_TDES_PIN_REQUEST_DATA_ENVELOPE}[\r\n]3022060A2B810510864809180100040AFFFF9876543210E00002040810A01C8D02C69107[\r\n]$"
+	)
+
+	# Test AES DUKPT PIN encryption using working key type shorter than BDK
+	add_test(NAME emv_dukpt_encrypt_test18
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK} --ksn ${EMV_DUKPT_AES_KSN}
+			--pin-key-type AES128
+			--encrypt-request ${EMV_DUKPT_PIN_REQUEST}
+	)
+	set_tests_properties(emv_dukpt_encrypt_test18
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^304E060A2B810510864809180103040C1234567890123456000000010420AD638476F6006FA658C0493928677B5913570265CE19F40970B814ADDD10FAB10410D43A3E5CB9FA02D6E6131EF045D29066[\r\n]${EMV_DUKPT_AES128_PIN_REQUEST_PIN_ENVELOPE_REGEX}[\r\n]$"
+	)
+
+	if(TARGET emv-decode)
+		# Test decoding of request envelope
+		add_test(NAME emv_dukpt_envelope_test1
+			COMMAND emv-decode --tlv ${EMV_DUKPT_TDES_REQUEST_ENVELOPE}
+				--mcc-json ${MCC_JSON_BUILD_PATH}
+		)
+		string(CONCAT emv_dukpt_envelope_test1_regex
+			"^30 \\| ASN\\.1 Object \\(1\\.3\\.133\\.16\\.840\\.9\\.24\\.1\\.0 dukpt_tdes\\) : \\[44\\][\r\n]"
+			"  04 \\| ASN\\.1 Octet string : \\[10\\] FF FF 98 76 54 32 10 E0 00 01[\r\n]"
+			"  04 \\| ASN\\.1 Octet string : \\[8\\] 71 EF 43 24 B6 FA 6A 8B[\r\n]"
+			"  04 \\| ASN\\.1 Octet string : \\[8\\] 48 AC AF 3D B8 77 CE 22[\r\n]$"
+		)
+		set_tests_properties(emv_dukpt_envelope_test1
+			PROPERTIES
+				PASS_REGULAR_EXPRESSION ${emv_dukpt_envelope_test1_regex}
+		)
+
+		# Test decoding of PIN envelope
+		add_test(NAME emv_dukpt_envelope_test2
+			COMMAND emv-decode --tlv ${EMV_DUKPT_TDES_PIN_REQUEST_PIN_ENVELOPE}
+				--mcc-json ${MCC_JSON_BUILD_PATH}
+		)
+		string(CONCAT emv_dukpt_envelope_test2_regex
+			"^30 \\| ASN\\.1 Object \\(1\\.3\\.133\\.16\\.840\\.9\\.24\\.1\\.0 dukpt_tdes\\) : \\[34\\][\r\n]"
+			"  04 \\| ASN\\.1 Octet string : \\[10\\] FF FF 98 76 54 32 10 E0 00 01[\r\n]"
+			"  04 \\| ASN\\.1 Octet string : \\[8\\] 1B 9C 18 45 EB 99 3A 7A[\r\n]$"
+		)
+		set_tests_properties(emv_dukpt_envelope_test2
+			PROPERTIES
+				PASS_REGULAR_EXPRESSION ${emv_dukpt_envelope_test2_regex}
+		)
+	endif()
+
+	# Test TDES DUKPT response decryption using BDK
+	add_test(NAME emv_dukpt_decrypt_test1
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test TDES DUKPT response decryption using IK and matching options
+	add_test(NAME emv_dukpt_decrypt_test2
+		COMMAND emv-dukpt --mode TDES
+			--ik ${EMV_DUKPT_TDES_IK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test AES DUKPT response decryption using BDK
+	add_test(NAME emv_dukpt_decrypt_test3
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}
+			--decrypt-response ${EMV_DUKPT_AES128_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test AES DUKPT response decryption using IK and matching options
+	add_test(NAME emv_dukpt_decrypt_test4
+		COMMAND emv-dukpt --mode AES --key-type AES128
+			--ik ${EMV_DUKPT_AES_IK} --ksn ${EMV_DUKPT_AES_KSN}
+			--decrypt-response ${EMV_DUKPT_AES128_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test AES DUKPT response decryption using working key type derived from
+	# BDK length
+	add_test(NAME emv_dukpt_decrypt_test5
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}FEDCBA9876543210
+			--decrypt-response ${EMV_DUKPT_AES192_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test5
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+	add_test(NAME emv_dukpt_decrypt_test6
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK}
+			--decrypt-response ${EMV_DUKPT_AES256_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_decrypt_test6
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test AES DUKPT response decryption using working key type shorter than
+	# BDK
+	add_test(NAME emv_dukpt_decrypt_test7
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK}
+			--decrypt-response 304E060A2B810510864809180101040C1234567890123456000000010420D39D5D6F9E5E59E8B0CADB0B9248EE90049F5A84701CDDB2CE2667EAAC623117041007319BFC160DBB667F901133D5E1E696
+	)
+	set_tests_properties(emv_dukpt_decrypt_test7
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^70108A023030910AD8D1C9EFA6BC2F333030[\r\n]$"
+	)
+
+	# Test EMV data without padding
+	add_test(NAME emv_dukpt_decrypt_test8
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}
+			--decrypt-response 303E060A2B810510864809180101040C12345678901234560000000104101334A2865A482C0C21E423779C9C71B40410EECEDEFF9F11950587C6CC28B951E7AE
+	)
+	set_tests_properties(emv_dukpt_decrypt_test8
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "^700E8A02303591081A2B3C4D00800000[\r\n]$"
+	)
+
+	# Test invalid Key Serial Number, working key type and EMV data
+	add_test(NAME emv_dukpt_error_test1
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn FFFF9876543210E00000
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_error_test1
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Key Serial Number \\(--ksn\\) transaction counter is invalid"
+	)
+	add_test(NAME emv_dukpt_error_test2
+		COMMAND emv-dukpt --mode AES --key-type AES256
+			--ik ${EMV_DUKPT_AES_IK} --ksn ${EMV_DUKPT_AES_KSN}
+			--encrypt-request 9F390105
+	)
+	set_tests_properties(emv_dukpt_error_test2
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Working key type \\(--key-type\\) must not be longer than Initial Key \\(--ik\\)"
+	)
+	add_test(NAME emv_dukpt_error_test3
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request 9F390105FFFF
+	)
+	set_tests_properties(emv_dukpt_error_test3
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "EMV data must consist of valid BER encoded data"
+	)
+	add_test(NAME emv_dukpt_error_test4
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request 9F3901050000
+	)
+	set_tests_properties(emv_dukpt_error_test4
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "EMV data must consist of valid BER encoded data"
+	)
+	add_test(NAME emv_dukpt_error_test5
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request 70809F3901050000
+	)
+	set_tests_properties(emv_dukpt_error_test5
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "EMV data must consist of valid BER encoded data"
+	)
+
+	# Test multiple actions
+	add_test(NAME emv_dukpt_error_test6
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn ${EMV_DUKPT_TDES_KSN}
+			--encrypt-request 9F390105 --decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test6
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Only one action may be specified"
+	)
+
+	# Test options that do not match envelope
+	add_test(NAME emv_dukpt_error_test7
+		COMMAND emv-dukpt --mode AES
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test7
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Derivation mode \\(--mode\\) does not match envelope"
+	)
+	add_test(NAME emv_dukpt_error_test8
+		COMMAND emv-dukpt --key-type AES192
+			--bdk ${EMV_DUKPT_AES_BDK}${EMV_DUKPT_AES_BDK}
+			--decrypt-response ${EMV_DUKPT_AES256_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test8
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Working key type \\(--key-type\\) does not match envelope"
+	)
+	add_test(NAME emv_dukpt_error_test9
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --ksn FFFF9876543210E00002
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test9
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Key Serial Number \\(--ksn\\) does not match envelope"
+	)
+
+	# Test invalid envelopes
+	add_test(NAME emv_dukpt_error_test10
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}9F390105
+	)
+	set_tests_properties(emv_dukpt_error_test10
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope must consist of a single BER encoded field"
+	)
+	add_test(NAME emv_dukpt_error_test11
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 303C060A2B810510864809180109040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19
+	)
+	set_tests_properties(emv_dukpt_error_test11
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope OID is not a supported DUKPT algorithm"
+	)
+	add_test(NAME emv_dukpt_error_test12
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 3032060A2B810510864809180100040AFFFF9876543210E000010418AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D
+	)
+	set_tests_properties(emv_dukpt_error_test12
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope must contain KSN, encrypted data and authenticator"
+	)
+	add_test(NAME emv_dukpt_error_test13
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 303B060A2B810510864809180100040AFFFF9876543210E000010417AFDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B8040807B36554C5409D19
+	)
+	set_tests_properties(emv_dukpt_error_test13
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope encrypted data must be a non-zero multiple of 8 bytes"
+	)
+
+	# Test envelope authenticator verification using wrong BDK, modified
+	# encrypted data and request envelope
+	add_test(NAME emv_dukpt_error_test14
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_AES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test14
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope authenticator verification failed"
+			FAIL_REGULAR_EXPRESSION "70108A023030"
+	)
+	add_test(NAME emv_dukpt_error_test15
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 303C060A2B810510864809180100040AFFFF9876543210E000010418AEDBCF44EE9679176DE3287A93B1E05C42B7FD5FDC53B84D040807B36554C5409D19
+	)
+	set_tests_properties(emv_dukpt_error_test15
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope authenticator verification failed"
+	)
+	add_test(NAME emv_dukpt_error_test16
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response ${EMV_DUKPT_TDES_REQUEST_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test16
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Envelope authenticator verification failed"
+			FAIL_REGULAR_EXPRESSION "70049F390105"
+	)
+
+	# Test envelopes containing invalid decrypted data
+	add_test(NAME emv_dukpt_error_test17
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 302C060A2B810510864809180100040AFFFF9876543210E0000104087943A1231D8FC4C80408C76CD2008D071567
+	)
+	set_tests_properties(emv_dukpt_error_test17
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Decrypted data must start with EMV Data Template \\(field 70\\)"
+	)
+	add_test(NAME emv_dukpt_error_test18
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK}
+			--decrypt-response 302C060A2B810510864809180100040AFFFF9876543210E00001040816897E742539B6A504089475476FE9F57B32
+	)
+	set_tests_properties(emv_dukpt_error_test18
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "Decrypted data contains invalid padding"
+	)
+
+	# Test PIN encryption options with response decryption
+	add_test(NAME emv_dukpt_error_test19
+		COMMAND emv-dukpt
+			--bdk ${EMV_DUKPT_TDES_BDK} --pin-ksn ${EMV_DUKPT_TDES_KSN}
+			--decrypt-response ${EMV_DUKPT_TDES_RESPONSE_ENVELOPE}
+	)
+	set_tests_properties(emv_dukpt_error_test19
+		PROPERTIES
+			PASS_REGULAR_EXPRESSION "PIN encryption options only apply to EMV transaction request encryption \\(--encrypt-request\\)"
+	)
+endif()
+
+if(BUILD_TESTING AND WIN32)
+	# Ensure that tests can find required DLLs (if any)
+	# Assume that the PATH already contains the compiler runtime DLLs
+	set(EMVUTILS_TEST_PATH "${CMAKE_CURRENT_BINARY_DIR}/../src/;$ENV{PATH}")
+	cmake_path(NATIVE_PATH EMVUTILS_TEST_PATH NORMALIZE EMVUTILS_TEST_PATH)
+	get_property(EMVUTILS_TEST_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY TESTS)
+	if(EMVUTILS_TEST_TARGETS)
+		set_property(TEST ${EMVUTILS_TEST_TARGETS}
 			PROPERTY
-				ENVIRONMENT "PATH=${EMVTOOLS_TEST_PATH}"
+				ENVIRONMENT "PATH=${EMVUTILS_TEST_PATH}"
 		)
 	endif()
 endif()

@@ -138,9 +138,12 @@ __BEGIN_DECLS
 #define ASN1_OID_sha256WithRSAEncryption { 1, 2, 840, 113549, 1, 1, 11 } ///< ASN.1 OID for PKCS#1 v2.2 SHA256 with RSA
 #define ASN1_OID_emailAddress { 1, 2, 840, 113549, 1, 9, 1 } ///< ASN.1 OID for PKCS#9 v2.0 email address
 
+// ASN.1 object identifier for TDES DUKPT (not provided by ANSI)
+#define ASN1_OID_dukpt_tdes { 1, 3, 133, 16, 840, 9, 24, 1, 0 } ///< ASN.1 OID for ANSI X9.24-1:2009 TDES transaction key
+
 // ASN.1 object identifiers provided by ANSI X9.24-3:2017, 6.1.2
 #define ASN1_OID_dukpt_aes128 { 1, 3, 133, 16, 840, 9, 24, 1, 1 } ///< ASN.1 OID for ANSI X9.24-3:2017 AES-128 transaction key
-#define ASN1_OID_dukpt_aes192 { 1, 3, 133, 16, 840, 9, 24, 1, 2 } ///< ASN.1 OID for ANSI 2X9.24-3:2017 AES-192 transaction key
+#define ASN1_OID_dukpt_aes192 { 1, 3, 133, 16, 840, 9, 24, 1, 2 } ///< ASN.1 OID for ANSI X9.24-3:2017 AES-192 transaction key
 #define ASN1_OID_dukpt_aes256 { 1, 3, 133, 16, 840, 9, 24, 1, 3 } ///< ASN.1 OID for ANSI X9.24-3:2017 AES-256 transaction key
 #define ASN1_OID_dukpt_tdes2 { 1, 3, 133, 16, 840, 9, 24, 1, 4 } ///< ASN.1 OID for ANSI X9.24-3:2017 TDES2 transaction key
 #define ASN1_OID_dukpt_tdes3 { 1, 3, 133, 16, 840, 9, 24, 1, 5 } ///< ASN.1 OID for ANSI X9.24-3:2017 TDES3 transaction key
@@ -360,6 +363,15 @@ int iso8825_ber_oid_encode(const struct iso8825_oid_t* oid, void* ptr, size_t* l
  * @return Zero for success. Less than zero for error.
  */
 int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_oid_t* rel_oid);
+
+/**
+ * Determine whether object identifiers (OIDs) are equal
+ * @param oid Decoded object identifier (OID)
+ * @param other Decoded object identifier (OID) to compare with @p oid
+ * @return Boolean indicating whether object identifiers are equal. NULL is
+ *         never equal.
+ */
+bool iso8825_ber_oid_is_equal(const struct iso8825_oid_t* oid, const struct iso8825_oid_t* other);
 
 /**
  * Decode TLV field as ASN.1 object and provide decoded object identifier (OID).

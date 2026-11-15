@@ -9,6 +9,9 @@ name: Windows build
 
 on: [push]
 
+env:
+  DUKPT_VERSION: 1.3.0
+
 jobs:
   build-windows-msys2-debug:
     runs-on: windows-latest
@@ -19,8 +22,8 @@ jobs:
         include:
           - { sys: clang64, env: clang-x86_64, build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
           - { sys: ucrt64, env: ucrt-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "libxml2/qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "libxml2/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
-          - { sys: clang64, env: clang-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "libxml2/qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: ucrt64, env: ucrt-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "libxml2/dukpt/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { sys: clang64, env: clang-x86_64, build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "libxml2/dukpt/qt6", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
           - { sys: clang64, env: clang-x86_64, build_type: "Release", lib_type: "dll", shared_libs: "YES", deps: "libxml2/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
 
     name: Windows MSYS2 ${{matrix.sys}} build (${{ matrix.lib_type }}/${{ matrix.build_type }}/${{ matrix.deps }})
@@ -50,6 +53,7 @@ jobs:
           mingw-w64-${{matrix.env}}-iso-codes
           mingw-w64-${{matrix.env}}-json-c
           mingw-w64-${{matrix.env}}-gettext
+          mingw-w64-${{matrix.env}}-github-cli
 
     - name: Install libxml2
       if: contains(matrix.deps, 'libxml2')
@@ -66,6 +70,25 @@ jobs:
       run: |
         pacman --noconfirm -S --needed mingw-w64-${{matrix.env}}-qt6-base mingw-w64-${{matrix.env}}-qt6-tools
 
+    - name: Build DUKPT dependency
+      if: contains(matrix.deps, 'dukpt')
+      run: |
+        gh release download --repo openemv/dukpt ${{ env.DUKPT_VERSION }}
+        tar xvfz dukpt-${{ env.DUKPT_VERSION }}-src.tar.gz
+        cd dukpt-${{ env.DUKPT_VERSION }}
+        cmake -G Ninja -B build \
+          -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}" \
+          -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+          ${{ matrix.fetch_deps == 'NO' && '-DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES' || '-DFETCH_MBEDTLS=YES' }} \
+          -DCMAKE_DISABLE_FIND_PACKAGE_Qt5=YES \
+          -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=YES \
+          -DBUILD_DUKPT_TOOL=NO
+        cmake --build build -j 4
+        echo "DUKPT_DIR=$(pwd)/build/cmake/" >> $GITHUB_ENV
+        cd ..
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     # MSYS2 Git assumes CRLF by default
     - name: Configure Git
       run: |
@@ -80,8 +103,10 @@ jobs:
           -DBUILD_EMV_CONFIG_XML=${{ contains(matrix.deps, 'libxml2') && 'YES' || 'NO' }} \
           ${{ matrix.fetch_deps == 'NO' && '-DCMAKE_REQUIRE_FIND_PACKAGE_MbedTLS=YES' || '-DFETCH_MBEDTLS=YES' }} \
           -DFETCH_ARGP=YES \
+          -Ddukpt_DIR=${{ env.DUKPT_DIR }} \
           -DBUILD_EMV_DECODE=YES \
           -DBUILD_EMV_TOOL=${{ matrix.build_emv_tool }} \
+          -DBUILD_EMV_DUKPT=${{ contains(matrix.deps, 'dukpt') && 'YES' || 'NO' }} \
           -DCMAKE_DISABLE_FIND_PACKAGE_Qt5=${{ !contains(matrix.deps, 'qt5') && 'YES' || 'NO' }} \
           -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=${{ !contains(matrix.deps, 'qt6') && 'YES' || 'NO' }} \
           -DBUILD_EMV_VIEWER=${{ matrix.build_emv_viewer }}
