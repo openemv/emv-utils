@@ -23,6 +23,7 @@
 #define EMV_C3_H
 
 #include <sys/cdefs.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 __BEGIN_DECLS
@@ -100,25 +101,46 @@ int emv_c3_read_application_data(struct emv_ctx_t* ctx);
  * this function will determine the cryptogram type from
  * @ref EMV_TAG_9F10_ISSUER_APPLICATION_DATA instead.
  *
+ * @note Unlike @ref emv_card_action_analysis(), this function does not
+ *       perform GENERATE APPLICATION CRYPTOGRAM and only considers the
+ *       cryptogram type and TTQ. @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE
+ *       is pushed by @ref emv_c3_offline_completion().
+ *
+ * @remark See EMV Contactless Book C-3 v2.12, 5.4.3
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero if online authorisation is required
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_c3_card_action_analysis(struct emv_ctx_t* ctx);
+
+/**
+ * Perform Offline Completion for kernel C-3 by determining the outcome from
+ * the Online Required by Reader Indicator, the Decline Required by Reader
+ * Indicator and the Terminal Transaction Qualifiers (TTQ).
+ *
  * This function will push @ref EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE onto
  * @ref emv_ctx_t.terminal for offline approval (@ref EMV_OUTCOME_APPROVED)
  * and offline decline (@ref EMV_OUTCOME_DECLINED).
  *
- * @note Unlike @ref emv_card_action_analysis(), this function does not
- *       perform GENERATE APPLICATION CRYPTOGRAM and only considers the
- *       cryptogram type and the TTQ.
- *
- * @remark See EMV Contactless Book C-3 v2.12, 5.4.3
  * @remark See EMV Contactless Book C-3 v2.12, 5.8.1.1
  * @remark See EMV Contactless Book C-3 v2.12, 5.9.1
  *
  * @param ctx EMV processing context
+ * @param online_required Online Required by Reader Indicator
+ * @param decline_required Decline Required by Reader Indicator
  *
  * @return Zero for online authorisation. See @ref emv_online_processing()
  * @return Less than zero for errors. See @ref emv_error_t
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
-int emv_c3_card_action_analysis(struct emv_ctx_t* ctx);
+int emv_c3_offline_completion(
+	struct emv_ctx_t* ctx,
+	bool online_required,
+	bool decline_required
+);
 
 __END_DECLS
 

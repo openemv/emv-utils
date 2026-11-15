@@ -371,7 +371,6 @@ exit:
 
 int emv_c3_card_action_analysis(struct emv_ctx_t* ctx)
 {
-	int r;
 	const struct emv_tlv_t* ttq;
 	const struct emv_tlv_t* cid;
 	uint8_t cid_value;
@@ -399,7 +398,7 @@ int emv_c3_card_action_analysis(struct emv_ctx_t* ctx)
 			// Cryptogram type cannot be determined
 			// See EMV Contactless Book C-3 v2.12, 5.4.3.2
 			emv_debug_error("Cryptogram Information Data (CID) invalid");
-			goto decline;
+			return EMV_OUTCOME_DECLINED;
 		}
 		cid_value = cid->value[0];
 
@@ -415,7 +414,7 @@ int emv_c3_card_action_analysis(struct emv_ctx_t* ctx)
 			// Cryptogram type cannot be determined
 			// See EMV Contactless Book C-3 v2.12, 5.4.3.2
 			emv_debug_error("Issuer Application Data (IAD) not found or invalid");
-			goto decline;
+			return EMV_OUTCOME_DECLINED;
 		}
 		cid_value = (iad->value[4] & 0x30) << 2;
 	}
@@ -425,7 +424,7 @@ int emv_c3_card_action_analysis(struct emv_ctx_t* ctx)
 	switch (cid_value & EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_MASK) {
 		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_AAC:
 			emv_debug_info("GPO: Application Authentication Cryptogram (AAC)");
-			goto decline;
+			return EMV_OUTCOME_DECLINED;
 
 		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_TC:
 			emv_debug_info("GPO: Transaction Certificate (TC)");
@@ -434,42 +433,65 @@ int emv_c3_card_action_analysis(struct emv_ctx_t* ctx)
 
 		case EMV_CID_APPLICATION_CRYPTOGRAM_TYPE_ARQC:
 			emv_debug_info("GPO: Authorisation Request Cryptogram (ARQC)");
-			outcome = 0; // Continue to emv_online_processing()
+			outcome = 0; // Online required
 			break;
 
 		default:
 			// Cryptogram type cannot be determined
 			emv_debug_error("Unexpected CID 0x%02X", cid_value);
-			goto decline;
+			return EMV_OUTCOME_DECLINED;
 	}
 
 	// See EMV Contactless Book C-3 v2.12, 5.4.3.2
 	if (ttq->value[1] & EMV_TTQ_ONLINE_CRYPTOGRAM_REQUIRED) {
 		emv_debug_info("Online cryptogram required by reader");
-		outcome = 0; // Continue to emv_online_processing()
+		outcome = 0; // Online required
 	}
 
-	if (outcome == 0) {
-		if (ttq->value[0] & EMV_TTQ_OFFLINE_ONLY_READER) {
-			// Decline if online processing is not supported
-			// See EMV Contactless Book C-3 v2.12, 5.9.1.2
-			emv_debug_info("Online processing not supported by reader");
-			goto decline;
-		}
+	return outcome;
+}
 
-		// Continue to emv_online_processing()
-		// See EMV Contactless Book C-3 v2.12, 5.8.1.1
-		return 0;
+int emv_c3_offline_completion(
+	struct emv_ctx_t* ctx,
+	bool online_required,
+	bool decline_required
+)
+{
+	int r;
+	const struct emv_tlv_t* ttq;
 
-	} else {
-		// Populate Authorisation Response Code (field 8A) for offline approval
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Offline completion");
+
+	ttq = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F66_TTQ);
+	if (!ttq || ttq->length != 4) {
+		emv_debug_trace_msg("ttq=%p, ttq->length=%u",
+			ttq, ttq ? ttq->length : 0);
+		emv_debug_error("Terminal Transaction Qualifiers (9F66) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
+	if (online_required && (ttq->value[0] & EMV_TTQ_OFFLINE_ONLY_READER)) {
+		// Decline if online processing is not supported
+		// See EMV Contactless Book C-3 v2.12, 5.9.1.2
+		emv_debug_info("Online processing not supported by reader");
+		decline_required = true;
+	}
+
+	if (decline_required) {
+		// Populate Authorisation Response Code (field 8A) for offline decline
 		// See EMV Contactless Book C-3 v2.12, Annex A.2
-		// See EMV Contactless Book C-3 v2.12, 5.9.1.1
+		// See EMV Contactless Book C-3 v2.12, 5.9.1.2
 		r = emv_tlv_list_push(
 			&ctx->terminal,
 			EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
 			2,
-			(uint8_t[]){ 0x59, 0x31 }, // Y1 - Offline approved
+			(uint8_t[]){ 0x5A, 0x31 }, // Z1 - Offline declined
 			0
 		);
 		if (r) {
@@ -480,18 +502,23 @@ int emv_c3_card_action_analysis(struct emv_ctx_t* ctx)
 			return EMV_ERROR_INTERNAL;
 		}
 
-		return outcome;
+		return EMV_OUTCOME_DECLINED;
 	}
 
-decline:
-	// Populate Authorisation Response Code (field 8A) for offline decline
+	if (online_required) {
+		// Continue to emv_online_processing()
+		// See EMV Contactless Book C-3 v2.12, 5.8.1.1
+		return 0;
+	}
+
+	// Populate Authorisation Response Code (field 8A) for offline approval
 	// See EMV Contactless Book C-3 v2.12, Annex A.2
-	// See EMV Contactless Book C-3 v2.12, 5.9.1.2
+	// See EMV Contactless Book C-3 v2.12, 5.9.1.1
 	r = emv_tlv_list_push(
 		&ctx->terminal,
 		EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE,
 		2,
-		(uint8_t[]){ 0x5A, 0x31 }, // Z1 - Offline declined
+		(uint8_t[]){ 0x59, 0x31 }, // Y1 - Offline approved
 		0
 	);
 	if (r) {
@@ -502,5 +529,5 @@ decline:
 		return EMV_ERROR_INTERNAL;
 	}
 
-	return EMV_OUTCOME_DECLINED;
+	return EMV_OUTCOME_APPROVED;
 }

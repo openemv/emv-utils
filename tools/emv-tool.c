@@ -30,6 +30,7 @@
 #include "emv_strings.h"
 #include "emv_tlv.h"
 #include "emv_app.h"
+#include "emv_date.h"
 #include "emv_ep.h"
 #include "emv_c2.h"
 #include "emv_c3.h"
@@ -57,6 +58,7 @@ static void print_pcsc_readers(pcsc_ctx_t pcsc);
 static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
 static int emv_txn_load_config(struct emv_ctx_t* emv);
 static int parse_hex(const char* hex, void* buf, size_t* buf_len);
+static int emv_txn_c3_process(struct emv_ctx_t* emv);
 static int online_auth_request_encode(const struct emv_ctx_t* emv, uint8_t* buf, size_t* buf_len);
 static int online_auth_response_parse(const uint8_t* buf, size_t buf_len, uint8_t* arc, uint8_t* iad, size_t* iad_len);
 static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len);
@@ -845,6 +847,136 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 	return 0;
 }
 
+static int emv_txn_c3_process(struct emv_ctx_t* emv)
+{
+	int r;
+	const struct emv_tlv_t* ctq;
+	bool online_required = false;
+	bool decline_required = false;
+
+	// Kernel C-3 sets the Online Required by Reader Indicator and the Decline
+	// Required by Reader Indicator during various processing steps and only
+	// determines the outcome after all processing steps
+	// See EMV Contactless Book C-3 v2.12, 5.8.1.1
+	// See EMV Contactless Book C-3 v2.12, 5.9.1
+
+	printf("\nCard action analysis\n");
+	r = emv_c3_card_action_analysis(emv);
+	if (r < 0) {
+		return r;
+	}
+	switch (r) {
+		case 0:
+			// Card returned ARQC or reader requires online cryptogram
+			// See EMV Contactless Book C-3 v2.12, 5.4.3.2
+			online_required = true;
+			break;
+
+		case EMV_OUTCOME_APPROVED:
+			// Card returned TC and reader does not require online cryptogram
+			break;
+
+		case EMV_OUTCOME_DECLINED:
+			// See EMV Contactless Book C-3 v2.12, 5.4.3.2
+			decline_required = true;
+			break;
+
+		default:
+			// Return outcome as-is
+			return r;
+	}
+
+	// Card Transaction Qualifiers (field 9F6C) is optional
+	ctq = emv_tlv_list_find_const(&emv->icc, EMV_TAG_9F6C_CTQ);
+	if (ctq && ctq->length != 2) {
+		ctq = NULL;
+	}
+
+	// NOTE: Processing Restrictions apply when the card indicates TC, but
+	// emv_c3_card_action_analysis() overrides approval when the reader
+	// requires online cryptogram. Therefore, this implementation only applies
+	// Processing restrictions when neither online cryptogram nor decline are
+	// are indicated.
+	if (!online_required && !decline_required) {
+		const struct emv_tlv_t* txn_date;
+		const struct emv_tlv_t* app_expiration_date;
+
+		printf("\nProcessing restrictions\n");
+
+		txn_date = emv_tlv_list_find_const(&emv->params, EMV_TAG_9A_TRANSACTION_DATE);
+		if (!txn_date || txn_date->length != 3) {
+			// Presence of Transaction Date (field 9A) should have been
+			// confirmed by emv_ctx_prepare_txn()
+			emv_debug_error("Transaction Date (9A) not found or invalid");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// Application Expiration Date (field 5F24) is optional for kernel C-3
+		// and the application is considered expired if it is not provided
+		// See EMV Contactless Book C-3 v2.12, 5.5.1.1
+		app_expiration_date = emv_tlv_list_find_const(&emv->icc, EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE);
+		if (emv_date_is_expired(txn_date, app_expiration_date)) {
+			emv_debug_info("Application is expired");
+			if (ctq && (ctq->value[0] & EMV_CTQ_ONLINE_IF_APPLICATION_EXPIRED)) {
+				emv_debug_info("Card requires online processing if application is expired");
+				online_required = true;
+			} else {
+				decline_required = true;
+			}
+		} else {
+			emv_debug_info("Application is not expired");
+		}
+	}
+
+	if (!online_required && !decline_required) {
+		const struct emv_tlv_t* ttq;
+
+		printf("\nOffline data authentication\n");
+
+		ttq = emv_tlv_list_find_const(&emv->terminal, EMV_TAG_9F66_TTQ);
+		if (!ttq || ttq->length != 4) {
+			// Presence of Terminal Transaction Qualifiers (field 9F66) should
+			// have been confirmed by emv_c3_card_action_analysis()
+			emv_debug_error("Terminal Transaction Qualifiers (9F66) not found or invalid");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// This implementation is unable to perform fDDA
+		// See EMV Contactless Book C-3 v2.12, 5.6.1.2
+		emv_debug_info("Unable to perform fDDA");
+		if (ctq &&
+			(ctq->value[0] & EMV_CTQ_ONLINE_IF_ODA_FAILED) &&
+			!(ttq->value[0] & EMV_TTQ_OFFLINE_ONLY_READER)
+		) {
+			emv_debug_info("Card requires online processing if ODA fails");
+			online_required = true;
+		} else if (ctq &&
+			(ctq->value[0] & EMV_CTQ_SWITCH_INTERFACE_IF_ODA_FAILED) &&
+			(ttq->value[0] & EMV_TTQ_EMV_CONTACT_SUPPORTED)
+		) {
+			emv_debug_info("Card requires switch interface if ODA fails");
+			return EMV_OUTCOME_TRY_ANOTHER_INTERFACE;
+		} else {
+			decline_required = true;
+		}
+	}
+
+	// Kernel C-3 requires that TVR is zero and does not use the TSI
+	// See EMV Contactless Book C-3 v2.12, Annex A.2
+	// See EMV Contactless Book C-3 v2.12, Annex B.1.1
+	if (!emv->tvr || !emv->tsi) {
+		// Presence of TVR and TSI should have been confirmed by
+		// emv_c3_initiate_kernel_processing()
+		emv_debug_trace_msg("tvr=%p, tsi=%p", emv->tvr, emv->tsi);
+		emv_debug_error("Invalid context variable");
+		return EMV_ERROR_INTERNAL;
+	}
+	memset(emv->tvr->value, 0, emv->tvr->length);
+	memset(emv->tsi->value, 0, emv->tsi->length);
+
+	return emv_c3_offline_completion(emv, online_required, decline_required);
+}
+
 static int online_auth_request_encode(const struct emv_ctx_t* emv, uint8_t* buf, size_t* buf_len)
 {
 	int r;
@@ -1557,6 +1689,20 @@ int main(int argc, char** argv)
 		}
 		// See EMV Contactless Book C-3 v2.12, 5.4.1.1
 		printf("\nCard read OK\n");
+
+		r = emv_txn_c3_process(&emv);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			outcome = r;
+			goto emv_outcome;
+		}
+
+		// Kernel C-3 requires online authorisation
+		goto emv_online;
 	}
 
 	printf("\nOffline data authentication\n");
@@ -1594,21 +1740,17 @@ int main(int argc, char** argv)
 
 	printf("\nCard action analysis\n");
 	if (emv.ttl->contactless) {
-		if (kernel_id[0] == 0x03) {
-			r = emv_c3_card_action_analysis(&emv);
-		} else {
-			r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
+		r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
 
-			// Kernels other than C-3 have no further card interaction
-			int pcsc_r;
-			pcsc_r = pcsc_reader_disconnect(reader);
-			if (pcsc_r) {
-				printf("PC/SC reader deactivation failed\n");
-				goto emv_exit;
-			}
-			// See EMV Contactless Book A v2.12, 9.4
-			printf("\nCard read OK. Remove Card.\n");
+		// Kernels other than C-3 have no further card interaction
+		int pcsc_r;
+		pcsc_r = pcsc_reader_disconnect(reader);
+		if (pcsc_r) {
+			printf("PC/SC reader deactivation failed\n");
+			goto emv_exit;
 		}
+		// See EMV Contactless Book A v2.12, 9.4
+		printf("\nCard read OK. Remove Card.\n");
 
 	} else {
 		r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
@@ -1623,6 +1765,7 @@ int main(int argc, char** argv)
 		goto emv_outcome;
 	}
 
+emv_online:
 	// If card action analysis did not provide an outcome, then proceed to
 	// online authorisation
 	switch (online_auth_method) {

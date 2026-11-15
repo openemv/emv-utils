@@ -42,14 +42,6 @@ static const uint8_t test_ttq_online_required[] = { EMV_TTQ_EMV_MODE_SUPPORTED, 
 // Terminal Transaction Qualifiers: EMV mode supported, offline-only reader
 static const uint8_t test_ttq_offline_only[] = { EMV_TTQ_EMV_MODE_SUPPORTED | EMV_TTQ_OFFLINE_ONLY_READER, 0x00, 0x00, 0x00 };
 
-// Authorisation Response Code: 'Y1' (Offline approved)
-// See EMV Contactless Book C-3 v2.12, Annex A.2
-static const uint8_t test_arc_offline_approved[2] = { 0x59, 0x31 };
-
-// Authorisation Response Code: 'Z1' (Offline declined)
-// See EMV Contactless Book C-3 v2.12, Annex A.2
-static const uint8_t test_arc_offline_declined[2] = { 0x5A, 0x31 };
-
 struct test_t {
 	const char* name;
 
@@ -58,8 +50,6 @@ struct test_t {
 	const uint8_t* ttq;
 
 	int expected_result;
-
-	const uint8_t* expected_arc;
 };
 
 static const struct test_t test[] = {
@@ -74,7 +64,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = EMV_OUTCOME_APPROVED,
-		.expected_arc = test_arc_offline_approved,
 	},
 
 	{
@@ -88,7 +77,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = EMV_OUTCOME_DECLINED,
-		.expected_arc = test_arc_offline_declined,
 	},
 
 	{
@@ -102,7 +90,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = 0,
-		.expected_arc = NULL,
 	},
 
 	{
@@ -116,7 +103,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = EMV_OUTCOME_DECLINED,
-		.expected_arc = test_arc_offline_declined,
 	},
 
 	{
@@ -130,7 +116,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = EMV_OUTCOME_DECLINED,
-		.expected_arc = test_arc_offline_declined,
 	},
 
 	{
@@ -144,7 +129,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = EMV_OUTCOME_APPROVED,
-		.expected_arc = test_arc_offline_approved,
 	},
 
 	{
@@ -158,7 +142,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = EMV_OUTCOME_DECLINED,
-		.expected_arc = test_arc_offline_declined,
 	},
 
 	{
@@ -172,7 +155,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = 0,
-		.expected_arc = NULL,
 	},
 
 	{
@@ -186,7 +168,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq,
 
 		.expected_result = EMV_OUTCOME_DECLINED,
-		.expected_arc = test_arc_offline_declined,
 	},
 
 	{
@@ -200,7 +181,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq_online_required,
 
 		.expected_result = 0,
-		.expected_arc = NULL,
 	},
 
 	{
@@ -214,7 +194,6 @@ static const struct test_t test[] = {
 		.ttq = test_ttq_online_required,
 
 		.expected_result = EMV_OUTCOME_DECLINED,
-		.expected_arc = test_arc_offline_declined,
 	},
 
 	{
@@ -227,8 +206,7 @@ static const struct test_t test[] = {
 
 		.ttq = test_ttq_offline_only,
 
-		.expected_result = EMV_OUTCOME_DECLINED,
-		.expected_arc = test_arc_offline_declined,
+		.expected_result = 0,
 	},
 
 	{
@@ -242,7 +220,6 @@ static const struct test_t test[] = {
 		.ttq = NULL,
 
 		.expected_result = EMV_ERROR_INVALID_CONFIG,
-		.expected_arc = NULL,
 	},
 };
 
@@ -284,8 +261,6 @@ int main(void)
 	memset(&emv, 0, sizeof(emv));
 
 	for (size_t i = 0; i < sizeof(test) / sizeof(test[0]); ++i) {
-		const struct emv_tlv_t* arc;
-
 		printf("Test %zu (%s)...\n", i + 1, test[i].name);
 
 		// Prepare EMV context for current test
@@ -318,28 +293,6 @@ int main(void)
 		r = emv_c3_card_action_analysis(&emv);
 		if (r != test[i].expected_result) {
 			fprintf(stderr, "Unexpected emv_c3_card_action_analysis() result; error %d: %s\n", r, r < 0 ? emv_error_get_string(r) : emv_outcome_get_string(r));
-			r = 1;
-			goto exit;
-		}
-		print_emv_tlv_list(&emv.terminal);
-
-		// Validate Authorisation Response Code (field 8A)
-		arc = emv_tlv_list_find_const(&emv.terminal, EMV_TAG_8A_AUTHORISATION_RESPONSE_CODE);
-		if (test[i].expected_arc) {
-			if (!arc ||
-				arc->length != 2 ||
-				memcmp(arc->value, test[i].expected_arc, 2) != 0
-			) {
-				fprintf(stderr, "Incorrect Authorisation Response Code (8A)\n");
-				if (arc) {
-					print_buf("8A", arc->value, arc->length);
-				}
-				print_buf("Expected", test[i].expected_arc, 2);
-				r = 1;
-				goto exit;
-			}
-		} else if (arc) {
-			fprintf(stderr, "Unexpected Authorisation Response Code (8A)\n");
 			r = 1;
 			goto exit;
 		}
