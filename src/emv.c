@@ -84,6 +84,7 @@ int emv_ctx_reset(struct emv_ctx_t* ctx)
 	emv_app_free(ctx->selected_app);
 	ctx->selected_app = NULL;
 	emv_oda_clear(&ctx->oda);
+	memset(&ctx->cvm, 0, sizeof(ctx->cvm));
 
 	ctx->aid = NULL;
 	ctx->tvr = NULL;
@@ -575,6 +576,9 @@ int emv_initiate_application_processing(
 		emv_debug_error("Internal error");
 		return EMV_ERROR_INTERNAL;
 	}
+
+	// Clear existing CVM state to avoid ambiguity
+	memset(&ctx->cvm, 0, sizeof(ctx->cvm));
 
 	// NOTE: EMV 4.4 Book 1, 12.4, states that the terminal should set the
 	// value of Application Identifier (AID) - terminal (field 9F06) before
@@ -1237,6 +1241,481 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx)
 		emv_debug_info("Application is not expired");
 		ctx->tvr->value[1] &= ~EMV_TVR_APPLICATION_EXPIRED;
 	}
+
+	return 0;
+}
+
+static int emv_set_cvm_results(struct emv_ctx_t* ctx, const uint8_t cvmres[3])
+{
+	int r;
+	struct emv_tlv_t* tlv;
+
+	// CVM Results (field 9F34) may already have been populated earlier in the
+	// transaction, in which case it must be updated instead of duplicated
+	tlv = emv_tlv_list_find(&ctx->terminal, EMV_TAG_9F34_CVM_RESULTS);
+	if (tlv) {
+		if (tlv->length != 3) {
+			emv_debug_error("CVM Results (9F34) has invalid length %u",
+				tlv->length
+			);
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// CVM Results (field 9F34) exists; update it
+		memcpy(tlv->value, cvmres, 3);
+	} else {
+		// CVM Results (field 9F34) doesn't exist; add it
+		r = emv_tlv_list_push(
+			&ctx->terminal,
+			EMV_TAG_9F34_CVM_RESULTS,
+			3,
+			cvmres,
+			0
+		);
+		if (r) {
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	return 0;
+}
+
+static bool emv_cvm_is_recognised(uint8_t cvm)
+{
+	// See EMV 4.4 Book 3, Annex C3, Table 43
+	// See EMV 4.4 Book 4, 6.3.4
+	switch (cvm) {
+		case EMV_CV_RULE_CVM_FAIL:
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT:
+		case EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED:
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE:
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED:
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE:
+		case EMV_CV_RULE_CVM_SIGNATURE:
+		case EMV_CV_RULE_NO_CVM:
+			return true;
+
+		default:
+			// A terminal without biometric support may choose not to
+			// recognise the Biometric CVM Codes
+			// See EMV 4.4 Book 3, 10.5.5
+			return false;
+	}
+}
+
+static bool emv_cvm_is_supported(uint8_t cvm, uint8_t cvm_caps)
+{
+	bool online_pin_enciphered = cvm_caps & EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE;
+	bool offline_pin_plaintext = cvm_caps & EMV_TERM_CAPS_CVM_PLAINTEXT_PIN_OFFLINE;
+	bool offline_pin_enciphered = cvm_caps & (EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_RSA | EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_ECC);
+	bool signature = cvm_caps & EMV_TERM_CAPS_CVM_SIGNATURE;
+	bool no_cvm = cvm_caps & EMV_TERM_CAPS_CVM_NO_CVM;
+
+	// Determine whether CVM is supported
+	// See EMV 4.4 Book 4, 6.3.4
+	switch (cvm) {
+		case EMV_CV_RULE_CVM_FAIL:
+			// Fail CVM shall always be considered supported
+			return true;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT:
+			return offline_pin_plaintext;
+
+		case EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED:
+			return online_pin_enciphered;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE:
+			// For Combination CVMs, both CVM codes must be supported
+			return offline_pin_plaintext && signature;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED:
+			return offline_pin_enciphered;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE:
+			// For Combination CVMs, both CVM codes must be supported
+			return offline_pin_enciphered && signature;
+
+		case EMV_CV_RULE_CVM_SIGNATURE:
+			return signature;
+
+		case EMV_CV_RULE_NO_CVM:
+			return no_cvm;
+
+		default:
+			return false;
+	}
+}
+
+static bool emv_cvm_condition_is_satisfied(
+	uint8_t cvm_cond,
+	bool cvm_supported,
+	uint8_t term_type,
+	uint8_t txn_type,
+	bool app_currency,
+	uint32_t amount,
+	const struct emv_cvmlist_amounts_t* amounts
+)
+{
+	bool unattended;
+
+	// Determine whether terminal is unattended
+	// See EMV 4.4 Book 4, Annex A1
+	switch (term_type & EMV_TERM_TYPE_ENV_MASK) {
+		case EMV_TERM_TYPE_ENV_UNATTENDED_ONLINE_ONLY:
+		case EMV_TERM_TYPE_ENV_UNATTENDED_OFFLINE_WITH_ONLINE:
+		case EMV_TERM_TYPE_ENV_UNATTENDED_OFFLINE_ONLY:
+			unattended = true;
+			break;
+
+		default:
+			unattended = false;
+			break;
+	}
+
+	// See EMV 4.4 Book 3, Annex C3, Table 44
+	switch (cvm_cond) {
+		case EMV_CV_RULE_COND_ALWAYS:
+			return true;
+
+		case EMV_CV_RULE_COND_UNATTENDED_CASH:
+			return unattended && txn_type == EMV_TRANSACTION_TYPE_CASH;
+
+		case EMV_CV_RULE_COND_NOT_CASH_OR_CASHBACK:
+			return txn_type != EMV_TRANSACTION_TYPE_CASH &&
+				txn_type != EMV_TRANSACTION_TYPE_CASHBACK;
+
+		case EMV_CV_RULE_COND_CVM_SUPPORTED:
+			return cvm_supported;
+
+		case EMV_CV_RULE_COND_MANUAL_CASH:
+			return !unattended && txn_type == EMV_TRANSACTION_TYPE_CASH;
+
+		case EMV_CV_RULE_COND_CASHBACK:
+			return txn_type == EMV_TRANSACTION_TYPE_CASHBACK;
+
+		case EMV_CV_RULE_COND_LESS_THAN_X:
+			return app_currency && amount < amounts->X;
+
+		case EMV_CV_RULE_COND_MORE_THAN_X:
+			return app_currency && amount > amounts->X;
+
+		case EMV_CV_RULE_COND_LESS_THAN_Y:
+			return app_currency && amount < amounts->Y;
+
+		case EMV_CV_RULE_COND_MORE_THAN_Y:
+			return app_currency && amount > amounts->Y;
+
+		default:
+			// CVM Condition Code not understood
+			return false;
+	}
+}
+
+int emv_cardholder_verification(struct emv_ctx_t* ctx)
+{
+	int r;
+	const struct emv_tlv_t* term_caps;
+	const struct emv_tlv_t* term_type;
+	const struct emv_tlv_t* txn_type;
+	const struct emv_tlv_t* txn_amount;
+	const struct emv_tlv_t* txn_currency_code;
+	const struct emv_tlv_t* app_currency_code;
+	uint32_t amount_value;
+	bool app_currency;
+	struct emv_tlv_t* cvm_result;
+	struct emv_cv_rule_t rule;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->tvr || !ctx->tsi || !ctx->aip) {
+		emv_debug_trace_msg(
+			"tvr=%p, tsi=%p, aip=%p",
+			ctx->tvr, ctx->tsi, ctx->aip
+		);
+		emv_debug_error("Invalid context variable");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	if (ctx->cvm.state == EMV_CVM_STATE_PIN_ENTRY ||
+		ctx->cvm.state == EMV_CVM_STATE_COMPLETE
+	) {
+		// Nothing to do until the pending CVM has been performed or after
+		// cardholder verification has been completed
+		emv_debug_trace_msg("cvm.state=%d", ctx->cvm.state);
+		return 0;
+	}
+
+	emv_debug_info("Cardholder verification");
+
+	// Ensure mandatory configuration fields are present and have valid length
+	term_caps = emv_config_data_get(ctx, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
+	if (!term_caps || term_caps->length != 3) {
+		emv_debug_trace_msg("term_caps=%p, term_caps->length=%u",
+			term_caps, term_caps ? term_caps->length : 0);
+		emv_debug_error("Terminal Capabilities (9F33) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	term_type = emv_config_data_get(ctx, EMV_TAG_9F35_TERMINAL_TYPE);
+	if (!term_type || term_type->length != 1) {
+		emv_debug_trace_msg("term_type=%p, term_type->length=%u",
+			term_type, term_type ? term_type->length : 0);
+		emv_debug_error("Terminal Type (9F35) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
+	// Ensure mandatory transaction parameters are present and have valid length
+	txn_type = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9C_TRANSACTION_TYPE);
+	if (!txn_type || txn_type->length != 1) {
+		emv_debug_trace_msg("txn_type=%p, txn_type->length=%u",
+			txn_type, txn_type ? txn_type->length : 0);
+		emv_debug_error("Transaction Type (9C) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_amount = emv_tlv_list_find_const(&ctx->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY);
+	if (!txn_amount || txn_amount->length != 4) {
+		emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
+			txn_amount, txn_amount ? txn_amount->length : 0);
+		emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_currency_code = emv_tlv_list_find_const(&ctx->params, EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE);
+	if (!txn_currency_code || txn_currency_code->length != 2) {
+		emv_debug_trace_msg("txn_currency_code=%p, txn_currency_code->length=%u",
+			txn_currency_code, txn_currency_code ? txn_currency_code->length : 0);
+		emv_debug_error("Transaction Currency Code (5F2A) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = emv_format_b_to_uint(
+		txn_amount->value,
+		txn_amount->length,
+		&amount_value
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Determine whether transaction is in the application currency
+	// See EMV 4.4 Book 3, Annex C3, Table 44
+	app_currency_code = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_9F42_APPLICATION_CURRENCY_CODE);
+	if (app_currency_code &&
+		app_currency_code->length == txn_currency_code->length &&
+		memcmp(app_currency_code->value, txn_currency_code->value, txn_currency_code->length) == 0
+	) {
+		app_currency = true;
+	} else {
+		emv_debug_trace_msg("Application Currency Code (9F42) not found or differs from Transaction Currency Code (5F2A)");
+		app_currency = false;
+	}
+
+	if (ctx->cvm.state == EMV_CVM_STATE_NONE) {
+		const struct emv_tlv_t* cvm_list;
+
+		// Create initial CVM Results (field 9F34)
+		// See EMV 4.4 Book 4, 6.3.4.5, Table 2
+		r = emv_set_cvm_results(
+			ctx,
+			(uint8_t[]){ EMV_CVM_NOT_PERFORMED, 0x00, EMV_CVM_RESULT_UNKNOWN }
+		);
+		if (r) {
+			return r;
+		}
+
+		// Determine whether card supports cardholder verification
+		// See EMV 4.4 Book 3, 10.5
+		if (!(ctx->aip->value[0] & EMV_AIP_CV_SUPPORTED)) {
+			emv_debug_info("ICC does not support cardholder verification");
+			ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
+			return 0;
+		}
+
+		// Determine whether CVM List is present and not empty
+		// See EMV 4.4 Book 3, 10.5
+		cvm_list = emv_tlv_list_find_const(&ctx->icc, EMV_TAG_8E_CVM_LIST);
+		if (!cvm_list || cvm_list->length == 0 || cvm_list->length == 4 + 4) {
+			emv_debug_info("CVM List not found or empty");
+			// See EMV 4.4 Book 3, 7.5
+			ctx->tvr->value[0] |= EMV_TVR_ICC_DATA_MISSING;
+			ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
+			return 0;
+		}
+
+		r = emv_cvmlist_itr_init(
+			cvm_list->value,
+			cvm_list->length,
+			&ctx->cvm.amounts,
+			&ctx->cvm.itr
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_cvmlist_itr_init() failed; r=%d", r);
+			if (r < 0) {
+				// Internal error; terminate session
+				emv_debug_error("Internal error");
+				return EMV_ERROR_INTERNAL;
+			}
+
+			// Formatting error in CVM List is a card error
+			// See EMV 4.4 Book 3, 10.5
+			emv_debug_error("Invalid CVM List; terminate session");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+
+	cvm_result = emv_tlv_list_find(&ctx->terminal, EMV_TAG_9F34_CVM_RESULTS);
+	if (!cvm_result || cvm_result->length != 3) {
+		emv_debug_error("CVM Results (9F34) not found or invalid");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Process each CV Rule in the order in which it appears in the CVM List
+	// See EMV 4.4 Book 3, 10.5
+	while ((r = emv_cvmlist_itr_next(&ctx->cvm.itr, &rule)) > 0) {
+		uint8_t cvm = rule.cvm & EMV_CV_RULE_CVM_MASK;
+		bool cvm_recognised = false;
+		bool cvm_supported = false;
+
+		emv_debug_trace_msg("CV Rule: cvm=0x%02X, cvm_cond=0x%02X", rule.cvm, rule.cvm_cond);
+
+		cvm_recognised = emv_cvm_is_recognised(cvm);
+		if (cvm_recognised) {
+			cvm_supported = emv_cvm_is_supported(cvm, term_caps->value[1]);
+		}
+
+		if (!emv_cvm_condition_is_satisfied(
+			rule.cvm_cond,
+			cvm_supported,
+			term_type->value[0],
+			txn_type->value[0],
+			app_currency,
+			amount_value,
+			&ctx->cvm.amounts
+		)) {
+			// Bypass CV Rule and proceed to next rule
+			emv_debug_trace_msg("CVM Condition not satisfied");
+			continue;
+		}
+
+		if (!cvm_recognised) {
+			emv_debug_info("Unrecognised CVM");
+
+			// See EMV 4.4 Book 3, 10.5, step 1
+			ctx->tvr->value[2] |= EMV_TVR_CVM_UNRECOGNISED;
+
+		} else if (!cvm_supported) {
+			emv_debug_info("CVM not supported");
+
+			// See EMV 4.4 Book 3, 10.5, step 1
+			switch (cvm) {
+				case EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED:
+					ctx->tvr->value[2] |= EMV_TVR_PIN_PAD_FAILED;
+					break;
+
+				case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT:
+				case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE:
+				case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED:
+				case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE:
+					// Only if neither form of offline PIN is supported
+					if (!(term_caps->value[1] & (
+						EMV_TERM_CAPS_CVM_PLAINTEXT_PIN_OFFLINE |
+						EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_RSA |
+						EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_OFFLINE_ECC
+					))) {
+						ctx->tvr->value[2] |= EMV_TVR_PIN_PAD_FAILED;
+					}
+					break;
+			}
+
+		} else {
+			// Perform CVM and update CVM Results accordingly
+			// See EMV 4.4 Book 4, 6.3.4.5
+			// See EMV 4.4 Book 4, 6.3.4.5, Table 2
+			cvm_result->value[0] = rule.cvm;
+			cvm_result->value[1] = rule.cvm_cond;
+
+			switch (cvm) {
+				case EMV_CV_RULE_CVM_FAIL:
+					// No further CVMs shall be processed
+					// See EMV 4.4 Book 3, 10.5, step 1
+					emv_debug_info("Fail CVM processing");
+					cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
+					ctx->tvr->value[2] |= EMV_TVR_CV_PROCESSING_FAILED;
+					ctx->tsi->value[0] |= EMV_TSI_CV_PERFORMED;
+					ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
+					return 0;
+
+				case EMV_CV_RULE_CVM_SIGNATURE:
+					// See EMV 4.4 Book 3, 10.5.3
+					// See EMV 4.4 Book 4, 6.3.4.4
+					emv_debug_info("Signature");
+					cvm_result->value[2] = EMV_CVM_RESULT_UNKNOWN;
+					ctx->tsi->value[0] |= EMV_TSI_CV_PERFORMED;
+					ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
+					return 0;
+
+				case EMV_CV_RULE_NO_CVM:
+					// See EMV 4.4 Book 4, 6.3.4.5
+					emv_debug_info("No CVM required");
+					cvm_result->value[2] = EMV_CVM_RESULT_SUCCESSFUL;
+					ctx->tsi->value[0] |= EMV_TSI_CV_PERFORMED;
+					ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
+					return 0;
+
+				case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT:
+				case EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED:
+				case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE:
+				case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED:
+				case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE:
+					emv_debug_info("PIN entry required");
+					cvm_result->value[2] = EMV_CVM_RESULT_UNKNOWN;
+					ctx->cvm.state = EMV_CVM_STATE_PIN_ENTRY;
+					return 0;
+
+				default:
+					// Unexpected CVM
+					emv_debug_trace_msg("cvm=0x%02X", cvm);
+					emv_debug_error("Internal error");
+					return EMV_ERROR_INTERNAL;
+			}
+		}
+
+		// CVM was not recognised or not supported
+		// See EMV 4.4 Book 3, 10.5, step 2
+		if (!(rule.cvm & EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL)) {
+			break;
+		}
+	}
+	if (r < 0) {
+		emv_debug_trace_msg("emv_cvmlist_itr_next() failed; r=%d", r);
+
+		// Internal error; terminate session
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Cardholder verification is complete and unsuccessful
+	// See EMV 4.4 Book 3, 10.5, step 2
+	// See EMV 4.4 Book 4, 6.3.4.5
+	// See EMV 4.4 Book 4, 6.3.4.5, Table 2
+	if (cvm_result->value[0] == EMV_CVM_NOT_PERFORMED) {
+		emv_debug_info("Cardholder verification was not successful; no CVM performed");
+		cvm_result->value[1] = 0x00;
+		cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
+	} else {
+		emv_debug_info("Cardholder verification was not successful; last CVM performed failed");
+		// Retain last CVM Code and CVM Condition
+		cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
+	}
+	ctx->tvr->value[2] |= EMV_TVR_CV_PROCESSING_FAILED;
+	ctx->tsi->value[0] |= EMV_TSI_CV_PERFORMED;
+	ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
 
 	return 0;
 }

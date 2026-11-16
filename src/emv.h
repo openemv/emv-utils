@@ -25,6 +25,7 @@
 #include "emv_config.h"
 #include "emv_tlv.h"
 #include "emv_oda_types.h"
+#include "emv_cvm_types.h"
 
 #include <sys/cdefs.h>
 #include <stddef.h>
@@ -114,6 +115,7 @@ struct emv_ctx_t {
 	 * Populated and used by:
 	 * - @ref emv_initiate_application_processing()
 	 * - @ref emv_offline_data_authentication()
+	 * - @ref emv_cardholder_verification()
 	 * - @ref emv_online_processing()
 	 * - @ref emv_completion()
 	 */
@@ -134,6 +136,13 @@ struct emv_ctx_t {
 	 * - @ref emv_offline_data_authentication()
 	 */
 	struct emv_oda_ctx_t oda;
+
+	/**
+	 * @brief Cardholder Verification Method (CVM) context.
+	 *
+	 * Populated and used by @ref emv_cardholder_verification().
+	 */
+	struct emv_cvm_ctx_t cvm;
 
 	/**
 	 * @brief Various cached fields for internal use
@@ -427,6 +436,43 @@ int emv_offline_data_authentication(struct emv_ctx_t* ctx);
  * @return Less than zero for errors. See @ref emv_error_t
  */
 int emv_processing_restrictions(struct emv_ctx_t* ctx);
+
+/**
+ * Perform EMV Cardholder Verification by processing the Cardholder
+ * Verification (CV) Rules of @ref EMV_TAG_8E_CVM_LIST in order and selecting
+ * the first Cardholder Verification Method (CVM) for which the CVM Condition
+ * is satisfied and which the terminal recognises and supports.
+ *
+ * CVM Conditions are evaluated using @ref EMV_TAG_9F35_TERMINAL_TYPE,
+ * @ref EMV_TAG_9C_TRANSACTION_TYPE, @ref EMV_TAG_81_AMOUNT_AUTHORISED_BINARY,
+ * @ref EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE and, if available,
+ * @ref EMV_TAG_9F42_APPLICATION_CURRENCY_CODE. Terminal support for each CVM
+ * is determined by @ref EMV_TAG_9F33_TERMINAL_CAPABILITIES. Biometric CVMs are
+ * not recognised.
+ *
+ * This function will push @ref EMV_TAG_9F34_CVM_RESULTS onto
+ * @ref emv_ctx_t.terminal and update it to reflect the selected CVM, update
+ * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the outcome, and
+ * update @ref EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION to indicate that it
+ * has been performed when CVM List processing is completed.
+ *
+ * Upon success, @ref emv_cvm_ctx_t.state will be one of:
+ * - @ref EMV_CVM_STATE_COMPLETE when cardholder verification is complete
+ * - @ref EMV_CVM_STATE_PIN_ENTRY when PIN entry is required for the CVM
+ *   indicated by @ref EMV_TAG_9F34_CVM_RESULTS
+ *
+ * Calling this function in either of these states has no effect.
+ *
+ * @remark See EMV 4.4 Book 3, 10.5
+ * @remark See EMV 4.4 Book 4, 6.3.4
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_cardholder_verification(struct emv_ctx_t* ctx);
 
 /**
  * Perform EMV Terminal Risk Management to identify risks to be considered for

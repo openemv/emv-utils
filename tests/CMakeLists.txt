@@ -90,6 +90,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_processing_restrictions_test PRIVATE print_helpers emv)
 	add_test(emv_processing_restrictions_test emv_processing_restrictions_test)
 
+	add_executable(emv_cardholder_verification_test emv_cardholder_verification_test.c)
+	target_link_libraries(emv_cardholder_verification_test PRIVATE print_helpers emv)
+	add_test(emv_cardholder_verification_test emv_cardholder_verification_test)
+
 	add_executable(emv_terminal_risk_management_test emv_terminal_risk_management_test.c)
 	target_link_libraries(emv_terminal_risk_management_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_terminal_risk_management_test emv_terminal_risk_management_test)

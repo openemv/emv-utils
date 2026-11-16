@@ -304,6 +304,7 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_rsa.h
 	emv_oda.h
 	emv_oda_types.h
+	emv_cvm_types.h
 	emv_date.h
 )
 set(emv_HEADERS ${emv_HEADERS} PARENT_SCOPE) # Doxygen generator requires a list of headers
