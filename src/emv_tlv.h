@@ -198,6 +198,18 @@ inline const struct emv_tlv_t* emv_tlv_list_find_const(
 bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list);
 
 /**
+ * Find duplicate of EMV TLV field or ASN.1 object in an EMV TLV list
+ * @param list EMV TLV list
+ * @param tlv EMV TLV field for which to find a duplicate. This field itself is
+ *            not considered to be a duplicate.
+ * @return EMV TLV field. Do NOT free. NULL if not found.
+ */
+const struct emv_tlv_t* emv_tlv_list_find_duplicate(
+	const struct emv_tlv_list_t* list,
+	const struct emv_tlv_t* tlv
+);
+
+/**
  * Append one EMV TLV list to another
  * @param list EMV TLV list to which to append
  * @param other EMV TLV list that will be appended to the list provided in

@@ -418,6 +418,17 @@ int main(void)
 		r = 1;
 		goto exit;
 	}
+
+	// Each occurrence of the duplicate EMV tag finds the other occurrence
+	if (emv_tlv_list_find_duplicate(&duplicate, duplicate.front) != duplicate.back ||
+		emv_tlv_list_find_duplicate(&duplicate, duplicate.back) != duplicate.front
+	) {
+		fprintf(stderr, "emv_tlv_list_find_duplicate() failed to find duplicate\n");
+		print_emv_tlv_list(&duplicate);
+		r = 1;
+		goto exit;
+	}
+
 	buf_len = sizeof(buf);
 	r = emv_tlv_sources_encode(&duplicate_sources, 0, NULL, 0, buf, &buf_len);
 	if (r) {
@@ -461,6 +472,14 @@ int main(void)
 	// Distinct ASN.1 objects are not duplicates of one another
 	if (emv_tlv_list_has_duplicate(&asn1_distinct)) {
 		fprintf(stderr, "emv_tlv_list_has_duplicate() unexpectedly reported a duplicate\n");
+		print_emv_tlv_list(&asn1_distinct);
+		r = 1;
+		goto exit;
+	}
+	if (emv_tlv_list_find_duplicate(&asn1_distinct, asn1_distinct.front) ||
+		emv_tlv_list_find_duplicate(&asn1_distinct, asn1_distinct.back)
+	) {
+		fprintf(stderr, "emv_tlv_list_find_duplicate() unexpectedly found a duplicate\n");
 		print_emv_tlv_list(&asn1_distinct);
 		r = 1;
 		goto exit;
