@@ -1412,6 +1412,29 @@ static bool emv_cvm_condition_is_satisfied(
 	}
 }
 
+static void emv_cvm_complete_unsuccessful(
+	struct emv_ctx_t* ctx,
+	struct emv_tlv_t* cvm_result
+)
+{
+	// Cardholder verification is complete and unsuccessful
+	// See EMV 4.4 Book 3, 10.5, step 2
+	// See EMV 4.4 Book 4, 6.3.4.5
+	// See EMV 4.4 Book 4, 6.3.4.5, Table 2
+	if (cvm_result->value[0] == EMV_CVM_NOT_PERFORMED) {
+		emv_debug_info("Cardholder verification was not successful; no CVM performed");
+		cvm_result->value[1] = 0x00;
+		cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
+	} else {
+		emv_debug_info("Cardholder verification was not successful; last CVM performed failed");
+		// Retain last CVM Code and CVM Condition
+		cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
+	}
+	ctx->tvr->value[2] |= EMV_TVR_CV_PROCESSING_FAILED;
+	ctx->tsi->value[0] |= EMV_TSI_CV_PERFORMED;
+	ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
+}
+
 int emv_cardholder_verification(struct emv_ctx_t* ctx)
 {
 	int r;
@@ -1575,7 +1598,29 @@ int emv_cardholder_verification(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INTERNAL;
 	}
 
-	// Process each CV Rule in the order in which it appears in the CVM List
+	if (ctx->cvm.state == EMV_CVM_STATE_CVM_PERFORMED) {
+		// The CVM performed is considered successful unless the CVM Result
+		// indicates that it failed
+		// See EMV 4.4 Book 4, 6.3.4.5
+		if (cvm_result->value[2] != EMV_CVM_RESULT_FAILED) {
+			// Cardholder verification is complete and successful
+			// See EMV 4.4 Book 3, 10.5
+			emv_debug_info("Cardholder verification was successful");
+			ctx->tsi->value[0] |= EMV_TSI_CV_PERFORMED;
+			ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
+			return 0;
+		}
+
+		if (!(cvm_result->value[0] & EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL)) {
+			// Failed CVM does not allow next CV rule to be applied
+			// See EMV 4.4 Book 3, 10.5, step 2
+			emv_cvm_complete_unsuccessful(ctx, cvm_result);
+			return 0;
+		}
+	}
+
+	// Process each remaining CV Rule in the order in which it appears in the
+	// CVM List
 	// See EMV 4.4 Book 3, 10.5
 	while ((r = emv_cvmlist_itr_next(&ctx->cvm.itr, &rule)) > 0) {
 		uint8_t cvm = rule.cvm & EMV_CV_RULE_CVM_MASK;
@@ -1687,9 +1732,11 @@ int emv_cardholder_verification(struct emv_ctx_t* ctx)
 		}
 
 		// CVM was not recognised or not supported
-		// See EMV 4.4 Book 3, 10.5, step 2
 		if (!(rule.cvm & EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL)) {
-			break;
+			// Next CV rule should not be applied
+			// See EMV 4.4 Book 3, 10.5, step 2
+			emv_cvm_complete_unsuccessful(ctx, cvm_result);
+			return 0;
 		}
 	}
 	if (r < 0) {
@@ -1700,24 +1747,102 @@ int emv_cardholder_verification(struct emv_ctx_t* ctx)
 		return EMV_ERROR_INTERNAL;
 	}
 
-	// Cardholder verification is complete and unsuccessful
-	// See EMV 4.4 Book 3, 10.5, step 2
-	// See EMV 4.4 Book 4, 6.3.4.5
-	// See EMV 4.4 Book 4, 6.3.4.5, Table 2
-	if (cvm_result->value[0] == EMV_CVM_NOT_PERFORMED) {
-		emv_debug_info("Cardholder verification was not successful; no CVM performed");
-		cvm_result->value[1] = 0x00;
-		cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
-	} else {
-		emv_debug_info("Cardholder verification was not successful; last CVM performed failed");
-		// Retain last CVM Code and CVM Condition
-		cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
-	}
-	ctx->tvr->value[2] |= EMV_TVR_CV_PROCESSING_FAILED;
-	ctx->tsi->value[0] |= EMV_TSI_CV_PERFORMED;
-	ctx->cvm.state = EMV_CVM_STATE_COMPLETE;
+	// No CV rules left in the CVM list
+	emv_cvm_complete_unsuccessful(ctx, cvm_result);
 
 	return 0;
+}
+
+int emv_pin_entry_result(
+	struct emv_ctx_t* ctx,
+	enum emv_pin_entry_result_t result
+)
+{
+	struct emv_tlv_t* cvm_result;
+	uint8_t cvm;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->tvr) {
+		emv_debug_trace_msg("tvr=%p", ctx->tvr);
+		emv_debug_error("Invalid context variable");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (ctx->cvm.state != EMV_CVM_STATE_PIN_ENTRY) {
+		emv_debug_trace_msg("cvm.state=%d", ctx->cvm.state);
+		emv_debug_error("PIN entry not required");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	cvm_result = emv_tlv_list_find(&ctx->terminal, EMV_TAG_9F34_CVM_RESULTS);
+	if (!cvm_result || cvm_result->length != 3) {
+		// Presence of CVM Results (field 9F34) should have been ensured by
+		// emv_cardholder_verification()
+		emv_debug_error("CVM Results (9F34) not found or invalid");
+		return EMV_ERROR_INTERNAL;
+	}
+	cvm = cvm_result->value[0] & EMV_CV_RULE_CVM_MASK;
+
+	switch (result) {
+		case EMV_PIN_ENTRY_CAPTURED:
+			if (cvm == EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT ||
+				cvm == EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE ||
+				cvm == EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED ||
+				cvm == EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE
+			) {
+				// If offline PIN verification is not supported, indicate that
+				// PIN pad is not present or not working
+				// See EMV 4.4 Book 3, 10.5.1
+				emv_debug_trace_msg("cvm=0x%02X", cvm);
+				emv_debug_info("Offline PIN verification not supported");
+				ctx->tvr->value[2] |= EMV_TVR_PIN_PAD_FAILED;
+				cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
+				ctx->cvm.state = EMV_CVM_STATE_CVM_PERFORMED;
+				return 0;
+			}
+			if (cvm != EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED) {
+				emv_debug_trace_msg("cvm=0x%02X", cvm);
+				emv_debug_error("PIN capture only supported for online PIN verification");
+				return EMV_ERROR_INVALID_PARAMETER;
+			}
+
+			// Online PIN CVM is considered successful, but result unknown,
+			// when PIN is captured
+			// See EMV 4.4 Book 3, 10.5.2
+			// See EMV 4.4 Book 4, 6.3.4.2
+			emv_debug_info("Online PIN captured");
+			ctx->tvr->value[2] |= EMV_TVR_ONLINE_CVM_CAPTURED;
+			cvm_result->value[2] = EMV_CVM_RESULT_UNKNOWN;
+			ctx->cvm.state = EMV_CVM_STATE_CVM_PERFORMED;
+			return 0;
+
+		case EMV_PIN_ENTRY_BYPASSED:
+			// See EMV 4.4 Book 3, 10.5.1
+			// See EMV 4.4 Book 3, 10.5.2
+			// See EMV 4.4 Book 4, 6.3.4.3
+			emv_debug_info("PIN entry bypassed");
+			ctx->tvr->value[2] |= EMV_TVR_PIN_NOT_ENTERED;
+			cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
+			ctx->cvm.state = EMV_CVM_STATE_CVM_PERFORMED;
+			return 0;
+
+		case EMV_PIN_ENTRY_PIN_PAD_FAILED:
+			// See EMV 4.4 Book 3, 10.5.1
+			// See EMV 4.4 Book 3, 10.5.2
+			emv_debug_info("PIN pad not present or not working");
+			ctx->tvr->value[2] |= EMV_TVR_PIN_PAD_FAILED;
+			cvm_result->value[2] = EMV_CVM_RESULT_FAILED;
+			ctx->cvm.state = EMV_CVM_STATE_CVM_PERFORMED;
+			return 0;
+
+		default:
+			emv_debug_trace_msg("result=%d", result);
+			emv_debug_error("Invalid PIN entry result");
+			return EMV_ERROR_INVALID_PARAMETER;
+	}
 }
 
 int emv_terminal_risk_management(struct emv_ctx_t* ctx,

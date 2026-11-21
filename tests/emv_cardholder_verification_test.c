@@ -32,12 +32,21 @@
 #include "emv_debug.h"
 #include "print_helpers.h"
 
+struct pin_entry_t {
+	enum emv_pin_entry_result_t result; // PIN entry result to indicate
+	int r; // Expected return value of emv_pin_entry_result()
+};
+
 struct test_t {
 	const char* name;
 
 	struct emv_tlv_t* config_data;
 	struct emv_tlv_t* params_data;
 	struct emv_tlv_t* icc_data;
+
+	// PIN entry results to indicate, in order, whenever PIN entry is required
+	const struct pin_entry_t* pin_entry;
+	size_t pin_entry_count;
 
 	int result;
 	enum emv_cvm_state_t cvm_state;
@@ -1187,6 +1196,355 @@ static const struct test_t test[] = {
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
 	},
+
+	{
+		.name = "Online PIN captured",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Terminal Capabilities: Online PIN, Signature, No CVM
+			{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){
+				EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS,
+				EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE | EMV_TERM_CAPS_CVM_SIGNATURE | EMV_TERM_CAPS_CVM_NO_CVM,
+				EMV_TERM_CAPS_SECURITY_CDA
+			}, 0 }}, NULL },
+			// Terminal Type: Merchant attended, offline with online capability
+			{ {{ EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){
+				EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT | EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
+			// Amount, Authorised (Binary): 100.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			// Transaction Currency Code: EUR
+			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
+			// CVM List: Online PIN (apply next), if terminal supports the CVM; Signature, if terminal supports the CVM
+			{ {{ EMV_TAG_8E_CVM_LIST, 12, (uint8_t[]){
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_CVM_SUPPORTED,
+				EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_CVM_SUPPORTED
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.pin_entry = (const struct pin_entry_t[]){
+			{ EMV_PIN_ENTRY_CAPTURED, 0 },
+		},
+		.pin_entry_count = 1,
+
+		.result = 0,
+		.cvm_state = EMV_CVM_STATE_COMPLETE,
+		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
+		.tvr = { 0x00, 0x00, EMV_TVR_ONLINE_CVM_CAPTURED, 0x00, 0x00 },
+		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Online PIN bypassed, then signature",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Terminal Capabilities: Online PIN, Signature, No CVM
+			{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){
+				EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS,
+				EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE | EMV_TERM_CAPS_CVM_SIGNATURE | EMV_TERM_CAPS_CVM_NO_CVM,
+				EMV_TERM_CAPS_SECURITY_CDA
+			}, 0 }}, NULL },
+			// Terminal Type: Merchant attended, offline with online capability
+			{ {{ EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){
+				EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT | EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
+			// Amount, Authorised (Binary): 100.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			// Transaction Currency Code: EUR
+			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
+			// CVM List: Online PIN (apply next), if terminal supports the CVM; Signature, if terminal supports the CVM
+			{ {{ EMV_TAG_8E_CVM_LIST, 12, (uint8_t[]){
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_CVM_SUPPORTED,
+				EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_CVM_SUPPORTED
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.pin_entry = (const struct pin_entry_t[]){
+			{ EMV_PIN_ENTRY_BYPASSED, 0 },
+		},
+		.pin_entry_count = 1,
+
+		.result = 0,
+		.cvm_state = EMV_CVM_STATE_COMPLETE,
+		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
+		.tvr = { 0x00, 0x00, EMV_TVR_PIN_NOT_ENTERED, 0x00, 0x00 },
+		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Online PIN pad failed without apply next",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Terminal Capabilities: Online PIN, Signature, No CVM
+			{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){
+				EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS,
+				EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE | EMV_TERM_CAPS_CVM_SIGNATURE | EMV_TERM_CAPS_CVM_NO_CVM,
+				EMV_TERM_CAPS_SECURITY_CDA
+			}, 0 }}, NULL },
+			// Terminal Type: Merchant attended, offline with online capability
+			{ {{ EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){
+				EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT | EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
+			// Amount, Authorised (Binary): 100.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			// Transaction Currency Code: EUR
+			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
+			// CVM List: Online PIN, always; Signature, always
+			{ {{ EMV_TAG_8E_CVM_LIST, 12, (uint8_t[]){
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS,
+				EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_ALWAYS
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.pin_entry = (const struct pin_entry_t[]){
+			{ EMV_PIN_ENTRY_PIN_PAD_FAILED, 0 },
+		},
+		.pin_entry_count = 1,
+
+		.result = 0,
+		.cvm_state = EMV_CVM_STATE_COMPLETE,
+		.cvmres = { EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_FAILED },
+		.tvr = { 0x00, 0x00, EMV_TVR_CV_PROCESSING_FAILED | EMV_TVR_PIN_PAD_FAILED, 0x00, 0x00 },
+		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Online PIN bypassed and no subsequent CVM performed",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Terminal Capabilities: Online PIN, Signature, No CVM
+			{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){
+				EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS,
+				EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE | EMV_TERM_CAPS_CVM_SIGNATURE | EMV_TERM_CAPS_CVM_NO_CVM,
+				EMV_TERM_CAPS_SECURITY_CDA
+			}, 0 }}, NULL },
+			// Terminal Type: Merchant attended, offline with online capability
+			{ {{ EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){
+				EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT | EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
+			// Amount, Authorised (Binary): 100.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			// Transaction Currency Code: EUR
+			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
+			// CVM List: Online PIN (apply next), always; Facial biometric verified offline (apply next), always; Signature, if manual cash
+			{ {{ EMV_TAG_8E_CVM_LIST, 14, (uint8_t[]){
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS,
+				EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_OFFLINE_BIOMETRIC_FACIAL, EMV_CV_RULE_COND_ALWAYS,
+				EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_MANUAL_CASH
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.pin_entry = (const struct pin_entry_t[]){
+			{ EMV_PIN_ENTRY_BYPASSED, 0 },
+		},
+		.pin_entry_count = 1,
+
+		.result = 0,
+		.cvm_state = EMV_CVM_STATE_COMPLETE,
+		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_FAILED },
+		.tvr = { 0x00, 0x00, EMV_TVR_CV_PROCESSING_FAILED | EMV_TVR_CVM_UNRECOGNISED | EMV_TVR_PIN_NOT_ENTERED, 0x00, 0x00 },
+		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Duplicate online PIN CV Rules bypassed, then signature",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Terminal Capabilities: Online PIN, Signature, No CVM
+			{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){
+				EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS,
+				EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE | EMV_TERM_CAPS_CVM_SIGNATURE | EMV_TERM_CAPS_CVM_NO_CVM,
+				EMV_TERM_CAPS_SECURITY_CDA
+			}, 0 }}, NULL },
+			// Terminal Type: Merchant attended, offline with online capability
+			{ {{ EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){
+				EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT | EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
+			// Amount, Authorised (Binary): 100.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			// Transaction Currency Code: EUR
+			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
+			// CVM List: Online PIN (apply next), always; Online PIN (apply next), always; Signature, always
+			{ {{ EMV_TAG_8E_CVM_LIST, 14, (uint8_t[]){
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS,
+				EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS,
+				EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_ALWAYS
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.pin_entry = (const struct pin_entry_t[]){
+			{ EMV_PIN_ENTRY_BYPASSED, 0 },
+			{ EMV_PIN_ENTRY_BYPASSED, 0 },
+		},
+		.pin_entry_count = 2,
+
+		.result = 0,
+		.cvm_state = EMV_CVM_STATE_COMPLETE,
+		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_UNKNOWN },
+		.tvr = { 0x00, 0x00, EMV_TVR_PIN_NOT_ENTERED, 0x00, 0x00 },
+		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Offline PIN captured, then online PIN captured",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Terminal Capabilities: Plaintext offline PIN, Online PIN, Signature, No CVM
+			{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){
+				EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS,
+				EMV_TERM_CAPS_CVM_PLAINTEXT_PIN_OFFLINE | EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE | EMV_TERM_CAPS_CVM_SIGNATURE | EMV_TERM_CAPS_CVM_NO_CVM,
+				EMV_TERM_CAPS_SECURITY_CDA
+			}, 0 }}, NULL },
+			// Terminal Type: Merchant attended, offline with online capability
+			{ {{ EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){
+				EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT | EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
+			// Amount, Authorised (Binary): 100.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			// Transaction Currency Code: EUR
+			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
+			// CVM List: Plaintext offline PIN (apply next), if terminal supports the CVM; Online PIN (apply next), if terminal supports the CVM; Signature, if terminal supports the CVM
+			{ {{ EMV_TAG_8E_CVM_LIST, 14, (uint8_t[]){
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT, EMV_CV_RULE_COND_CVM_SUPPORTED,
+				EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_CVM_SUPPORTED,
+				EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_CVM_SUPPORTED
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.pin_entry = (const struct pin_entry_t[]){
+			// Offline PIN verification is not supported and therefore
+			// indicates that PIN pad is not present or not working
+			{ EMV_PIN_ENTRY_CAPTURED, 0 },
+			{ EMV_PIN_ENTRY_CAPTURED, 0 },
+		},
+		.pin_entry_count = 2,
+
+		.result = 0,
+		.cvm_state = EMV_CVM_STATE_COMPLETE,
+		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
+		.tvr = { 0x00, 0x00, EMV_TVR_PIN_PAD_FAILED | EMV_TVR_ONLINE_CVM_CAPTURED, 0x00, 0x00 },
+		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Invalid PIN entry result",
+
+		.config_data = (struct emv_tlv_t[]){
+			// Terminal Capabilities: Online PIN, Signature, No CVM
+			{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){
+				EMV_TERM_CAPS_INPUT_IC_WITH_CONTACTS,
+				EMV_TERM_CAPS_CVM_ENCIPHERED_PIN_ONLINE | EMV_TERM_CAPS_CVM_SIGNATURE | EMV_TERM_CAPS_CVM_NO_CVM,
+				EMV_TERM_CAPS_SECURITY_CDA
+			}, 0 }}, NULL },
+			// Terminal Type: Merchant attended, offline with online capability
+			{ {{ EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){
+				EMV_TERM_TYPE_OPERATIONAL_CONTROL_MERCHANT | EMV_TERM_TYPE_ENV_ATTENDED_OFFLINE_WITH_ONLINE
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.params_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
+			// Amount, Authorised (Binary): 100.00
+			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
+			// Transaction Currency Code: EUR
+			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.icc_data = (struct emv_tlv_t[]){
+			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
+			// CVM List: Online PIN, always
+			{ {{ EMV_TAG_8E_CVM_LIST, 10, (uint8_t[]){
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS
+			}, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.pin_entry = (const struct pin_entry_t[]){
+			{ 0, EMV_ERROR_INVALID_PARAMETER },
+		},
+		.pin_entry_count = 1,
+
+		.result = 0,
+		.cvm_state = EMV_CVM_STATE_PIN_ENTRY,
+		.cvmres = { EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_UNKNOWN },
+		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
+		.tsi = { 0x00, 0x00 },
+	},
 };
 
 static int populate_tlv_list(
@@ -1212,6 +1570,7 @@ int main(void)
 {
 	int r;
 	struct emv_ctx_t emv;
+	size_t pin_entry_idx;
 	const struct emv_tlv_t* cvmres;
 
 	r = emv_debug_init(
@@ -1280,17 +1639,86 @@ int main(void)
 		emv.tsi = emv_tlv_list_find(&emv.terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
 		emv.aip = emv_tlv_list_find(&emv.icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
 
-		// Test cardholder verification twice to confirm that repeating it
-		// does not change the outcome
-		for (unsigned int j = 0; j < 2; ++j) {
+		// Indicating PIN entry before cardholder verification must fail
+		r = emv_pin_entry_result(&emv, EMV_PIN_ENTRY_CAPTURED);
+		if (r != EMV_ERROR_INVALID_PARAMETER) {
+			fprintf(stderr, "emv_pin_entry_result() returned %d before cardholder verification\n", r);
+			r = 1;
+			goto exit;
+		}
+
+		// Test cardholder verification and indicate the next PIN entry
+		// result whenever PIN entry is required
+		pin_entry_idx = 0;
+		while (true) {
+			const struct pin_entry_t* pin_entry;
+
 			r = emv_cardholder_verification(&emv);
 			if (r != test[i].result) {
 				fprintf(stderr, "emv_cardholder_verification() returned %d; expected %d\n", r, test[i].result);
 				r = 1;
 				goto exit;
 			}
+			if (emv.cvm.state != EMV_CVM_STATE_PIN_ENTRY ||
+				pin_entry_idx >= test[i].pin_entry_count
+			) {
+				break;
+			}
+
+			pin_entry = &test[i].pin_entry[pin_entry_idx++];
+			r = emv_pin_entry_result(&emv, pin_entry->result);
+			if (r != pin_entry->r) {
+				fprintf(stderr, "emv_pin_entry_result() returned %d; expected %d\n", r, pin_entry->r);
+				r = 1;
+				goto exit;
+			}
+			if (r) {
+				// Failure must not change the CVM state
+				if (emv.cvm.state != EMV_CVM_STATE_PIN_ENTRY) {
+					fprintf(stderr, "Incorrect CVM state %d after failed PIN entry result\n", emv.cvm.state);
+					r = 1;
+					goto exit;
+				}
+			} else {
+				// Only emv_cardholder_verification() may complete cardholder
+				// verification
+				if (emv.cvm.state != EMV_CVM_STATE_CVM_PERFORMED) {
+					fprintf(stderr, "Incorrect CVM state %d after PIN entry result\n", emv.cvm.state);
+					r = 1;
+					goto exit;
+				}
+				if (emv.tsi->value[0] & EMV_TSI_CV_PERFORMED) {
+					fprintf(stderr, "TSI indicates cardholder verification performed after PIN entry result\n");
+					r = 1;
+					goto exit;
+				}
+			}
+		}
+		if (pin_entry_idx != test[i].pin_entry_count) {
+			fprintf(stderr, "Only %zu of %zu PIN entry results used\n", pin_entry_idx, test[i].pin_entry_count);
+			r = 1;
+			goto exit;
+		}
+
+		// Repeat cardholder verification to confirm that it does not change
+		// the outcome
+		r = emv_cardholder_verification(&emv);
+		if (r != test[i].result) {
+			fprintf(stderr, "emv_cardholder_verification() returned %d; expected %d\n", r, test[i].result);
+			r = 1;
+			goto exit;
 		}
 		print_emv_tlv_list(&emv.terminal);
+
+		// Indicating PIN entry when not required must fail
+		if (emv.cvm.state != EMV_CVM_STATE_PIN_ENTRY) {
+			r = emv_pin_entry_result(&emv, EMV_PIN_ENTRY_CAPTURED);
+			if (r != EMV_ERROR_INVALID_PARAMETER) {
+				fprintf(stderr, "emv_pin_entry_result() returned %d when PIN entry not required\n", r);
+				r = 1;
+				goto exit;
+			}
+		}
 
 		// Validate CVM state
 		if (emv.cvm.state != test[i].cvm_state) {

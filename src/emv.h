@@ -463,6 +463,11 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx);
  *
  * Calling this function in either of these states has no effect.
  *
+ * When PIN entry is required, the caller must perform PIN entry, indicate the
+ * outcome using @ref emv_pin_entry_result(), and then call this function
+ * again to either complete cardholder verification or continue with the next
+ * CV Rule.
+ *
  * @remark See EMV 4.4 Book 3, 10.5
  * @remark See EMV 4.4 Book 4, 6.3.4
  *
@@ -473,6 +478,35 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx);
  * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
  */
 int emv_cardholder_verification(struct emv_ctx_t* ctx);
+
+/**
+ * Indicate the outcome of PIN entry for the CVM selected by
+ * @ref emv_cardholder_verification(). This function only indicates whether the
+ * PIN pad captured the PIN and does not verify the PIN.
+ *
+ * This function will update @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS and
+ * @ref EMV_TAG_9F34_CVM_RESULTS to reflect the outcome, and will update
+ * @ref emv_cvm_ctx_t.state to @ref EMV_CVM_STATE_CVM_PERFORMED. The caller
+ * must then call @ref emv_cardholder_verification() again.
+ *
+ * @note Offline PIN verification is not yet supported and this function will
+ *       indicate that PIN pad is not present or not working if the result is
+ *       provided as @ref EMV_PIN_ENTRY_CAPTURED for offline PIN verification.
+ *
+ * @remark See EMV 4.4 Book 3, 10.5
+ * @remark See EMV 4.4 Book 4, 6.3.4
+ *
+ * @param ctx EMV processing context. @ref emv_cvm_ctx_t.state must be
+ *            @ref EMV_CVM_STATE_PIN_ENTRY.
+ * @param result PIN entry result
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_pin_entry_result(
+	struct emv_ctx_t* ctx,
+	enum emv_pin_entry_result_t result
+);
 
 /**
  * Perform EMV Terminal Risk Management to identify risks to be considered for

@@ -35,7 +35,17 @@ __BEGIN_DECLS
 enum emv_cvm_state_t {
 	EMV_CVM_STATE_NONE = 0, ///< Cardholder verification not yet started
 	EMV_CVM_STATE_PIN_ENTRY, ///< PIN entry required for the CVM indicated by @ref EMV_TAG_9F34_CVM_RESULTS
+	EMV_CVM_STATE_CVM_PERFORMED, ///< CVM indicated by @ref EMV_TAG_9F34_CVM_RESULTS was performed and its outcome is indicated by the CVM Result in byte 3
 	EMV_CVM_STATE_COMPLETE, ///< Cardholder verification complete
+};
+
+/**
+ * EMV PIN entry result
+ */
+enum emv_pin_entry_result_t {
+	EMV_PIN_ENTRY_CAPTURED = 1, ///< PIN captured by PIN pad
+	EMV_PIN_ENTRY_BYPASSED, ///< PIN entry bypassed by merchant or cardholder
+	EMV_PIN_ENTRY_PIN_PAD_FAILED, ///< PIN pad not present or not working
 };
 
 /**
