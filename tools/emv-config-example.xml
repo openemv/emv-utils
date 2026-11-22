@@ -56,17 +56,15 @@
       - Card Data Input Capability:
         - IC with Contacts
       - CVM Capability:
-        - Plaintext offline PIN
         - Enciphered online PIN
         - Signature
-        - Enciphered offline PIN
         - No CVM
       - Security Capability:
         - Static Data Authentication (SDA)
         - Dynamic Data Authentication (DDA)
         - Combined DDA/Application Cryptogram Generation (CDA)
     -->
-    <tlv id='9F33'>20F8C8</tlv>
+    <tlv id='9F33'>2068C8</tlv>
 
     <!--
       Terminal Type:

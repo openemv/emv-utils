@@ -158,7 +158,7 @@ if(BUILD_EMV_TOOL)
 		# allow the project include directories to take precedence.
 		target_include_directories(emv-tool SYSTEM PRIVATE ${PCSC_FRAMEWORK_INCLUDE_DIR})
 	endif()
-	target_link_libraries(emv-tool PRIVATE print_helpers emv emv_strings)
+	target_link_libraries(emv-tool PRIVATE print_helpers emv emv_strings crypto_mem crypto_rand pinblock)
 	if(TARGET libargp::argp)
 		target_link_libraries(emv-tool PRIVATE libargp::argp)
 	endif()

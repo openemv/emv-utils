@@ -33,6 +33,8 @@
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
 #include "emv_debug.h"
 
+#include "pinblock.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -52,6 +54,7 @@ static void print_pcsc_readers(pcsc_ctx_t pcsc);
 static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uint8_t txn_type, uint32_t amount, uint32_t amount_other);
 static int emv_txn_load_config(struct emv_ctx_t* emv);
 static int parse_hex(const char* hex, void* buf, size_t* buf_len);
+static int pin_entry_prompt(uint8_t* pinblock);
 static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len);
 
 // argp option keys
@@ -63,6 +66,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_TXN_TYPE,
 	EMV_TOOL_PARAM_TXN_AMOUNT,
 	EMV_TOOL_PARAM_TXN_AMOUNT_OTHER,
+	EMV_TOOL_PARAM_PIN_ENTRY,
 	EMV_TOOL_PARAM_GENAC1_TYPE,
 	EMV_TOOL_PARAM_ONLINE_AUTH,
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
@@ -85,6 +89,7 @@ static struct argp_option argp_options[] = {
 	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
+	{ "pin-entry", EMV_TOOL_PARAM_PIN_ENTRY, "prompt|bypass|fail", 0, "PIN entry method: prompt for PIN, bypass PIN entry, or fail PIN entry as if the PIN pad is not working. Default is prompt." },
 	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
 	{ "online-auth", EMV_TOOL_PARAM_ONLINE_AUTH, "decline|approve|unable|prompt", 0, "Online authorisation method. Default is decline." },
 
@@ -120,6 +125,14 @@ static uint8_t txn_time[3] = { 0xFF }; // Default is current time
 static uint8_t txn_type = EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES;
 static uint32_t txn_amount = 0;
 static uint32_t txn_amount_other = 0;
+
+enum pin_entry_method_t {
+	PIN_ENTRY_METHOD_PROMPT = 1,
+	PIN_ENTRY_METHOD_BYPASS,
+	PIN_ENTRY_METHOD_FAIL,
+};
+static enum pin_entry_method_t pin_entry_method = PIN_ENTRY_METHOD_PROMPT;
+
 static uint8_t genac1_ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
 static uint8_t genac2_ref_ctrl = EMV_TTL_GENAC_TYPE_AAC;
 
@@ -297,6 +310,20 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 			}
 			txn_amount_other = value;
 
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_PIN_ENTRY: {
+			if (strcasecmp(arg, "prompt") == 0) {
+				pin_entry_method = PIN_ENTRY_METHOD_PROMPT;
+			} else if (strcasecmp(arg, "bypass") == 0) {
+				pin_entry_method = PIN_ENTRY_METHOD_BYPASS;
+			} else if (strcasecmp(arg, "fail") == 0) {
+				pin_entry_method = PIN_ENTRY_METHOD_FAIL;
+			} else {
+				argp_error(state, "PIN entry method (--pin-entry) argument must be prompt, bypass or fail");
+				return EINVAL;
+			}
 			return 0;
 		}
 
@@ -824,6 +851,67 @@ static int parse_hex(const char* hex, void* buf, size_t* buf_len)
 	return 0;
 }
 
+static int pin_entry_prompt(uint8_t* pinblock)
+{
+	int r;
+	char input[PINBLOCK_PIN_LENGTH_MAX + 3]; // PIN digits, newline and null
+	size_t input_len;
+	uint8_t pin[PINBLOCK_PIN_LENGTH_MAX];
+
+	if (!pinblock) {
+		return -1;
+	}
+
+	do {
+		printf("\nEnter PIN (empty to bypass): ");
+		if (!fgets(input, sizeof(input), stdin)) {
+			fprintf(stderr, "Failed to read PIN\n");
+			return -1;
+		}
+		input_len = strcspn(input, "\r\n");
+		if (!input[input_len] && input_len == sizeof(input) - 1) {
+			// Discard remainder of input line that is too long
+			int c;
+			do {
+				c = getchar();
+			} while (c != '\n' && c != EOF);
+
+			printf("Invalid PIN. Try again.\n");
+			continue;
+		}
+		input[input_len] = 0;
+
+		if (!input_len) {
+			// PIN entry bypassed
+			return 1;
+		}
+		if (input_len < PINBLOCK_PIN_LENGTH_MIN ||
+			input_len > PINBLOCK_PIN_LENGTH_MAX ||
+			strspn(input, "0123456789") != input_len
+		) {
+			printf("Invalid PIN. Try again.\n");
+			continue;
+		}
+
+		// Convert PIN digits to one digit value per byte
+		for (size_t i = 0; i < input_len; ++i) {
+			pin[i] = input[i] - '0';
+		}
+
+		// Encode PIN using ISO 9564-1:2017 PIN block format 2
+		// See EMV 4.4 Book 3, 6.5.12.3
+		// See EMV 4.4 Book 3, 6.5.12, Table 25
+		r = pinblock_encode_iso9564_format2(pin, input_len, pinblock);
+		if (r) {
+			fprintf(stderr, "pinblock_encode_iso9564_format2() failed; r=%d\n", r);
+			return -1;
+		}
+
+		return 0;
+
+	} while (true);
+}
+
 static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len)
 {
 	int r;
@@ -1243,6 +1331,96 @@ int main(int argc, char** argv)
 		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 		goto emv_exit;
 	}
+
+	printf("\nCardholder verification\n");
+	do {
+		const struct emv_tlv_t* cvm_result;
+		uint8_t cvm;
+		enum emv_pin_entry_result_t pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
+
+		r = emv_cardholder_verification(&emv);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
+		if (emv.cvm.state != EMV_CVM_STATE_PIN_ENTRY) {
+			// Cardholder verification complete
+			break;
+		}
+
+		// Determine CVM that requires PIN entry
+		cvm_result = emv_tlv_list_find_const(&emv.terminal, EMV_TAG_9F34_CVM_RESULTS);
+		if (!cvm_result || cvm_result->length != 3) {
+			fprintf(stderr, "CVM Results (9F34) not found or invalid\n");
+			goto emv_exit;
+		}
+		cvm = cvm_result->value[0] & EMV_CV_RULE_CVM_MASK;
+		if (cvm == EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED) {
+			printf("PIN entry required for online PIN\n");
+		} else {
+			printf("PIN entry required for offline PIN\n");
+		}
+
+		// Perform PIN entry
+		switch (pin_entry_method) {
+			case PIN_ENTRY_METHOD_PROMPT: {
+				uint8_t pinblock[PINBLOCK_SIZE];
+				struct emv_tlv_t* pin_data;
+
+				r = pin_entry_prompt(pinblock);
+				if (r < 0) {
+					pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
+					break;
+				}
+				if (r > 0) {
+					pin_entry_result = EMV_PIN_ENTRY_BYPASSED;
+					break;
+				}
+
+				// Create or update Transaction PIN Data (field 99)
+				pin_data = emv_tlv_list_find(&emv.terminal, EMV_TAG_99_TRANSACTION_PIN_DATA);
+				if (pin_data) {
+					if (pin_data->length != sizeof(pinblock)) {
+						fprintf(stderr, "Transaction PIN Data (99) has invalid length %u\n", pin_data->length);
+						goto emv_exit;
+					}
+					memcpy(pin_data->value, pinblock, sizeof(pinblock));
+				} else {
+					r = emv_tlv_list_push(
+						&emv.terminal,
+						EMV_TAG_99_TRANSACTION_PIN_DATA,
+						sizeof(pinblock),
+						pinblock,
+						0
+					);
+					if (r) {
+						fprintf(stderr, "emv_tlv_list_push() failed; r=%d\n", r);
+						goto emv_exit;
+					}
+				}
+				pin_entry_result = EMV_PIN_ENTRY_CAPTURED;
+				break;
+			}
+
+			case PIN_ENTRY_METHOD_BYPASS:
+				pin_entry_result = EMV_PIN_ENTRY_BYPASSED;
+				break;
+
+			case PIN_ENTRY_METHOD_FAIL:
+				pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
+				break;
+		}
+
+		r = emv_pin_entry_result(&emv, pin_entry_result);
+		if (r) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+	} while (true);
 
 	printf("\nTerminal risk management\n");
 	r = emv_terminal_risk_management(&emv, NULL, 0);
