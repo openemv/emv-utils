@@ -2410,6 +2410,78 @@ int emv_pin_entry_result(
 	}
 }
 
+int emv_cvm_get(const struct emv_ctx_t* ctx, enum emv_cvm_t* cvm)
+{
+	const struct emv_tlv_t* cvm_result;
+
+	if (!ctx || !cvm) {
+		emv_debug_trace_msg("ctx=%p, cvm=%p", ctx, cvm);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	if (ctx->cvm.state == EMV_CVM_STATE_NONE) {
+		// Cardholder verification not yet performed
+		*cvm = EMV_CVM_UNKNOWN;
+		return 0;
+	}
+
+	cvm_result = emv_tlv_list_find_const(&ctx->terminal, EMV_TAG_9F34_CVM_RESULTS);
+	if (!cvm_result || cvm_result->length != 3) {
+		// Presence of CVM Results (field 9F34) should have been ensured by
+		// emv_cardholder_verification()
+		emv_debug_error("CVM Results (9F34) not found or invalid");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// See EMV 4.4 Book 4, 6.3.4.5
+	if (cvm_result->value[2] == EMV_CVM_RESULT_FAILED) {
+		*cvm = EMV_CVM_FAILED;
+		return 0;
+	}
+	if (cvm_result->value[0] == EMV_CVM_NOT_PERFORMED) {
+		*cvm = EMV_CVM_NO_CVM_PERFORMED;
+		return 0;
+	}
+
+	// See EMV 4.4 Book 3, Annex C3, Table 43
+	switch (cvm_result->value[0] & EMV_CV_RULE_CVM_MASK) {
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT:
+			*cvm = EMV_CVM_OFFLINE_PIN_PLAINTEXT;
+			return 0;
+
+		case EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED:
+			*cvm = EMV_CVM_ONLINE_PIN;
+			return 0;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE:
+			*cvm = EMV_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE;
+			return 0;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED:
+			*cvm = EMV_CVM_OFFLINE_PIN_ENCIPHERED;
+			return 0;
+
+		case EMV_CV_RULE_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE:
+			*cvm = EMV_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE;
+			return 0;
+
+		case EMV_CV_RULE_CVM_SIGNATURE:
+			*cvm = EMV_CVM_SIGNATURE;
+			return 0;
+
+		case EMV_CV_RULE_NO_CVM:
+			*cvm = EMV_CVM_NO_CVM_REQUIRED;
+			return 0;
+
+		default:
+			// Other CVMs are not recognised and therefore never performed
+			emv_debug_trace_msg("cvm=0x%02X", cvm_result->value[0]);
+			*cvm = EMV_CVM_UNKNOWN;
+			return 0;
+	}
+}
+
 int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	const struct emv_txn_log_entry_t* txn_log,
 	size_t txn_log_cnt

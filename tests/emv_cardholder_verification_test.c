@@ -55,6 +55,7 @@ struct test_t {
 	uint8_t cvmres[3];
 	uint8_t tvr[5];
 	uint8_t tsi[2];
+	enum emv_cvm_t cvm;
 };
 
 static const struct test_t test[] = {
@@ -99,6 +100,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CVM_NOT_PERFORMED, 0x00, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { 0x00, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_PERFORMED,
 	},
 
 	{
@@ -137,6 +139,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CVM_NOT_PERFORMED, 0x00, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { EMV_TVR_ICC_DATA_MISSING, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { 0x00, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_PERFORMED,
 	},
 
 	{
@@ -178,6 +181,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CVM_NOT_PERFORMED, 0x00, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { EMV_TVR_ICC_DATA_MISSING, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { 0x00, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_PERFORMED,
 	},
 
 	{
@@ -220,6 +224,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CVM_NOT_PERFORMED, 0x00, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { 0x00, 0x00 },
+		.cvm = EMV_CVM_UNKNOWN,
 	},
 
 	{
@@ -263,6 +268,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -306,6 +312,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_NO_CVM, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_SUCCESSFUL },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_REQUIRED,
 	},
 
 	{
@@ -350,6 +357,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_FAIL, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_FAILED },
 		.tvr = { 0x00, 0x00, EMV_TVR_CV_PROCESSING_FAILED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_FAILED,
 	},
 
 	{
@@ -394,6 +402,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_NO_CVM, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_SUCCESSFUL },
 		.tvr = { 0x00, 0x00, EMV_TVR_CVM_UNRECOGNISED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_REQUIRED,
 	},
 
 	{
@@ -438,6 +447,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CVM_NOT_PERFORMED, 0x00, EMV_CVM_RESULT_FAILED },
 		.tvr = { 0x00, 0x00, EMV_TVR_CV_PROCESSING_FAILED | EMV_TVR_CVM_UNRECOGNISED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_FAILED,
 	},
 
 	{
@@ -481,6 +491,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CVM_NOT_PERFORMED, 0x00, EMV_CVM_RESULT_FAILED },
 		.tvr = { 0x00, 0x00, EMV_TVR_CV_PROCESSING_FAILED | EMV_TVR_CVM_UNRECOGNISED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_FAILED,
 	},
 
 	{
@@ -525,6 +536,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, EMV_TVR_PIN_PAD_FAILED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -569,6 +581,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { 0x00, 0x00 },
+		.cvm = EMV_CVM_ONLINE_PIN,
 	},
 
 	{
@@ -614,6 +627,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { 0x00, 0x00 },
+		.cvm = EMV_CVM_OFFLINE_PIN_PLAINTEXT,
 	},
 
 	{
@@ -658,6 +672,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_NO_CVM, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_SUCCESSFUL },
 		.tvr = { 0x00, 0x00, EMV_TVR_PIN_PAD_FAILED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_REQUIRED,
 	},
 
 	{
@@ -702,6 +717,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_NO_CVM, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_SUCCESSFUL },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_REQUIRED,
 	},
 
 	{
@@ -746,6 +762,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_NO_CVM, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_SUCCESSFUL },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_REQUIRED,
 	},
 
 	{
@@ -791,6 +808,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CVM_NOT_PERFORMED, 0x00, EMV_CVM_RESULT_FAILED },
 		.tvr = { 0x00, 0x00, EMV_TVR_CV_PROCESSING_FAILED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_FAILED,
 	},
 
 	{
@@ -835,6 +853,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_UNATTENDED_CASH, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { 0x00, 0x00 },
+		.cvm = EMV_CVM_ONLINE_PIN,
 	},
 
 	{
@@ -879,6 +898,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_MANUAL_CASH, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -923,6 +943,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_NO_CVM, EMV_CV_RULE_COND_CASHBACK, EMV_CVM_RESULT_SUCCESSFUL },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_REQUIRED,
 	},
 
 	{
@@ -967,6 +988,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_NO_CVM, EMV_CV_RULE_COND_NOT_CASH_OR_CASHBACK, EMV_CVM_RESULT_SUCCESSFUL },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_REQUIRED,
 	},
 
 	{
@@ -1014,6 +1036,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_NO_CVM, EMV_CV_RULE_COND_LESS_THAN_X, EMV_CVM_RESULT_SUCCESSFUL },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_NO_CVM_REQUIRED,
 	},
 
 	{
@@ -1061,6 +1084,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_MORE_THAN_Y, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -1108,6 +1132,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -1153,6 +1178,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -1197,6 +1223,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -1246,6 +1273,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, EMV_TVR_ONLINE_CVM_CAPTURED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_ONLINE_PIN,
 	},
 
 	{
@@ -1295,6 +1323,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, EMV_TVR_PIN_NOT_ENTERED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -1344,6 +1373,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_FAILED },
 		.tvr = { 0x00, 0x00, EMV_TVR_CV_PROCESSING_FAILED | EMV_TVR_PIN_PAD_FAILED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_FAILED,
 	},
 
 	{
@@ -1394,6 +1424,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_FAILED },
 		.tvr = { 0x00, 0x00, EMV_TVR_CV_PROCESSING_FAILED | EMV_TVR_CVM_UNRECOGNISED | EMV_TVR_PIN_NOT_ENTERED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_FAILED,
 	},
 
 	{
@@ -1445,6 +1476,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_SIGNATURE, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, EMV_TVR_PIN_NOT_ENTERED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_SIGNATURE,
 	},
 
 	{
@@ -1498,6 +1530,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_APPLY_NEXT_IF_UNSUCCESSFUL | EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_CVM_SUPPORTED, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, EMV_TVR_PIN_PAD_FAILED | EMV_TVR_ONLINE_CVM_CAPTURED, 0x00, 0x00 },
 		.tsi = { EMV_TSI_CV_PERFORMED, 0x00 },
+		.cvm = EMV_CVM_ONLINE_PIN,
 	},
 
 	{
@@ -1546,6 +1579,7 @@ static const struct test_t test[] = {
 		.cvmres = { EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED, EMV_CV_RULE_COND_ALWAYS, EMV_CVM_RESULT_UNKNOWN },
 		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
 		.tsi = { 0x00, 0x00 },
+		.cvm = EMV_CVM_ONLINE_PIN,
 	},
 };
 
@@ -1574,6 +1608,7 @@ int main(void)
 	struct emv_ctx_t emv;
 	size_t pin_entry_idx;
 	const struct emv_tlv_t* cvmres;
+	enum emv_cvm_t cvm;
 
 	r = emv_debug_init(
 		EMV_DEBUG_SOURCE_ALL,
@@ -1767,6 +1802,19 @@ int main(void)
 			fprintf(stderr, "Incorrect TSI\n");
 			print_buf("TSI", emv.tsi->value, emv.tsi->length);
 			print_buf("Expected", test[i].tsi, sizeof(test[i].tsi));
+			r = 1;
+			goto exit;
+		}
+
+		// Validate CVM
+		r = emv_cvm_get(&emv, &cvm);
+		if (r) {
+			fprintf(stderr, "emv_cvm_get() failed; r=%d\n", r);
+			r = 1;
+			goto exit;
+		}
+		if (cvm != test[i].cvm) {
+			fprintf(stderr, "Incorrect CVM %d; expected %d\n", cvm, test[i].cvm);
 			r = 1;
 			goto exit;
 		}

@@ -40,6 +40,22 @@ enum emv_cvm_state_t {
 };
 
 /**
+ * EMV Cardholder Verification Method (CVM)
+ */
+enum emv_cvm_t {
+	EMV_CVM_UNKNOWN = 0, ///< CVM not recognised or not yet determined
+	EMV_CVM_FAILED, ///< Cardholder verification was not successful
+	EMV_CVM_NO_CVM_PERFORMED, ///< No CVM performed
+	EMV_CVM_NO_CVM_REQUIRED, ///< No CVM required
+	EMV_CVM_SIGNATURE, ///< Signature (paper)
+	EMV_CVM_ONLINE_PIN, ///< Enciphered PIN verified online
+	EMV_CVM_OFFLINE_PIN_PLAINTEXT, ///< Plaintext PIN verification performed by ICC
+	EMV_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE, ///< Plaintext PIN verification performed by ICC and signature
+	EMV_CVM_OFFLINE_PIN_ENCIPHERED, ///< Enciphered PIN verification performed by ICC
+	EMV_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE, ///< Enciphered PIN verification performed by ICC and signature
+};
+
+/**
  * EMV PIN entry result
  */
 enum emv_pin_entry_result_t {

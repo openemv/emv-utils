@@ -1817,8 +1817,7 @@ int main(int argc, char** argv)
 
 	printf("\nCardholder verification\n");
 	do {
-		const struct emv_tlv_t* cvm_result;
-		uint8_t cvm;
+		enum emv_cvm_t cvm;
 		enum emv_pin_entry_result_t pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
 
 		r = emv_cardholder_verification(&emv);
@@ -1836,13 +1835,12 @@ int main(int argc, char** argv)
 		}
 
 		// Determine CVM that requires PIN entry
-		cvm_result = emv_tlv_list_find_const(&emv.terminal, EMV_TAG_9F34_CVM_RESULTS);
-		if (!cvm_result || cvm_result->length != 3) {
-			fprintf(stderr, "CVM Results (9F34) not found or invalid\n");
+		r = emv_cvm_get(&emv, &cvm);
+		if (r) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
 		}
-		cvm = cvm_result->value[0] & EMV_CV_RULE_CVM_MASK;
-		if (cvm == EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED) {
+		if (cvm == EMV_CVM_ONLINE_PIN) {
 			printf("PIN entry required for online PIN\n");
 		} else {
 			printf("PIN entry required for offline PIN\n");

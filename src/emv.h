@@ -581,6 +581,27 @@ int emv_pin_entry_result(
 );
 
 /**
+ * Retrieve the Cardholder Verification Method (CVM) selected or performed by
+ * @ref emv_cardholder_verification(), as indicated by
+ * @ref EMV_TAG_9F34_CVM_RESULTS.
+ *
+ * When @ref EMV_TAG_9F34_CVM_RESULTS indicates that the CVM failed,
+ * this function indicates @ref EMV_CVM_FAILED. If cardholder verification has
+ * not yet been performed or the CVM is unrecognised, this function indicates
+ * @ref EMV_CVM_UNKNOWN.
+ *
+ * @remark See EMV 4.4 Book 3, Annex C3
+ * @remark See EMV 4.4 Book 4, Annex A4
+ *
+ * @param ctx EMV processing context
+ * @param cvm Cardholder Verification Method (CVM) output
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_cvm_get(const struct emv_ctx_t* ctx, enum emv_cvm_t* cvm);
+
+/**
  * Perform EMV Terminal Risk Management to identify risks to be considered for
  * online authorisation. This function will perform terminal risk management
  * regardless of whether the ICC indicates that it is mandatory in
