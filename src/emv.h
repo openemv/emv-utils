@@ -66,6 +66,8 @@ struct emv_ctx_t {
 	 * using:
 	 * - @ref emv_config_data_set()
 	 * - @ref emv_config_app_create()
+	 *
+	 * Mandatory fields are validated by @ref emv_ctx_prepare_txn().
 	 */
 	struct emv_config_t config;
 
@@ -85,9 +87,11 @@ struct emv_ctx_t {
 	 * - @ref EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC
 	 * - @ref EMV_TAG_81_AMOUNT_AUTHORISED_BINARY
 	 *
-	 * Optional fields are:
+	 * These fields are required for cashback transactions:
 	 * - @ref EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC
 	 * - @ref EMV_TAG_9F04_AMOUNT_OTHER_BINARY
+	 *
+	 * Mandatory fields are validated by @ref emv_ctx_prepare_txn().
 	 */
 	struct emv_tlv_list_t params;
 
@@ -132,6 +136,7 @@ struct emv_ctx_t {
 	 * @brief Offline Data Authentication (ODA) context.
 	 *
 	 * Populated and used by:
+	 * - @ref emv_initiate_application_processing()
 	 * - @ref emv_read_application_data()
 	 * - @ref emv_offline_data_authentication()
 	 */
@@ -144,13 +149,16 @@ struct emv_ctx_t {
 	 */
 	struct emv_cvm_ctx_t cvm;
 
+	/// @cond INTERNAL
 	/**
 	 * @brief Various cached fields for internal use
 	 *
-	 * Populated by @ref emv_initiate_application_processing() and used by
-	 * various functions.
+	 * - Transaction amount populated by @ref emv_ctx_prepare_txn().
+	 * - Kernel ID populated by individual contactless kernel interfaces
+	 * - Remaining fields populated by @ref emv_initiate_application_processing()
 	 */
-	/// @cond INTERNAL
+	uint32_t txn_amount;
+	const struct emv_tlv_t* kernel_id;
 	const struct emv_tlv_t* aid;
 	const struct emv_tlv_t* tvr;
 	const struct emv_tlv_t* tsi;
@@ -166,7 +174,7 @@ struct emv_txn_log_entry_t {
 	uint8_t pan[10]; ///< Primary Account Number (PAN) in EMV format 'cn'
 	uint8_t pan_seq; ///< Primary Account Number (PAN) Sequence Number
 	uint8_t txn_date[3]; ///< Transaction date in EMV format 'n' as YYMMDD
-	uint32_t transaction_amount; ///< Transaction amount in binary format
+	uint32_t txn_amount; ///< Transaction amount in binary format
 };
 
 /**
@@ -188,6 +196,7 @@ enum emv_error_t {
  * greater than zero.
  */
 enum emv_outcome_t {
+	// Generic EMV outcomes
 	EMV_OUTCOME_APPROVED = 1, ///< Transaction is approved
 	EMV_OUTCOME_DECLINED = 2, ///< Transaction is declined
 	EMV_OUTCOME_CARD_ERROR = 3, ///< Malfunction of the card or non-conformance to Answer To Reset (ATR)
@@ -195,6 +204,14 @@ enum emv_outcome_t {
 	EMV_OUTCOME_NOT_ACCEPTED = 5, ///< Card not accepted or no supported applications
 	EMV_OUTCOME_TRY_AGAIN = 6, ///< Try again by selecting a different application
 	EMV_OUTCOME_GPO_NOT_ACCEPTED = 7, ///< Processing conditions not accepted
+
+	// Contactless outcomes
+	// See EMV Contactless Book A v2.12, Annex B
+	EMV_OUTCOME_TRY_ANOTHER_INTERFACE = 20, ///< Contactless not possible; insert or swipe card
+	EMV_OUTCOME_TRY_AGAIN_SEE_PHONE, ///< Contactless field off request; see phone for instructions
+	EMV_OUTCOME_SELECT_NEXT, ///< Select next contactless application
+	EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD, ///< Contactless not possible; insert, swipe or try another card
+	EMV_OUTCOME_END_APPLICATION_RESTART, ///< Restart contactless; present card again
 };
 
 /**
@@ -249,6 +266,25 @@ int emv_ctx_reset(struct emv_ctx_t* ctx);
 int emv_ctx_clear(struct emv_ctx_t* ctx);
 
 /**
+ * Prepare EMV processing context for current transaction.
+ *
+ * This function will ensure that mandatory configuration fields and mandatory
+ * transaction parameters are populated and have valid length. It also decodes,
+ * validates and caches the transaction amount for other EMV processing
+ * functions to use.
+ *
+ * @note This function must be called for every transaction after
+ *       @ref emv_ctx_t.config and @ref emv_ctx_t.params have been populated
+ *       and before EMV processing.
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ */
+int emv_ctx_prepare_txn(struct emv_ctx_t* ctx);
+
+/**
  * Retrieve string associated with error value
  * @param error Error value. Must be less than zero.
  * @return Pointer to null-terminated string. Do not free.
@@ -258,7 +294,7 @@ const char* emv_error_get_string(enum emv_error_t error);
 /**
  * Retrieve string associated with outcome value
  * @remark See EMV 4.4 Book 4, 11.2
- * @remark See EMV Contactless Book A v2.10, 9.4
+ * @remark See EMV Contactless Book A v2.12, 9.4
  *
  * @param outcome Outcome value. Must be greater than zero.
  * @return Pointer to null-terminated string. Do not free.
@@ -280,7 +316,40 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome);
 int emv_atr_parse(const void* atr, size_t atr_len);
 
 /**
+ * Parse the ISO 14443 Answer To Select (ATS) message and determine whether the
+ * contactless type A card is suitable for EMV processing
+ * @remark See EMV Level 1 Contactless Interface Specification v4.0, 5.7.2
+ *
+ * @param ats ATS data (starting with mandatory TL byte)
+ * @param ats_len Length of ATS data in bytes
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_ats_parse(const void* ats, size_t ats_len);
+
+/**
+ * Parse the ISO 14443 Answer To Request Type B (ATQB) message and determine
+ * whether the contactless type B card is suitable for EMV processing
+ * @remark See EMV Level 1 Contactless Interface Specification v4.0, 6.3.2
+ *
+ * @param atqb ATQB data (starting with mandatory 0x50 marker byte)
+ * @param atqb_len Length of ATQB data in bytes (12 for basic, 13 for extended)
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_atqb_parse(const void* atqb, size_t atqb_len);
+
+/**
  * Indicate that EMV card has been presented to reader
+ *
+ * @note The value of @ref emv_ttl_t.contactless should be populated accurately
+ *       and will be used by other EMV processing functions to determine
+ *       whether EMV contact processing or EMV contactless processing should be
+ *       applied.
  *
  * @param ctx EMV processing context
  * @param ttl Terminal Transport Layer (TTL) context
@@ -294,7 +363,8 @@ int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl);
 /**
  * Build candidate application list using Payment System Environment (PSE) or
  * discovery of supported AIDs, and then sort according to Application Priority
- * Indicator
+ * Indicator. This function is intended for contact cards, not contactless
+ * cards. Use @ref emv_ep_build_candidate_list() for contactless cards.
  * @remark See EMV 4.4 Book 1, 12.3
  *
  * @param ctx EMV processing context
@@ -315,7 +385,9 @@ int emv_build_candidate_list(
  * application regardless of processing outcome. If application selection fails
  * this function will return either @ref EMV_OUTCOME_NOT_ACCEPTED or
  * @ref EMV_OUTCOME_TRY_AGAIN, depending on whether the candidate application
- * list is empty or not.
+ * list is empty or not. This function is intended for contact cards, not
+ * contactless cards. Use @ref emv_ep_select_application() for contactless
+ * cards.
  * @remark See EMV 4.4 Book 1, 12.4
  * @remark See EMV 4.4 Book 4, 11.3
  *
@@ -339,9 +411,9 @@ int emv_select_application(
  *
  * When building the PDOL data required for GET PROCESSING OPTIONS, this
  * function will search the TLV lists in this order:
+ * - @ref emv_ctx_t.terminal
  * - @ref emv_ctx_t.params
  * - @ref emv_ctx_t.config
- * - @ref emv_ctx_t.terminal
  *
  * @note This function clears @ref emv_ctx_t.icc and @ref emv_ctx_t.terminal
  *       and then populates them appropriately. Upon success, the selected
@@ -443,8 +515,8 @@ int emv_processing_restrictions(struct emv_ctx_t* ctx);
  * the first Cardholder Verification Method (CVM) for which the CVM Condition
  * is satisfied and which the terminal recognises and supports.
  *
- * CVM Conditions are evaluated using @ref EMV_TAG_9F35_TERMINAL_TYPE,
- * @ref EMV_TAG_9C_TRANSACTION_TYPE, @ref EMV_TAG_81_AMOUNT_AUTHORISED_BINARY,
+ * CVM Conditions are evaluated using the transaction amount,
+ * @ref EMV_TAG_9F35_TERMINAL_TYPE, @ref EMV_TAG_9C_TRANSACTION_TYPE,
  * @ref EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE and, if available,
  * @ref EMV_TAG_9F42_APPLICATION_CURRENCY_CODE. Terminal support for each CVM
  * is determined by @ref EMV_TAG_9F33_TERMINAL_CAPABILITIES. Biometric CVMs are
@@ -582,7 +654,8 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl);
  *
  * This function will only perform issuer authentication when
  * @ref EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE indicates that the card
- * application supports it and @p iad of the appropriate length is provided.
+ * application supports it (excluding contactless cards) and @p iad of the
+ * appropriate length is provided.
  *
  * While performing issuer authentication, this function will update
  * @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the outcome and

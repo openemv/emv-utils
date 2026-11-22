@@ -32,6 +32,7 @@
 
 #include "iso7816.h"
 #include "iso8825_ber.h"
+#include "iso14443.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_EMV
 #include "emv_debug.h"
@@ -40,6 +41,7 @@
 #include "crypto_rand.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -86,6 +88,8 @@ int emv_ctx_reset(struct emv_ctx_t* ctx)
 	emv_oda_clear(&ctx->oda);
 	memset(&ctx->cvm, 0, sizeof(ctx->cvm));
 
+	ctx->txn_amount = 0;
+	ctx->kernel_id = NULL;
 	ctx->aid = NULL;
 	ctx->tvr = NULL;
 	ctx->tsi = NULL;
@@ -108,10 +112,294 @@ int emv_ctx_clear(struct emv_ctx_t* ctx)
 	return 0;
 }
 
+static int emv_prepare_amount(
+	struct emv_tlv_list_t* params,
+	unsigned int tag_n,
+	unsigned int tag_b,
+	uint32_t* value
+)
+{
+	int r;
+	const struct emv_tlv_t* amount_n;
+	const struct emv_tlv_t* amount_b;
+	uint32_t amount_n_value;
+	uint32_t amount_b_value;
+	uint32_t amount_value = 0;
+	uint8_t buf[6];
+
+	// NOTE: The numeric form of an amount field is considered to be the
+	// primary form because it is the only form used by the EMV contactless
+	// kernels and the only form typically requested by a Data Object List
+	// (DOL), while the binary form is a convenient form for comparison with
+	// binary limits. Therefore this implementation accepts either form and
+	// will create the absent form from the other form.
+	// See EMV 4.4 Book 3, Annex A1
+
+	amount_n = emv_tlv_list_find_const(params, tag_n);
+	amount_b = emv_tlv_list_find_const(params, tag_b);
+	if (!amount_n && !amount_b) {
+		emv_debug_error("Amount fields (0x%04X and 0x%04X) not found",
+			tag_n, tag_b);
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	if (amount_n) {
+		if (amount_n->length != sizeof(buf)) {
+			emv_debug_trace_msg("amount_n->length=%u", amount_n->length);
+			emv_debug_error("Amount field (0x%04X) invalid", tag_n);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+		r = emv_format_n_to_uint(
+			amount_n->value,
+			amount_n->length,
+			&amount_n_value
+		);
+		if (r < 0) {
+			emv_debug_trace_msg("emv_format_n_to_uint() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		if (r > 0) {
+			emv_debug_trace_msg("emv_format_n_to_uint() failed; r=%d", r);
+			emv_debug_error("Amount field (0x%04X) invalid", tag_n);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+
+		// Numeric form of amount field uses EMV format "n" and is 12 decimal
+		// digits, but must be processed as 32-bit unsigned integer. Therefore
+		// re-encode and compare to the numeric form confirm that it does not
+		// exceed 32-bits.
+		if (!emv_uint_to_format_n(amount_n_value, buf, sizeof(buf)) ||
+			memcmp(buf, amount_n->value, sizeof(buf)) != 0
+		) {
+			emv_debug_error("Amount field (0x%04X) exceeds maximum", tag_n);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+	}
+
+	if (amount_b) {
+		if (amount_b->length != 4) {
+			emv_debug_trace_msg("amount_b->length=%u", amount_b->length);
+			emv_debug_error("Amount field (0x%04X) invalid", tag_b);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+		r = emv_format_b_to_uint(
+			amount_b->value,
+			amount_b->length,
+			&amount_b_value
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	if (amount_n && amount_b) {
+		if (amount_n_value != amount_b_value) {
+			emv_debug_trace_msg("amount_n_value=%u, amount_b_value=%u",
+				(unsigned int)amount_n_value, (unsigned int)amount_b_value);
+			emv_debug_error("Amount fields (0x%04X and 0x%04X) differ",
+				tag_n, tag_b);
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+
+		amount_value = amount_n_value;
+	}
+
+	if (amount_n && !amount_b) {
+		amount_value = amount_n_value;
+
+		r = emv_tlv_list_push(
+			params,
+			tag_b,
+			4,
+			emv_uint_to_format_b(amount_value, buf, 4),
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	if (amount_b && !amount_n) {
+		amount_value = amount_b_value;
+
+		r = emv_tlv_list_push(
+			params,
+			tag_n,
+			6,
+			emv_uint_to_format_n(amount_value, buf, 6),
+			0
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_tlv_list_push() failed; r=%d", r);
+
+			// Internal error; terminate session
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+	}
+
+	emv_debug_trace_msg("Amount field (0x%04X) value is %u",
+		tag_n, (unsigned int)amount_value);
+	*value = amount_value;
+
+	return 0;
+}
+
+int emv_ctx_prepare_txn(struct emv_ctx_t* ctx)
+{
+	int r;
+	const struct emv_tlv_t* term_country_code;
+	const struct emv_tlv_t* term_caps;
+	const struct emv_tlv_t* term_type;
+	const struct emv_tlv_t* addl_term_caps;
+	const struct emv_tlv_t* txn_seq_cnt;
+	const struct emv_tlv_t* txn_date;
+	const struct emv_tlv_t* txn_time;
+	const struct emv_tlv_t* txn_currency_code;
+	const struct emv_tlv_t* txn_currency_exponent;
+	const struct emv_tlv_t* txn_type;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Ensure mandatory configuration fields are present and have valid length
+	term_country_code = emv_config_data_get(ctx, EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE);
+	if (!term_country_code || term_country_code->length != 2) {
+		emv_debug_trace_msg("term_country_code=%p, term_country_code->length=%u",
+			term_country_code, term_country_code ? term_country_code->length : 0);
+		emv_debug_error("Terminal Country Code (9F1A) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	term_caps = emv_config_data_get(ctx, EMV_TAG_9F33_TERMINAL_CAPABILITIES);
+	if (!term_caps || term_caps->length != 3) {
+		emv_debug_trace_msg("term_caps=%p, term_caps->length=%u",
+			term_caps, term_caps ? term_caps->length : 0);
+		emv_debug_error("Terminal Capabilities (9F33) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	term_type = emv_config_data_get(ctx, EMV_TAG_9F35_TERMINAL_TYPE);
+	if (!term_type || term_type->length != 1) {
+		emv_debug_trace_msg("term_type=%p, term_type->length=%u",
+			term_type, term_type ? term_type->length : 0);
+		emv_debug_error("Terminal Type (9F35) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+	addl_term_caps = emv_config_data_get(ctx, EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES);
+	if (!addl_term_caps || addl_term_caps->length != 5) {
+		emv_debug_trace_msg("addl_term_caps=%p, addl_term_caps->length=%u",
+			addl_term_caps, addl_term_caps ? addl_term_caps->length : 0);
+		emv_debug_error("Additional Terminal Capabilities (9F40) not found or invalid");
+		return EMV_ERROR_INVALID_CONFIG;
+	}
+
+	// Ensure mandatory transaction parameters are present and have valid length
+	txn_seq_cnt = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9F41_TRANSACTION_SEQUENCE_COUNTER);
+	if (!txn_seq_cnt || txn_seq_cnt->length < 2 || txn_seq_cnt->length > 4) {
+		emv_debug_trace_msg("txn_seq_cnt=%p, txn_seq_cnt->length=%u",
+			txn_seq_cnt, txn_seq_cnt ? txn_seq_cnt->length : 0);
+		emv_debug_error("Transaction Sequence Counter (9F41) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_date = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9A_TRANSACTION_DATE);
+	if (!txn_date || txn_date->length != 3) {
+		emv_debug_trace_msg("txn_date=%p, txn_date->length=%u",
+			txn_date, txn_date ? txn_date->length : 0);
+		emv_debug_error("Transaction Date (9A) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_time = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9F21_TRANSACTION_TIME);
+	if (!txn_time || txn_time->length != 3) {
+		emv_debug_trace_msg("txn_time=%p, txn_time->length=%u",
+			txn_time, txn_time ? txn_time->length : 0);
+		emv_debug_error("Transaction Time (9F21) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_currency_code = emv_tlv_list_find_const(&ctx->params, EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE);
+	if (!txn_currency_code || txn_currency_code->length != 2) {
+		emv_debug_trace_msg("txn_currency_code=%p, txn_currency_code->length=%u",
+			txn_currency_code, txn_currency_code ? txn_currency_code->length : 0);
+		emv_debug_error("Transaction Currency Code (5F2A) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_currency_exponent = emv_tlv_list_find_const(&ctx->params, EMV_TAG_5F36_TRANSACTION_CURRENCY_EXPONENT);
+	if (!txn_currency_exponent || txn_currency_exponent->length != 1) {
+		emv_debug_trace_msg("txn_currency_exponent=%p, txn_currency_exponent->length=%u",
+			txn_currency_exponent, txn_currency_exponent ? txn_currency_exponent->length : 0);
+		emv_debug_error("Transaction Currency Exponent (5F36) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	txn_type = emv_tlv_list_find_const(&ctx->params, EMV_TAG_9C_TRANSACTION_TYPE);
+	if (!txn_type || txn_type->length != 1) {
+		emv_debug_trace_msg("txn_type=%p, txn_type->length=%u",
+			txn_type, txn_type ? txn_type->length : 0);
+		emv_debug_error("Transaction Type (9C) not found or invalid");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	// Validate and cache transaction amount
+	r = emv_prepare_amount(
+		&ctx->params,
+		EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC,
+		EMV_TAG_81_AMOUNT_AUTHORISED_BINARY,
+		&ctx->txn_amount
+	);
+	if (r) {
+		emv_debug_trace_msg("emv_prepare_amount() failed; r=%d", r);
+		emv_debug_error("Failed to prepare transaction amount");
+
+		// Return error as-is
+		return r;
+	}
+
+	// Other amount is only required for cashback transactions
+	if (txn_type->value[0] == EMV_TRANSACTION_TYPE_CASHBACK) {
+		uint32_t other_amount;
+
+		r = emv_prepare_amount(
+			&ctx->params,
+			EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC,
+			EMV_TAG_9F04_AMOUNT_OTHER_BINARY,
+			&other_amount
+		);
+		if (r) {
+			emv_debug_trace_msg("emv_prepare_amount() failed; r=%d", r);
+			emv_debug_error("Failed to prepare other amount");
+
+			// Return error as-is
+			return r;
+		}
+
+		// Ensure that transaction amount includes other amount
+		if (other_amount > ctx->txn_amount) {
+			emv_debug_trace_msg("txn_amount=%u, other_amount=%u",
+				(unsigned int)ctx->txn_amount, (unsigned int)other_amount);
+			emv_debug_error("Other amount exceeds transaction amount");
+			return EMV_ERROR_INVALID_PARAMETER;
+		}
+	}
+
+	return 0;
+}
+
 const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 {
-	// See EMV 4.4 Book 4, 11.2, table 8
 	switch (outcome) {
+		// Generic EMV outcomes
+		// See EMV 4.4 Book 4, 11.2, table 8
 		case EMV_OUTCOME_APPROVED: return "Transaction APPROVED"; // Message 03
 		case EMV_OUTCOME_DECLINED: return "Transaction DECLINED"; // Message 07
 		case EMV_OUTCOME_CARD_ERROR: return "Card error"; // Message 06
@@ -119,6 +407,14 @@ const char* emv_outcome_get_string(enum emv_outcome_t outcome)
 		case EMV_OUTCOME_NOT_ACCEPTED: return "Not accepted"; // Message 0C
 		case EMV_OUTCOME_TRY_AGAIN: return "Try again"; // Message 13
 		case EMV_OUTCOME_GPO_NOT_ACCEPTED: return "Not accepted"; // Message 0C
+
+		// Contactless outcomes
+		// See EMV Contactless Book A v2.12, Annex B
+		case EMV_OUTCOME_TRY_ANOTHER_INTERFACE: return "Insert or swipe card"; // Message 18
+		case EMV_OUTCOME_TRY_AGAIN_SEE_PHONE: return "See phone for instructions"; // Message 20
+		case EMV_OUTCOME_SELECT_NEXT: return "Select next contactless application"; // Not a UI message
+		case EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD: return "Insert, swipe or try another card"; // Message 1C
+		case EMV_OUTCOME_END_APPLICATION_RESTART: return "Present card again"; // Message 21
 	}
 
 	return "Invalid outcome";
@@ -350,6 +646,212 @@ int emv_atr_parse(const void* atr, size_t atr_len)
 	return 0;
 }
 
+int emv_ats_parse(const void* ats, size_t ats_len)
+{
+	int r;
+	struct iso14443_ats_info_t ats_info;
+
+	if (!ats || !ats_len) {
+		emv_debug_trace_msg("ats=%p, ats_len=%zu", ats, ats_len);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = iso14443_ats_parse(ats, ats_len, &ats_info);
+	if (r) {
+		emv_debug_trace_msg("iso14443_ats_parse() failed; r=%d", r);
+
+		if (r < 0) {
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		if (r > 0) {
+			emv_debug_error("Failed to parse ATS");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+	emv_debug_ats_info(&ats_info);
+
+	// The intention of this function is to validate the ATS in accordance with
+	// EMV Level 1 Contactless Interface Specification v4.0, 5.7.2. Some of the
+	// validation may already be performed by iso14443_ats_parse() and should
+	// be noted below in comments. The intention is also not to require all
+	// interface bytes to be present, but instead to accept any ATS permitted
+	// by the specification. Note that iso14443_ats_parse() populates defaults
+	// when interface bytes are absent, and applies various normalisations when
+	// decoding the ATS.
+
+	// TL - Length byte
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2.2
+	// Validated by iso14443_ats_parse()
+
+	// T0 - Format byte
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2, table 5.16
+
+	// FSCI must be in the range 0 (FSC=16) to 'C' (FSC=4096)
+	// FSCI 'D'-'F' is already normalised to FSC=4096 by iso14443_ats_parse()
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2.5
+	if (ats_info.FSC < 16) {
+		// iso14443_ats_parse() never decodes any FSCI to FSC < 16
+		emv_debug_error("FSC is below minimum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+	if (ats_info.FSC > 4096) {
+		// iso14443_ats_parse() never decodes any FSCI to FSC > 4096
+		emv_debug_error("FSC exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// TA(1) - Interface byte
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2, table 5.18
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2.8 and 5.7.2.9a
+	// TA(1) with b4 set is already normalised by iso14443_ats_parse()
+
+	// TB(1) - Interface byte
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2, table 5.19
+
+	// FWI must be less than or equal to FWI-MAX (14 for PCD)
+	// FWI = 15 and SFGI = 15 are already normalised by iso14443_ats_parse()
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2.10a and 5.7.2.10b
+	// See EMV Level 1 Contactless Interface v4.0, Annex A.4, table A.6
+	if (ats_info.FWI > 14) {
+		// iso14443_ats_parse() never decodes any FWI to be > 14
+		emv_debug_error("FWI exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// SFGI must be less than or equal to SFGI-MAX (14 for PCD)
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2.11
+	// See EMV Level 1 Contactless Interface v4.0, Annex A.4, table A.6
+	if (ats_info.SFGI > 14) {
+		// iso14443_ats_parse() never decodes any SFGI to be > 14
+		emv_debug_error("SFGI exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// TC(1) - Interface byte
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2, table 5.20
+
+	// Disregard CID and NAD
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2.13
+
+	// Historical bytes
+	// See EMV Level 1 Contactless Interface v4.0, 5.7.2.14
+	// Allow up to 15 historical bytes
+	if (ats_info.K_count > 15) {
+		emv_debug_error("Too many historical bytes");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	return 0;
+}
+
+int emv_atqb_parse(const void* atqb, size_t atqb_len)
+{
+	int r;
+	struct iso14443_atqb_info_t atqb_info;
+
+	if (!atqb || !atqb_len) {
+		emv_debug_trace_msg("atqb=%p, atqb_len=%zu", atqb, atqb_len);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	r = iso14443_atqb_parse(atqb, atqb_len, &atqb_info);
+	if (r) {
+		emv_debug_trace_msg("iso14443_atqb_parse() failed; r=%d", r);
+
+		if (r < 0) {
+			emv_debug_error("Internal error");
+			return EMV_ERROR_INTERNAL;
+		}
+		if (r > 0) {
+			emv_debug_error("Failed to parse ATQB");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+	emv_debug_atqb_info(&atqb_info);
+
+	// The intention of this function is to validate the ATQB in accordance
+	// with EMV Level 1 Contactless Interface Specification v4.0, 6.3.2. Some
+	// of the validation may already be performed by iso14443_atqb_parse() and
+	// should be noted below in comments. Note that iso14443_atqb_parse() only
+	// populates defaults for optional Protocol Info byte 4 because all other
+	// ATQB bytes are mandatory, and applies various normalisations when
+	// decoding ATQB.
+
+	// Disregard Application Data
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.3
+
+	// Protocol Info byte 1
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2, table 6.5
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.5a
+	// Supported bitrates already decoded, and RFU bit 4 already normalised
+	// by iso14443_atqb_parse()
+
+	// Protocol Info byte 2
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2, table 6.5
+
+	// FSCI must be in the range 0 (FSC=16) to 'C' (FSC=4096)
+	// FSCI 'D'-'F' is already normalised to FSC=4096 by iso14443_atqb_parse()
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.7
+	if (atqb_info.FSC < 16) {
+		// iso14443_atqb_parse() never decodes any FSCI to FSC < 16
+		emv_debug_error("FSC is below minimum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+	if (atqb_info.FSC > 4096) {
+		// iso14443_atqb_parse() never decodes any FSCI to FSC > 4096
+		emv_debug_error("FSC exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Support PICC compliant with ISO/IEC 14443-4
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.8
+
+	// Protocol_Type bit 4 is RFU and rejected if set
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.8a
+	if (atqb_info.protocol_type_rfu) {
+		emv_debug_error("Protocol_Type RFU bit is set");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Disregard minimum TR2
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.10
+
+	// Protocol Info byte 3
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2, table 6.5
+
+	// FWI must be less than or equal to FWI-MAX (14 for PCD)
+	// FWI = 15 is already normalised by iso14443_atqb_parse()
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.12a and 6.3.2.12b
+	// See EMV Level 1 Contactless Interface v4.0, Annex A.4, table A.6
+	if (atqb_info.FWI > 14) {
+		// iso14443_atqb_parse() never decodes any FWI to be > 14
+		emv_debug_error("FWI exceeds maximum");
+		return EMV_OUTCOME_CARD_ERROR;
+	}
+
+	// Disregard Application Data Coding (ADC)
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.13
+
+	// Disregard CID and NAD
+	// See EMV Level 1 Contactless Interface v4.0, 6.3.2.14
+
+	// Protocol Info byte 4 (extended ATQB)
+	if (atqb_info.PI4) {
+		// SFGI must be less than or equal to SFGI-MAX (14 for PCD)
+		// SFGI = 15 is already normalised by iso14443_atqb_parse()
+		// See EMV Level 1 Contactless Interface v4.0, Annex A.4, table A.6
+		if (atqb_info.SFGI > 14) {
+			emv_debug_error("SFGI exceeds maximum");
+			return EMV_OUTCOME_CARD_ERROR;
+		}
+	}
+
+	return 0;
+}
+
 int emv_card_activated(struct emv_ctx_t* ctx, struct emv_ttl_t* ttl)
 {
 	if (!ctx || !ttl) {
@@ -369,6 +871,8 @@ int emv_build_candidate_list(
 )
 {
 	int r;
+	struct emv_app_list_t pse_list = EMV_APP_LIST_INIT;
+	struct emv_app_t* app;
 
 	if (!ctx || !app_list) {
 		emv_debug_trace_msg("ctx=%p, app_list=%p", ctx, app_list);
@@ -377,19 +881,49 @@ int emv_build_candidate_list(
 	}
 
 	emv_debug_info("Select Payment System Environment (PSE)");
-	r = emv_tal_read_pse(ctx->ttl, &ctx->config, app_list);
-	if (r < 0) {
+	r = emv_tal_read_pse(ctx->ttl, &pse_list);
+	if (r) {
 		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
-		emv_debug_error("Failed to read PSE; terminate session");
-		if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
-			return EMV_OUTCOME_CARD_BLOCKED;
-		} else {
+
+		if (r < 0) {
+			emv_debug_error("Failed to read PSE; terminate session");
+
+			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+				return EMV_ERROR_INTERNAL;
+			}
+			if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
+				return EMV_OUTCOME_CARD_BLOCKED;
+			}
+
 			return EMV_OUTCOME_CARD_ERROR;
 		}
+		if (r > 0) {
+			emv_debug_info("Failed to process PSE; continue session");
+		}
 	}
-	if (r > 0) {
-		emv_debug_trace_msg("emv_tal_read_pse() failed; r=%d", r);
-		emv_debug_info("Failed to process PSE; continue session");
+
+	if (r == 0) {
+		// Process PSE application list to build supported candidate list
+		while ((app = emv_app_list_pop(&pse_list))) {
+			const struct emv_config_app_t* config_app;
+
+			// See EMV 4.4 Book 1, 12.3.2, step 3
+			config_app = emv_config_app_find_supported(&ctx->config, app);
+			if (!config_app) {
+				emv_debug_info("Application is not supported");
+				emv_app_free(app);
+				app = NULL;
+
+				// Ignore app and continue
+				continue;
+			}
+
+			// Update candidate list
+			// See EMV 4.4 Book 1, 12.3.2, step 3
+			emv_debug_info("Application is supported");
+			app->config = config_app;
+			emv_app_list_push(app_list, app);
+		}
 	}
 
 	// If PSE failed or no apps found by PSE, use list of AIDs method
@@ -435,9 +969,6 @@ int emv_select_application(
 {
 	int r;
 	struct emv_app_t* current_app = NULL;
-	uint8_t current_aid[16];
-	size_t current_aid_len;
-	const struct emv_config_app_t* config_app;
 
 	if (!ctx || !app_list) {
 		emv_debug_trace_msg("ctx=%p, app_list=%p, index=%u", ctx, app_list, index);
@@ -464,33 +995,35 @@ int emv_select_application(
 		emv_debug_error("Invalid parameter");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
-
-	if (current_app->aid->length > sizeof(current_aid)) {
+	if (!current_app->config) {
+		emv_debug_error("Candidate application has no config");
 		goto try_again;
 	}
-	current_aid_len = current_app->aid->length;
-	memcpy(current_aid, current_app->aid->value, current_app->aid->length);
-	emv_app_free(current_app);
-	current_app = NULL;
 
 	r = emv_tal_select_app(
 		ctx->ttl,
-		current_aid,
-		current_aid_len,
+		current_app->aid->value,
+		current_app->aid->length,
 		&ctx->selected_app
 	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_select_app() failed; r=%d", r);
 		if (r < 0) {
 			emv_debug_error("Error during application selection; terminate session");
-			if (r == EMV_TAL_ERROR_CARD_BLOCKED) {
-				r = EMV_OUTCOME_CARD_BLOCKED;
+
+			if (r == EMV_TAL_ERROR_INTERNAL || r == EMV_TAL_ERROR_INVALID_PARAMETER) {
+				r = EMV_ERROR_INTERNAL;
 			} else {
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
-			goto exit;
+			goto error;
 		}
 		if (r > 0) {
+			if (r == EMV_TAL_RESULT_APP_SELECT_NOT_SUPPORTED) {
+				emv_debug_error("Card blocked; terminate session");
+				r = EMV_OUTCOME_CARD_BLOCKED;
+				goto exit;
+			}
 			emv_debug_info("Failed to select application; continue session");
 			goto try_again;
 		}
@@ -499,33 +1032,34 @@ int emv_select_application(
 		emv_debug_trace_msg("emv_tal_select_app() failed to populate selected_app");
 		emv_debug_error("Internal error");
 		r = EMV_ERROR_INTERNAL;
-		goto exit;
+		goto error;
 	}
 
 	// Populate matching application dependent data
-	config_app = emv_config_app_find_supported(&ctx->config, ctx->selected_app);
-	if (!config_app) {
-		emv_debug_error("Application configuration not found");
-		r = EMV_ERROR_INTERNAL;
-		goto exit;
-	}
-	emv_debug_info_tlv_list("Application dependent data", &config_app->data);
-	ctx->selected_app->config = config_app;
+	emv_debug_info_tlv_list("Application dependent data", &current_app->config->data);
+	ctx->selected_app->config = current_app->config;
 
 	// Success
 	r = 0;
 	goto exit;
 
 try_again:
-	// If no applications remain, terminate session
-	// Otherwise, try again
-	// See EMV 4.4 Book 1, 12.4
-	// See EMV 4.4 Book 4, 11.3
 	if (emv_app_list_is_empty(app_list)) {
-		emv_debug_info("Candidate list empty");
+		// If no applications remain, terminate session
+		// See EMV 4.4 Book 1, 12.4
+		// See EMV 4.4 Book 4, 11.3
+		emv_debug_info("Candidate list empty; not accepted");
 		r = EMV_OUTCOME_NOT_ACCEPTED;
 	} else {
+		// Otherwise, try again
+		// See EMV 4.4 Book 4, 11.3
 		r = EMV_OUTCOME_TRY_AGAIN;
+	}
+
+error:
+	if (ctx->selected_app) {
+		emv_app_free(ctx->selected_app);
+		ctx->selected_app = NULL;
 	}
 
 exit:
@@ -537,56 +1071,13 @@ exit:
 	return r;
 }
 
-int emv_initiate_application_processing(
+static int emv_create_initial_terminal_data(
 	struct emv_ctx_t* ctx,
 	uint8_t pos_entry_mode
 )
 {
 	int r;
 	uint8_t un[4];
-	const struct emv_tlv_t* pdol;
-	uint8_t gpo_data_buf[EMV_CAPDU_DATA_MAX];
-	uint8_t* gpo_data;
-	size_t gpo_data_len;
-	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
-
-	if (!ctx) {
-		emv_debug_trace_msg("ctx=%p", ctx);
-		emv_debug_error("Invalid parameter");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
-	if (!ctx->selected_app) {
-		emv_debug_trace_msg("selected_app=%p", ctx->selected_app);
-		emv_debug_error("Invalid context variable");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
-
-	emv_debug_info("Initiate application processing");
-
-	// Clear existing ICC data, terminal data and completion data lists to
-	// avoid ambiguity
-	emv_tlv_list_clear(&ctx->icc);
-	emv_tlv_list_clear(&ctx->terminal);
-	emv_tlv_list_clear(&ctx->completion);
-
-	// Clear existing ODA state to avoid ambiguity
-	r = emv_oda_init(&ctx->oda);
-	if (r) {
-		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
-		emv_debug_error("Internal error");
-		return EMV_ERROR_INTERNAL;
-	}
-
-	// Clear existing CVM state to avoid ambiguity
-	memset(&ctx->cvm, 0, sizeof(ctx->cvm));
-
-	// NOTE: EMV 4.4 Book 1, 12.4, states that the terminal should set the
-	// value of Application Identifier (AID) - terminal (field 9F06) before
-	// GET PROCESSING OPTIONS. It is not explicitly stated that PDOL may list
-	// 9F06, but the assumption is that the PDOL may list any field having the
-	// terminal as the source. Therefore, this implementation will create the
-	// initial terminal data fields for the current transaction before PDOL
-	// processing and GET PROCESSING OPTIONS.
 
 	// Create Point-of-Service (POS) Entry Mode (field 9F39)
 	r = emv_tlv_list_push(
@@ -672,6 +1163,74 @@ int emv_initiate_application_processing(
 		// Internal error; terminate session
 		emv_debug_error("Internal error");
 		return EMV_ERROR_INTERNAL;
+	}
+
+	return 0;
+}
+
+int emv_initiate_application_processing(
+	struct emv_ctx_t* ctx,
+	uint8_t pos_entry_mode
+)
+{
+	int r;
+	const struct emv_tlv_t* pdol;
+	uint8_t gpo_data_buf[EMV_CAPDU_DATA_MAX];
+	uint8_t* gpo_data;
+	size_t gpo_data_len;
+	struct emv_tlv_list_t gpo_output = EMV_TLV_LIST_INIT;
+
+	if (!ctx) {
+		emv_debug_trace_msg("ctx=%p", ctx);
+		emv_debug_error("Invalid parameter");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+	if (!ctx->selected_app) {
+		emv_debug_trace_msg("selected_app=%p", ctx->selected_app);
+		emv_debug_error("No selected application");
+		return EMV_ERROR_INVALID_PARAMETER;
+	}
+
+	emv_debug_info("Initiate application processing");
+
+	// Clear existing ICC data, terminal data and completion data lists to
+	// avoid ambiguity
+	emv_tlv_list_clear(&ctx->icc);
+	emv_tlv_list_clear(&ctx->terminal);
+	emv_tlv_list_clear(&ctx->completion);
+
+	// Clear existing cached terminal fields to avoid stale pointers
+	ctx->kernel_id = NULL;
+	ctx->aid = NULL;
+	ctx->tvr = NULL;
+	ctx->tsi = NULL;
+	ctx->aip = NULL;
+	ctx->afl = NULL;
+
+	// Clear existing ODA state to avoid ambiguity
+	r = emv_oda_init(&ctx->oda);
+	if (r) {
+		emv_debug_trace_msg("emv_oda_init() failed; r=%d", r);
+		emv_debug_error("Internal error");
+		return EMV_ERROR_INTERNAL;
+	}
+
+	// Clear existing CVM state to avoid ambiguity
+	memset(&ctx->cvm, 0, sizeof(ctx->cvm));
+
+	// NOTE: EMV 4.4 Book 1, 12.4, states that the terminal should set the
+	// value of Application Identifier (AID) - terminal (field 9F06) before
+	// GET PROCESSING OPTIONS. It is not explicitly stated that PDOL may list
+	// 9F06, but the assumption is that the PDOL may list any field having the
+	// terminal as the source. Therefore, this implementation will create the
+	// initial terminal data fields for the current transaction before PDOL
+	// processing and GET PROCESSING OPTIONS.
+
+	r = emv_create_initial_terminal_data(ctx, pos_entry_mode);
+	if (r) {
+		emv_debug_trace_msg("emv_create_initial_terminal_data() failed; r=%d", r);
+		emv_debug_error("Failed to create initial terminal data");
+		return r;
 	}
 
 	// Cache various terminal fields
@@ -769,9 +1328,7 @@ int emv_initiate_application_processing(
 		ctx->ttl,
 		gpo_data,
 		gpo_data_len,
-		&gpo_output,
-		&ctx->aip,
-		&ctx->afl
+		&gpo_output
 	);
 	if (r) {
 		emv_debug_trace_msg("emv_tal_get_processing_options() failed; r=%d", r);
@@ -788,18 +1345,39 @@ int emv_initiate_application_processing(
 		}
 		if (r > 0) {
 			emv_debug_info("Failed to initiate application processing");
-
 			if (r == EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED) {
 				// Conditions of use not satisfied; ignore app and continue
 				// See EMV 4.4 Book 3, 10.1
 				// See EMV 4.4 Book 4, 6.3.1
 				r = EMV_OUTCOME_GPO_NOT_ACCEPTED;
+
 			} else {
 				// All other GPO outcomes are card errors
+				// See EMV 4.4 Book 3, 10.1
 				r = EMV_OUTCOME_CARD_ERROR;
 			}
 			goto error;
 		}
+	}
+
+	// Populate AIP pointer
+	ctx->aip = emv_tlv_list_find_const(&gpo_output, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+	if (!ctx->aip || ctx->aip->length != 2) {
+		// Mandatory field missing or invalid; terminate session
+		// See EMV 4.4 Book 3, 6.5.8.4
+		emv_debug_error("AIP in GPO response not found or invalid");
+		r = EMV_OUTCOME_CARD_ERROR;
+		goto error;
+	}
+
+	// Populate AFL pointer
+	ctx->afl = emv_tlv_list_find_const(&gpo_output, EMV_TAG_94_APPLICATION_FILE_LOCATOR);
+	if (!ctx->afl || !ctx->afl->length || (ctx->afl->length & 0x3) != 0) {
+		// Mandatory field missing or invalid; terminate session
+		// See EMV 4.4 Book 3, 6.5.8.4
+		emv_debug_error("AFL in GPO response not found or invalid");
+		r = EMV_OUTCOME_CARD_ERROR;
+		goto error;
 	}
 
 	// Move application data to ICC data list
@@ -822,6 +1400,8 @@ int emv_initiate_application_processing(
 	goto exit;
 
 error:
+	ctx->aip = NULL;
+	ctx->afl = NULL;
 	emv_tlv_list_clear(&gpo_output);
 exit:
 	return r;
@@ -925,6 +1505,13 @@ int emv_read_application_data(struct emv_ctx_t* ctx)
 		}
 	}
 	if (!found_5F24 || !found_5A || !found_8C || !found_8D) {
+		emv_debug_trace_msg("5F24=%s, 5A=%s, 8C=%s, 8D=%s",
+			found_5F24 ? "found" : "missing",
+			found_5A ? "found" : "missing",
+			found_8C ? "found" : "missing",
+			found_8D ? "found" : "missing"
+		);
+
 		// Mandatory field not found; terminate session
 		// See EMV 4.4 Book 3, 10.2
 		emv_debug_error("Mandatory field not found");
@@ -1441,10 +2028,8 @@ int emv_cardholder_verification(struct emv_ctx_t* ctx)
 	const struct emv_tlv_t* term_caps;
 	const struct emv_tlv_t* term_type;
 	const struct emv_tlv_t* txn_type;
-	const struct emv_tlv_t* txn_amount;
 	const struct emv_tlv_t* txn_currency_code;
 	const struct emv_tlv_t* app_currency_code;
-	uint32_t amount_value;
 	bool app_currency;
 	struct emv_tlv_t* cvm_result;
 	struct emv_cv_rule_t rule;
@@ -1498,32 +2083,12 @@ int emv_cardholder_verification(struct emv_ctx_t* ctx)
 		emv_debug_error("Transaction Type (9C) not found or invalid");
 		return EMV_ERROR_INVALID_PARAMETER;
 	}
-	txn_amount = emv_tlv_list_find_const(&ctx->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY);
-	if (!txn_amount || txn_amount->length != 4) {
-		emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
-			txn_amount, txn_amount ? txn_amount->length : 0);
-		emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
 	txn_currency_code = emv_tlv_list_find_const(&ctx->params, EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE);
 	if (!txn_currency_code || txn_currency_code->length != 2) {
 		emv_debug_trace_msg("txn_currency_code=%p, txn_currency_code->length=%u",
 			txn_currency_code, txn_currency_code ? txn_currency_code->length : 0);
 		emv_debug_error("Transaction Currency Code (5F2A) not found or invalid");
 		return EMV_ERROR_INVALID_PARAMETER;
-	}
-
-	r = emv_format_b_to_uint(
-		txn_amount->value,
-		txn_amount->length,
-		&amount_value
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		return EMV_ERROR_INTERNAL;
 	}
 
 	// Determine whether transaction is in the application currency
@@ -1640,7 +2205,7 @@ int emv_cardholder_verification(struct emv_ctx_t* ctx)
 			term_type->value[0],
 			txn_type->value[0],
 			app_currency,
-			amount_value,
+			ctx->txn_amount,
 			&ctx->cvm.amounts
 		)) {
 			// Bypass CV Rule and proceed to next rule
@@ -1855,7 +2420,6 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 	unsigned int random_selection_percentage = 0; // Disable by default
 	unsigned int random_selection_max_percentage = 0;
 	unsigned int random_selection_threshold = 0;
-	const struct emv_tlv_t* txn_amount;
 	uint32_t floor_limit_value;
 	uint32_t amount_value;
 	const struct emv_tlv_t* lower_offline_limit;
@@ -1914,15 +2478,6 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 		return EMV_ERROR_INVALID_CONFIG;
 	}
 
-	// Ensure mandatory transaction parameters are present and have valid length
-	txn_amount = emv_tlv_list_find_const(&ctx->params, EMV_TAG_81_AMOUNT_AUTHORISED_BINARY);
-	if (!txn_amount || txn_amount->length != 4) {
-		emv_debug_trace_msg("txn_amount=%p, txn_amount->length=%u",
-			txn_amount, txn_amount ? txn_amount->length : 0);
-		emv_debug_error("Amount, Authorised - Binary (81) not found or invalid");
-		return EMV_ERROR_INVALID_PARAMETER;
-	}
-
 	// Mandatory fields are present for terminal risk management to proceed
 	ctx->tsi->value[0] |= EMV_TSI_TERMINAL_RISK_MANAGEMENT_PERFORMED;
 
@@ -1941,19 +2496,8 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 		return EMV_ERROR_INTERNAL;
 	}
 	emv_debug_trace_msg("Terminal Floor Limit value is %u", (unsigned int)floor_limit_value);
-	r = emv_format_b_to_uint(
-		txn_amount->value,
-		txn_amount->length,
-		&amount_value
-	);
-	if (r) {
-		emv_debug_trace_msg("emv_format_b_to_uint() failed; r=%d", r);
-
-		// Internal error; terminate session
-		emv_debug_error("Internal error");
-		return EMV_ERROR_INTERNAL;
-	}
-	emv_debug_trace_msg("Amount, Authorised (Binary) value is %u", (unsigned int)amount_value);
+	emv_debug_trace_msg("Transaction amount is %u", (unsigned int)ctx->txn_amount);
+	amount_value = ctx->txn_amount;
 	if (txn_log && txn_log_cnt) {
 		const struct emv_tlv_t* pan;
 		const struct emv_txn_log_entry_t* entry = NULL;
@@ -1979,8 +2523,10 @@ int emv_terminal_risk_management(struct emv_ctx_t* ctx,
 		}
 
 		if (entry) {
-			emv_debug_trace_data("Using transaction log entry with amount %u for PAN", entry->pan, sizeof(entry->pan), entry->transaction_amount);
-			amount_value += entry->transaction_amount;
+			emv_debug_trace_data("Using transaction log entry with amount %u for PAN",
+				entry->pan, sizeof(entry->pan), (unsigned int)entry->txn_amount
+			);
+			amount_value += entry->txn_amount;
 		}
 
 		emv_debug_trace_msg("Amount risk value is %u", (unsigned int)amount_value);
@@ -2463,7 +3009,7 @@ int emv_card_action_analysis(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 			break;
 
 		default:
-			emv_debug_error("Unexpected CID 0x%02X\n", cid->value[0]);
+			emv_debug_error("Unexpected CID 0x%02X", cid->value[0]);
 			outcome = EMV_OUTCOME_CARD_ERROR;
 			break;
 	}
@@ -2574,14 +3120,24 @@ int emv_online_processing(
 		}
 	}
 
+	// Issuer authentication is only possible when Issuer Authentication Data
+	// is provided
+	// See EMV 4.4 Book 3, 10.9
+	if (!iad || !iad_len) {
+		return 0;
+	}
+
+	// Skip issuer authentication for contactless cards
+	if (ctx->ttl && ctx->ttl->contactless) {
+		emv_debug_info("EXTERNAL AUTHENTICATE not supported for contactless");
+		return 0;
+	}
+
 	// Issuer authentication is only possible when the AIP indicates that it is
-	// supported and the Issuer Authentication Data is available
+	// supported
 	// See EMV 4.4 Book 3, 10.9
 	if (!(ctx->aip->value[0] & EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED)) {
 		emv_debug_info("EXTERNAL AUTHENTICATE not supported");
-		return 0;
-	}
-	if (!iad || !iad_len) {
 		return 0;
 	}
 
@@ -2809,7 +3365,7 @@ int emv_completion(struct emv_ctx_t* ctx, uint8_t ref_ctrl)
 			break;
 
 		default:
-			emv_debug_error("Unexpected CID 0x%02X\n", cid->value[0]);
+			emv_debug_error("Unexpected CID 0x%02X", cid->value[0]);
 			outcome = EMV_OUTCOME_CARD_ERROR;
 			break;
 	}

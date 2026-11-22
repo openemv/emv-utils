@@ -23,12 +23,18 @@
 #include "emv_config_xml.h"
 #include "pcsc.h"
 #include "print_helpers.h"
+#include "socket_helpers.h"
 #include "emv_ttl.h"
 #include "emv_tags.h"
 #include "emv_fields.h"
 #include "emv_strings.h"
 #include "emv_tlv.h"
 #include "emv_app.h"
+#include "emv_date.h"
+#include "emv_ep.h"
+#include "emv_c2.h"
+#include "emv_c3.h"
+#include "emv_c4.h"
 
 #define EMV_DEBUG_SOURCE EMV_DEBUG_SOURCE_APP
 #include "emv_debug.h"
@@ -55,7 +61,11 @@ static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uin
 static int emv_txn_load_config(struct emv_ctx_t* emv);
 static int parse_hex(const char* hex, void* buf, size_t* buf_len);
 static int pin_entry_prompt(uint8_t* pinblock);
+static int emv_txn_c3_process(struct emv_ctx_t* emv);
+static int online_auth_request_encode(const struct emv_ctx_t* emv, uint8_t* buf, size_t* buf_len);
+static int online_auth_response_parse(const uint8_t* buf, size_t buf_len, uint8_t* arc, uint8_t* iad, size_t* iad_len);
 static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len);
+static int online_auth_socket(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len);
 
 // argp option keys
 enum emv_tool_param_t {
@@ -69,6 +79,7 @@ enum emv_tool_param_t {
 	EMV_TOOL_PARAM_PIN_ENTRY,
 	EMV_TOOL_PARAM_GENAC1_TYPE,
 	EMV_TOOL_PARAM_ONLINE_AUTH,
+	EMV_TOOL_PARAM_ONLINE_AUTH_SOCKET,
 	EMV_TOOL_PARAM_DEBUG_VERBOSE,
 	EMV_TOOL_PARAM_DEBUG_SOURCES_MASK,
 	EMV_TOOL_PARAM_DEBUG_LEVEL,
@@ -90,10 +101,13 @@ static struct argp_option argp_options[] = {
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
 	{ "pin-entry", EMV_TOOL_PARAM_PIN_ENTRY, "prompt|bypass|fail", 0, "PIN entry method: prompt for PIN, bypass PIN entry, or fail PIN entry as if the PIN pad is not working. Default is prompt." },
-	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
-	{ "online-auth", EMV_TOOL_PARAM_ONLINE_AUTH, "decline|approve|unable|prompt", 0, "Online authorisation method. Default is decline." },
 
-	{ NULL, 0, NULL, 0, "Debug options", 3 },
+	{ NULL, 0, NULL, 0, "Authorisation options", 3 },
+	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
+	{ "online-auth", EMV_TOOL_PARAM_ONLINE_AUTH, "decline|approve|unable|prompt|socket", 0, "Online authorisation method. Default is decline." },
+	{ "online-auth-socket", EMV_TOOL_PARAM_ONLINE_AUTH_SOCKET, "ADDR", 0, "Socket address for online authorisation. ADDR is a Unix domain socket path if it contains \"/\", or a TCP address of the form \"host:port\", \":port\" or \"port\", or an IPv6 address of the form \"[address]:port\". A TCP address without a host connects to the loopback interface." },
+
+	{ NULL, 0, NULL, 0, "Debug options", 4 },
 	{ "debug-verbose", EMV_TOOL_PARAM_DEBUG_VERBOSE, NULL, 0, "Enable verbose debug output. This will include the timestamp, debug source and debug level in the debug output." },
 	{ "debug-source", EMV_TOOL_PARAM_DEBUG_SOURCES_MASK, "x,y,z...", 0, "Comma separated list of debug sources. Allowed values are TTL, TAL, ODA, EMV, APP, ALL. Default is ALL." },
 	{ "debug-level", EMV_TOOL_PARAM_DEBUG_LEVEL, "LEVEL", 0, "Maximum debug level. Allowed values are NONE, ERROR, INFO, CARD, TRACE, ALL. Default is INFO." },
@@ -141,8 +155,10 @@ enum online_auth_method_t {
 	ONLINE_AUTH_METHOD_APPROVE,
 	ONLINE_AUTH_METHOD_UNABLE,
 	ONLINE_AUTH_METHOD_PROMPT,
+	ONLINE_AUTH_METHOD_SOCKET,
 };
 static enum online_auth_method_t online_auth_method = ONLINE_AUTH_METHOD_DECLINE;
+static const char* online_auth_socket_addr = NULL;
 
 // Debug parameters
 static bool debug_verbose = false;
@@ -350,10 +366,17 @@ static error_t argp_parser_helper(int key, char* arg, struct argp_state* state)
 				online_auth_method = ONLINE_AUTH_METHOD_UNABLE;
 			} else if (strcasecmp(arg, "prompt") == 0) {
 				online_auth_method = ONLINE_AUTH_METHOD_PROMPT;
+			} else if (strcasecmp(arg, "socket") == 0) {
+				online_auth_method = ONLINE_AUTH_METHOD_SOCKET;
 			} else {
-				argp_error(state, "Online authorisation method (--online-auth) argument must be decline, approve, unable or prompt");
+				argp_error(state, "Online authorisation method (--online-auth) argument must be decline, approve, unable, prompt or socket");
 				return EINVAL;
 			}
+			return 0;
+		}
+
+		case EMV_TOOL_PARAM_ONLINE_AUTH_SOCKET: {
+			online_auth_socket_addr = arg;
 			return 0;
 		}
 
@@ -912,58 +935,180 @@ static int pin_entry_prompt(uint8_t* pinblock)
 	} while (true);
 }
 
-static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len)
+static int emv_txn_c3_process(struct emv_ctx_t* emv)
 {
 	int r;
-	uint8_t txn_record[4096];
-	size_t txn_record_len = sizeof(txn_record);
-	char input[1024];
-	uint8_t buf[512];
-	size_t buf_len = sizeof(buf);
-	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
-	const struct emv_tlv_t* tlv;
+	const struct emv_tlv_t* ctq;
+	bool online_required = false;
+	bool decline_required = false;
 
-	if (!arc || !iad || !iad_len) {
+	// Kernel C-3 sets the Online Required by Reader Indicator and the Decline
+	// Required by Reader Indicator during various processing steps and only
+	// determines the outcome after all processing steps
+	// See EMV Contactless Book C-3 v2.12, 5.8.1.1
+	// See EMV Contactless Book C-3 v2.12, 5.9.1
+
+	printf("\nCard action analysis\n");
+	r = emv_c3_card_action_analysis(emv);
+	if (r < 0) {
+		return r;
+	}
+	switch (r) {
+		case 0:
+			// Card returned ARQC or reader requires online cryptogram
+			// See EMV Contactless Book C-3 v2.12, 5.4.3.2
+			online_required = true;
+			break;
+
+		case EMV_OUTCOME_APPROVED:
+			// Card returned TC and reader does not require online cryptogram
+			break;
+
+		case EMV_OUTCOME_DECLINED:
+			// See EMV Contactless Book C-3 v2.12, 5.4.3.2
+			decline_required = true;
+			break;
+
+		default:
+			// Return outcome as-is
+			return r;
+	}
+
+	// Card Transaction Qualifiers (field 9F6C) is optional
+	ctq = emv_tlv_list_find_const(&emv->icc, EMV_TAG_9F6C_CTQ);
+	if (ctq && ctq->length != 2) {
+		ctq = NULL;
+	}
+
+	// NOTE: Processing Restrictions apply when the card indicates TC, but
+	// emv_c3_card_action_analysis() overrides approval when the reader
+	// requires online cryptogram. Therefore, this implementation only applies
+	// Processing restrictions when neither online cryptogram nor decline are
+	// are indicated.
+	if (!online_required && !decline_required) {
+		const struct emv_tlv_t* txn_date;
+		const struct emv_tlv_t* app_expiration_date;
+
+		printf("\nProcessing restrictions\n");
+
+		txn_date = emv_tlv_list_find_const(&emv->params, EMV_TAG_9A_TRANSACTION_DATE);
+		if (!txn_date || txn_date->length != 3) {
+			// Presence of Transaction Date (field 9A) should have been
+			// confirmed by emv_ctx_prepare_txn()
+			emv_debug_error("Transaction Date (9A) not found or invalid");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// Application Expiration Date (field 5F24) is optional for kernel C-3
+		// and the application is considered expired if it is not provided
+		// See EMV Contactless Book C-3 v2.12, 5.5.1.1
+		app_expiration_date = emv_tlv_list_find_const(&emv->icc, EMV_TAG_5F24_APPLICATION_EXPIRATION_DATE);
+		if (emv_date_is_expired(txn_date, app_expiration_date)) {
+			emv_debug_info("Application is expired");
+			if (ctq && (ctq->value[0] & EMV_CTQ_ONLINE_IF_APPLICATION_EXPIRED)) {
+				emv_debug_info("Card requires online processing if application is expired");
+				online_required = true;
+			} else {
+				decline_required = true;
+			}
+		} else {
+			emv_debug_info("Application is not expired");
+		}
+	}
+
+	if (!online_required && !decline_required) {
+		const struct emv_tlv_t* ttq;
+
+		printf("\nOffline data authentication\n");
+
+		ttq = emv_tlv_list_find_const(&emv->terminal, EMV_TAG_9F66_TTQ);
+		if (!ttq || ttq->length != 4) {
+			// Presence of Terminal Transaction Qualifiers (field 9F66) should
+			// have been confirmed by emv_c3_card_action_analysis()
+			emv_debug_error("Terminal Transaction Qualifiers (9F66) not found or invalid");
+			return EMV_ERROR_INTERNAL;
+		}
+
+		// This implementation is unable to perform fDDA
+		// See EMV Contactless Book C-3 v2.12, 5.6.1.2
+		emv_debug_info("Unable to perform fDDA");
+		if (ctq &&
+			(ctq->value[0] & EMV_CTQ_ONLINE_IF_ODA_FAILED) &&
+			!(ttq->value[0] & EMV_TTQ_OFFLINE_ONLY_READER)
+		) {
+			emv_debug_info("Card requires online processing if ODA fails");
+			online_required = true;
+		} else if (ctq &&
+			(ctq->value[0] & EMV_CTQ_SWITCH_INTERFACE_IF_ODA_FAILED) &&
+			(ttq->value[0] & EMV_TTQ_EMV_CONTACT_SUPPORTED)
+		) {
+			emv_debug_info("Card requires switch interface if ODA fails");
+			return EMV_OUTCOME_TRY_ANOTHER_INTERFACE;
+		} else {
+			decline_required = true;
+		}
+	}
+
+	// Kernel C-3 requires that TVR is zero and does not use the TSI
+	// See EMV Contactless Book C-3 v2.12, Annex A.2
+	// See EMV Contactless Book C-3 v2.12, Annex B.1.1
+	if (!emv->tvr || !emv->tsi) {
+		// Presence of TVR and TSI should have been confirmed by
+		// emv_c3_initiate_kernel_processing()
+		emv_debug_trace_msg("tvr=%p, tsi=%p", emv->tvr, emv->tsi);
+		emv_debug_error("Invalid context variable");
+		return EMV_ERROR_INTERNAL;
+	}
+	memset(emv->tvr->value, 0, emv->tvr->length);
+	memset(emv->tsi->value, 0, emv->tsi->length);
+
+	return emv_c3_offline_completion(emv, online_required, decline_required);
+}
+
+static int online_auth_request_encode(const struct emv_ctx_t* emv, uint8_t* buf, size_t* buf_len)
+{
+	int r;
+
+	if (!emv || !buf || !buf_len) {
 		return -1;
 	}
-	memset(arc, 0, 2);
-	*iad_len = 0;
 
 	r = emv_txn_record_compute_encoded_length(emv);
 	if (r < 0) {
 		fprintf(stderr, "emv_txn_record_compute_encoded_length() failed; r=%d\n", r);
-		return -1;
+		return -2;
 	}
-	if (r > sizeof(txn_record)) {
+	if (r > *buf_len) {
 		fprintf(stderr, "Transaction record too large\n");
-		return -1;
+		return -3;
 	}
-	r = emv_txn_record_encode(emv, txn_record, &txn_record_len);
+	r = emv_txn_record_encode(emv, buf, buf_len);
 	if (r) {
 		fprintf(stderr, "emv_txn_record_encode() failed; r=%d\n", r);
-		return -1;
+		return -4;
 	}
 
 	printf("\n");
-	print_buf("Authorisation request", txn_record, txn_record_len);
+	print_buf("Authorisation request", buf, *buf_len);
 
-	printf("\nEnter authorisation response (BER encoded as ASCII-HEX; empty if unable): ");
-	if (!fgets(input, sizeof(input), stdin)) {
-		fprintf(stderr, "Failed to read authorisation response\n");
-		return 1;
-	}
+	return 0;
+}
 
-	r = parse_hex(input, buf, &buf_len);
-	if (r) {
-		fprintf(stderr, "Invalid authorisation response\n");
-		return 1;
+static int online_auth_response_parse(const uint8_t* buf, size_t buf_len, uint8_t* arc, uint8_t* iad, size_t* iad_len)
+{
+	int r;
+	struct emv_tlv_list_t list = EMV_TLV_LIST_INIT;
+	const struct emv_tlv_t* tlv;
+
+	if (!buf || !arc || !iad || !iad_len) {
+		return -10;
 	}
 
 	r = emv_tlv_parse(buf, buf_len, &list);
 	if (r) {
 		fprintf(stderr, "Failed to parse authorisation response\n");
 		emv_tlv_list_clear(&list);
-		return 1;
+		return 10;
 	}
 	print_emv_tlv_list(&list);
 
@@ -990,6 +1135,137 @@ static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t
 	return 0;
 }
 
+static int online_auth_prompt(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len)
+{
+	int r;
+	uint8_t txn_record[4096];
+	size_t txn_record_len = sizeof(txn_record);
+	char input[1024];
+	uint8_t buf[512];
+	size_t buf_len = sizeof(buf);
+
+	if (!arc || !iad || !iad_len) {
+		return -20;
+	}
+	memset(arc, 0, 2);
+	*iad_len = 0;
+
+	r = online_auth_request_encode(emv, txn_record, &txn_record_len);
+	if (r) {
+		return r;
+	}
+
+	printf("\nEnter authorisation response (BER encoded as ASCII-HEX; empty if unable): ");
+	if (!fgets(input, sizeof(input), stdin)) {
+		fprintf(stderr, "Failed to read authorisation response\n");
+		return 20;
+	}
+
+	r = parse_hex(input, buf, &buf_len);
+	if (r) {
+		fprintf(stderr, "Invalid authorisation response\n");
+		return 21;
+	}
+
+	return online_auth_response_parse(buf, buf_len, arc, iad, iad_len);
+}
+
+static int online_auth_socket(const struct emv_ctx_t* emv, uint8_t* arc, uint8_t* iad, size_t* iad_len)
+{
+	int r;
+	uint8_t txn_record[4096];
+	size_t txn_record_len = sizeof(txn_record);
+	socket_handle_t s = SOCKET_HANDLE_INVALID;
+	char host[256];
+	char port[32];
+	uint8_t buf[512];
+	size_t buf_len = 0;
+	long bytes;
+
+	if (!arc || !iad || !iad_len) {
+		return -30;
+	}
+	memset(arc, 0, 2);
+	*iad_len = 0;
+
+	r = online_auth_request_encode(emv, txn_record, &txn_record_len);
+	if (r) {
+		return r;
+	}
+
+	r = socket_init();
+	if (r) {
+		fprintf(stderr, "Failed to initialise socket support\n");
+		return 30;
+	}
+
+	printf("\nConnecting to %s\n", online_auth_socket_addr);
+	r = socket_connect(online_auth_socket_addr, &s);
+	if (r < 0) {
+		fprintf(stderr, "Invalid online authorisation socket address %s\n", online_auth_socket_addr);
+		r = 31;
+		goto exit;
+	}
+	if (r > 0) {
+		fprintf(stderr, "Failed to connect to %s\n", online_auth_socket_addr);
+		r = 32;
+		goto exit;
+	}
+
+	r = socket_get_peer_name(s, host, sizeof(host), port, sizeof(port));
+	if (r) {
+		// Peer address unavailable; report the address as provided
+		printf("Connected to %s\n", online_auth_socket_addr);
+	} else if (port[0]) {
+		printf("Connected to %s port %s\n", host, port);
+	} else {
+		printf("Connected to %s\n", host);
+	}
+
+	// Send the request and shut down the write side of the socket such that
+	// the peer reads end of input after the request
+	printf("Sending %zu bytes\n", txn_record_len);
+	r = socket_send(s, txn_record, txn_record_len);
+	if (r) {
+		fprintf(stderr, "Failed to send authorisation request to %s\n", online_auth_socket_addr);
+		r = 33;
+		goto exit;
+	}
+	r = socket_shutdown_write(s);
+	if (r) {
+		fprintf(stderr, "Failed to shut down write side of %s\n", online_auth_socket_addr);
+		r = 34;
+		goto exit;
+	}
+
+	// Read the response until the peer closes the connection
+	while ((bytes = socket_recv(s, buf + buf_len, sizeof(buf) - buf_len)) > 0) {
+		buf_len += bytes;
+		if (buf_len == sizeof(buf)) {
+			fprintf(stderr, "Authorisation response too large\n");
+			r = 35;
+			goto exit;
+		}
+	}
+	if (bytes < 0) {
+		fprintf(stderr, "Failed to read authorisation response from %s\n", online_auth_socket_addr);
+		r = 36;
+		goto exit;
+	}
+	printf("Received %zu bytes\n", buf_len);
+
+	printf("\n");
+	print_buf("Authorisation response", buf, buf_len);
+	r = online_auth_response_parse(buf, buf_len, arc, iad, iad_len);
+
+exit:
+	if (s != SOCKET_HANDLE_INVALID) {
+		socket_close(s);
+	}
+	socket_cleanup();
+	return r;
+}
+
 int main(int argc, char** argv)
 {
 	int r;
@@ -999,13 +1275,16 @@ int main(int argc, char** argv)
 	unsigned int reader_state;
 	const char* reader_state_str;
 	size_t reader_idx;
+	enum pcsc_card_type_t card_type;
 	uint8_t pos_entry_mode;
 	uint8_t atr[PCSC_MAX_ATR_SIZE];
 	size_t atr_len = 0;
 	struct emv_ttl_t ttl;
 	struct emv_ctx_t emv;
 	struct emv_app_list_t app_list = EMV_APP_LIST_INIT; // Candidate list
-	bool application_selection_required;
+	struct emv_ep_app_list_t ep_list = EMV_EP_APP_LIST_INIT; // Combination list
+	int contactless_preprocess_outcome = 0;
+	uint8_t kernel_id[3] = { 0 };
 	int outcome = EMV_ERROR_INTERNAL;
 	uint8_t arc[2] = { 0 };
 	uint8_t iad[16]; // See EMV 4.4 Book 3, 6.5.4.3
@@ -1041,6 +1320,22 @@ int main(int argc, char** argv)
 		txn_amount_other == 0
 	) {
 		fprintf(stderr, "Secondary transaction amount (--txn-amount-other) must be non-zero for cashback transaction\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
+	}
+
+	if (online_auth_method == ONLINE_AUTH_METHOD_SOCKET &&
+		!online_auth_socket_addr
+	) {
+		fprintf(stderr, "Online authorisation socket (--online-auth-socket) is required for online authorisation method socket\n");
+		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
+		return 1;
+	}
+
+	if (online_auth_method != ONLINE_AUTH_METHOD_SOCKET &&
+		online_auth_socket_addr
+	) {
+		fprintf(stderr, "Online authorisation socket (--online-auth-socket) requires online authorisation method socket\n");
 		argp_help(&argp_config, stdout, ARGP_HELP_STD_HELP, argv[0]);
 		return 1;
 	}
@@ -1086,6 +1381,11 @@ int main(int argc, char** argv)
 		txn_amount, // Transaction Amount
 		txn_amount_other // Transaction Amount, Other
 	);
+	r = emv_ctx_prepare_txn(&emv);
+	if (r) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto config_exit;
+	}
 
 	printf("\nTerminal config:\n");
 	print_emv_tlv_list(&emv.config.data);
@@ -1095,6 +1395,26 @@ int main(int argc, char** argv)
 
 	printf("\nTransaction parameters:\n");
 	print_emv_tlv_list(&emv.params);
+
+	// Entry Point pre-processing is performed before card presentation
+	// See EMV Contactless Book B v2.12, 3.1
+	printf("\nBuild combination list\n");
+	r = emv_ep_preprocess(&emv, &ep_list);
+	if (r < 0) {
+		printf("ERROR: %s\n", emv_error_get_string(r));
+		goto config_exit;
+	}
+	if (r > 0) {
+		// Contactless is not possible for this transaction
+		// See EMV Contactless Book B v2.12, 3.1.1.13
+		// See EMV Contactless Book B v2.12, 3.3.2.7
+		if (r == EMV_OUTCOME_TRY_ANOTHER_INTERFACE) {
+			printf("No contactless applications allowed\n");
+		} else {
+			printf("No supported contactless applications\n");
+		}
+		contactless_preprocess_outcome = r;
+	}
 
 	printf("\nActivating card readers\n");
 	r = pcsc_init(&pcsc);
@@ -1149,38 +1469,50 @@ int main(int argc, char** argv)
 		printf("PC/SC reader activation failed\n");
 		goto pcsc_exit;
 	}
-	printf("Card activated\n");
+	card_type = r;
 
-	switch (r) {
+	switch (card_type) {
 		case PCSC_CARD_TYPE_CONTACT:
 			pos_entry_mode = EMV_POS_ENTRY_MODE_ICC_WITH_CVV;
+			printf("Contact card activated\n");
+
+			// For contact cards, validate ATR
+			r = pcsc_reader_get_atr(reader, atr, &atr_len);
+			if (r) {
+				printf("Failed to retrieve ATR\n");
+				goto pcsc_exit;
+			}
+			emv_debug_trace_data("ATR", atr, atr_len);
+
+			r = emv_atr_parse(atr, atr_len);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto pcsc_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				goto pcsc_exit;
+			}
+			break;
+
+		case PCSC_CARD_TYPE_CONTACTLESS_A:
+			pos_entry_mode = EMV_POS_ENTRY_MODE_CONTACTLESS_EMV;
+			printf("Contactless type A card activated\n");
+			break;
+
+		case PCSC_CARD_TYPE_CONTACTLESS_B:
+			pos_entry_mode = EMV_POS_ENTRY_MODE_CONTACTLESS_EMV;
+			printf("Contactless type B card activated\n");
 			break;
 
 		case PCSC_CARD_TYPE_CONTACTLESS:
 			pos_entry_mode = EMV_POS_ENTRY_MODE_CONTACTLESS_EMV;
-			printf("Contactless not (yet) supported\n");
-			goto pcsc_exit;
+			printf("Contactless card activated\n");
+			break;
 
 		default:
 			printf("Unknown card type\n");
 			goto pcsc_exit;
-	}
-
-	r = pcsc_reader_get_atr(reader, atr, &atr_len);
-	if (r) {
-		printf("Failed to retrieve ATR\n");
-		goto pcsc_exit;
-	}
-	emv_debug_trace_data("ATR", atr, atr_len);
-
-	r = emv_atr_parse(atr, atr_len);
-	if (r < 0) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		goto pcsc_exit;
-	}
-	if (r > 0) {
-		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-		goto pcsc_exit;
 	}
 
 	// Populate Terminal Transport Layer (TTL) for current reader
@@ -1188,6 +1520,7 @@ int main(int argc, char** argv)
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = reader;
 	ttl.cardreader.trx = &pcsc_reader_trx;
+	ttl.contactless = pcsc_reader_card_type_is_contactless(card_type);
 	r = emv_card_activated(&emv, &ttl);
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
@@ -1198,109 +1531,234 @@ int main(int argc, char** argv)
 		goto emv_exit;
 	}
 
-	printf("\nBuild candidate list\n");
-	r = emv_build_candidate_list(&emv, &app_list);
-	if (r < 0) {
-		printf("ERROR: %s\n", emv_error_get_string(r));
-		goto emv_exit;
-	}
-	if (r > 0) {
-		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-		goto emv_exit;
-	}
+	if (!emv.ttl->contactless) {
+		bool application_selection_required;
 
-	printf("Candidate applications:\n");
-	for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
-		print_emv_app(app);
-	}
+		printf("\nBuild candidate list\n");
+		r = emv_build_candidate_list(&emv, &app_list);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			goto emv_exit;
+		}
 
-	application_selection_required = emv_app_list_selection_is_required(&app_list);
-	if (application_selection_required) {
-		printf("Cardholder selection is required\n");
-	}
+		printf("\nCandidate applications:\n");
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
 
-	do {
-		unsigned int index;
-
+		application_selection_required = emv_app_list_selection_is_required(&app_list);
 		if (application_selection_required) {
-			unsigned int app_count = 0;
-			char s[4]; // two digits, newline and null
-			unsigned int input = 0;
-
-			printf("\nSelect application:\n");
-			for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
-				++app_count;
-				printf("%u - %s\n", app_count, app->display_name);
-			}
-			printf("Enter number: ");
-			if (!fgets(s, sizeof(s), stdin)) {
-				printf("Invalid input. Try again.\n");
-				continue;
-			}
-			r = sscanf(s, "%u", &input);
-			if (r != 1) {
-				printf("Invalid input. Try again.\n");
-				continue;
-			}
-			if (!input || input > app_count) {
-				printf("Invalid input. Try again.\n");
-				continue;
-			}
-
-			index = input - 1;
-
-		} else {
-			// Use first application
-			printf("\nSelect first application\n");
-			index = 0;
+			printf("Cardholder selection is required\n");
 		}
 
-		r = emv_select_application(&emv, &app_list, index);
+		do {
+			unsigned int index;
+
+			if (application_selection_required) {
+				unsigned int app_count = 0;
+				char s[4]; // two digits, newline and null
+				unsigned int input = 0;
+
+				printf("\nSelect application:\n");
+				for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+					++app_count;
+					printf("%u - %s\n", app_count, app->display_name);
+				}
+				printf("Enter number: ");
+				if (!fgets(s, sizeof(s), stdin)) {
+					printf("Invalid input. Try again.\n");
+					continue;
+				}
+				r = sscanf(s, "%u", &input);
+				if (r != 1) {
+					printf("Invalid input. Try again.\n");
+					continue;
+				}
+				if (!input || input > app_count) {
+					printf("Invalid input. Try again.\n");
+					continue;
+				}
+
+				index = input - 1;
+
+			} else {
+				// Use first application
+				printf("\nSelect first application\n");
+				index = 0;
+			}
+
+			r = emv_select_application(&emv, &app_list, index);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				if (r == EMV_OUTCOME_TRY_AGAIN) {
+					// Return to cardholder application selection/confirmation
+					// See EMV 4.4 Book 4, 11.3
+					continue;
+				}
+				goto emv_exit;
+			}
+			if (!emv.selected_app) {
+				fprintf(stderr, "selected_app unexpectedly NULL\n");
+				goto emv_exit;
+			}
+
+			printf("\nInitiate application processing\n");
+			r = emv_initiate_application_processing(&emv, pos_entry_mode);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
+					// Return to cardholder application selection/confirmation
+					// See EMV 4.4 Book 4, 6.3.1
+					continue;
+				}
+				goto emv_exit;
+			}
+
+			// Application processing successfully initiated
+			break;
+
+		} while (true);
+
+	} else {
+		if (contactless_preprocess_outcome) {
+			// Contactless is not possible for this transaction
+			// See EMV Contactless Book B v2.12, 3.1.1.13
+			// See EMV Contactless Book B v2.12, 3.3.2.7
+			printf("OUTCOME: %s\n", emv_outcome_get_string(contactless_preprocess_outcome));
+			goto emv_exit;
+		}
+
+		printf("\nBuild candidate list\n");
+		r = emv_ep_build_candidate_list(&emv, &ep_list, &app_list);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
 		}
 		if (r > 0) {
 			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-			if (r == EMV_OUTCOME_TRY_AGAIN) {
-				// Return to cardholder application selection/confirmation
-				// See EMV 4.4 Book 4, 11.3
-				continue;
+			goto emv_exit;
+		}
+
+		printf("\nCandidate applications:\n");
+		for (struct emv_app_t* app = app_list.front; app != NULL; app = app->next) {
+			print_emv_app(app);
+		}
+
+		do {
+			// Start C
+			// See EMV Contactless Book B v2.12, 3.3.2.6
+			printf("\nSelect application\n");
+			r = emv_ep_select_application(&emv, &app_list, kernel_id);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
 			}
-			goto emv_exit;
-		}
-		if (!emv.selected_app) {
-			fprintf(stderr, "selected_app unexpectedly NULL\n");
-			goto emv_exit;
-		}
-
-		printf("\nInitiate application processing\n");
-		r = emv_initiate_application_processing(&emv, pos_entry_mode);
-		if (r < 0) {
-			printf("ERROR: %s\n", emv_error_get_string(r));
-			goto emv_exit;
-		}
-		if (r > 0) {
-			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
-			if (r == EMV_OUTCOME_GPO_NOT_ACCEPTED && !emv_app_list_is_empty(&app_list)) {
-				// Return to cardholder application selection/confirmation
-				// See EMV 4.4 Book 4, 6.3.1
-				continue;
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				if (r == EMV_OUTCOME_SELECT_NEXT) {
+					// Return to Start C
+					// See EMV Contactless Book B v2.12, 3.3.3.5
+					continue;
+				}
+				goto emv_exit;
 			}
-			goto emv_exit;
-		}
+			if (!emv.selected_app) {
+				fprintf(stderr, "selected_app unexpectedly NULL\n");
+				goto emv_exit;
+			}
 
-		// Application processing successfully initiated
-		break;
+			switch (kernel_id[0]) {
+				case 0x02:
+					printf("\nInitiate kernel C-2 processing\n");
+					r = emv_c2_initiate_kernel_processing(&emv, pos_entry_mode);
+					break;
 
-	} while (true);
+				case 0x03:
+					printf("\nInitiate kernel C-3 processing\n");
+					r = emv_c3_initiate_kernel_processing(&emv, pos_entry_mode);
+					break;
+
+				case 0x04:
+					printf("\nInitiate kernel C-4 processing\n");
+					r = emv_c4_initiate_kernel_processing(&emv, pos_entry_mode);
+					break;
+
+				default:
+					printf("\nContactless kernel 0x%02X is not (yet) supported\n", kernel_id[0]);
+					goto emv_exit;
+			}
+
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				if (r == EMV_OUTCOME_SELECT_NEXT) {
+					// Outcome is Select Next
+					// See EMV Contactless Book B v2.12, 3.5.1.4
+					// See EMV Contactless Book C-2 v2.12, 6.5.3, S3.9.2
+					// See EMV Contactless Book C-3 v2.12, 5.2.2.2
+					if (!emv_app_list_is_empty(&app_list)) {
+						// Return to Start C
+						// See EMV Contactless Book B v2.12, 3.3.2.6
+						continue;
+					} else {
+						// Otherwise outcome is End Application
+						// See EMV Contactless Book B v2.12, 3.3.2.7
+						r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
+					}
+					printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				}
+
+				// All other outcomes require Start B or terminate
+				goto emv_exit;
+			}
+
+			// Application processing successfully initiated
+			break;
+
+		} while (true);
+	}
 
 	// Application selection has been successful and the application list
 	// is no longer needed.
 	emv_app_list_clear(&app_list);
 
 	printf("\nRead application data\n");
-	r = emv_read_application_data(&emv);
+	if (emv.ttl->contactless) {
+		switch (kernel_id[0]) {
+			case 0x02:
+				r = emv_c2_read_application_data(&emv);
+				break;
+
+			case 0x03:
+				r = emv_c3_read_application_data(&emv);
+				break;
+
+			case 0x04:
+				r = emv_c4_read_application_data(&emv);
+				break;
+
+			default:
+				printf("\nContactless kernel 0x%02X is not (yet) supported\n", kernel_id[0]);
+				goto emv_exit;
+		}
+	} else {
+		r = emv_read_application_data(&emv);
+	}
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
@@ -1308,6 +1766,31 @@ int main(int argc, char** argv)
 	if (r > 0) {
 		printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 		goto emv_exit;
+	}
+
+	if (emv.ttl->contactless && kernel_id[0] == 0x03) {
+		// Kernel C-3 has no further card interaction
+		r = pcsc_reader_disconnect(reader);
+		if (r) {
+			printf("PC/SC reader deactivation failed\n");
+			goto emv_exit;
+		}
+		// See EMV Contactless Book C-3 v2.12, 5.4.1.1
+		printf("\nCard read OK\n");
+
+		r = emv_txn_c3_process(&emv);
+		if (r < 0) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (r > 0) {
+			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+			outcome = r;
+			goto emv_outcome;
+		}
+
+		// Kernel C-3 requires online authorisation
+		goto emv_online;
 	}
 
 	printf("\nOffline data authentication\n");
@@ -1434,7 +1917,22 @@ int main(int argc, char** argv)
 	}
 
 	printf("\nCard action analysis\n");
-	r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
+	if (emv.ttl->contactless) {
+		r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
+
+		// Kernels other than C-3 have no further card interaction
+		int pcsc_r;
+		pcsc_r = pcsc_reader_disconnect(reader);
+		if (pcsc_r) {
+			printf("PC/SC reader deactivation failed\n");
+			goto emv_exit;
+		}
+		// See EMV Contactless Book A v2.12, 9.4
+		printf("\nCard read OK. Remove Card.\n");
+
+	} else {
+		r = emv_card_action_analysis(&emv, genac1_ref_ctrl);
+	}
 	if (r < 0) {
 		printf("ERROR: %s\n", emv_error_get_string(r));
 		goto emv_exit;
@@ -1445,6 +1943,7 @@ int main(int argc, char** argv)
 		goto emv_outcome;
 	}
 
+emv_online:
 	// If card action analysis did not provide an outcome, then proceed to
 	// online authorisation
 	switch (online_auth_method) {
@@ -1465,6 +1964,13 @@ int main(int argc, char** argv)
 
 		case ONLINE_AUTH_METHOD_PROMPT:
 			r = online_auth_prompt(&emv, arc, iad, &iad_len);
+			if (r < 0) {
+				goto emv_exit;
+			}
+			break;
+
+		case ONLINE_AUTH_METHOD_SOCKET:
+			r = online_auth_socket(&emv, arc, iad, &iad_len);
 			if (r < 0) {
 				goto emv_exit;
 			}
@@ -1514,16 +2020,19 @@ int main(int argc, char** argv)
 		} else {
 			outcome = EMV_OUTCOME_DECLINED;
 		}
+		printf("OUTCOME: %s\n", emv_outcome_get_string(outcome));
 		goto emv_outcome;
 	}
 
 emv_outcome:
-	r = pcsc_reader_disconnect(reader);
-	if (r) {
-		printf("PC/SC reader deactivation failed\n");
-		goto emv_exit;
+	if (!emv.ttl->contactless) {
+		r = pcsc_reader_disconnect(reader);
+		if (r) {
+			printf("PC/SC reader deactivation failed\n");
+			goto emv_exit;
+		}
+		printf("\nCard deactivated\n");
 	}
-	printf("\nCard deactivated\n");
 
 	printf("\nICC data:\n");
 	print_emv_tlv_list(&emv.icc);
@@ -1543,6 +2052,7 @@ emv_exit:
 pcsc_exit:
 	pcsc_release(&pcsc);
 config_exit:
+	emv_ep_app_list_clear(&ep_list);
 	emv_capk_clear();
 	emv_ctx_clear(&emv);
 

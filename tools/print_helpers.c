@@ -25,6 +25,8 @@
 #include "iso7816_compact_tlv.h"
 #include "iso7816_strings.h"
 
+#include "iso14443.h"
+
 #include "iso8825_ber.h"
 #include "iso8825_strings.h"
 
@@ -267,6 +269,201 @@ void print_atr_historical_bytes(const struct iso7816_atr_info_t* atr_info)
 	if (r) {
 		printf("Failed to parse ATR historical bytes\n");
 		return;
+	}
+}
+
+void print_ats(const struct iso14443_ats_info_t* ats_info)
+{
+	char str[1024];
+
+	print_buf("ATS", ats_info->ats, ats_info->ats_len);
+
+	printf("  TL    = 0x%02X: Total ATS length (%u bytes)\n",
+		ats_info->TL,
+		ats_info->TL
+	);
+
+	printf("  ----\n");
+	if (ats_info->T0) {
+		printf("  T0    = 0x%02X: %s\n",
+			*ats_info->T0,
+			iso14443_ats_T0_get_string(ats_info, str, sizeof(str))
+		);
+	} else {
+		printf("  T0 absent: %s\n",
+			iso14443_ats_T0_get_string(ats_info, str, sizeof(str))
+		);
+	}
+
+	if (ats_info->TA1) {
+		printf("  TA(1) = 0x%02X: %s\n",
+			*ats_info->TA1,
+			iso14443_ats_TA1_get_string(ats_info, str, sizeof(str))
+		);
+	} else {
+		printf("  TA(1) absent: %s\n",
+			iso14443_ats_TA1_get_string(ats_info, str, sizeof(str))
+		);
+	}
+
+	if (ats_info->TB1) {
+		printf("  TB(1) = 0x%02X: %s\n",
+			*ats_info->TB1,
+			iso14443_ats_TB1_get_string(ats_info, str, sizeof(str))
+		);
+	} else {
+		printf("  TB(1) absent: %s\n",
+			iso14443_ats_TB1_get_string(ats_info, str, sizeof(str))
+		);
+	}
+
+	if (ats_info->TC1) {
+		printf("  TC(1) = 0x%02X: %s\n",
+			*ats_info->TC1,
+			iso14443_ats_TC1_get_string(ats_info, str, sizeof(str))
+		);
+	} else {
+		printf("  TC(1) absent: %s\n",
+			iso14443_ats_TC1_get_string(ats_info, str, sizeof(str))
+		);
+	}
+
+	if (ats_info->K_count) {
+		printf("  ----\n");
+		print_ats_historical_bytes(ats_info);
+
+		if (ats_info->status_indicator_bytes) {
+			printf("  ----\n");
+
+			printf("  LCS = %02X: %s\n",
+				ats_info->status_indicator.LCS,
+				iso7816_lcs_get_string(ats_info->status_indicator.LCS)
+			);
+
+			if (ats_info->status_indicator.SW1 ||
+				ats_info->status_indicator.SW2
+			) {
+				printf("  SW  = %02X%02X: (%s)\n",
+					ats_info->status_indicator.SW1,
+					ats_info->status_indicator.SW2,
+					iso7816_sw1sw2_get_string(
+						ats_info->status_indicator.SW1,
+						ats_info->status_indicator.SW2,
+						str, sizeof(str)
+					)
+				);
+			}
+		}
+	}
+}
+
+void print_ats_historical_bytes(const struct iso14443_ats_info_t* ats_info)
+{
+	int r;
+	struct iso7816_compact_tlv_itr_t itr;
+	struct iso7816_compact_tlv_t tlv;
+	char str[1024];
+
+	printf("  T1  = 0x%02X: %s\n", ats_info->T1,
+		iso14443_ats_T1_get_string(ats_info)
+	);
+
+	if (ats_info->T1 != ISO14443_ATS_T1_COMPACT_TLV_SI &&
+		ats_info->T1 != ISO14443_ATS_T1_COMPACT_TLV
+	) {
+		// Unknown historical byte format
+		print_buf("  Historical bytes", ats_info->historical_bytes, ats_info->historical_bytes_len);
+		return;
+	}
+
+	r = iso7816_compact_tlv_itr_init(
+		ats_info->historical_bytes,
+		ats_info->historical_bytes_len,
+		&itr
+	);
+	if (r) {
+		printf("Failed to parse ATS historical bytes\n");
+		return;
+	}
+
+	while ((r = iso7816_compact_tlv_itr_next(&itr, &tlv)) > 0) {
+		printf("  %s (0x%X): [%u] ",
+			iso7816_compact_tlv_tag_get_string(tlv.tag),
+			tlv.tag,
+			tlv.length
+		);
+		for (size_t i = 0; i < tlv.length; ++i) {
+			printf("%s%02X", i ? " " : "", tlv.value[i]);
+		}
+		printf("\n");
+
+		switch (tlv.tag) {
+			case ISO7816_COMPACT_TLV_CARD_SERVICE_DATA:
+				r = iso7816_card_service_data_get_string_list(tlv.value[0], str, sizeof(str));
+				break;
+
+			case ISO7816_COMPACT_TLV_CARD_CAPABILITIES:
+				r = iso7816_card_capabilities_get_string_list(tlv.value, tlv.length, str, sizeof(str));
+				break;
+
+			default:
+				r = -1;
+		}
+
+		if (r == 0) {
+			print_str_list(str, "\n", "  ", 2, "- ", "\n");
+		}
+	}
+	if (r) {
+		printf("Failed to parse ATS historical bytes\n");
+		return;
+	}
+}
+
+void print_atqb(const struct iso14443_atqb_info_t* atqb_info)
+{
+	char str[1024];
+
+	print_buf("ATQB", atqb_info->atqb, atqb_info->atqb_len);
+
+	printf("  50    = 0x%02X: Answer-to-Request Type B marker\n",
+		atqb_info->atqb[0]
+	);
+
+	printf("  ----\n");
+	printf("  PUPI  = %02X %02X %02X %02X\n",
+		atqb_info->pupi[0],
+		atqb_info->pupi[1],
+		atqb_info->pupi[2],
+		atqb_info->pupi[3]
+	);
+	printf("  App   = %s\n",
+		iso14443_atqb_application_data_get_string(atqb_info, str, sizeof(str))
+	);
+
+	printf("  ----\n");
+	printf("  PI(1) = 0x%02X: %s\n",
+		*atqb_info->PI1,
+		iso14443_atqb_PI1_get_string(atqb_info, str, sizeof(str))
+	);
+	printf("  PI(2) = 0x%02X: %s\n",
+		*atqb_info->PI2,
+		iso14443_atqb_PI2_get_string(atqb_info, str, sizeof(str))
+	);
+	printf("  PI(3) = 0x%02X: %s\n",
+		*atqb_info->PI3,
+		iso14443_atqb_PI3_get_string(atqb_info, str, sizeof(str))
+	);
+
+	if (atqb_info->PI4) {
+		printf("  PI(4) = 0x%02X: %s\n",
+			*atqb_info->PI4,
+			iso14443_atqb_PI4_get_string(atqb_info, str, sizeof(str))
+		);
+	} else {
+		printf("  PI(4) absent: %s\n",
+			iso14443_atqb_PI4_get_string(atqb_info, str, sizeof(str))
+		);
 	}
 }
 
@@ -997,6 +1194,27 @@ void print_emv_config_app(
 		}
 		printf("Random selection threshold: %u\n", app->random_selection_threshold);
 	}
+
+	if (app->contactless_transaction_limit_enabled) {
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Contactless transaction limit: %u\n", app->contactless_transaction_limit);
+	}
+
+	if (app->contactless_floor_limit_enabled) {
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Contactless floor limit: %u\n", app->contactless_floor_limit);
+	}
+
+	if (app->contactless_cvm_required_limit_enabled) {
+		for (unsigned int i = 0; i < depth + 1; ++i) {
+			printf("%s", prefix ? prefix : "");
+		}
+		printf("Contactless CVM required limit: %u\n", app->contactless_cvm_required_limit);
+	}
 }
 
 void print_emv_config_app_list(const struct emv_config_t* config)
@@ -1050,6 +1268,14 @@ static void print_emv_debug_internal(
 
 		case EMV_DEBUG_TYPE_ATR:
 			print_atr(buf);
+			return;
+
+		case EMV_DEBUG_TYPE_ATS:
+			print_ats(buf);
+			return;
+
+		case EMV_DEBUG_TYPE_ATQB:
+			print_atqb(buf);
 			return;
 
 		case EMV_DEBUG_TYPE_CAPDU:

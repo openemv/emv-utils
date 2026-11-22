@@ -26,6 +26,7 @@
 #include "emv_fields.h"
 #include "emv_ttl.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -71,6 +72,8 @@ static const uint8_t test_iad_too_long[] = {
 
 struct test_t {
 	const char* name;
+
+	bool contactless;
 
 	struct emv_tlv_t* icc_data;
 
@@ -232,6 +235,28 @@ static const struct test_t test[] = {
 
 		.tvr = { 0x00, 0x00, 0x00, 0x00, EMV_TVR_ISSUER_AUTHENTICATION_FAILED },
 		.tsi = { EMV_TSI_ISSUER_AUTHENTICATION_PERFORMED, 0x00 },
+	},
+
+	{
+		.name = "Issuer authentication not performed for contactless card",
+
+		.contactless = true,
+
+		.icc_data = (struct emv_tlv_t[]){
+			// Application Interchange Profile: Issuer authentication supported
+			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_ISSUER_AUTHENTICATION_SUPPORTED, 0x00 }, 0 }}, NULL },
+			{ {{ 0 }} },
+		},
+
+		.iad = test_iad_min,
+		.iad_len = sizeof(test_iad_min),
+
+		.xpdu_list = NULL,
+
+		.expected_result = 0,
+
+		.tvr = { 0x00, 0x00, 0x00, 0x00, 0x00 },
+		.tsi = { 0x00, 0x00 },
 	},
 
 	{
@@ -413,6 +438,7 @@ int main(void)
 		emv.tsi = emv_tlv_list_find(&emv.terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
 
 		// Prepare card emulation for current test
+		ttl.contactless = test[i].contactless;
 		emul_ctx.xpdu_list = test[i].xpdu_list;
 		emul_ctx.xpdu_current = NULL;
 

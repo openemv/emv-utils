@@ -80,24 +80,34 @@ enum emv_tal_result_t {
 	EMV_TAL_RESULT_PSE_SFI_INVALID, ///< Invalid Short File Identifier (SFI) for Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_AEF_PARSE_FAILED, ///< Failed to parse Application Elementary File (AEF) of Payment System Environment (PSE)
 	EMV_TAL_RESULT_PSE_AEF_INVALID, ///< Invalid Payment System Environment (PSE) Application Elementary File (AEF) record
+
+	EMV_TAL_RESULT_PPSE_NOT_SUPPORTED, ///< Proximity Payment System Environment (PPSE) not supported
+	EMV_TAL_RESULT_PPSE_NOT_FOUND, ///< Proximity Payment System Environment (PPSE) not found
+	EMV_TAL_RESULT_PPSE_BLOCKED, ///< Proximity Payment System Environment (PPSE) is blocked
+	EMV_TAL_RESULT_PPSE_SELECT_FAILED, ///< Failed to select Proximity Payment System Environment (PPSE)
+	EMV_TAL_RESULT_PPSE_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for Proximity Payment System Environment (PPSE)
+	EMV_TAL_RESULT_PPSE_DIR_ENTRY_PARSE_FAILED, ///< Failed to parse Directory Entry for Proximity Payment System Environment (PPSE)
+
+	EMV_TAL_RESULT_APP_SELECT_NOT_SUPPORTED, ///< Application selection not supported
 	EMV_TAL_RESULT_APP_NOT_FOUND, ///< Selected application not found
 	EMV_TAL_RESULT_APP_BLOCKED, ///< Selected application is blocked
 	EMV_TAL_RESULT_APP_SELECTION_FAILED, ///< Application selection failed
 	EMV_TAL_RESULT_APP_FCI_PARSE_FAILED, ///< Failed to parse File Control Information (FCI) for selected application
+	EMV_TAL_RESULT_GPO_DATA_NOT_USABLE, ///< Reference data not usable for selected application
 	EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED, ///< Conditions of use not satisfied for selected application
+	EMV_TAL_RESULT_GPO_NOT_ALLOWED, ///< Command not allowed for selected application
 	EMV_TAL_RESULT_ODA_RECORD_INVALID, ///< Offline data authentication not possible due to an invalid record
 	EMV_TAL_RESULT_GET_DATA_FAILED, ///< Failed to retrieve data object
 	EMV_TAL_RESULT_EXT_AUTH_FAILED, ///< Failed to authenticate issuer
 };
 
 /**
- * Read Payment System Environment (PSE) records and build candidate
- * application list
+ * Read Payment System Environment (PSE), AEF records and parse directory
+ * entries
  * @remark See EMV 4.4 Book 1, 12.3.2
  *
  * @param ttl EMV Terminal Transport Layer context
- * @param config EMV configuration containing supported applications
- * @param app_list Candidate application list output
+ * @param app_list PSE application list output
  *
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
@@ -109,7 +119,25 @@ enum emv_tal_result_t {
  */
 int emv_tal_read_pse(
 	struct emv_ttl_t* ttl,
-	const struct emv_config_t* config,
+	struct emv_app_list_t* app_list
+);
+
+/**
+ * Read Proximity Payment System Environment (PPSE) and parse directory entries
+ * @remark See EMV Contactless Book B v2.12, 3.3.1
+ *
+ * @param ttl EMV Terminal Transport Layer context
+ * @param app_list PPSE application list output
+ *
+ * @return Zero for success
+ * @return Less than zero indicates that the terminal should terminate the
+ *         card session. See @ref emv_tal_error_t
+ * @return Greater than zero indicates that selection or processing of PPSE
+ *         failed and that the terminal should terminate the card session. See
+ *         @ref emv_tal_result_t
+ */
+int emv_tal_read_ppse(
+	struct emv_ttl_t* ttl,
 	struct emv_app_list_t* app_list
 );
 
@@ -163,27 +191,21 @@ int emv_tal_select_app(
  * @param data Command Template (field 83) according to Processing Options Data Object List (PDOL). NULL if no PDOL.
  * @param data_len Length of Command Template (field 83) in bytes. Zero if no PDOL.
  * @param list List to which decoded EMV TLV fields will be appended
- * @param aip Pointer to Application Interchange Profile (AIP) field on
- *            @c list for convenience. Do not free. NULL to ignore.
- * @param afl Pointer to Application File Locator (AFL) field on @c list
- *            for convenience. Do not free. NULL to ignore.
  *
  * @return Zero for success
  * @return Less than zero indicates that the terminal should terminate the
  *         card session. See @ref emv_tal_error_t
- * @return Greater than zero indicates that the terminal may continue the card
- *         session with a different application. Typically this occurs when the
- *         conditions of use are not satisfied for the current application and
- *         this function indicates this condition using a return value of
- *         @ref EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED
+ * @return Greater than zero indicates specific GET PROCESSING OPTIONS status
+ *         word responses that determine how the terminal should proceed. These
+ *         include @ref EMV_TAL_RESULT_GPO_DATA_NOT_USABLE,
+ *         @ref EMV_TAL_RESULT_GPO_CONDITIONS_NOT_SATISFIED and
+ *         @ref EMV_TAL_RESULT_GPO_NOT_ALLOWED.
  */
 int emv_tal_get_processing_options(
 	struct emv_ttl_t* ttl,
 	const void* data,
 	size_t data_len,
-	struct emv_tlv_list_t* list,
-	const struct emv_tlv_t** aip,
-	const struct emv_tlv_t** afl
+	struct emv_tlv_list_t* list
 );
 
 /**

@@ -27,6 +27,7 @@
 #include "emv_fields.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -35,16 +36,18 @@
 #include "print_helpers.h"
 
 // Reuse source data for all tests
-const struct emv_tlv_t test_param_data[] = {
+static const struct emv_tlv_t test_param_data[] = {
+	{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x07, 0x5B, 0xCD, 0x15 }, 0 }}, NULL }, // Numeric 123456789
 	{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ 0x09 }, 0 }}, NULL },
 	{ {{ EMV_TAG_9A_TRANSACTION_DATE, 3, (uint8_t[]){ 0x24, 0x02, 0x17 }, 0 }}, NULL },
 	{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
-	{ {{ EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F02_AMOUNT_AUTHORISED_NUMERIC, 6, (uint8_t[]){ 0x00, 0x01, 0x23, 0x45, 0x67, 0x89 }, 0 }}, NULL }, // Binary 0x75BCD15
 	{ {{ EMV_TAG_9F03_AMOUNT_OTHER_NUMERIC, 6, (uint8_t[]){ 0x00, 0x09, 0x87, 0x65, 0x43, 0x21 }, 0 }}, NULL },
 	{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x60, 0xF0, 0xC8 }, 0 }}, NULL }, // Override 9F33 in config
 };
-const struct emv_tlv_t test_config_data[] = {
+static const struct emv_tlv_t test_config_data[] = {
 	{ {{ EMV_TAG_9F1A_TERMINAL_COUNTRY_CODE, 2, (uint8_t[]){ 0x05, 0x28 }, 0 }}, NULL },
+	{ {{ EMV_TAG_9F1B_TERMINAL_FLOOR_LIMIT, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL }, // Numeric 10000
 	{ {{ EMV_TAG_9F33_TERMINAL_CAPABILITIES, 3, (uint8_t[]){ 0x60, 0xFD, 0xC8 }, 0 }}, NULL }, // Overridden by params
 	{ {{ EMV_TAG_9F35_TERMINAL_TYPE, 1, (uint8_t[]){ 0x22 }, 0 }}, NULL },
 	{ {{ EMV_TAG_9F40_ADDITIONAL_TERMINAL_CAPABILITIES, 5, (uint8_t[]){ 0xFA, 0x00, 0xF0, 0xA3, 0xFF }, 0 }}, NULL },
@@ -109,14 +112,14 @@ static const struct xpdu_t test6_apdu_list[] = {
 static int populate_tlv_list(
 	const struct emv_tlv_t* tlv_array,
 	size_t tlv_array_count,
-	struct emv_tlv_list_t* source
+	struct emv_tlv_list_t* list
 )
 {
 	int r;
 
-	emv_tlv_list_clear(source);
+	emv_tlv_list_clear(list);
 	for (size_t i = 0; i < tlv_array_count; ++i) {
-		r = emv_tlv_list_push(source, tlv_array[i].tag, tlv_array[i].length, tlv_array[i].value, 0);
+		r = emv_tlv_list_push(list, tlv_array[i].tag, tlv_array[i].length, tlv_array[i].value, 0);
 		if (r) {
 			return r;
 		}
@@ -161,6 +164,7 @@ int main(void)
 	const struct emv_tlv_t* aip;
 	const struct emv_tlv_t* afl;
 
+	memset(&ttl, 0, sizeof(ttl));
 	ttl.cardreader.mode = EMV_CARDREADER_MODE_APDU;
 	ttl.cardreader.ctx = &emul_ctx;
 	ttl.cardreader.trx = &emv_cardreader_emul;

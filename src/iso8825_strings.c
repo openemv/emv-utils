@@ -2,7 +2,7 @@
  * @file iso8825_strings.c
  * @brief ISO/IEC 8825 string helper functions
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -282,6 +282,7 @@ static const struct iso8825_oid_name_t oid_list[] = {
 	ASN1_OID_NAME(emailAddress), // 1.2.840.113549.1.9.1
 
 	// ANSI X9.24
+	ASN1_OID_NAME(dukpt_tdes), // 1.3.133.16.840.9.24.1.0
 	ASN1_OID_NAME(dukpt_aes128), // 1.3.133.16.840.9.24.1.1
 	ASN1_OID_NAME(dukpt_aes192), // 1.3.133.16.840.9.24.1.2
 	ASN1_OID_NAME(dukpt_aes256), // 1.3.133.16.840.9.24.1.3
@@ -330,13 +331,7 @@ static int iso8825_oid_get_name(
 	str[0] = 0;
 
 	for (size_t i = 0; i < sizeof(oid_list) / sizeof(oid_list[0]); ++i) {
-		if (oid->length == oid_list[i].oid.length &&
-			memcmp(
-				oid->value,
-				oid_list[i].oid.value,
-				oid_list[i].oid.length * sizeof(oid_list[i].oid.value[0])
-			) == 0
-		) {
+		if (iso8825_ber_oid_is_equal(oid, &oid_list[i].oid)) {
 			r = snprintf(str, str_len, "%s", oid_list[i].name);
 			if (r < 0) {
 				// Unknown error

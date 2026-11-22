@@ -44,6 +44,8 @@ struct test_t {
 	struct emv_tlv_t* params_data;
 	struct emv_tlv_t* icc_data;
 
+	uint32_t txn_amount;
+
 	// PIN entry results to indicate, in order, whenever PIN entry is required
 	const struct pin_entry_t* pin_entry;
 	size_t pin_entry_count;
@@ -75,12 +77,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_SDA_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -118,12 +120,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -156,12 +158,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -197,12 +199,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -239,12 +241,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -282,12 +284,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -325,12 +327,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -369,12 +371,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -413,12 +415,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -457,12 +459,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -500,12 +502,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -544,12 +546,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -588,12 +590,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -633,12 +635,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -677,12 +679,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -721,12 +723,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -765,12 +767,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -810,12 +812,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_CASH }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -854,12 +856,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_CASH }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -898,12 +900,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_CASHBACK }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -942,12 +944,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -986,12 +988,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1033,12 +1035,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1080,12 +1082,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1127,12 +1129,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1172,12 +1174,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1216,12 +1218,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1265,12 +1267,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1314,12 +1316,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1363,12 +1365,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1413,12 +1415,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1464,12 +1466,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1517,12 +1519,12 @@ static const struct test_t test[] = {
 
 		.params_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_9C_TRANSACTION_TYPE, 1, (uint8_t[]){ EMV_TRANSACTION_TYPE_GOODS_AND_SERVICES }, 0 }}, NULL },
-			// Amount, Authorised (Binary): 100.00
-			{ {{ EMV_TAG_81_AMOUNT_AUTHORISED_BINARY, 4, (uint8_t[]){ 0x00, 0x00, 0x27, 0x10 }, 0 }}, NULL },
 			// Transaction Currency Code: EUR
 			{ {{ EMV_TAG_5F2A_TRANSACTION_CURRENCY_CODE, 2, (uint8_t[]){ 0x09, 0x78 }, 0 }}, NULL },
 			{ {{ 0 }} },
 		},
+
+		.txn_amount = 10000, // 100.00
 
 		.icc_data = (struct emv_tlv_t[]){
 			{ {{ EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE, 2, (uint8_t[]){ EMV_AIP_CV_SUPPORTED, 0x00 }, 0 }}, NULL },
@@ -1638,6 +1640,9 @@ int main(void)
 		emv.tvr = emv_tlv_list_find(&emv.terminal, EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS);
 		emv.tsi = emv_tlv_list_find(&emv.terminal, EMV_TAG_9B_TRANSACTION_STATUS_INFORMATION);
 		emv.aip = emv_tlv_list_find(&emv.icc, EMV_TAG_82_APPLICATION_INTERCHANGE_PROFILE);
+
+		// Cache transaction amount without calling emv_ctx_prepare_txn()
+		emv.txn_amount = test[i].txn_amount;
 
 		// Indicating PIN entry before cardholder verification must fail
 		r = emv_pin_entry_result(&emv, EMV_PIN_ENTRY_CAPTURED);

@@ -679,29 +679,20 @@ int emv_oda_apply_dda(struct emv_ctx_t* ctx)
 
 	// Validate DDOL
 	// See EMV 4.4 Book 2, 6.5.1
-	struct emv_dol_itr_t itr;
-	struct emv_dol_entry_t entry;
-	bool found_9F37 = false;
-	r = emv_dol_itr_init(ddol->value, ddol->length, &itr);
-	if (r) {
-		emv_debug_trace_msg("emv_dol_itr_init() failed; r=%d", r);
-		// EMV_TVR_DDA_FAILED already set in TVR
-		r = EMV_ODA_DDA_FAILED;
-		goto exit;
-	}
-	while ((r = emv_dol_itr_next(&itr, &entry)) > 0) {
-		if (entry.tag == EMV_TAG_9F37_UNPREDICTABLE_NUMBER) {
-			found_9F37 = true;
-		}
-	}
-	if (r != 0) {
-		emv_debug_trace_msg("emv_dol_itr_next() failed; r=%d", r);
+	r = emv_dol_find_tag(
+		ddol->value,
+		ddol->length,
+		EMV_TAG_9F37_UNPREDICTABLE_NUMBER,
+		NULL
+	);
+	if (r < 0) {
+		emv_debug_trace_msg("emv_dol_find_tag() failed; r=%d", r);
 		emv_debug_error("Invalid Dynamic Data Authentication Data Object List (DDOL)");
 		// EMV_TVR_DDA_FAILED already set in TVR
 		r = EMV_ODA_DDA_FAILED;
 		goto exit;
 	}
-	if (!found_9F37) {
+	if (r > 0) {
 		emv_debug_error("Dynamic Data Authentication Data Object List (DDOL) does not contain Unpredictable Number (9F37)");
 		// EMV_TVR_DDA_FAILED already set in TVR
 		r = EMV_ODA_DDA_FAILED;

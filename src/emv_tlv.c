@@ -330,8 +330,7 @@ static bool emv_tlv_is_duplicate(const struct emv_tlv_t* tlv, const struct emv_t
 
 		r = iso8825_ber_asn1_object_decode(&other->ber, &other_oid);
 		if (r > 0 && // Is ASN.1 object
-			oid.length == other_oid.length && // OID arc length match
-			memcmp(oid.value, other_oid.value, sizeof(other_oid.value[0]) * other_oid.length) == 0 // OID arc match
+			iso8825_ber_oid_is_equal(&oid, &other_oid)
 		) {
 			// Duplicate ASN.1 object
 			return true;
@@ -387,6 +386,31 @@ int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* othe
 	}
 	other->front = NULL;
 	other->back = NULL;
+
+	return 0;
+}
+
+int emv_tlv_list_clone(
+	struct emv_tlv_list_t* list,
+	const struct emv_tlv_list_t* other
+)
+{
+	int r;
+
+	if (!emv_tlv_list_is_valid(list)) {
+		return -1;
+	}
+
+	if (!emv_tlv_list_is_valid(other)) {
+		return -2;
+	}
+
+	for (const struct emv_tlv_t* tlv = other->front; tlv != NULL; tlv = tlv->next) {
+		r = emv_tlv_list_push(list, tlv->tag, tlv->length, tlv->value, tlv->flags);
+		if (r) {
+			return -3;
+		}
+	}
 
 	return 0;
 }

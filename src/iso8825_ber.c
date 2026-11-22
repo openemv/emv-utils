@@ -724,6 +724,21 @@ int iso8825_ber_rel_oid_decode(const void* ptr, size_t len, struct iso8825_rel_o
 	return 0;
 }
 
+bool iso8825_ber_oid_is_equal(const struct iso8825_oid_t* oid, const struct iso8825_oid_t* other)
+{
+	if (!oid || !other) {
+		return false;
+	}
+
+	if (oid->length != other->length ||
+		oid->length > sizeof(oid->value) / sizeof(oid->value[0])
+	) {
+		return false;
+	}
+
+	return memcmp(oid->value, other->value, oid->length * sizeof(oid->value[0])) == 0;
+}
+
 int iso8825_ber_asn1_object_decode(
 	const struct iso8825_tlv_t* tlv,
 	struct iso8825_oid_t* oid

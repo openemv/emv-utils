@@ -2,7 +2,7 @@
  * @file iso7816_compact_tlv.c
  * @brief ISO/IEC 7816 COMPACT-TLV implementation
  *
- * Copyright 2021 Leon Lynch
+ * Copyright 2021, 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -55,7 +55,7 @@ int iso7816_compact_tlv_decode(const void* buf, size_t len, struct iso7816_compa
 
 int iso7816_compact_tlv_itr_init(const void* buf, size_t len, struct iso7816_compact_tlv_itr_t* itr)
 {
-	if (!buf || !len || !itr) {
+	if (!buf || !itr) {
 		return -1;
 	}
 

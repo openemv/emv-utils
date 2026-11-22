@@ -20,9 +20,25 @@ if (BUILD_TESTING)
 			PASS_REGULAR_EXPRESSION ${emv_debug_test_regex}
 	)
 
+	add_executable(iso14443_ats_parse_test iso14443_ats_parse_test.c)
+	target_link_libraries(iso14443_ats_parse_test PRIVATE iso14443)
+	add_test(iso14443_ats_parse_test iso14443_ats_parse_test)
+
+	add_executable(iso14443_atqb_parse_test iso14443_atqb_parse_test.c)
+	target_link_libraries(iso14443_atqb_parse_test PRIVATE iso14443)
+	add_test(iso14443_atqb_parse_test iso14443_atqb_parse_test)
+
 	add_executable(emv_atr_parse_test emv_atr_parse_test.c)
 	target_link_libraries(emv_atr_parse_test PRIVATE print_helpers emv)
 	add_test(emv_atr_parse_test emv_atr_parse_test)
+
+	add_executable(emv_ats_parse_test emv_ats_parse_test.c)
+	target_link_libraries(emv_ats_parse_test PRIVATE print_helpers emv)
+	add_test(emv_ats_parse_test emv_ats_parse_test)
+
+	add_executable(emv_atqb_parse_test emv_atqb_parse_test.c)
+	target_link_libraries(emv_atqb_parse_test PRIVATE print_helpers emv)
+	add_test(emv_atqb_parse_test emv_atqb_parse_test)
 
 	add_executable(emv_ttl_tpdu_test emv_ttl_tpdu_test.c)
 	target_link_libraries(emv_ttl_tpdu_test PRIVATE emv_cardreader_emul print_helpers emv)
@@ -70,6 +86,10 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_date_test PRIVATE emv)
 	add_test(emv_date_test emv_date_test)
 
+	add_executable(emv_ctx_prepare_txn_test emv_ctx_prepare_txn_test.c)
+	target_link_libraries(emv_ctx_prepare_txn_test PRIVATE print_helpers emv)
+	add_test(emv_ctx_prepare_txn_test emv_ctx_prepare_txn_test)
+
 	add_executable(emv_build_candidate_list_test emv_build_candidate_list_test.c)
 	target_link_libraries(emv_build_candidate_list_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_build_candidate_list_test emv_build_candidate_list_test)
@@ -110,9 +130,45 @@ if (BUILD_TESTING)
 	target_link_libraries(emv_completion_test PRIVATE emv_cardreader_emul print_helpers emv)
 	add_test(emv_completion_test emv_completion_test)
 
+	add_executable(emv_ep_preprocess_test emv_ep_preprocess_test.c)
+	target_link_libraries(emv_ep_preprocess_test PRIVATE print_helpers emv)
+	add_test(emv_ep_preprocess_test emv_ep_preprocess_test)
+
+	add_executable(emv_ep_build_candidate_list_test emv_ep_build_candidate_list_test.c)
+	target_link_libraries(emv_ep_build_candidate_list_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_ep_build_candidate_list_test emv_ep_build_candidate_list_test)
+
+	add_executable(emv_ep_select_application_test emv_ep_select_application_test.c)
+	target_link_libraries(emv_ep_select_application_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_ep_select_application_test emv_ep_select_application_test)
+
+	add_executable(emv_ep_create_common_kernel_data_test emv_ep_create_common_kernel_data_test.c)
+	target_link_libraries(emv_ep_create_common_kernel_data_test PRIVATE print_helpers emv)
+	add_test(emv_ep_create_common_kernel_data_test emv_ep_create_common_kernel_data_test)
+
+	add_executable(emv_c2_initiate_kernel_processing_test emv_c2_initiate_kernel_processing_test.c)
+	target_link_libraries(emv_c2_initiate_kernel_processing_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_c2_initiate_kernel_processing_test emv_c2_initiate_kernel_processing_test)
+
+	add_executable(emv_c3_initiate_kernel_processing_test emv_c3_initiate_kernel_processing_test.c)
+	target_link_libraries(emv_c3_initiate_kernel_processing_test PRIVATE emv_cardreader_emul print_helpers emv)
+	add_test(emv_c3_initiate_kernel_processing_test emv_c3_initiate_kernel_processing_test)
+
+	add_executable(emv_c3_card_action_analysis_test emv_c3_card_action_analysis_test.c)
+	target_link_libraries(emv_c3_card_action_analysis_test PRIVATE print_helpers emv)
+	add_test(emv_c3_card_action_analysis_test emv_c3_card_action_analysis_test)
+
+	add_executable(emv_c3_offline_completion_test emv_c3_offline_completion_test.c)
+	target_link_libraries(emv_c3_offline_completion_test PRIVATE print_helpers emv)
+	add_test(emv_c3_offline_completion_test emv_c3_offline_completion_test)
+
 	add_executable(iso8825_oid_encode_test iso8825_oid_encode_test.c)
 	target_link_libraries(iso8825_oid_encode_test PRIVATE iso8825 print_helpers)
 	add_test(iso8825_oid_encode_test iso8825_oid_encode_test)
+
+	add_executable(iso8825_oid_compare_test iso8825_oid_compare_test.c)
+	target_link_libraries(iso8825_oid_compare_test PRIVATE iso8825)
+	add_test(iso8825_oid_compare_test iso8825_oid_compare_test)
 
 	add_executable(iso8825_ber_encode_test iso8825_ber_encode_test.c)
 	target_link_libraries(iso8825_ber_encode_test PRIVATE iso8825 print_helpers)
@@ -149,6 +205,12 @@ if (BUILD_TESTING)
 	endif()
 	target_link_libraries(iso8859_test PRIVATE iso8859)
 	add_test(iso8859_test iso8859_test)
+
+	if(TARGET socket_helpers)
+		add_executable(socket_helpers_test socket_helpers_test.c)
+		target_link_libraries(socket_helpers_test PRIVATE socket_helpers)
+		add_test(socket_helpers_test socket_helpers_test)
+	endif()
 
 	if(WIN32)
 		# Ensure that tests can find required DLLs (if any)
