@@ -862,6 +862,14 @@ enum emv_iad_format_t {
 #define EMV_C4_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26          (0x02) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.4 - 2.6
 #define EMV_C4_ENH_CL_READER_CAPS_KERNEL_VERSION_27             (0x03) ///< Enhanced Contactless Reader Capabilities: C-4 kernel version 2.7 or later
 
+// EMV kernel C-2 Kernel Configuration (field DF811B)
+// See EMV Contactless Book C-2 v2.12, Annex A.1.81
+#define EMV_C2_KERNEL_CONFIG_CDCVM_SUPPORTED                    (0x20) ///< Kernel Configuration: CDCVM supported
+#define EMV_C2_KERNEL_CONFIG_RRP_SUPPORTED                      (0x10) ///< Kernel Configuration: Relay resistance protocol supported
+#define EMV_C2_KERNEL_CONFIG_PAYMENT_SYSTEM                     (0x08) ///< Kernel Configuration: Reserved for Payment system
+#define EMV_C2_KERNEL_CONFIG_READ_ALL_RECORDS                   (0x04) ///< Kernel Configuration: Read all records even when no CDA
+#define EMV_C2_KERNEL_CONFIG_RFU                                (0xC3) ///< Kernel Configuration: RFU
+
 // Card Status Update (CSU) byte 1
 // See EMV 4.4 Book 3, Annex C10
 #define EMV_CSU_BYTE1_PROPRIETARY_AUTHENTICATION_DATA_INCLUDED  (0x80) ///< Card Status Update (CSU): Proprietary Authentication Data Included

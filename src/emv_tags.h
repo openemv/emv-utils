@@ -587,9 +587,17 @@ __BEGIN_DECLS
 /// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.32
 #define EMV_C2_TAG_DF8119_CVM_CAPABILITY_NO_CVM_REQUIRED        (0xDF8119)
 
+/// EMV kernel C-2 tag DF811B Kernel Configuration
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.81
+#define EMV_C2_TAG_DF811B_KERNEL_CONFIGURATION                  (0xDF811B)
+
 /// EMV kernel C-2 tag DF811F Security Capability
 /// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.124
 #define EMV_C2_TAG_DF811F_SECURITY_CAPABILITY                   (0xDF811F)
+
+/// EMV kernel C-2 tag DF8126 Reader CVM Required Limit
+/// @remark See EMV Contactless Book C-2 v2.12, Annex A.1.116
+#define EMV_C2_TAG_DF8126_READER_CVM_REQUIRED_LIMIT             (0xDF8126)
 
 __END_DECLS
 

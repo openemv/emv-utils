@@ -242,10 +242,32 @@
       <tlv id='DF8117'>20</tlv>
 
       <!--
+        CVM Capability - CVM Required:
+        - Enciphered online PIN
+        - Signature
+      -->
+      <tlv id='DF8118'>60</tlv>
+
+      <!--
+        CVM Capability - No CVM Required:
+        - No CVM
+      -->
+      <tlv id='DF8119'>08</tlv>
+
+      <!--
+        Kernel Configuration:
+        - CDCVM supported
+      -->
+      <tlv id='DF811B'>20</tlv>
+
+      <!--
         Security Capability
         - Combined DDA/Application Cryptogram Generation (CDA)
       -->
       <tlv id='DF811F'>08</tlv>
+
+      <!-- Reader CVM Required Limit: 200.00 -->
+      <tlv id='DF8126'>000000020000</tlv>
     </data>
 
     <random_selection_percentage>25</random_selection_percentage>
@@ -274,10 +296,31 @@
       <tlv id='DF8117'>20</tlv>
 
       <!--
+        CVM Capability - CVM Required:
+        - Enciphered online PIN
+      -->
+      <tlv id='DF8118'>40</tlv>
+
+      <!--
+        CVM Capability - No CVM Required:
+        - No CVM
+      -->
+      <tlv id='DF8119'>08</tlv>
+
+      <!--
+        Kernel Configuration:
+        - CDCVM supported
+      -->
+      <tlv id='DF811B'>20</tlv>
+
+      <!--
         Security Capability
         - Combined DDA/Application Cryptogram Generation (CDA)
       -->
       <tlv id='DF811F'>08</tlv>
+
+      <!-- Reader CVM Required Limit: 50.00 -->
+      <tlv id='DF8126'>000000005000</tlv>
     </data>
 
     <contactless_transaction_limit>100000</contactless_transaction_limit>
