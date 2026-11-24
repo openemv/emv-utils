@@ -2254,7 +2254,15 @@ int emv_cvm_get(const struct emv_ctx_t* ctx, enum emv_cvm_t* cvm)
 	// See EMV 4.4 Book 3, Annex C3, Table 43
 	switch (cvm_result->value[0] & EMV_CV_RULE_CVM_MASK) {
 		case EMV_CV_RULE_CVM_OFFLINE_PIN_PLAINTEXT:
-			*cvm = EMV_CVM_OFFLINE_PIN_PLAINTEXT;
+			if (ctx->kernel_id && ctx->kernel_id->length) {
+				// Contactless kernels do not perform offline PIN
+				// verification and kernel C-2 uses this CVM Code to
+				// indicate CDCVM
+				// See EMV Contactless Book C-2 v2.12, 7.1.3, CVM.4
+				*cvm = EMV_CVM_CDCVM;
+			} else {
+				*cvm = EMV_CVM_OFFLINE_PIN_PLAINTEXT;
+			}
 			return 0;
 
 		case EMV_CV_RULE_CVM_ONLINE_PIN_ENCIPHERED:

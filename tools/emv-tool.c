@@ -61,6 +61,7 @@ static void emv_txn_load_params(struct emv_ctx_t* emv, uint32_t txn_seq_cnt, uin
 static int emv_txn_load_config(struct emv_ctx_t* emv);
 static int parse_hex(const char* hex, void* buf, size_t* buf_len);
 static int pin_entry_prompt(uint8_t* pinblock);
+static int pin_entry_perform(struct emv_ctx_t* emv, enum emv_pin_entry_result_t* pin_entry_result);
 static int emv_txn_c3_process(struct emv_ctx_t* emv);
 static int online_auth_request_encode(const struct emv_ctx_t* emv, uint8_t* buf, size_t* buf_len);
 static int online_auth_response_parse(const uint8_t* buf, size_t buf_len, uint8_t* arc, uint8_t* iad, size_t* iad_len);
@@ -933,6 +934,62 @@ static int pin_entry_prompt(uint8_t* pinblock)
 		return 0;
 
 	} while (true);
+}
+
+static int pin_entry_perform(struct emv_ctx_t* emv, enum emv_pin_entry_result_t* pin_entry_result)
+{
+	int r;
+
+	switch (pin_entry_method) {
+		case PIN_ENTRY_METHOD_PROMPT: {
+			uint8_t pinblock[PINBLOCK_SIZE];
+			struct emv_tlv_t* pin_data;
+
+			r = pin_entry_prompt(pinblock);
+			if (r < 0) {
+				*pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
+				return 0;
+			}
+			if (r > 0) {
+				*pin_entry_result = EMV_PIN_ENTRY_BYPASSED;
+				return 0;
+			}
+
+			// Create or update Transaction PIN Data (field 99)
+			pin_data = emv_tlv_list_find(&emv->terminal, EMV_TAG_99_TRANSACTION_PIN_DATA);
+			if (pin_data) {
+				if (pin_data->length != sizeof(pinblock)) {
+					fprintf(stderr, "Transaction PIN Data (99) has invalid length %u\n", pin_data->length);
+					return -1;
+				}
+				memcpy(pin_data->value, pinblock, sizeof(pinblock));
+			} else {
+				r = emv_tlv_list_push(
+					&emv->terminal,
+					EMV_TAG_99_TRANSACTION_PIN_DATA,
+					sizeof(pinblock),
+					pinblock,
+					0
+				);
+				if (r) {
+					fprintf(stderr, "emv_tlv_list_push() failed; r=%d\n", r);
+					return -1;
+				}
+			}
+			*pin_entry_result = EMV_PIN_ENTRY_CAPTURED;
+			return 0;
+		}
+
+		case PIN_ENTRY_METHOD_BYPASS:
+			*pin_entry_result = EMV_PIN_ENTRY_BYPASSED;
+			return 0;
+
+		case PIN_ENTRY_METHOD_FAIL:
+			*pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
+			return 0;
+	}
+
+	return -1;
 }
 
 static int emv_txn_c3_process(struct emv_ctx_t* emv)
@@ -1816,11 +1873,8 @@ int main(int argc, char** argv)
 	}
 
 	printf("\nCardholder verification\n");
-	do {
-		enum emv_cvm_t cvm;
-		enum emv_pin_entry_result_t pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
-
-		r = emv_cardholder_verification(&emv);
+	if (emv.ttl->contactless && kernel_id[0] == 0x02) {
+		r = emv_c2_cardholder_verification(&emv);
 		if (r < 0) {
 			printf("ERROR: %s\n", emv_error_get_string(r));
 			goto emv_exit;
@@ -1829,79 +1883,50 @@ int main(int argc, char** argv)
 			printf("OUTCOME: %s\n", emv_outcome_get_string(r));
 			goto emv_exit;
 		}
-		if (emv.cvm.state != EMV_CVM_STATE_PIN_ENTRY) {
-			// Cardholder verification complete
-			break;
-		}
+	} else {
+		do {
+			enum emv_cvm_t cvm;
+			enum emv_pin_entry_result_t pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
 
-		// Determine CVM that requires PIN entry
-		r = emv_cvm_get(&emv, &cvm);
-		if (r) {
-			printf("ERROR: %s\n", emv_error_get_string(r));
-			goto emv_exit;
-		}
-		if (cvm == EMV_CVM_ONLINE_PIN) {
-			printf("PIN entry required for online PIN\n");
-		} else {
-			printf("PIN entry required for offline PIN\n");
-		}
-
-		// Perform PIN entry
-		switch (pin_entry_method) {
-			case PIN_ENTRY_METHOD_PROMPT: {
-				uint8_t pinblock[PINBLOCK_SIZE];
-				struct emv_tlv_t* pin_data;
-
-				r = pin_entry_prompt(pinblock);
-				if (r < 0) {
-					pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
-					break;
-				}
-				if (r > 0) {
-					pin_entry_result = EMV_PIN_ENTRY_BYPASSED;
-					break;
-				}
-
-				// Create or update Transaction PIN Data (field 99)
-				pin_data = emv_tlv_list_find(&emv.terminal, EMV_TAG_99_TRANSACTION_PIN_DATA);
-				if (pin_data) {
-					if (pin_data->length != sizeof(pinblock)) {
-						fprintf(stderr, "Transaction PIN Data (99) has invalid length %u\n", pin_data->length);
-						goto emv_exit;
-					}
-					memcpy(pin_data->value, pinblock, sizeof(pinblock));
-				} else {
-					r = emv_tlv_list_push(
-						&emv.terminal,
-						EMV_TAG_99_TRANSACTION_PIN_DATA,
-						sizeof(pinblock),
-						pinblock,
-						0
-					);
-					if (r) {
-						fprintf(stderr, "emv_tlv_list_push() failed; r=%d\n", r);
-						goto emv_exit;
-					}
-				}
-				pin_entry_result = EMV_PIN_ENTRY_CAPTURED;
+			r = emv_cardholder_verification(&emv);
+			if (r < 0) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (r > 0) {
+				printf("OUTCOME: %s\n", emv_outcome_get_string(r));
+				goto emv_exit;
+			}
+			if (emv.cvm.state != EMV_CVM_STATE_PIN_ENTRY) {
+				// Cardholder verification complete
 				break;
 			}
 
-			case PIN_ENTRY_METHOD_BYPASS:
-				pin_entry_result = EMV_PIN_ENTRY_BYPASSED;
-				break;
+			// Determine CVM that requires PIN entry
+			r = emv_cvm_get(&emv, &cvm);
+			if (r) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+			if (cvm == EMV_CVM_ONLINE_PIN) {
+				printf("PIN entry required for online PIN\n");
+			} else {
+				printf("PIN entry required for offline PIN\n");
+			}
 
-			case PIN_ENTRY_METHOD_FAIL:
-				pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
-				break;
-		}
+			// Perform PIN entry
+			r = pin_entry_perform(&emv, &pin_entry_result);
+			if (r) {
+				goto emv_exit;
+			}
 
-		r = emv_pin_entry_result(&emv, pin_entry_result);
-		if (r) {
-			printf("ERROR: %s\n", emv_error_get_string(r));
-			goto emv_exit;
-		}
-	} while (true);
+			r = emv_pin_entry_result(&emv, pin_entry_result);
+			if (r) {
+				printf("ERROR: %s\n", emv_error_get_string(r));
+				goto emv_exit;
+			}
+		} while (true);
+	}
 
 	printf("\nTerminal risk management\n");
 	r = emv_terminal_risk_management(&emv, NULL, 0);
@@ -1942,6 +1967,31 @@ int main(int argc, char** argv)
 	}
 
 emv_online:
+	if (emv.ttl->contactless && kernel_id[0] == 0x02) {
+		enum emv_cvm_t cvm;
+
+		// Kernel C-2 requests online PIN entry after card interaction is
+		// complete and PIN entry does not update TVR
+		// See EMV Contactless Book A v2.12, 6.2, Table 6-2
+		r = emv_cvm_get(&emv, &cvm);
+		if (r) {
+			printf("ERROR: %s\n", emv_error_get_string(r));
+			goto emv_exit;
+		}
+		if (cvm == EMV_CVM_ONLINE_PIN) {
+			enum emv_pin_entry_result_t pin_entry_result = EMV_PIN_ENTRY_PIN_PAD_FAILED;
+
+			printf("\nPIN entry required for online PIN\n");
+			r = pin_entry_perform(&emv, &pin_entry_result);
+			if (r) {
+				goto emv_exit;
+			}
+			if (pin_entry_result != EMV_PIN_ENTRY_CAPTURED) {
+				printf("Online PIN not entered\n");
+			}
+		}
+	}
+
 	// If card action analysis did not provide an outcome, then proceed to
 	// online authorisation
 	switch (online_auth_method) {

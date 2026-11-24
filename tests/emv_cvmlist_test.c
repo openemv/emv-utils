@@ -2,7 +2,7 @@
  * @file emv_cvmlist_test.c
  * @brief Unit tests for Cardholder Verification Method (CVM) List (field 8E) processing
  *
- * Copyright 2021 Leon Lynch
+ * Copyright 2021, 2026 Leon Lynch
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -210,6 +210,10 @@ int main(void)
 		return 1;
 	}
 	for (size_t i = 0; i < sizeof(test6_cv_rules) / sizeof(test6_cv_rules[0]); ++i) {
+		if (emv_cvmlist_itr_is_empty(&itr)) {
+			fprintf(stderr, "emv_cvmlist_itr_is_empty() unexpectedly true\n");
+			return 1;
+		}
 		r = emv_cvmlist_itr_next(&itr, &rule);
 		if (r != 2) {
 			fprintf(stderr, "emv_cvmlist_itr_next() failed; r=%d\n", r);
@@ -223,6 +227,10 @@ int main(void)
 			fprintf(stderr, "Incorrect CV Rule CVM Condition; expected 0x%02X; found 0x%02X\n", test6_cv_rules[i].cvm_cond, rule.cvm_cond);
 			return 1;
 		}
+	}
+	if (!emv_cvmlist_itr_is_empty(&itr)) {
+		fprintf(stderr, "emv_cvmlist_itr_is_empty() unexpectedly false\n");
+		return 1;
 	}
 	r = emv_cvmlist_itr_next(&itr, &rule);
 	if (r != 0) {

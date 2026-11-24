@@ -582,16 +582,18 @@ int emv_pin_entry_result(
 
 /**
  * Retrieve the Cardholder Verification Method (CVM) selected or performed by
- * @ref emv_cardholder_verification(), as indicated by
- * @ref EMV_TAG_9F34_CVM_RESULTS.
+ * @ref emv_cardholder_verification() or contactless equivalent,
+ * and as indicated by @ref EMV_TAG_9F34_CVM_RESULTS.
  *
  * When @ref EMV_TAG_9F34_CVM_RESULTS indicates that the CVM failed,
  * this function indicates @ref EMV_CVM_FAILED. If cardholder verification has
  * not yet been performed or the CVM is unrecognised, this function indicates
- * @ref EMV_CVM_UNKNOWN.
+ * @ref EMV_CVM_UNKNOWN. For contactless kernels, this function indicates
+ * @ref EMV_CVM_CDCVM instead of @ref EMV_CVM_OFFLINE_PIN_PLAINTEXT.
  *
  * @remark See EMV 4.4 Book 3, Annex C3
  * @remark See EMV 4.4 Book 4, Annex A4
+ * @remark See EMV Contactless Book C-2 v2.12, 7.1.3, CVM.4
  *
  * @param ctx EMV processing context
  * @param cvm Cardholder Verification Method (CVM) output

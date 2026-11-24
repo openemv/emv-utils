@@ -53,6 +53,7 @@ enum emv_cvm_t {
 	EMV_CVM_OFFLINE_PIN_PLAINTEXT_AND_SIGNATURE, ///< Plaintext PIN verification performed by ICC and signature
 	EMV_CVM_OFFLINE_PIN_ENCIPHERED, ///< Enciphered PIN verification performed by ICC
 	EMV_CVM_OFFLINE_PIN_ENCIPHERED_AND_SIGNATURE, ///< Enciphered PIN verification performed by ICC and signature
+	EMV_CVM_CDCVM, ///< Consumer Device Cardholder Verification Method (CDCVM) performed
 };
 
 /**

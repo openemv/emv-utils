@@ -23,6 +23,7 @@
 #define EMV_FIELDS_H
 
 #include <sys/cdefs.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -320,6 +321,12 @@ __BEGIN_DECLS
 // See EMV 4.4 Book 4, Annex A4, Table 33
 // NOTE: This value is invalid for CV Rules but valid for CVM Results
 #define EMV_CVM_NOT_PERFORMED                                   (0x3F) ///< CVM Performed: CVM not performed
+
+// EMV kernel C-2 Cardholder Verification Method (CVM) Results (field 9F34) byte 1
+// See EMV Contactless Book C-2 v2.12, 7.1.3, CVM.4
+// NOTE: This value is the CVM Code for plaintext PIN verification performed by
+// ICC, but indicates CDCVM for kernel C-2
+#define EMV_C2_CVM_CDCVM_PERFORMED                              (0x01) ///< CVM Performed: CDCVM performed
 
 // Cardholder Verification Method (CVM) Results (field 9F34) byte 3
 // See EMV 4.4 Book 4, Annex A4, Table 33
@@ -1077,6 +1084,14 @@ int emv_cvmlist_itr_init(
  * @return Number of bytes consumed. Zero for end of data. Less than zero for error.
  */
 int emv_cvmlist_itr_next(struct emv_cvmlist_itr_t* itr, struct emv_cv_rule_t* rule);
+
+/**
+ * Determine whether Cardholder Verification Method (CVM) List iterator has no
+ * remaining Cardholder Verification (CV) Rules
+ * @param itr Cardholder Verification Method (CVM) List iterator
+ * @return Boolean indicating whether iterator has no remaining CV Rules
+ */
+bool emv_cvmlist_itr_is_empty(const struct emv_cvmlist_itr_t* itr);
 
 /**
  * Determine Issuer Application Data (field 9F10) format

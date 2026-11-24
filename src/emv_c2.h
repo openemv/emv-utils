@@ -93,6 +93,42 @@ int emv_c2_initiate_kernel_processing(
  */
 int emv_c2_read_application_data(struct emv_ctx_t* ctx);
 
+/**
+ * Perform Cardholder Verification for kernel C-2 by populating the CVM
+ * Capability of @ref EMV_TAG_9F33_TERMINAL_CAPABILITIES according to
+ * @ref EMV_C2_TAG_DF8126_READER_CVM_REQUIRED_LIMIT, performing CDCVM if
+ * supported by both the card and @ref EMV_C2_TAG_DF811B_KERNEL_CONFIGURATION,
+ * and otherwise processing the Cardholder Verification (CV) Rules of
+ * @ref EMV_TAG_8E_CVM_LIST.
+ *
+ * This function will push @ref EMV_TAG_9F34_CVM_RESULTS onto
+ * @ref emv_ctx_t.terminal and update it to reflect the selected CVM, and
+ * update @ref EMV_TAG_95_TERMINAL_VERIFICATION_RESULTS to reflect the
+ * outcome. Upon success, @ref emv_cvm_ctx_t.state will be
+ * @ref EMV_CVM_STATE_COMPLETE.
+ *
+ * Kernel C-2 does not perform offline PIN verification and this function will
+ * return @ref EMV_ERROR_INVALID_CONFIG if either
+ * @ref EMV_C2_TAG_DF8118_CVM_CAPABILITY_CVM_REQUIRED or
+ * @ref EMV_C2_TAG_DF8119_CVM_CAPABILITY_NO_CVM_REQUIRED indicates offline PIN
+ * verification.
+ *
+ * The caller should use @ref emv_cvm_get() to retrieve the selected CVM. If it
+ * indicates @ref EMV_CVM_ONLINE_PIN, then PIN entry should be performed after
+ * card interaction is complete. The caller should not use
+ * @ref emv_pin_entry_result() to indicate the PIN entry result.
+ *
+ * @remark See EMV Contactless Book C-2 v2.12, 6.11.3, S456.30
+ * @remark See EMV Contactless Book C-2 v2.12, 7.1
+ *
+ * @param ctx EMV processing context
+ *
+ * @return Zero for success
+ * @return Less than zero for errors. See @ref emv_error_t
+ * @return Greater than zero for EMV processing outcome. See @ref emv_outcome_t
+ */
+int emv_c2_cardholder_verification(struct emv_ctx_t* ctx);
+
 __END_DECLS
 
 #endif
