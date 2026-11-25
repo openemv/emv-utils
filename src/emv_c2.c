@@ -331,6 +331,13 @@ int emv_c2_read_application_data(struct emv_ctx_t* ctx)
 		// See EMV Contactless Book C-2 v2.12, 6.3.3, S1.7
 		// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.24
 		emv_debug_error("Application data contains redundant fields");
+#if defined(EMV_DEBUG_ENABLED) && !defined(EMV_DEBUG_TRACE_DISABLED)
+		for (const struct emv_tlv_t* tlv = ctx->icc.front; tlv != NULL; tlv = tlv->next) {
+			if (emv_tlv_list_find_duplicate(&ctx->icc, tlv)) {
+				emv_debug_trace_data("Redundant field 0x%02X", tlv->value, tlv->length, tlv->tag);
+			}
+		}
+#endif // EMV_DEBUG_ENABLED && !EMV_DEBUG_TRACE_DISABLED
 		// See EMV Contactless Book C-2 v2.12, 6.8.3, S4.27.2
 		r = EMV_OUTCOME_END_APPLICATION_TRY_ANOTHER_CARD;
 		goto error;

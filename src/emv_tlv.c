@@ -357,6 +357,30 @@ bool emv_tlv_list_has_duplicate(const struct emv_tlv_list_t* list)
 	return false;
 }
 
+const struct emv_tlv_t* emv_tlv_list_find_duplicate(
+	const struct emv_tlv_list_t* list,
+	const struct emv_tlv_t* tlv
+)
+{
+	if (!emv_tlv_list_is_valid(list)) {
+		return NULL;
+	}
+	if (!tlv) {
+		return NULL;
+	}
+
+	for (const struct emv_tlv_t* other = list->front; other != NULL; other = other->next) {
+		if (other != tlv &&
+			emv_tlv_is_duplicate(tlv, other)
+		) {
+			// Duplicate EMV field or duplicate ASN.1 object
+			return other;
+		}
+	}
+
+	return NULL;
+}
+
 int emv_tlv_list_append(struct emv_tlv_list_t* list, struct emv_tlv_list_t* other)
 {
 	if (!emv_tlv_list_is_valid(list)) {
