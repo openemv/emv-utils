@@ -101,7 +101,7 @@ static struct argp_option argp_options[] = {
 	{ "txn-type", EMV_TOOL_PARAM_TXN_TYPE, "VALUE", 0, "Transaction type (two numeric digits, according to ISO 8583:1987 Processing Code)" },
 	{ "txn-amount", EMV_TOOL_PARAM_TXN_AMOUNT, "AMOUNT", 0, "Transaction amount (without decimal separator)" },
 	{ "txn-amount-other", EMV_TOOL_PARAM_TXN_AMOUNT_OTHER, "AMOUNT", 0, "Secondary transaction amount associated with cashback (without decimal separator)" },
-	{ "pin-entry", EMV_TOOL_PARAM_PIN_ENTRY, "prompt|bypass|fail", 0, "PIN entry method: prompt for PIN, bypass PIN entry, or fail PIN entry as if the PIN pad is not working. Default is prompt." },
+	{ "pin-entry", EMV_TOOL_PARAM_PIN_ENTRY, "prompt|bypass|fail", 0, "PIN entry method. Default is prompt." },
 
 	{ NULL, 0, NULL, 0, "Authorisation options", 3 },
 	{ "genac1", EMV_TOOL_PARAM_GENAC1_TYPE, "AAC|ARQC|TC", 0, "GENAC1 cryptogram type: AAC, ARQC or TC. Default is AAC (offline decline)." },
