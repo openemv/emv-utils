@@ -883,6 +883,20 @@ int emv_c4_enh_cl_reader_caps_get_string_list(
 );
 
 /**
+ * Stringify EMV kernel C-2 Kernel Configuration (field DF811B)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param kernel_config Kernel Configuration field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_c2_kernel_config_get_string_list(
+	uint8_t kernel_config,
+	char* str,
+	size_t str_len
+);
+
+/**
  * Stringify Authorisation Response Code (field 8A)
  * @param arc Authorisation Response Code field. Must be 2 bytes.
  * @param arc_len Length of Authorisation Response Code field. Must be 2 bytes.

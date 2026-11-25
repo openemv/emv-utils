@@ -322,6 +322,7 @@ add_library(emv
 	emv_capk.c
 	emv_rsa.c
 	emv_oda.c
+	emv_cvm.c
 	emv_date.c
 	emv_ep.c
 	emv_c2.c
@@ -347,6 +348,8 @@ set(emv_HEADERS # PUBLIC_HEADER property requires a list instead of individual e
 	emv_rsa.h
 	emv_oda.h
 	emv_oda_types.h
+	emv_cvm.h
+	emv_cvm_types.h
 	emv_date.h
 	emv_ep.h
 	emv_c2.h

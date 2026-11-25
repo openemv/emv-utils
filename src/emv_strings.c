@@ -1755,6 +1755,18 @@ int emv_tlv_get_info(
 			}
 			return emv_cvm_caps_get_string_list(tlv->value[0], value_str, value_str_len);
 
+		case EMV_C2_TAG_DF811B_KERNEL_CONFIGURATION:
+			info->tag_name = "Kernel Configuration";
+			info->tag_desc = "Indicates the Kernel configuration options.";
+			info->format = EMV_FORMAT_B;
+			if (!tlv->value) {
+				// Cannot use tlv->value[0], even if value_str is NULL.
+				// This is typically for Data Object List (DOL) entries that
+				// have been packed into TLV entries for this function to use.
+				return 0;
+			}
+			return emv_c2_kernel_config_get_string_list(tlv->value[0], value_str, value_str_len);
+
 		case EMV_C2_TAG_DF811F_SECURITY_CAPABILITY:
 			info->tag_name = "Security Capability";
 			info->tag_desc = "Indicates the security capability of the Kernel.";
@@ -1766,6 +1778,15 @@ int emv_tlv_get_info(
 				return 0;
 			}
 			return emv_security_caps_get_string_list(tlv->value[0], value_str, value_str_len);
+
+		case EMV_C2_TAG_DF8126_READER_CVM_REQUIRED_LIMIT:
+			info->tag_name = "Reader CVM Required Limit";
+			info->tag_desc =
+				"Indicates the transaction amount above which the Kernel "
+				"instantiates the CVM capabilities field in Terminal "
+				"Capabilities with CVM Capability - CVM Required.";
+			info->format = EMV_FORMAT_N;
+			return emv_tlv_value_get_string(tlv, info->format, 12, value_str, value_str_len);
 
 		default: {
 			// If it is not a known EMV field, attempt to decode it as an
@@ -7537,6 +7558,42 @@ int emv_c4_enh_cl_reader_caps_get_string_list(
 		case EMV_C4_ENH_CL_READER_CAPS_KERNEL_VERSION_24_26: emv_str_list_add(&itr, "C-4 kernel version 2.4 - 2.6"); break;
 		case EMV_C4_ENH_CL_READER_CAPS_KERNEL_VERSION_27: emv_str_list_add(&itr, "C-4 kernel version 2.7 or later"); break;
 		default: emv_str_list_add(&itr, "C-4 kernel version unknown"); break;
+	}
+
+	return 0;
+}
+
+int emv_c2_kernel_config_get_string_list(
+	uint8_t kernel_config,
+	char* str,
+	size_t str_len
+)
+{
+	struct str_itr_t itr;
+
+	if (!str || !str_len) {
+		// Caller didn't want the value string
+		return 0;
+	}
+
+	emv_str_list_init(&itr, str, str_len);
+
+	// EMV kernel C-2 Kernel Configuration (field DF811B)
+	// See EMV Contactless Book C-2 v2.12, Annex A.1.81
+	if (kernel_config & EMV_C2_KERNEL_CONFIG_CDCVM_SUPPORTED) {
+		emv_str_list_add(&itr, "CDCVM supported");
+	}
+	if (kernel_config & EMV_C2_KERNEL_CONFIG_RRP_SUPPORTED) {
+		emv_str_list_add(&itr, "Relay resistance protocol supported");
+	}
+	if (kernel_config & EMV_C2_KERNEL_CONFIG_PAYMENT_SYSTEM) {
+		emv_str_list_add(&itr, "Reserved for Payment system");
+	}
+	if (kernel_config & EMV_C2_KERNEL_CONFIG_READ_ALL_RECORDS) {
+		emv_str_list_add(&itr, "Read all records even when no CDA");
+	}
+	if (kernel_config & EMV_C2_KERNEL_CONFIG_RFU) {
+		emv_str_list_add(&itr, "RFU");
 	}
 
 	return 0;

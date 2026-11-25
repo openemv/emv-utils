@@ -504,6 +504,15 @@ int emv_cvmlist_itr_next(struct emv_cvmlist_itr_t* itr, struct emv_cv_rule_t* ru
 	return 2;
 }
 
+bool emv_cvmlist_itr_is_empty(const struct emv_cvmlist_itr_t* itr)
+{
+	if (!itr) {
+		return true;
+	}
+
+	return !itr->len;
+}
+
 enum emv_iad_format_t emv_iad_get_format(const uint8_t* iad, size_t iad_len)
 {
 	if (!iad || !iad_len) {
