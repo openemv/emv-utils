@@ -327,6 +327,13 @@ To override the transaction date and time, use the `--txn-date` and
 emv-tool --config-xml tools/emv-config-example.xml --txn-type 00 --txn-amount 1234 --txn-date 2022-12-12 --txn-time 12:34:56
 ```
 
+The PIN entry method can be specified using the `--pin-entry` option. By
+default the PIN is prompted for. Alternatively, a static PIN of 4 to 12 digits
+can be specified instead of a PIN entry method. For example:
+```shell
+emv-tool --config-xml tools/emv-config-example.xml --txn-type 00 --txn-amount 1234 --pin-entry 1234
+```
+
 The online authorisation method can be specified using the `--online-auth`
 option. When `--online-auth socket` is specified, the destination address must
 be specified using the `--online-auth-socket` option. The latter supports Unix
