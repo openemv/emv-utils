@@ -2,7 +2,7 @@
  * @file mcc_lookup.cpp
  * @brief ISO 18245 Merchant Category Code (MCC) lookup helper functions
  *
- * Copyright 2023, 2025 Leon Lynch
+ * Copyright 2023, 2025-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,14 +25,8 @@
 #include <string>
 #include <map>
 
-// NOTE: Older versions of json-c, like the one for Ubuntu 20.04, don't specify
-// C linkage in the headers, which means it must be specified explicitly here
-// to avoid C++ linkage and to ensure successful library linkage.
-#include <sys/cdefs.h>
-__BEGIN_DECLS
 #include <json-c/json.h>
 #include <json-c/json_visit.h>
-__END_DECLS
 
 typedef bool (*mcc_map_add_func_t)(json_object* jso);
 

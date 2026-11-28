@@ -2,7 +2,7 @@
  * @file emv_strings.h
  * @brief EMV string helper functions
  *
- * Copyright 2021-2025 Leon Lynch
+ * Copyright 2021-2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -150,7 +150,10 @@ int emv_strings_init(const char* isocodes_path, const char* mcc_path);
  * - @ref EMV_TAG_9F12_APPLICATION_PREFERRED_NAME depends on
  *   @ref EMV_TAG_9F11_ISSUER_CODE_TABLE_INDEX
  *
- * @note @c value_str output will be empty if human readable string is not available
+ * @note Strings in @c info.tag_desc may contain @c \\n for line breaks and
+ * @c \\n\\n for paragraph breaks.
+ * @note @c value_str output will be empty if a human readable string is not
+ * available.
  *
  * @param tlv Decoded EMV TLV structure
  * @param sources EMV TLV sources to use during decoding. NULL to ignore.
@@ -398,6 +401,68 @@ int emv_aid_get_string(
 int emv_asrpd_get_string_list(
 	const uint8_t* asrpd,
 	size_t asrpd_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Kernel Identifier (field 9F2A)
+ * @param buf Kernel Identifier field. Must be 1 or 3-8 bytes.
+ * @param buf_len Length of Kernel Identifier field. Must be 1 or 3-8 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_kernel_id_get_string(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Kernel Identifier - Terminal (field 96)
+ * @param buf Kernel Identifier - Terminal field. Must be 8 bytes.
+ * @param buf_len Length of Kernel Identifier - Terminal field. Must be 8 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_kernel_id_terminal_get_string(
+	const uint8_t* buf,
+	size_t buf_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Terminal Categories Supported List (field 9F3E)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param term_cats Terminal Categories Supported List field. Must be multiples of 2 bytes.
+ * @param term_cats_len Length of Terminal Categories Supported List field. Must be multiples of 2 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_terminal_categories_get_string_list(
+	const uint8_t* term_cats,
+	size_t term_cats_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * @brief Stringify POI Information (field 8B)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param poi_info POI Information field
+ * @param poi_info_len Length of POI Information field
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_poi_info_get_string_list(
+	const uint8_t* poi_info,
+	size_t poi_info_len,
 	char* str,
 	size_t str_len
 );
@@ -720,6 +785,22 @@ int emv_mastercard_app_caps_info_get_string_list(
 int emv_ttq_get_string_list(
 	const uint8_t* ttq,
 	size_t ttq_len,
+	char* str,
+	size_t str_len
+);
+
+/**
+ * Stringify Visa Card Authentication Related Data (field 9F69)
+ * @note Strings in output buffer are delimited using "\n", including the last string
+ * @param card_auth_data Card Authentication Related Data field. Must be 5 to 16 bytes.
+ * @param card_auth_data_len Length of Card Authentication Related Data field. Must be 5 to 16 bytes.
+ * @param str String buffer output
+ * @param str_len Length of string buffer in bytes
+ * @return Zero for success. Less than zero for internal error. Greater than zero for parse error.
+ */
+int emv_visa_card_auth_data_get_string_list(
+	const uint8_t* card_auth_data,
+	size_t card_auth_data_len,
 	char* str,
 	size_t str_len
 );

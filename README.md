@@ -31,9 +31,8 @@ See [usage](#usage) for more examples.
 Installation
 ------------
 
-* For Ubuntu 20.04 LTS (Focal), 22.04 LTS (Jammy), or 24.04 LTS (Noble) install
-  the appropriate
-  [release package](https://github.com/openemv/emv-utils/releases)
+* For Ubuntu 22.04 LTS (Jammy) or 24.04 LTS (Noble), install the appropriate
+  Ubuntu [release package](https://github.com/openemv/emv-utils/releases)
 * For Fedora 41 or Fedora 42, install the appropriate Fedora
   [release package](https://github.com/openemv/emv-utils/releases)
 * For Gentoo, use the
@@ -68,10 +67,10 @@ Dependencies
   [MacOS / Windows](#macos--windows)). Use the `BUILD_EMV_DECODE` and
   `BUILD_EMV_TOOL` options to prevent `emv-decode` and  `emv-tool` from being
   built and avoid the dependency on `argp`.
-* `emv-tool` requires PC/SC, either provided by `WinSCard` on Windows or by
-  [PCSCLite](https://pcsclite.apdu.fr/) on Linux/MacOS. Use the
-  `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built and avoid the
-  dependency on PC/SC.
+* `emv-tool` requires PC/SC, either provided by `WinSCard` on Windows, by
+  PCSC.framework on MacOS, or by [PCSCLite](https://pcsclite.apdu.fr/) on
+  Linux. Use the `BUILD_EMV_TOOL` option to prevent `emv-tool` from being built
+  and avoid the dependency on PC/SC.
 * `emv-viewer` can _optionally_ be built if [Qt](https://www.qt.io/) (see
   [Qt](#qt) for details) is available at build-time. If it is not available,
   `emv-viewer` will not be built. Use the `BUILD_EMV_VIEWER` option to ensure
@@ -180,13 +179,12 @@ at build time using the CMake `ISO8859_IMPL` option. It allows these values:
 Qt
 --
 
-This project supports Qt 5.12.x, Qt 5.15.x, Qt 6.5.x and Qt 6.8.x (although it
-may be possible to use other versions of Qt) when building the `emv-viewer`
-application. However, on some platforms it may be necessary to use the `QT_DIR`
-option (and not the `Qt5_DIR` nor `Qt6_DIR` options) or `CMAKE_PREFIX_PATH`
-option to specify the exact Qt installation to be used. For Qt6 it may also be
-necessary for the Qt tools to be available in the executable PATH regardless of
-the `QT_DIR` option.
+This project supports Qt 5.15.x, Qt 6.8.x and Qt 6.10.x (although it may be
+possible to use other versions of Qt) when building the `emv-viewer`
+application. However, on some platforms it may be necessary to use the
+`Qt5_DIR`, `Qt6_DIR` or `CMAKE_PREFIX_PATH` options to specify the exact Qt
+installation to be used. For Qt6 it may also be necessary for the Qt tools to
+be available in the executable PATH regardless of the `Qt6_DIR` option.
 
 If the Qt installation does not provide universal binaries for MacOS, it will
 not be possible to build `emv-viewer` as a universal binary for MacOS.
@@ -195,8 +193,8 @@ MacOS / Windows
 ---------------
 
 On platforms such as MacOS or Windows where static linking is desirable and
-dependencies such as `argp` may be unavailable, the `FETCH_ARGP` option can be
-specified when generating the build system.
+dependencies such as MbedTLS or `argp` may be unavailable, the `FETCH_MBEDTLS`
+and `FETCH_ARGP` options can be specified when generating the build system.
 
 In addition, MacOS universal binaries can be built by specifying the desired
 architectures using the `CMAKE_OSX_ARCHITECTURES` option.
@@ -215,7 +213,7 @@ this is an example of how a self-contained, static, native bundle and installer
 can be built from scratch for MacOS:
 ```shell
 rm -Rf build &&
-cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_MACOSX_BUNDLE=YES &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DFETCH_MBEDTLS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_MACOSX_BUNDLE=YES &&
 cmake --build build --target package
 ```
 
@@ -226,7 +224,7 @@ deploy its own dependencies, this is an example of how a self-contained
 installer can be built for Windows:
 ```shell
 rm -Rf build &&
-cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DBUILD_SHARED_LIBS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_WIN_STANDALONE=YES &&
+cmake -B build -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DBUILD_SHARED_LIBS=YES -DFETCH_MBEDTLS=YES -DFETCH_ARGP=YES -DBUILD_EMV_VIEWER=YES -DBUILD_WIN_STANDALONE=YES &&
 cmake --build build --target package
 ```
 
@@ -328,7 +326,7 @@ Roadmap
 License
 -------
 
-Copyright 2021-2025 [Leon Lynch](https://github.com/leonlynch).
+Copyright 2021-2026 [Leon Lynch](https://github.com/leonlynch).
 
 This project is licensed under the terms of the LGPL v2.1 license with the
 exception of `emv-decode`, `emv-tool` and `emv-viewer` which are licensed under

@@ -1,29 +1,21 @@
 ##############################################################################
-# Copyright 2024-2025 Leon Lynch
+# Copyright 2024-2026 Leon Lynch
 #
 # This file is licensed under the terms of the GPL v3 license.
 # See LICENSE.gpl file.
 ##############################################################################
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
 
 project(emv-viewer
-	VERSION 0.3.0
+	VERSION 0.3.1
 	DESCRIPTION "EMV Viewer using Qt"
 	HOMEPAGE_URL "https://github.com/openemv/emv-utils"
 	LANGUAGES CXX
 )
 
 # Determine whether this project is the top-level project
-if(${CMAKE_VERSION} VERSION_LESS "3.21")
-	get_directory_property(EMV_VIEWER_HAS_PARENT PARENT_DIRECTORY)
-	if(NOT EMV_VIEWER_HAS_PARENT)
-		set(EMV_VIEWER_IS_TOP_LEVEL True)
-	endif()
-else()
-	# CMake >=3.21 provides <PROJECT-NAME>_IS_TOP_LEVEL
-	set(EMV_VIEWER_IS_TOP_LEVEL ${emv-viewer_IS_TOP_LEVEL})
-endif()
+set(EMV_VIEWER_IS_TOP_LEVEL ${emv-viewer_IS_TOP_LEVEL})
 
 # Configure compiler
 set(CMAKE_CXX_STANDARD 14)
@@ -130,23 +122,22 @@ configure_file(
 )
 
 # See https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html#supporting-older-qt-5-versions
-# Note that CMAKE_DISABLE_FIND_PACKAGE_<PackageName> only applies to the
-# primary package name and not the alternative names and therefore it is
-# necessary to build the list of alternative names to ensure that either Qt5 or
-# Qt6 can be disabled, otherwise CMAKE_DISABLE_FIND_PACKAGE_<PackageName> will
-# be ignored.
-if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt5)
-	list(APPEND Qt_NAMES Qt5)
+# See https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html#pitfalls-when-using-versionless-targets
+# Only support Qt-6.8+, or Qt-5.15, because Qt-6.8+ supports icon themes on
+# Windows and MacOS, along with various other fixes.
+find_package(Qt6 6.8 COMPONENTS Widgets CONFIG)
+if(Qt6_FOUND)
+	set(QT_VERSION_MAJOR 6)
+else()
+	find_package(Qt5 5.15 COMPONENTS Widgets CONFIG)
+	if(Qt5_FOUND)
+		set(QT_VERSION_MAJOR 5)
+	endif()
 endif()
-if(NOT CMAKE_DISABLE_FIND_PACKAGE_Qt6)
-	list(APPEND Qt_NAMES Qt6)
-endif()
-if(NOT Qt_NAMES)
+if(NOT QT_VERSION_MAJOR)
 	message(FATAL_ERROR "Either Qt5 or Qt6 are required to build emv-viewer")
 endif()
-
-find_package(QT 5.12 NAMES ${Qt_NAMES} REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets PATHS ${QT_DIR})
+find_package_handle_standard_args(Qt${QT_VERSION_MAJOR} CONFIG_MODE)
 find_package_handle_standard_args(Qt${QT_VERSION_MAJOR}Widgets CONFIG_MODE)
 set(EMV_VIEWER_MOC_HEADERS
 	emv-viewer-mainwindow.h
@@ -154,27 +145,9 @@ set(EMV_VIEWER_MOC_HEADERS
 	emvtreeview.h
 	betterplaintextedit.h
 )
-if(QT_VERSION VERSION_LESS 5.15)
-	# Qt-5.12 provides these versioned commands
-	qt5_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
-	qt5_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
-	qt5_add_resources(QRC_SRCS icons.qrc)
-
-	if(CMAKE_VERSION VERSION_LESS "3.18")
-		# CMake versions older than 3.18 cannot create alias targets for
-		# non-global imported targets and an alternative is to use INTERFACE
-		# linking instead
-		add_library(Qt::Widgets INTERFACE IMPORTED)
-		set_target_properties(Qt::Widgets PROPERTIES INTERFACE_LINK_LIBRARIES Qt5::Widgets)
-	else()
-		add_library(Qt::Widgets ALIAS Qt5::Widgets)
-	endif()
-else()
-	# Qt-5.15 and Qt-6 provide these version-less commands
-	qt_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
-	qt_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
-	qt_add_resources(QRC_SRCS icons.qrc)
-endif()
+qt_wrap_ui(UI_SRCS emv-viewer-mainwindow.ui)
+qt_wrap_cpp(MOC_SRCS ${EMV_VIEWER_MOC_HEADERS})
+qt_add_resources(QRC_SRCS icons.qrc)
 
 add_executable(emv-viewer
 	emv-viewer.cpp
@@ -191,7 +164,7 @@ target_include_directories(emv-viewer PRIVATE
 )
 target_link_libraries(emv-viewer
 	PRIVATE
-		Qt::Widgets
+		Qt${QT_VERSION_MAJOR}::Widgets
 		emv::emv_strings
 		emv::emv
 )
@@ -205,7 +178,7 @@ if(APPLE AND BUILD_MACOSX_BUNDLE)
 			MACOSX_BUNDLE_BUNDLE_NAME "EMV Viewer"
 			MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_PROJECT_VERSION}
 			MACOSX_BUNDLE_SHORT_VERSION_STRING ${CMAKE_PROJECT_VERSION}
-			MACOSX_BUNDLE_COPYRIGHT "Copyright 2021-2024 Leon Lynch"
+			MACOSX_BUNDLE_COPYRIGHT "Copyright 2021-2026 Leon Lynch"
 			MACOSX_BUNDLE_GUI_IDENTIFIER org.openemv.${CMAKE_PROJECT_NAME}
 			MACOSX_BUNDLE_ICON_FILE "openemv_emv_utils.icns"
 			RESOURCE icons/openemv_emv_utils.icns
@@ -309,12 +282,26 @@ if(WIN32)
 		include(DeployQt)
 		windeployqt(emv-viewer emv_viewer_runtime)
 
-		# Deploy runtime libraries for Windows
+		# Deploy toolchain runtime libraries for Windows
+		# - MinGW/GCC: Installed by windeployqt
+		# - Clang/LLVM: Hardcoded relative to compiler path
+		# - MSVC: Supported by InstallRequiredSystemLibraries
 		set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT emv_viewer_runtime)
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+			get_filename_component(_compiler_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+			foreach(_toolchain_dll libc++.dll libunwind.dll)
+				if(EXISTS "${_compiler_bin_dir}/${_toolchain_dll}")
+					list(APPEND CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS "${_compiler_bin_dir}/${_toolchain_dll}")
+				endif()
+			endforeach()
+			unset(_toolchain_dll)
+			unset(_compiler_bin_dir)
+		endif()
 		include(InstallRequiredSystemLibraries)
 		if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
 			message(STATUS "Required system libraries: ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}")
 		endif()
+
 	endif() # BUILD_WIN_STANDALONE
 endif()
 

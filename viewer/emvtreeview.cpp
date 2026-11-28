@@ -2,7 +2,7 @@
  * @file emvtreeview.cpp
  * @brief QTreeWidget derivative for viewing EMV data
  *
- * Copyright 2024-2025 Leon Lynch
+ * Copyright 2024-2026 Leon Lynch
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,11 +24,102 @@
 
 #include "iso8825_ber.h"
 
+#include <QtCore/QSize>
+#include <QtCore/QTimer>
+#include <QtGui/QFontMetrics>
+#include <QtGui/QIcon>
+#include <QtWidgets/QHeaderView>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QTreeWidgetItemIterator>
+
+#include <cctype>
+
+class EmvTreeItemButton : public QPushButton
+{
+public:
+	EmvTreeItemButton(QWidget* parent)
+	: QPushButton(parent)
+	{
+		setFlat(true);
+	}
+
+	virtual QSize sizeHint() const override {
+		// Override sizeHint with font height to prevent single row items
+		// from expanding when the button is added
+		int textHeight = fontMetrics().height();
+		return QSize(16, textHeight);
+	}
+};
+
+class EmvTreeItemCopyButton : public EmvTreeItemButton {
+public:
+	EmvTreeItemCopyButton(QWidget* parent)
+	: EmvTreeItemButton(parent) {
+
+		QIcon icon = QIcon::fromTheme(QStringLiteral("edit-copy"));
+		if (!icon.isNull()) {
+			setIcon(icon);
+		} else {
+			// Use Unicode clipboard symbol as text when theme icon is not
+			// available
+			setText(QStringLiteral("\u2398"));
+		}
+
+		setToolTip(tr("Copy selected field to clipboard"));
+	}
+};
 
 EmvTreeView::EmvTreeView(QWidget* parent)
 : QTreeWidget(parent)
 {
+	// Defer header/column configuration until after UI file has been processed
+	// and columns exist
+	QTimer::singleShot(0, this, [this]() {
+		header()->setStretchLastSection(false);
+		header()->setSectionResizeMode(0, QHeaderView::Stretch);
+		header()->setSectionResizeMode(1, QHeaderView::Fixed);
+		setColumnWidth(1, 16);
+	});
+}
+
+void EmvTreeView::currentChanged(const QModelIndex& current, const QModelIndex& previous)
+{
+	QTreeWidget::currentChanged(current, previous);
+
+	// Clicking different columns in the same row selects different indexes of
+	// the same item
+	if (current.isValid() && previous.isValid() &&
+		itemFromIndex(current) == itemFromIndex(previous)
+	) {
+		return;
+	}
+
+	// Remove button from previous selected item
+	if (previous.isValid()) {
+		QTreeWidgetItem* previousItem = itemFromIndex(previous);
+		if (previousItem) {
+			QWidget* oldWidget = itemWidget(previousItem, 1);
+			if (oldWidget) {
+				// Removing the widget will also delete it although the Qt
+				// documentation does not mention this. It is likely because
+				// setItemWidget() takes ownership and then removeItemWidget()
+				// releases that ownership
+				removeItemWidget(previousItem, 1);
+			}
+		}
+	}
+
+	// Add button to current selected item
+	if (current.isValid() && m_copyButtonEnabled) {
+		QTreeWidgetItem* currentItem = itemFromIndex(current);
+		if (currentItem) {
+			EmvTreeItemCopyButton* button = new EmvTreeItemCopyButton(this);
+			connect(button, &QPushButton::clicked, this, [this, currentItem]() {
+				emit itemCopyClicked(currentItem);
+			});
+			setItemWidget(currentItem, 1, button);
+		}
+	}
 }
 
 static bool parseData(
@@ -38,7 +129,8 @@ static bool parseData(
 	bool ignorePadding,
 	bool decodeFields,
 	bool decodeObjects,
-	unsigned int* totalValidBytes
+	unsigned int* totalValidBytes,
+	unsigned int* totalFields
 )
 {
 	int r;
@@ -54,6 +146,8 @@ static bool parseData(
 
 	while ((r = iso8825_ber_itr_next(&itr, &tlv)) > 0) {
 		unsigned int fieldLength = r;
+
+		++*totalFields;
 
 		EmvTreeItem* item = new EmvTreeItem(
 			parent,
@@ -80,7 +174,8 @@ static bool parseData(
 				ignorePadding,
 				decodeFields,
 				decodeObjects,
-				totalValidBytes
+				totalValidBytes,
+				totalFields
 			);
 			if (!valid) {
 				qDebug("parseData() failed; totalValidBytes=%u", *totalValidBytes);
@@ -153,9 +248,50 @@ void EmvTreeView::clear()
 	QTreeWidget::clear();
 }
 
-unsigned int EmvTreeView::populateItems(const QByteArray& data)
+unsigned int EmvTreeView::populateItems(const QString& dataStr)
+{
+	QString str;
+	int validLen;
+	QByteArray data;
+	unsigned int validBytes;
+
+	if (dataStr.isEmpty()) {
+		clear();
+		emit populateItemsCompleted(0, 0, 0);
+		return 0;
+	}
+
+	// Remove all whitespace from hex string
+	str = dataStr.simplified().remove(' ');
+	validLen = str.length();
+
+	// Ensure that hex string contains only hex digits
+	for (int i = 0; i < validLen; ++i) {
+		if (!std::isxdigit(str[i].unicode())) {
+			// Only parse up to invalid digit
+			validLen = i;
+			break;
+		}
+	}
+
+	// Ensure that hex string has even number of digits
+	if (validLen & 0x01) {
+		// Odd number of digits. Ignore last digit to see whether parsing can
+		// proceed regardless and indicate invalid data later.
+		validLen -= 1;
+	}
+
+	data = QByteArray::fromHex(str.left(validLen).toUtf8());
+	validBytes = populateItems(data, str.right(str.length() - validLen));
+
+	return validBytes;
+}
+
+unsigned int EmvTreeView::populateItems(const QByteArray& data, const QString& invalidStr)
 {
 	unsigned int totalValidBytes = 0;
+	unsigned int totalFields = 0;
+	unsigned int invalidChars = 0;
 
 	// For now, clear the widget before repopulating it. In future, the widget
 	// should be updated incrementally instead.
@@ -171,8 +307,28 @@ unsigned int EmvTreeView::populateItems(const QByteArray& data)
 		m_ignorePadding,
 		m_decodeFields,
 		m_decodeObjects,
-		&totalValidBytes
+		&totalValidBytes,
+		&totalFields
 	);
+
+	if (totalValidBytes < static_cast<unsigned int>(data.length()) ||
+		invalidStr.length() != 0
+	) {
+		// Remaining data is invalid and unlikely to be padding
+		invalidChars = (data.length() - totalValidBytes) * 2 + invalidStr.length();
+		QTreeWidgetItem* item = new QTreeWidgetItem(
+			invisibleRootItem(),
+			QStringList(
+				QStringLiteral("Remaining invalid data: ") +
+				data.right(data.length() - totalValidBytes).toHex() +
+				invalidStr
+			)
+		);
+		item->setDisabled(true);
+		item->setForeground(0, Qt::red);
+	}
+
+	emit populateItemsCompleted(totalValidBytes, totalFields, invalidChars);
 
 	return totalValidBytes;
 }
@@ -217,4 +373,64 @@ void EmvTreeView::setDecodeObjects(bool enabled)
 		}
 		++itr;
 	}
+}
+
+static QString toClipboardText(
+	const QTreeWidgetItem* item,
+	const QString& prefix,
+	unsigned int depth
+)
+{
+	QString str;
+	QString indent;
+
+	if (!item || item->isHidden()) {
+		return QString();
+	}
+
+	for (unsigned int i = 0; i < depth; ++i) {
+		indent += prefix;
+	}
+
+	QString itemText = item->text(0);
+	QStringList lines = itemText.split('\n');
+	for (int i = 0; i < lines.size(); ++i) {
+		str += indent + lines[i] + "\n";
+	}
+
+	for (int i = 0; i < item->childCount(); ++i) {
+		str += ::toClipboardText(item->child(i), prefix, depth + 1);
+	}
+
+	return str;
+}
+
+QString EmvTreeView::toClipboardText(
+	const QString& prefix,
+	unsigned int depth
+) const
+{
+	QString str;
+	const QTreeWidgetItem* item = invisibleRootItem();
+
+	// Children are iterated here instead of passing invisibleRootItem()
+	// directly to ::toClipboardText() because the invisible root has no depth
+	// and therefore the children should start at the current depth
+	for (int i = 0; i < item->childCount(); ++i) {
+		str += ::toClipboardText(item->child(i), prefix, depth);
+	}
+
+	return str;
+}
+
+QString EmvTreeView::toClipboardText(const QTreeWidgetItem* item, const QString& prefix, unsigned int depth) const
+{
+	QString str;
+	QString indent;
+
+	if (!item) {
+		return toClipboardText(prefix, depth);
+	}
+
+	return ::toClipboardText(item, prefix, depth);
 }

@@ -23,7 +23,7 @@
       <property name="childrenCollapsible">
        <bool>false</bool>
       </property>
-      <widget class="QWidget" name="layoutWidget">
+      <widget class="QWidget" name="horizontalLayoutTopContainer">
        <layout class="QHBoxLayout" name="horizontalLayoutTop">
         <item>
          <widget class="QPlainTextEdit" name="dataEdit">
@@ -100,6 +100,16 @@
             </widget>
            </item>
            <item>
+            <widget class="QCheckBox" name="searchDescriptionsCheckBox">
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Include field descriptions when searching. Otherwise only search field tags, names and decoded values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string>Search field descriptions</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <spacer name="settingsVerticalSpacer">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -124,24 +134,63 @@
        <property name="childrenCollapsible">
         <bool>false</bool>
        </property>
-       <widget class="EmvTreeView" name="treeView">
-        <property name="minimumSize">
-         <size>
-          <width>300</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="verticalScrollMode">
-         <enum>QAbstractItemView::ScrollPerPixel</enum>
-        </property>
-        <property name="headerHidden">
-         <bool>true</bool>
-        </property>
-        <column>
-         <property name="text">
-          <string notr="true">1</string>
+       <widget class="QWidget" name="treeViewContainer">
+        <layout class="QVBoxLayout" name="treeViewLayout">
+         <property name="spacing">
+          <number>0</number>
          </property>
-        </column>
+         <item>
+          <widget class="QToolBar" name="treeViewToolBar">
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="movable">
+            <bool>false</bool>
+           </property>
+           <property name="toolButtonStyle">
+            <enum>Qt::ToolButtonTextBesideIcon</enum>
+           </property>
+           <property name="floatable">
+            <bool>false</bool>
+           </property>
+           <addaction name="actionCopyAll"/>
+           <addaction name="separator"/>
+           <addaction name="actionFind"/>
+          </widget>
+         </item>
+         <item>
+          <widget class="EmvTreeView" name="treeView">
+           <property name="minimumSize">
+            <size>
+             <width>300</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="verticalScrollMode">
+            <enum>QAbstractItemView::ScrollPerPixel</enum>
+           </property>
+           <property name="headerHidden">
+            <bool>true</bool>
+           </property>
+           <property name="columnCount">
+            <number>2</number>
+           </property>
+           <column>
+            <property name="text">
+             <string notr="true">Field</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string notr="true">Buttons</string>
+            </property>
+           </column>
+          </widget>
+         </item>
+        </layout>
        </widget>
        <widget class="BetterPlainTextEdit" name="descriptionText">
         <property name="minimumSize">
@@ -159,6 +208,32 @@
     </item>
    </layout>
   </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+  <action name="actionCopyAll">
+   <property name="icon">
+    <iconset theme="edit-copy"/>
+   </property>
+   <property name="text">
+    <string>Copy All</string>
+   </property>
+   <property name="toolTip">
+    <string>Copy all fields to clipboard</string>
+   </property>
+  </action>
+  <action name="actionFind">
+   <property name="icon">
+    <iconset theme="edit-find"/>
+   </property>
+   <property name="text">
+    <string>Find</string>
+   </property>
+   <property name="toolTip">
+    <string>Find in fields (Ctrl+F)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+F</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>

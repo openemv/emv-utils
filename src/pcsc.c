@@ -223,9 +223,13 @@ static int pcsc_reader_populate_features(struct pcsc_reader_t* reader)
 		&protocol
 	);
 	if (result != SCARD_S_SUCCESS) {
+#ifdef __APPLE__
+		// Apple's PCSC.framework does not support PC/SC Part 10 features at
+		// all and there is little value in showing an error message
+		return 1;
+#endif
 		fprintf(stderr, "SCardConnect(SCARD_SHARE_DIRECT) failed; result=0x%x [%s]\n", (unsigned int)result, pcsc_stringify_error(result));
-		r = -2;
-		goto exit;
+		return -2;
 	}
 
 	// Request reader features

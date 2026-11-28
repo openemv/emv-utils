@@ -1,5 +1,5 @@
 ##############################################################################
-# Copyright 2022-2025 Leon Lynch
+# Copyright 2022-2026 Leon Lynch
 #
 # This file is licensed under the terms of the LGPL v2.1 license.
 # See LICENSE file.
@@ -16,11 +16,11 @@ jobs:
       matrix:
         include:
           - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: YES, build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Debug", lib_type: "shared", shared_libs: "YES", deps: "qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15 Intel", os: macos-15-intel, osx_arch: "x86_64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
           - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "static", shared_libs: "NO", deps: "none", fetch_deps: NO, build_emv_tool: NO, build_emv_viewer: NO }
-          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "pcsclite/qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
-          - { name: "MacOS 26", os: macos-26, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "pcsclite/qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 15", os: macos-15, osx_arch: "arm64", build_type: "Release", lib_type: "shared", shared_libs: "YES", deps: "qt5", fetch_deps: NO, build_emv_tool: YES, build_emv_viewer: YES }
+          - { name: "MacOS 26", os: macos-26, osx_arch: "arm64", build_type: "Debug", lib_type: "static", shared_libs: "NO", deps: "qt6", fetch_deps: YES, build_emv_tool: YES, build_emv_viewer: YES }
 
     name: ${{ matrix.name }} (${{ matrix.osx_arch }}) build (${{ matrix.lib_type}}/${{ matrix.build_type }}/${{ matrix.deps }})
     runs-on: ${{ matrix.os }}
@@ -40,28 +40,22 @@ jobs:
         brew install argp-standalone
         echo "MbedTLS_DIR=$(brew --prefix mbedtls@3)/lib/cmake/MbedTLS" >> $GITHUB_ENV
 
-    - name: Install PCSCLite using brew
-      if: contains(matrix.deps, 'pcsclite')
-      run: |
-        brew install pcsc-lite
-        echo "PKG_CONFIG_PATH=$(brew --prefix pcsc-lite)/lib/pkgconfig" >> $GITHUB_ENV
-
     - name: Install Qt5 using brew
       # Homebrew doesn't support universal binaries so only install Qt for arch-specific builds
       if: contains(matrix.deps, 'qt5')
       run: |
         brew install qt@5
-        echo "QT_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+        echo "Qt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
 
     - name: Install Qt6 using brew
       # Homebrew doesn't support universal binaries so only install Qt for arch-specific builds
       if: contains(matrix.deps, 'qt6')
       run: |
         brew install qt@6
-        echo "QT_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
+        echo "Qt6_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         submodules: recursive
 
@@ -93,13 +87,11 @@ jobs:
         brew install boost
         brew install iso-codes
         brew install json-c
-        brew install pcsc-lite
-        echo "PKG_CONFIG_PATH=$(brew --prefix pcsc-lite)/lib/pkgconfig" >> $GITHUB_ENV
-        brew install qt@5
-        echo "QT_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+        brew install qt@6
+        echo "Qt6_DIR=$(brew --prefix qt@6)/lib/cmake/Qt6" >> $GITHUB_ENV
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -142,7 +134,7 @@ jobs:
       run: scripts/cleanup_macos_keychain.sh
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: emv-utils-${{ env.GIT_DESCRIBE }}-macos
         path: |
@@ -152,7 +144,7 @@ jobs:
 
     - name: Upload build directory if failed
       if: ${{ failure() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: emv-utils-${{ env.GIT_DESCRIBE }}-macos-build
         path: ./

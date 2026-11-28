@@ -2,7 +2,7 @@
  * @file pcsc_compat.h
  * @brief PC/SC compatibility helpers
  *
- * Copyright 2024 Leon Lynch
+ * Copyright 2024, 2026 Leon Lynch
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,12 +26,22 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// Some pscs-lite implementations do not include this header by default
+#ifndef _WIN32
+#include <wintypes.h>
+#endif
+
 __BEGIN_DECLS
 
-#if !defined(SCARD_CTL_CODE) && defined(CTL_CODE)
+#ifndef SCARD_CTL_CODE
+#ifdef CTL_CODE
 // Not all implementations define SCARD_CTL_CODE but it can be derived
-// from CTL_CODE when available
+// from CTL_CODE when available (eg Windows)
 #define SCARD_CTL_CODE(code) CTL_CODE(FILE_DEVICE_SMARTCARD, (code), METHOD_BUFFERED, FILE_ANY_ACCESS)
+#else
+// All pcsc-lite derivates agree on this definition of SCARD_CTL_CODE
+#define SCARD_CTL_CODE(code) (0x42000000 + (code))
+#endif
 #endif
 
 // See PC/SC Part 10 Rev 2.02.09, 2.2
@@ -69,13 +79,16 @@ typedef struct {
 } __attribute__((packed))
 PIN_PROPERTIES_STRUCTURE;
 
-// Only PCSCLite provides pcsc_stringify_error()
+#ifndef __APPLE__
+// Apple's PCSC.framework is incomplete, requiring USE_PCSCLITE to be unset,
+// but nonetheless provides pcsc_stringify_error()
 static const char* pcsc_stringify_error(unsigned int result)
 {
 	static char str[16];
 	snprintf(str, sizeof(str), "0x%08X", result);
 	return str;
 }
+#endif
 
 #endif // USE_PCSCLITE
 

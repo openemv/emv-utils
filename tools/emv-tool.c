@@ -1090,6 +1090,7 @@ int main(int argc, char** argv)
 
 			default:
 				// Unsupported scheme
+				emv_tlv_list_push(&emv.config, EMV_TAG_9F09_APPLICATION_VERSION_NUMBER_TERMINAL, 2, (uint8_t[]){ 0x00, 0x00 }, 0);
 				break;
 		}
 	}
